@@ -37,12 +37,14 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.API_PORT ?? 3001;
-  await app.listen(port);
+  // Railway (and most PaaS hosts) inject PORT — it takes priority over the
+  // local-dev-oriented API_PORT variable.
+  const port = process.env.PORT ?? process.env.API_PORT ?? 3001;
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`ATLAS API listening on http://localhost:${port}/api/v1`);
+  console.log(`ATLAS API listening on port ${port}`);
   // eslint-disable-next-line no-console
-  console.log(`OpenAPI docs on http://localhost:${port}/api/docs`);
+  console.log(`OpenAPI docs on /api/docs`);
 }
 
 bootstrap();
