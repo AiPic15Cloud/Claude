@@ -25,6 +25,7 @@ import { IntelligenceConcurrentielleModule } from './intelligence-concurrentiell
 import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
 import { AgentsModule } from './agents/agents.module';
 import { SearchModule } from './search/search.module';
+import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SearchModule } from './search/search.module';
     AgentsModule,
     SearchModule,
   ],
+  controllers: [HealthController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor }],
 })
 export class AppModule {}
