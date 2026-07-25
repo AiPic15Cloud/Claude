@@ -21,10 +21,10 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Cockpit', path: '/cockpit', icon: LayoutDashboard, available: true },
   { label: 'Portefeuille', path: '/portfolio', icon: Briefcase, available: true },
-  { label: 'Dossiers', path: '/deals', icon: FolderKanban, available: false },
-  { label: 'Intelligence Marché', path: '/market', icon: Globe2, available: false },
-  { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar, available: false },
-  { label: 'Knowledge Graph', path: '/graph', icon: Network, available: false },
-  { label: 'Cartographie', path: '/map', icon: MapIcon, available: false },
-  { label: 'Agents IA', path: '/ai', icon: Bot, available: false },
+  { label: 'Dossiers', path: '/deals', icon: FolderKanban, available: true },
+  { label: 'Intelligence Marché', path: '/market', icon: Globe2, available: true },
+  { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar, available: true },
+  { label: 'Knowledge Graph', path: '/graph', icon: Network, available: true },
+  { label: 'Cartographie', path: '/map', icon: MapIcon, available: true },
+  { label: 'Agents IA', path: '/ai', icon: Bot, available: true },
 ];

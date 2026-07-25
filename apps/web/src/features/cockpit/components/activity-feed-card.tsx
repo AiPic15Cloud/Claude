@@ -25,7 +25,7 @@ export function ActivityFeedCard({ activities }: ActivityFeedCardProps) {
                 {activity.deal && (
                   <>
                     {' — '}
-                    <Link to={`/portfolio?dealId=${activity.deal.id}`} className="text-primary hover:underline">
+                    <Link to={`/deals/${activity.deal.id}`} className="text-primary hover:underline">
                       {activity.deal.name}
                     </Link>
                   </>

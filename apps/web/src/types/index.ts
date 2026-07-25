@@ -235,3 +235,248 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
 }
+
+// ── Dossiers: guarantees & financial model ──────────────────
+
+export type GuaranteeType = 'HYPOTHEQUE' | 'CAUTION' | 'GAGE' | 'NANTISSEMENT' | 'PRIVILEGE' | 'AUTRE';
+export type GuaranteeStatus = 'ACTIVE' | 'RELEASED' | 'DEFAULTED';
+
+export const GUARANTEE_TYPE_LABELS: Record<GuaranteeType, string> = {
+  HYPOTHEQUE: 'Hypothèque',
+  CAUTION: 'Caution',
+  GAGE: 'Gage',
+  NANTISSEMENT: 'Nantissement',
+  PRIVILEGE: 'Privilège',
+  AUTRE: 'Autre',
+};
+
+export const GUARANTEE_STATUS_LABELS: Record<GuaranteeStatus, string> = {
+  ACTIVE: 'Active',
+  RELEASED: 'Levée',
+  DEFAULTED: 'En défaut',
+};
+
+export interface Guarantee {
+  id: string;
+  dealId: string;
+  type: GuaranteeType;
+  description: string;
+  amount: string;
+  rank: number;
+  status: GuaranteeStatus;
+  createdAt: string;
+}
+
+export interface FinancialAssumption {
+  surfaceSqm: number;
+  constructionCostPerSqm: number;
+  sellingPricePerSqm: number;
+  otherCosts: number;
+  targetMarginPct: number | null;
+}
+
+export interface FinancialScenario {
+  label: string;
+  sellingPricePerSqm: number;
+  constructionCostPerSqm: number;
+  revenue: number;
+  totalCost: number;
+  margin: number;
+  marginPct: number;
+}
+
+export interface FinancialModel {
+  assumption: FinancialAssumption | null;
+  valuation: FinancialScenario | null;
+  sensitivity: FinancialScenario[] | null;
+}
+
+// ── Score ATLAS ──────────────────────────────────────────────
+
+export interface ScoreFactor {
+  key: string;
+  label: string;
+  value: number;
+  weight: number;
+  contribution: number;
+  explanation: string;
+}
+
+export interface ScoreBreakdown {
+  score: number;
+  factors: ScoreFactor[];
+  computedAt: string;
+  disclaimer: string;
+}
+
+// ── Knowledge Graph ──────────────────────────────────────────
+
+export type GraphEntityType =
+  | 'PROMOTEUR'
+  | 'BANQUE'
+  | 'NOTAIRE'
+  | 'ARCHITECTE'
+  | 'COLLECTIVITE'
+  | 'INVESTISSEUR'
+  | 'PLATEFORME';
+
+export const GRAPH_ENTITY_TYPE_LABELS: Record<GraphEntityType, string> = {
+  PROMOTEUR: 'Promoteur',
+  BANQUE: 'Banque',
+  NOTAIRE: 'Notaire',
+  ARCHITECTE: 'Architecte',
+  COLLECTIVITE: 'Collectivité',
+  INVESTISSEUR: 'Investisseur',
+  PLATEFORME: 'Plateforme',
+};
+
+export type DealEntityRole =
+  | 'PROMOTEUR'
+  | 'BANQUE_FINANCEUR'
+  | 'NOTAIRE'
+  | 'ARCHITECTE'
+  | 'COLLECTIVITE'
+  | 'INVESTISSEUR'
+  | 'GARANT'
+  | 'AUTRE';
+
+export const DEAL_ENTITY_ROLE_LABELS: Record<DealEntityRole, string> = {
+  PROMOTEUR: 'Promoteur',
+  BANQUE_FINANCEUR: 'Banque financeuse',
+  NOTAIRE: 'Notaire',
+  ARCHITECTE: 'Architecte',
+  COLLECTIVITE: 'Collectivité',
+  INVESTISSEUR: 'Investisseur',
+  GARANT: 'Garant',
+  AUTRE: 'Autre',
+};
+
+export type GraphRelationType = 'PARTENAIRE' | 'FINANCEUR' | 'CONSEIL' | 'CONCURRENT' | 'AUTRE';
+
+export interface GraphEntity {
+  id: string;
+  organizationId: string;
+  type: GraphEntityType;
+  name: string;
+  description?: string | null;
+  website?: string | null;
+  city?: string | null;
+  lat?: string | null;
+  lng?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { dealLinks: number; relationsFrom: number; relationsTo: number };
+}
+
+export interface GraphEntityDetail extends GraphEntity {
+  dealLinks: { id: string; role: DealEntityRole; deal: { id: string; name: string; reference: string; stage: DealStage } }[];
+  relationsFrom: { id: string; type: GraphRelationType; label?: string | null; toEntity: GraphEntity }[];
+  relationsTo: { id: string; type: GraphRelationType; label?: string | null; fromEntity: GraphEntity }[];
+  articles: { article: Article }[];
+}
+
+export interface DealEntityLink {
+  id: string;
+  dealId: string;
+  entityId: string;
+  role: DealEntityRole;
+  entity: GraphEntity;
+}
+
+export interface GraphNode {
+  id: string;
+  kind: 'entity' | 'deal';
+  type: string;
+  label: string;
+  subtitle?: string | null;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  label?: string | null;
+}
+
+export interface GraphPayload {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+// ── Intelligence Marché ──────────────────────────────────────
+
+export type ArticleCategory =
+  | 'TAUX'
+  | 'INFLATION'
+  | 'CONSTRUCTION'
+  | 'IMMOBILIER'
+  | 'LOGISTIQUE'
+  | 'COMMERCE'
+  | 'RESIDENTIEL'
+  | 'REGLEMENTATION'
+  | 'CONCURRENCE'
+  | 'AUTRE';
+
+export const ARTICLE_CATEGORY_LABELS: Record<ArticleCategory, string> = {
+  TAUX: 'Taux',
+  INFLATION: 'Inflation',
+  CONSTRUCTION: 'Construction',
+  IMMOBILIER: 'Immobilier',
+  LOGISTIQUE: 'Logistique',
+  COMMERCE: 'Commerce',
+  RESIDENTIEL: 'Résidentiel',
+  REGLEMENTATION: 'Réglementation',
+  CONCURRENCE: 'Concurrence',
+  AUTRE: 'Autre',
+};
+
+export interface NewsSource {
+  id: string;
+  organizationId: string;
+  name: string;
+  connector: string;
+  url?: string | null;
+  active: boolean;
+  lastFetchedAt?: string | null;
+  createdAt: string;
+}
+
+export interface Article {
+  id: string;
+  organizationId: string;
+  sourceId: string;
+  source?: { id: string; name: string; connector: string };
+  title: string;
+  summary?: string | null;
+  url?: string | null;
+  category: ArticleCategory;
+  publishedAt: string;
+  priority: Priority;
+  createdAt: string;
+}
+
+export interface ConnectorInfo {
+  key: string;
+  label: string;
+}
+
+// ── Agents IA ─────────────────────────────────────────────────
+
+export interface AgentInfo {
+  key: string;
+  name: string;
+  description: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  agent: string;
+  message: string;
+  usage?: unknown;
+}

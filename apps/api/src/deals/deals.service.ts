@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
+import { MeilisearchService } from '../search/meilisearch.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
@@ -18,7 +19,20 @@ export class DealsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activities: ActivitiesService,
+    private readonly search: MeilisearchService,
   ) {}
+
+  private indexForSearch(deal: { id: string; organizationId: string; name: string; reference: string; type: string; stage: string; city: string | null }) {
+    void this.search.indexDeal({
+      id: deal.id,
+      organizationId: deal.organizationId,
+      name: deal.name,
+      reference: deal.reference,
+      type: deal.type,
+      stage: deal.stage,
+      city: deal.city,
+    });
+  }
 
   private async generateReference(organizationId: string): Promise<string> {
     const year = new Date().getFullYear();
@@ -46,6 +60,7 @@ export class DealsService {
     });
 
     await this.activities.log(deal.id, userId, 'DEAL_CREATED', `Opération créée : ${deal.name}`);
+    this.indexForSearch(deal);
     return deal;
   }
 
@@ -130,6 +145,7 @@ export class DealsService {
     });
 
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Opération mise à jour');
+    this.indexForSearch(deal);
     return deal;
   }
 
@@ -150,6 +166,7 @@ export class DealsService {
   async remove(organizationId: string, id: string) {
     await this.assertExists(organizationId, id);
     await this.prisma.deal.delete({ where: { id } });
+    void this.search.removeDeal(id);
   }
 
   async kpis(organizationId: string) {

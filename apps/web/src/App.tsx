@@ -5,6 +5,12 @@ import { LoginPage } from '@/features/auth/login-page';
 import { RegisterPage } from '@/features/auth/register-page';
 import { CockpitPage } from '@/features/cockpit/cockpit-page';
 import { PortfolioPage } from '@/features/portfolio/portfolio-page';
+import { DossierPage } from '@/features/dossiers/dossier-page';
+import { GraphPage } from '@/features/knowledge-graph/graph-page';
+import { CartographiePage } from '@/features/cartographie/cartographie-page';
+import { PlatformsPage } from '@/features/intelligence-concurrentielle/platforms-page';
+import { MarchePage } from '@/features/intelligence-marche/marche-page';
+import { AgentsPage } from '@/features/agents/agents-page';
 import { RoadmapPage } from '@/features/roadmap/roadmap-page';
 
 export default function App() {
@@ -19,6 +25,13 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/cockpit" element={<CockpitPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/deals" element={<Navigate to="/portfolio" replace />} />
+          <Route path="/deals/:id" element={<DossierPage />} />
+          <Route path="/graph" element={<GraphPage />} />
+          <Route path="/map" element={<CartographiePage />} />
+          <Route path="/competitors" element={<PlatformsPage />} />
+          <Route path="/market" element={<MarchePage />} />
+          <Route path="/ai" element={<AgentsPage />} />
           <Route path="/roadmap" element={<RoadmapPage />} />
         </Route>
       </Route>

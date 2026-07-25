@@ -10,6 +10,14 @@ export default () => ({
   redis: {
     url: process.env.REDIS_URL ?? 'redis://localhost:6379',
   },
+  meilisearch: {
+    host: process.env.MEILISEARCH_HOST ?? 'http://localhost:7700',
+    apiKey: process.env.MEILISEARCH_API_KEY ?? '',
+  },
+  ai: {
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
+    anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-5-20250929',
+  },
   storage: {
     driver: process.env.STORAGE_DRIVER ?? 'local',
     localPath: process.env.STORAGE_LOCAL_PATH ?? './uploads',

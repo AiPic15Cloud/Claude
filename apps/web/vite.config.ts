@@ -20,6 +20,7 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           leaflet: ['leaflet', 'react-leaflet'],
           charts: ['recharts'],
+          graph: ['@xyflow/react'],
           radix: [
             '@radix-ui/react-avatar',
             '@radix-ui/react-dialog',

@@ -46,7 +46,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate }: TaskList
               <p className={cn('truncate text-sm', task.done && 'text-muted-foreground line-through')}>{task.title}</p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {task.deal && (
-                  <Link to={`/portfolio?dealId=${task.deal.id}`} className="truncate hover:text-primary hover:underline">
+                  <Link to={`/deals/${task.deal.id}`} className="truncate hover:text-primary hover:underline">
                     {task.deal.name}
                   </Link>
                 )}

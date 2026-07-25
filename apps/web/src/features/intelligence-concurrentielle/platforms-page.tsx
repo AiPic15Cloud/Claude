@@ -1,0 +1,72 @@
+import { useState } from 'react';
+import { Globe, LineChart, MapPin } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { usePlatforms } from './hooks/use-platforms';
+import { EntityDrawer } from '@/features/knowledge-graph/components/entity-drawer';
+import { CreateEntityDialog } from '@/features/knowledge-graph/components/create-entity-dialog';
+
+export function PlatformsPage() {
+  const { data: platforms = [], isLoading } = usePlatforms();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Intelligence Concurrentielle</h1>
+          <p className="text-sm text-muted-foreground">
+            Plateformes de crowdfunding immobilier et d'immobilier fractionné suivies par ATLAS.
+          </p>
+        </div>
+        <CreateEntityDialog />
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {platforms.map((platform) => {
+            const category = (platform.metadata as { category?: string } | null)?.category;
+            return (
+              <Card
+                key={platform.id}
+                className="cursor-pointer transition-colors hover:border-primary/40"
+                onClick={() => setSelectedId(platform.id)}
+              >
+                <CardContent className="flex flex-col gap-2 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <LineChart className="h-4 w-4" />
+                    </div>
+                    {category && <Badge variant="outline">{category === 'CROWDFUNDING' ? 'Crowdfunding' : 'Fractionné'}</Badge>}
+                  </div>
+                  <p className="text-sm font-medium">{platform.name}</p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    {platform.city && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> {platform.city}
+                      </span>
+                    )}
+                    {platform.website && (
+                      <span className="flex items-center gap-1">
+                        <Globe className="h-3 w-3" /> Site
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <EntityDrawer entityId={selectedId} onClose={() => setSelectedId(null)} />
+    </div>
+  );
+}

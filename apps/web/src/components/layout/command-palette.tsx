@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, Search, LogOut, Moon, Sun } from 'lucide-react';
+import { Building2, Network, Newspaper, Search, LogOut, Moon, Sun } from 'lucide-react';
 import { useUiStore } from '@/store/ui.store';
 import { useThemeStore } from '@/store/theme.store';
 import { NAV_ITEMS } from './nav-items';
@@ -10,6 +10,13 @@ import { api } from '@/lib/api';
 import type { Deal, PaginatedResult } from '@/types';
 import { useLogout } from '@/features/auth/use-auth';
 import { cn } from '@/lib/utils';
+
+interface UnifiedSearchResult {
+  deals: { id: string; name: string; reference: string }[];
+  entities: { id: string; name: string; type: string }[];
+  articles: { id: string; title: string; category: string }[];
+  degraded: boolean;
+}
 
 export function CommandPalette() {
   const { commandPaletteOpen, setCommandPaletteOpen } = useUiStore();
@@ -37,6 +44,12 @@ export function CommandPalette() {
   const { data: dealResults } = useQuery({
     queryKey: ['command-search-deals', search],
     queryFn: () => api.get<PaginatedResult<Deal>>(`/deals?search=${encodeURIComponent(search)}&pageSize=6`),
+    enabled: commandPaletteOpen && search.trim().length >= 2,
+  });
+
+  const { data: unified } = useQuery({
+    queryKey: ['command-search-unified', search],
+    queryFn: () => api.get<UnifiedSearchResult>(`/search?q=${encodeURIComponent(search)}`),
     enabled: commandPaletteOpen && search.trim().length >= 2,
   });
 
@@ -91,12 +104,43 @@ export function CommandPalette() {
                 {dealResults.items.map((deal) => (
                   <Command.Item
                     key={deal.id}
-                    onSelect={() => go(`/portfolio?dealId=${deal.id}`)}
+                    onSelect={() => go(`/deals/${deal.id}`)}
                     className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
                   >
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <span className="flex-1 truncate">{deal.name}</span>
                     <span className="text-xs text-muted-foreground">{deal.reference}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {unified && unified.entities.length > 0 && (
+              <Command.Group heading="Intervenants & plateformes" className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                {unified.entities.map((entity) => (
+                  <Command.Item
+                    key={entity.id}
+                    onSelect={() => go(entity.type === 'PLATEFORME' ? '/competitors' : '/graph')}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
+                  >
+                    <Network className="h-4 w-4 text-muted-foreground" />
+                    <span className="flex-1 truncate">{entity.name}</span>
+                    <span className="text-xs text-muted-foreground">{entity.type}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {unified && unified.articles.length > 0 && (
+              <Command.Group heading="Actualités" className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                {unified.articles.map((article) => (
+                  <Command.Item
+                    key={article.id}
+                    onSelect={() => go('/market')}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
+                  >
+                    <Newspaper className="h-4 w-4 text-muted-foreground" />
+                    <span className="flex-1 truncate">{article.title}</span>
                   </Command.Item>
                 ))}
               </Command.Group>
