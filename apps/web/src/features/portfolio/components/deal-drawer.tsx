@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { MapPin, Loader2, Send } from 'lucide-react';
+import { ArrowUpRight, MapPin, Loader2, Send } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,9 +46,14 @@ export function DealDrawer({ dealId, onClose }: DealDrawerProps) {
         ) : (
           <>
             <SheetHeader>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{deal.reference}</span>
-                <TypeBadge type={deal.type} />
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span>{deal.reference}</span>
+                  <TypeBadge type={deal.type} />
+                </div>
+                <Link to={`/deals/${deal.id}`} className="flex items-center gap-1 text-primary hover:underline">
+                  Dossier complet <ArrowUpRight className="h-3 w-3" />
+                </Link>
               </div>
               <SheetTitle>{deal.name}</SheetTitle>
               <div className="flex items-center gap-2">

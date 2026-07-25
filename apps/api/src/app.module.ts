@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { BullModule } from '@nestjs/bullmq';
 import configuration from './common/config/configuration';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './common/storage/storage.module';
@@ -16,10 +17,25 @@ import { DocumentsModule } from './documents/documents.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { CockpitModule } from './cockpit/cockpit.module';
+import { GuaranteesModule } from './guarantees/guarantees.module';
+import { FinancialModelModule } from './financial-model/financial-model.module';
+import { ScoringModule } from './scoring/scoring.module';
+import { GraphModule } from './graph/graph.module';
+import { IntelligenceConcurrentielleModule } from './intelligence-concurrentielle/intelligence-concurrentielle.module';
+import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
+import { AgentsModule } from './agents/agents.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: { url: config.get<string>('redis.url') },
+      }),
+    }),
     PrismaModule,
     StorageModule,
     AuthModule,
@@ -33,6 +49,14 @@ import { CockpitModule } from './cockpit/cockpit.module';
     ActivitiesModule,
     AlertsModule,
     CockpitModule,
+    GuaranteesModule,
+    FinancialModelModule,
+    ScoringModule,
+    GraphModule,
+    IntelligenceConcurrentielleModule,
+    IntelligenceMarcheModule,
+    AgentsModule,
+    SearchModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor }],
 })

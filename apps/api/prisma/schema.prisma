@@ -1,8 +1,8 @@
 // ATLAS — Real Estate Intelligence Operating System
-// Prisma schema — foundation + Cockpit + Portefeuille domain models.
-// Modules not yet implemented (Dossiers financial model, Market/Competitor
-// Intelligence, Knowledge Graph, AI agents…) are intentionally out of this
-// schema's scope until their dedicated build phase.
+// Prisma schema — foundation, Cockpit, Portefeuille, Dossiers, Score ATLAS,
+// Knowledge Graph, Cartographie, Intelligence Concurrentielle and
+// Intelligence Marché domain models. AI agents (module 9) read this data
+// but do not require schema of their own.
 
 generator client {
   provider = "prisma-client-js"
@@ -72,6 +72,68 @@ enum ActivityType {
   TASK_COMPLETED
   TAG_ADDED
   TAG_REMOVED
+  GUARANTEE_ADDED
+  FINANCIAL_MODEL_UPDATED
+  ENTITY_LINKED
+}
+
+enum GuaranteeType {
+  HYPOTHEQUE
+  CAUTION
+  GAGE
+  NANTISSEMENT
+  PRIVILEGE
+  AUTRE
+}
+
+enum GuaranteeStatus {
+  ACTIVE
+  RELEASED
+  DEFAULTED
+}
+
+/// Knowledge Graph node types — every entity the graph connects together.
+enum GraphEntityType {
+  PROMOTEUR
+  BANQUE
+  NOTAIRE
+  ARCHITECTE
+  COLLECTIVITE
+  INVESTISSEUR
+  PLATEFORME
+}
+
+/// The role a Knowledge Graph entity plays on a specific deal.
+enum DealEntityRole {
+  PROMOTEUR
+  BANQUE_FINANCEUR
+  NOTAIRE
+  ARCHITECTE
+  COLLECTIVITE
+  INVESTISSEUR
+  GARANT
+  AUTRE
+}
+
+enum GraphRelationType {
+  PARTENAIRE
+  FINANCEUR
+  CONSEIL
+  CONCURRENT
+  AUTRE
+}
+
+enum ArticleCategory {
+  TAUX
+  INFLATION
+  CONSTRUCTION
+  IMMOBILIER
+  LOGISTIQUE
+  COMMERCE
+  RESIDENTIEL
+  REGLEMENTATION
+  CONCURRENCE
+  AUTRE
 }
 
 // ── Core tenancy ───────────────────────────────────────────
@@ -83,10 +145,14 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  deals     Deal[]
-  tags      Tag[]
-  alerts    Alert[]
+  users          User[]
+  deals          Deal[]
+  tags           Tag[]
+  alerts         Alert[]
+  graphEntities  GraphEntity[]
+  graphRelations GraphRelation[]
+  newsSources    NewsSource[]
+  articles       Article[]
 
   @@map("organizations")
 }
@@ -102,14 +168,14 @@ model User {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  createdDeals   Deal[]        @relation("DealCreatedBy")
-  assignedDeals  Deal[]        @relation("DealAssignedTo")
-  notes          Note[]
-  documents      Document[]
-  tasksAssigned  Task[]        @relation("TaskAssignee")
-  tasksCreated   Task[]        @relation("TaskCreatedBy")
-  activities     Activity[]
-  refreshTokens  RefreshToken[]
+  createdDeals  Deal[]         @relation("DealCreatedBy")
+  assignedDeals Deal[]         @relation("DealAssignedTo")
+  notes         Note[]
+  documents     Document[]
+  tasksAssigned Task[]         @relation("TaskAssignee")
+  tasksCreated  Task[]         @relation("TaskCreatedBy")
+  activities    Activity[]
+  refreshTokens RefreshToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -119,13 +185,13 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@map("refresh_tokens")
@@ -153,12 +219,12 @@ model Deal {
   durationMonths Int?
 
   // Location
-  address   String?
-  city      String?
-  postcode  String?
-  country   String  @default("FR")
-  lat       Decimal? @db.Decimal(9, 6)
-  lng       Decimal? @db.Decimal(9, 6)
+  address  String?
+  city     String?
+  postcode String?
+  country  String   @default("FR")
+  lat      Decimal? @db.Decimal(9, 6)
+  lng      Decimal? @db.Decimal(9, 6)
 
   // Scoring
   atlasScore Int? @default(0)
@@ -167,17 +233,20 @@ model Deal {
   startDate DateTime?
   endDate   DateTime?
 
-  createdById String
-  createdBy   User    @relation("DealCreatedBy", fields: [createdById], references: [id])
+  createdById  String
+  createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
   assignedToId String?
   assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
 
-  tags       DealTag[]
-  notes      Note[]
-  documents  Document[]
-  tasks      Task[]
-  activities Activity[]
-  alerts     Alert[]
+  tags                DealTag[]
+  notes               Note[]
+  documents           Document[]
+  tasks               Task[]
+  activities          Activity[]
+  alerts              Alert[]
+  guarantees          Guarantee[]
+  financialAssumption FinancialAssumption?
+  entityLinks         DealEntityLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -235,10 +304,10 @@ model Document {
   dealId String
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
-  name        String
-  mimeType    String
-  size        Int
-  storageKey  String
+  name          String
+  mimeType      String
+  size          Int
+  storageKey    String
   storageDriver String @default("local")
 
   uploadedById String
@@ -256,12 +325,12 @@ model Task {
   deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   title    String
-  done     Boolean  @default(false)
-  priority Priority @default(MEDIUM)
+  done     Boolean   @default(false)
+  priority Priority  @default(MEDIUM)
   dueDate  DateTime?
 
-  assigneeId String
-  assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeId  String
+  assignee    User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdById String
   createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id])
 
@@ -293,11 +362,11 @@ model Activity {
 }
 
 model Alert {
-  id             String        @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   dealId         String?
-  deal           Deal?         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   severity AlertSeverity @default(INFO)
   title    String
@@ -309,4 +378,179 @@ model Alert {
   @@index([organizationId])
   @@index([read])
   @@map("alerts")
+}
+
+// ── Dossiers: guarantees & financial model ────────────────
+
+model Guarantee {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  type        GuaranteeType
+  description String
+  amount      Decimal         @db.Decimal(14, 2)
+  rank        Int             @default(1)
+  status      GuaranteeStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("guarantees")
+}
+
+/// Inputs for the deal's financial model. Sensitivity scenarios (± on
+/// selling price and construction cost) are computed on the fly from these
+/// assumptions rather than stored, so they always reflect the latest input.
+model FinancialAssumption {
+  id     String @id @default(cuid())
+  dealId String @unique
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  surfaceSqm             Decimal  @db.Decimal(10, 2)
+  constructionCostPerSqm Decimal  @db.Decimal(10, 2)
+  sellingPricePerSqm     Decimal  @db.Decimal(10, 2)
+  otherCosts             Decimal  @default(0) @db.Decimal(14, 2)
+  targetMarginPct        Decimal? @db.Decimal(5, 2)
+  notes                  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("financial_assumptions")
+}
+
+// ── Knowledge Graph ────────────────────────────────────────
+
+/// A node in the Knowledge Graph: promoteur, banque, notaire, architecte,
+/// collectivité, investisseur or plateforme. Type-specific attributes
+/// (e.g. a platform's category or founding year) live in `metadata`.
+model GraphEntity {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type        GraphEntityType
+  name        String
+  description String?
+  website     String?
+  city        String?
+  /// City-centroid coordinates (not street-level) — used by the Cartographie module.
+  lat         Decimal?        @db.Decimal(9, 6)
+  lng         Decimal?        @db.Decimal(9, 6)
+  metadata    Json?
+
+  dealLinks     DealEntityLink[]
+  relationsFrom GraphRelation[]     @relation("RelationFrom")
+  relationsTo   GraphRelation[]     @relation("RelationTo")
+  articles      ArticleEntityLink[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([type])
+  @@map("graph_entities")
+}
+
+/// Links a deal to a Knowledge Graph entity with a specific role
+/// (e.g. this deal's promoteur, or its notaire).
+model DealEntityLink {
+  id       String         @id @default(cuid())
+  dealId   String
+  deal     Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  entityId String
+  entity   GraphEntity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  role     DealEntityRole
+
+  createdAt DateTime @default(now())
+
+  @@unique([dealId, entityId, role])
+  @@index([entityId])
+  @@map("deal_entity_links")
+}
+
+/// An edge between two Knowledge Graph entities (e.g. a promoteur partnered
+/// with a bank, or two platforms are direct competitors).
+model GraphRelation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  fromEntityId String
+  fromEntity   GraphEntity @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntityId   String
+  toEntity     GraphEntity @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+
+  type  GraphRelationType
+  label String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([fromEntityId])
+  @@index([toEntityId])
+  @@map("graph_relations")
+}
+
+// ── Intelligence Marché: news pipeline ─────────────────────
+
+/// A configured source for the market-intelligence pipeline. `connector`
+/// names the ingestion strategy — a registered code connector (e.g.
+/// "data-gouv-dvf") or "manual" for analyst-entered items.
+model NewsSource {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name          String
+  connector     String
+  url           String?
+  active        Boolean   @default(true)
+  lastFetchedAt DateTime?
+
+  articles Article[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, name])
+  @@map("news_sources")
+}
+
+model Article {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceId       String
+  source         NewsSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  title       String
+  summary     String?
+  url         String?
+  category    ArticleCategory @default(AUTRE)
+  publishedAt DateTime
+  /// Hash of title+url used to deduplicate re-fetched items across runs.
+  dedupeHash  String          @unique
+  priority    Priority        @default(MEDIUM)
+
+  entities ArticleEntityLink[]
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([publishedAt])
+  @@map("articles")
+}
+
+model ArticleEntityLink {
+  id        String      @id @default(cuid())
+  articleId String
+  article   Article     @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  entityId  String
+  entity    GraphEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, entityId])
+  @@map("article_entity_links")
 }
