@@ -34,7 +34,13 @@ import { HealthController } from './health/health.controller';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        connection: { url: config.get<string>('redis.url') },
+        connection: {
+          url: config.get<string>('redis.url'),
+          // Required by BullMQ workers — without this, a slow/unreachable
+          // Redis can make blocking commands error out instead of waiting,
+          // which otherwise surfaces as confusing startup instability.
+          maxRetriesPerRequest: null,
+        },
       }),
     }),
     PrismaModule,
