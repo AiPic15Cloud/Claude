@@ -1,0 +1,312 @@
+// ATLAS — Real Estate Intelligence Operating System
+// Prisma schema — foundation + Cockpit + Portefeuille domain models.
+// Modules not yet implemented (Dossiers financial model, Market/Competitor
+// Intelligence, Knowledge Graph, AI agents…) are intentionally out of this
+// schema's scope until their dedicated build phase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum DealType {
+  CROWDFUNDING
+  FRACTIONNE
+  PROMOTION
+  MARCHAND_DE_BIENS
+  AUTRE
+}
+
+/// Pipeline stage — drives the Kanban view in the Portefeuille module.
+enum DealStage {
+  SOURCING
+  ANALYSE
+  COMITE
+  MONTAGE
+  COLLECTE
+  FINANCE
+  SUIVI
+  REMBOURSE
+  DEFAUT
+}
+
+enum DealStatus {
+  ACTIVE
+  ON_HOLD
+  CLOSED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum ActivityType {
+  DEAL_CREATED
+  DEAL_UPDATED
+  STAGE_CHANGED
+  NOTE_ADDED
+  DOCUMENT_ADDED
+  TASK_CREATED
+  TASK_COMPLETED
+  TAG_ADDED
+  TAG_REMOVED
+}
+
+// ── Core tenancy ───────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  deals     Deal[]
+  tags      Tag[]
+  alerts    Alert[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  role           Role         @default(ANALYST)
+  avatarUrl      String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdDeals   Deal[]        @relation("DealCreatedBy")
+  assignedDeals  Deal[]        @relation("DealAssignedTo")
+  notes          Note[]
+  documents      Document[]
+  tasksAssigned  Task[]        @relation("TaskAssignee")
+  tasksCreated   Task[]        @relation("TaskCreatedBy")
+  activities     Activity[]
+  refreshTokens  RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ── Portfolio domain ───────────────────────────────────────
+
+model Deal {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  reference   String     @unique
+  name        String
+  type        DealType
+  stage       DealStage  @default(SOURCING)
+  status      DealStatus @default(ACTIVE)
+  description String?
+
+  // Financials
+  amountTarget   Decimal  @db.Decimal(14, 2)
+  amountRaised   Decimal  @default(0) @db.Decimal(14, 2)
+  currency       String   @default("EUR")
+  interestRate   Decimal? @db.Decimal(5, 2)
+  durationMonths Int?
+
+  // Location
+  address   String?
+  city      String?
+  postcode  String?
+  country   String  @default("FR")
+  lat       Decimal? @db.Decimal(9, 6)
+  lng       Decimal? @db.Decimal(9, 6)
+
+  // Scoring
+  atlasScore Int? @default(0)
+  riskScore  Int? @default(0)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  createdById String
+  createdBy   User    @relation("DealCreatedBy", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
+
+  tags       DealTag[]
+  notes      Note[]
+  documents  Document[]
+  tasks      Task[]
+  activities Activity[]
+  alerts     Alert[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([stage])
+  @@index([type])
+  @@index([status])
+  @@map("deals")
+}
+
+model Tag {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String       @default("#6366f1")
+
+  deals DealTag[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, name])
+  @@map("tags")
+}
+
+model DealTag {
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, tagId])
+  @@map("deal_tags")
+}
+
+model Note {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+  content  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("notes")
+}
+
+model Document {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  name        String
+  mimeType    String
+  size        Int
+  storageKey  String
+  storageDriver String @default("local")
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("documents")
+}
+
+model Task {
+  id     String  @id @default(cuid())
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  title    String
+  done     Boolean  @default(false)
+  priority Priority @default(MEDIUM)
+  dueDate  DateTime?
+
+  assigneeId String
+  assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String
+  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([dealId])
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+model Activity {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type    ActivityType
+  message String
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("activities")
+}
+
+model Alert {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String?
+  deal           Deal?         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  severity AlertSeverity @default(INFO)
+  title    String
+  message  String
+  read     Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([read])
+  @@map("alerts")
+}
