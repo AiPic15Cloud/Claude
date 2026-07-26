@@ -36,24 +36,37 @@ async function main() {
   const dataPath = path.join(__dirname, 'data', 'real-deals.json');
   const realDeals: RealDeal[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
 
-  const organization = await prisma.organization.upsert({
-    where: { slug: ORG_SLUG },
-    update: {},
-    create: { name: ORG_NAME, slug: ORG_SLUG },
-  });
+  // The user may already have self-registered (e.g. via "Créer une
+  // organisation" in the app) before this script ever ran. In that case we
+  // must import into THEIR existing organization, not create a new one —
+  // otherwise the deals land somewhere the user can never see them.
+  const existingOwner = await prisma.user.findUnique({ where: { email: OWNER_EMAIL } });
 
-  const owner = await prisma.user.upsert({
-    where: { email: OWNER_EMAIL },
-    update: {},
-    create: {
-      email: OWNER_EMAIL,
-      passwordHash: OWNER_PASSWORD_HASH,
-      firstName: 'Nick',
-      lastName: 'Banza',
-      role: 'ADMIN',
-      organizationId: organization.id,
-    },
-  });
+  let organizationId: string;
+  let owner: { id: string };
+
+  if (existingOwner) {
+    organizationId = existingOwner.organizationId;
+    owner = existingOwner;
+    console.log(`Compte existant détecté pour ${OWNER_EMAIL} — import dans son organisation (${organizationId}).`);
+  } else {
+    const organization = await prisma.organization.upsert({
+      where: { slug: ORG_SLUG },
+      update: {},
+      create: { name: ORG_NAME, slug: ORG_SLUG },
+    });
+    organizationId = organization.id;
+    owner = await prisma.user.create({
+      data: {
+        email: OWNER_EMAIL,
+        passwordHash: OWNER_PASSWORD_HASH,
+        firstName: 'Nick',
+        lastName: 'Banza',
+        role: 'ADMIN',
+        organizationId,
+      },
+    });
+  }
 
   let created = 0;
   let updated = 0;
@@ -65,7 +78,7 @@ async function main() {
     const amount = Math.round(d.amount) || 1;
 
     const data = {
-      organizationId: organization.id,
+      organizationId,
       name: d.name,
       type: DealType.CROWDFUNDING,
       stage: d.stage as DealStage,
@@ -96,7 +109,7 @@ async function main() {
   }
 
   console.log(`Import terminé : ${created} opération(s) créée(s), ${updated} mise(s) à jour.`);
-  console.log(`Organisation : ${ORG_NAME} (${ORG_SLUG})`);
+  console.log(`Organisation cible : ${organizationId}`);
   console.log(`Connexion : ${OWNER_EMAIL}`);
 }
 
