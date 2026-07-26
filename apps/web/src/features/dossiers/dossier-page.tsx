@@ -9,6 +9,7 @@ import { StageBadge, TypeBadge, ScoreBadge } from '@/features/portfolio/componen
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { EditDealDialog } from './components/edit-deal-dialog';
+import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
 import { FinancialModelPanel } from './components/financial-model-panel';
 import { EntitiesPanel } from './components/entities-panel';
@@ -114,7 +115,8 @@ export function DossierPage() {
           <span className="font-medium">
             {deal.deadlineAlert.daysToMax <= 0 ? 'Échéance dépassée' : `J-${deal.deadlineAlert.daysToMax}`} —
           </span>
-          <span>{deal.deadlineAlert.actionLabel}</span>
+          <span className="flex-1">{deal.deadlineAlert.actionLabel}</span>
+          <ExtendDeadlineDialog dealId={deal.id} dealName={deal.name} currentDateMax={deal.dateMax ?? null} />
         </div>
       )}
 

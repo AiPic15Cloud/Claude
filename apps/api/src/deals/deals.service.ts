@@ -8,6 +8,11 @@ import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
 import { computeDeadlineAlert } from './deadline.util';
 
+function computeFeesAmount(feesRate: number | null | undefined, amountRaised: number): number {
+  if (!feesRate) return 0;
+  return Math.round(((feesRate / 100) * amountRaised + Number.EPSILON) * 100) / 100;
+}
+
 const DEAL_INCLUDE = {
   tags: { include: { tag: true } },
   createdBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
@@ -52,9 +57,12 @@ export class DealsService {
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
-    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, feesRate, amountRaised, ...rest } = dto;
     const data = {
       ...rest,
+      amountRaised,
+      feesRate,
+      feesAmount: computeFeesAmount(feesRate, amountRaised ?? 0),
       organizationId,
       createdById: userId,
       startDate: startDate ? new Date(startDate) : undefined,
@@ -145,19 +153,35 @@ export class DealsService {
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateDealDto) {
     await this.assertExists(organizationId, id);
-    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, stage, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, feesRate, amountRaised, stage, ...rest } = dto;
 
-    if (stage) {
-      const current = await this.prisma.deal.findUnique({ where: { id }, select: { stage: true, name: true } });
-      if (current && current.stage !== stage) {
-        await this.activities.log(id, userId, 'STAGE_CHANGED', `Étape modifiée : ${current.stage} → ${stage}`);
-      }
+    const current = await this.prisma.deal.findUnique({
+      where: { id },
+      select: { stage: true, name: true, feesRate: true, amountRaised: true, dateMax: true },
+    });
+
+    if (stage && current && current.stage !== stage) {
+      await this.activities.log(id, userId, 'STAGE_CHANGED', `Étape modifiée : ${current.stage} → ${stage}`);
     }
+    if (dateMax && current?.dateMax && new Date(dateMax).getTime() !== current.dateMax.getTime()) {
+      await this.activities.log(
+        id,
+        userId,
+        'DEAL_UPDATED',
+        `Échéance prolongée : ${current.dateMax.toLocaleDateString('fr-FR')} → ${new Date(dateMax).toLocaleDateString('fr-FR')}`,
+      );
+    }
+
+    const nextFeesRate = feesRate !== undefined ? feesRate : current ? Number(current.feesRate ?? 0) : 0;
+    const nextAmountRaised = amountRaised !== undefined ? amountRaised : current ? Number(current.amountRaised) : 0;
 
     const deal = await this.prisma.deal.update({
       where: { id },
       data: {
         ...rest,
+        amountRaised,
+        feesRate,
+        feesAmount: computeFeesAmount(nextFeesRate, nextAmountRaised),
         stage,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,

@@ -8,6 +8,7 @@ import { PipelineChart } from './components/pipeline-chart';
 import { ActivityFeedCard } from './components/activity-feed-card';
 import { AutoSummaryCard } from './components/auto-summary-card';
 import { DeadlineAlertsCard } from './components/deadline-alerts-card';
+import { FeesChartCard } from './components/fees-chart-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 
@@ -81,6 +82,12 @@ export function CockpitPage() {
           <PipelineChart pipeline={data.pipeline} />
         </div>
         <TaskListCard title="Aujourd'hui" tasks={data.today} emptyLabel="Aucune tâche pour aujourd'hui" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <FeesChartCard />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">

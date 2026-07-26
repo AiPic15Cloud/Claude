@@ -46,6 +46,12 @@ export class CreateDealDto {
   @IsNumber()
   interestRate?: number;
 
+  @ApiProperty({ required: false, description: 'Taux de fees (%) — le montant est toujours recalculé côté serveur' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  feesRate?: number;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsInt()
