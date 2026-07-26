@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { DealsService } from '../deals/deals.service';
 import { ActivitiesService } from '../activities/activities.service';
+import { computeDeadlineAlert } from '../deals/deadline.util';
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -35,6 +36,7 @@ export class CockpitService {
       unreadAlerts,
       recentActivities,
       pipelineDeals,
+      deadlineDeals,
     ] = await Promise.all([
       this.dealsService.kpis(organizationId),
       this.prisma.task.findMany({
@@ -69,14 +71,24 @@ export class CockpitService {
         where: { organizationId, status: 'ACTIVE' },
         select: { id: true, name: true, reference: true, stage: true, amountTarget: true, amountRaised: true },
       }),
+      this.prisma.deal.findMany({
+        where: { organizationId, status: 'ACTIVE', dateMax: { not: null } },
+        select: { id: true, name: true, reference: true, dateMax: true },
+      }),
     ]);
 
     const pipeline = this.buildPipeline(pipelineDeals);
+    const deadlineAlerts = deadlineDeals
+      .map((d) => ({ id: d.id, name: d.name, reference: d.reference, dateMax: d.dateMax, ...computeDeadlineAlert(d.dateMax) }))
+      .filter((d) => d.level !== 'RAS')
+      .sort((a, b) => a.daysToMax - b.daysToMax);
+
     const summaryText = this.buildAutoSummary({
       kpis,
       todayTasksCount: todayTasks.length,
       urgentCount: priorityTasks.filter((t) => t.priority === 'URGENT').length,
       criticalAlertsCount: unreadAlerts.filter((a) => a.severity === 'CRITICAL').length,
+      deadlineUrgentCount: deadlineAlerts.filter((d) => d.level === 'URGENT').length,
     });
 
     return {
@@ -89,6 +101,7 @@ export class CockpitService {
       notifications: unreadAlerts.length,
       recentActivity: recentActivities,
       pipeline,
+      deadlineAlerts,
       autoSummary: summaryText,
     };
   }
@@ -116,8 +129,9 @@ export class CockpitService {
     todayTasksCount: number;
     urgentCount: number;
     criticalAlertsCount: number;
+    deadlineUrgentCount: number;
   }): string {
-    const { kpis, todayTasksCount, urgentCount, criticalAlertsCount } = input;
+    const { kpis, todayTasksCount, urgentCount, criticalAlertsCount, deadlineUrgentCount } = input;
     const parts: string[] = [];
 
     parts.push(
@@ -137,6 +151,12 @@ export class CockpitService {
 
     if (criticalAlertsCount > 0) {
       parts.push(`${criticalAlertsCount} alerte${criticalAlertsCount > 1 ? 's' : ''} critique${criticalAlertsCount > 1 ? 's' : ''} à examiner.`);
+    }
+
+    if (deadlineUrgentCount > 0) {
+      parts.push(
+        `${deadlineUrgentCount} échéance${deadlineUrgentCount > 1 ? 's' : ''} de vote urgente${deadlineUrgentCount > 1 ? 's' : ''} à traiter.`,
+      );
     }
 
     return parts.join(' ');

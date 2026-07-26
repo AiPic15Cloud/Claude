@@ -6,6 +6,7 @@ import { MeilisearchService } from '../search/meilisearch.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
+import { computeDeadlineAlert } from './deadline.util';
 
 const DEAL_INCLUDE = {
   tags: { include: { tag: true } },
@@ -51,13 +52,16 @@ export class DealsService {
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
-    const { tagIds, startDate, endDate, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, ...rest } = dto;
     const data = {
       ...rest,
       organizationId,
       createdById: userId,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
+      dateMin: dateMin ? new Date(dateMin) : undefined,
+      dateCible: dateCible ? new Date(dateCible) : undefined,
+      dateMax: dateMax ? new Date(dateMax) : undefined,
       tags: tagIds?.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
     };
 
@@ -77,7 +81,7 @@ export class DealsService {
 
     await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
     this.indexForSearch(deal!);
-    return deal!;
+    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax) };
   }
 
   async findAll(organizationId: string, query: QueryDealsDto) {
@@ -112,7 +116,13 @@ export class DealsService {
       this.prisma.deal.count({ where }),
     ]);
 
-    return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    return {
+      items: items.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax) })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   async findOne(organizationId: string, id: string) {
@@ -129,12 +139,12 @@ export class DealsService {
       },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
-    return deal;
+    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax) };
   }
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateDealDto) {
     await this.assertExists(organizationId, id);
-    const { tagIds, startDate, endDate, stage, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, stage, ...rest } = dto;
 
     if (stage) {
       const current = await this.prisma.deal.findUnique({ where: { id }, select: { stage: true, name: true } });
@@ -150,6 +160,9 @@ export class DealsService {
         stage,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
+        dateMin: dateMin ? new Date(dateMin) : undefined,
+        dateCible: dateCible ? new Date(dateCible) : undefined,
+        dateMax: dateMax ? new Date(dateMax) : undefined,
         tags: tagIds
           ? {
               deleteMany: {},
@@ -162,7 +175,7 @@ export class DealsService {
 
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Opération mise à jour');
     this.indexForSearch(deal);
-    return deal;
+    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax) };
   }
 
   async changeStage(organizationId: string, id: string, userId: string, stage: Prisma.DealUpdateInput['stage']) {

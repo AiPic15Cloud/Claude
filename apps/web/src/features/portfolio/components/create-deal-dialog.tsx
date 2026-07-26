@@ -22,6 +22,9 @@ const schema = z.object({
   interestRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
   durationMonths: z.coerce.number().int().positive().optional().or(z.literal(undefined)),
   city: z.string().optional(),
+  dateMin: z.string().optional(),
+  dateCible: z.string().optional(),
+  dateMax: z.string().optional(),
   description: z.string().optional(),
 });
 
@@ -110,6 +113,24 @@ export function CreateDealDialog() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="city">Ville</Label>
               <Input id="city" placeholder="Lyon" {...register('city')} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-foreground">Échéance de vote (suivi J-90 / J-60 / J-30 / J-15)</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateMin">Date min</Label>
+                <Input id="dateMin" type="date" {...register('dateMin')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateCible">Date cible</Label>
+                <Input id="dateCible" type="date" {...register('dateCible')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateMax">Date max</Label>
+                <Input id="dateMax" type="date" {...register('dateMax')} />
+              </div>
             </div>
           </div>
 

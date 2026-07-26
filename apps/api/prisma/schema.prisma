@@ -233,6 +233,13 @@ model Deal {
   startDate DateTime?
   endDate   DateTime?
 
+  // Deadline tracking (échéance de vote) — dateMax drives the J-90/J-60/J-30/J-15
+  // escalation process; dateMin/dateCible are informational targets either
+  // side of it.
+  dateMin    DateTime?
+  dateCible  DateTime?
+  dateMax    DateTime?
+
   createdById  String
   createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
   assignedToId String?

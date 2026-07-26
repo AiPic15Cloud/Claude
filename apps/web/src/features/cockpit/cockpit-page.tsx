@@ -6,6 +6,7 @@ import { TaskListCard } from './components/task-list-card';
 import { PipelineChart } from './components/pipeline-chart';
 import { ActivityFeedCard } from './components/activity-feed-card';
 import { AutoSummaryCard } from './components/auto-summary-card';
+import { DeadlineAlertsCard } from './components/deadline-alerts-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 
@@ -72,7 +73,8 @@ export function CockpitPage() {
         <TaskListCard title="Aujourd'hui" tasks={data.today} emptyLabel="Aucune tâche pour aujourd'hui" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <DeadlineAlertsCard alerts={data.deadlineAlerts} />
         <TaskListCard title="Priorités" tasks={data.priorities} emptyLabel="Aucune priorité en attente" showDueDate />
         <TaskListCard title="Agenda (7 jours)" tasks={data.agenda} emptyLabel="Aucune échéance à venir" showDueDate />
         <ActivityFeedCard activities={data.recentActivity} />

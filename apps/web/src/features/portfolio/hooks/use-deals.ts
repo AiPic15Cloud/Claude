@@ -57,6 +57,9 @@ export interface CreateDealPayload {
   postcode?: string;
   lat?: number;
   lng?: number;
+  dateMin?: string;
+  dateCible?: string;
+  dateMax?: string;
   description?: string;
   tagIds?: string[];
 }
@@ -85,6 +88,9 @@ export interface UpdateDealPayload {
   description?: string;
   startDate?: string;
   endDate?: string;
+  dateMin?: string;
+  dateCible?: string;
+  dateMax?: string;
 }
 
 export function useUpdateDeal(dealId: string) {

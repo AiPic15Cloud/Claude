@@ -16,6 +16,7 @@ import { AgentChatPanel } from '@/features/agents/components/agent-chat-panel';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 const ANALYST_AGENT = { key: 'analyst', name: 'Analyst', description: "Analyse le dossier ouvert." };
 
@@ -97,6 +98,25 @@ export function DossierPage() {
           </p>
         )}
       </div>
+
+      {deal.deadlineAlert && deal.deadlineAlert.level !== 'RAS' && (
+        <div
+          className={cn(
+            'flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+            deal.deadlineAlert.level === 'URGENT'
+              ? 'border-destructive/30 bg-destructive/10 text-destructive'
+              : 'border-warning/30 bg-warning/10 text-warning',
+          )}
+        >
+          <span
+            className={cn('h-2 w-2 shrink-0 rounded-full', deal.deadlineAlert.level === 'URGENT' ? 'bg-destructive' : 'bg-warning')}
+          />
+          <span className="font-medium">
+            {deal.deadlineAlert.daysToMax <= 0 ? 'Échéance dépassée' : `J-${deal.deadlineAlert.daysToMax}`} —
+          </span>
+          <span>{deal.deadlineAlert.actionLabel}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Card>
