@@ -1,7 +1,8 @@
 import {
   LayoutDashboard,
-  FolderKanban,
   Briefcase,
+  GitBranch,
+  Target,
   Globe2,
   Radar,
   Network,
@@ -21,7 +22,8 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Cockpit', path: '/cockpit', icon: LayoutDashboard, available: true },
   { label: 'Portefeuille', path: '/portfolio', icon: Briefcase, available: true },
-  { label: 'Dossiers', path: '/deals', icon: FolderKanban, available: true },
+  { label: 'Pipeline', path: '/pipeline', icon: GitBranch, available: true },
+  { label: 'Objectifs', path: '/objectifs', icon: Target, available: true },
   { label: 'Intelligence Marché', path: '/market', icon: Globe2, available: true },
   { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar, available: true },
   { label: 'Knowledge Graph', path: '/graph', icon: Network, available: true },

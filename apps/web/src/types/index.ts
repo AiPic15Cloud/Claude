@@ -311,6 +311,60 @@ export interface Guarantee {
   createdAt: string;
 }
 
+export type CommitteeStatus = 'PAS_DE_COMITE' | 'VALIDE' | 'CONDITIONS_SUSPENSIVES' | 'REFUSE';
+
+export const COMMITTEE_STATUS_LABELS: Record<CommitteeStatus, string> = {
+  PAS_DE_COMITE: 'Pas de comité',
+  VALIDE: 'Validé',
+  CONDITIONS_SUSPENSIVES: 'Conditions suspensives',
+  REFUSE: 'Refusé',
+};
+
+export interface PipelineEntry {
+  id: string;
+  organizationId: string;
+  date: string;
+  operator: string;
+  typology?: string | null;
+  source?: string | null;
+  amount: string;
+  margin?: string | null;
+  committee: CommitteeStatus;
+  decision?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PipelineSummary {
+  received: number;
+  totalAmount: number;
+  validatedCount: number;
+  validatedRate: number;
+  toReviewCount: number;
+  rejectedCount: number;
+  bySource: { source: string; count: number }[];
+  byTypology: { typology: string; count: number; amount: number }[];
+}
+
+export type NewsletterStatus = 'A_JOUR' | 'A_RELANCER' | 'CRITIQUE';
+
+export const NEWSLETTER_STATUS_LABELS: Record<NewsletterStatus, string> = {
+  A_JOUR: 'À jour',
+  A_RELANCER: 'À relancer',
+  CRITIQUE: 'Critique',
+};
+
+export interface NewsletterEntry {
+  id: string;
+  name: string;
+  reference: string;
+  lastNewsletterDate: string | null;
+  newsletterTargetDays: number;
+  daysSince: number | null;
+  status: NewsletterStatus;
+}
+
 export interface Repayment {
   id: string;
   dealId: string;

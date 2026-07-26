@@ -18,6 +18,11 @@ export class FeesController {
     return this.feesService.summary(user.organizationId, y);
   }
 
+  @Get('projection')
+  projection(@CurrentUser() user: AuthenticatedUser) {
+    return this.feesService.projection(user.organizationId);
+  }
+
   @Put('target')
   setTarget(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetFeesTargetDto) {
     return this.feesService.setTarget(user.organizationId, dto.year, dto.targetAmount);
