@@ -47,7 +47,7 @@ export function PipelineChart({ pipeline }: PipelineChartProps) {
                 name === 'count' ? [value, "Opérations"] : [formatCurrency(value), 'Montant']
               }
             />
-            <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={36} />
+            <Bar dataKey="count" fill="hsl(var(--chart-accent))" radius={[4, 4, 0, 0]} maxBarSize={36} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

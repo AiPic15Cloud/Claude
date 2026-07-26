@@ -25,6 +25,7 @@ import { IntelligenceConcurrentielleModule } from './intelligence-concurrentiell
 import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
 import { AgentsModule } from './agents/agents.module';
 import { SearchModule } from './search/search.module';
+import { MarketTickerModule } from './market-ticker/market-ticker.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -64,6 +65,7 @@ import { HealthController } from './health/health.controller';
     IntelligenceMarcheModule,
     AgentsModule,
     SearchModule,
+    MarketTickerModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor }],
