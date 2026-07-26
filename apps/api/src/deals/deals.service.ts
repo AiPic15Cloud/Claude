@@ -34,34 +34,50 @@ export class DealsService {
     });
   }
 
+  // Based on the highest existing suffix, not a row count — a count-based
+  // scheme collides as soon as any deal is deleted (or a different import
+  // path uses the same organization), since the next count can match an
+  // already-used higher reference.
   private async generateReference(organizationId: string): Promise<string> {
     const year = new Date().getFullYear();
-    const count = await this.prisma.deal.count({
-      where: { organizationId, createdAt: { gte: new Date(`${year}-01-01`) } },
+    const prefix = `ATL-${year}-`;
+    const last = await this.prisma.deal.findFirst({
+      where: { organizationId, reference: { startsWith: prefix } },
+      orderBy: { reference: 'desc' },
+      select: { reference: true },
     });
-    return `ATL-${year}-${String(count + 1).padStart(4, '0')}`;
+    const lastNum = last ? parseInt(last.reference.slice(prefix.length), 10) || 0 : 0;
+    return `${prefix}${String(lastNum + 1).padStart(4, '0')}`;
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
-    const reference = await this.generateReference(organizationId);
     const { tagIds, startDate, endDate, ...rest } = dto;
+    const data = {
+      ...rest,
+      organizationId,
+      createdById: userId,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      tags: tagIds?.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
+    };
 
-    const deal = await this.prisma.deal.create({
-      data: {
-        ...rest,
-        reference,
-        organizationId,
-        createdById: userId,
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-        tags: tagIds?.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
-      },
-      include: DEAL_INCLUDE,
-    });
+    // Retry once on a reference collision (e.g. a near-simultaneous create)
+    // instead of surfacing a 500 for what is otherwise a valid request.
+    let deal;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const reference = await this.generateReference(organizationId);
+      try {
+        deal = await this.prisma.deal.create({ data: { ...data, reference }, include: DEAL_INCLUDE });
+        break;
+      } catch (error) {
+        const isUniqueClash = (error as { code?: string })?.code === 'P2002';
+        if (!isUniqueClash || attempt === 2) throw error;
+      }
+    }
 
-    await this.activities.log(deal.id, userId, 'DEAL_CREATED', `Opération créée : ${deal.name}`);
-    this.indexForSearch(deal);
-    return deal;
+    await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
+    this.indexForSearch(deal!);
+    return deal!;
   }
 
   async findAll(organizationId: string, query: QueryDealsDto) {

@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Trash2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +15,7 @@ import { EntitiesPanel } from './components/entities-panel';
 import { AgentChatPanel } from '@/features/agents/components/agent-chat-panel';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
+import { ApiError } from '@/lib/api';
 
 const ANALYST_AGENT = { key: 'analyst', name: 'Analyst', description: "Analyse le dossier ouvert." };
 
@@ -22,10 +24,14 @@ export function DossierPage() {
   const navigate = useNavigate();
   const { data: deal, isLoading } = useDeal(id ?? null);
   const deleteDeal = useDeleteDeal();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const handleDelete = () => {
     if (!deal) return;
-    if (!window.confirm(`Supprimer définitivement "${deal.name}" ? Cette action est irréversible.`)) return;
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
     deleteDeal.mutate(deal.id, { onSuccess: () => navigate('/portfolio') });
   };
 
@@ -67,13 +73,29 @@ export function DossierPage() {
           </div>
           <div className="flex items-center gap-2">
             <EditDealDialog deal={deal} />
-            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={handleDelete}>
-              <Trash2 className="h-3.5 w-3.5" />
-              Supprimer
+            {confirmingDelete && (
+              <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)}>
+                Annuler
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant={confirmingDelete ? 'destructive' : 'outline'}
+              className={confirmingDelete ? '' : 'text-destructive hover:text-destructive'}
+              onClick={handleDelete}
+              disabled={deleteDeal.isPending}
+            >
+              {deleteDeal.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {confirmingDelete ? 'Confirmer la suppression' : 'Supprimer'}
             </Button>
             <ScoreBadge score={deal.atlasScore} />
           </div>
         </div>
+        {deleteDeal.isError && (
+          <p className="mt-2 text-xs text-destructive">
+            {deleteDeal.error instanceof ApiError ? deleteDeal.error.message : 'Une erreur est survenue lors de la suppression.'}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
