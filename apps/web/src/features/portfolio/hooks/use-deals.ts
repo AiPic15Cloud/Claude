@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Deal, DealDetail, DealKpis, DealStage, DealType, PaginatedResult } from '@/types';
+import type { Deal, DealDetail, DealKpis, DealStage, DealStatus, DealType, PaginatedResult } from '@/types';
 
 export interface DealsFilters {
   search?: string;
@@ -68,6 +68,45 @@ export function useCreateDeal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+    },
+  });
+}
+
+export interface UpdateDealPayload {
+  name?: string;
+  type?: DealType;
+  stage?: DealStage;
+  status?: DealStatus;
+  amountTarget?: number;
+  amountRaised?: number;
+  interestRate?: number | null;
+  durationMonths?: number | null;
+  city?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export function useUpdateDeal(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateDealPayload) => api.patch<Deal>(`/deals/${dealId}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['market-ticker'] });
+    },
+  });
+}
+
+export function useDeleteDeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dealId: string) => api.delete(`/deals/${dealId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['market-ticker'] });
     },
   });
 }
