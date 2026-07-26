@@ -87,6 +87,21 @@ export class CreateDealDto {
   @IsDateString()
   endDate?: string;
 
+  @ApiProperty({ required: false, description: 'Date min (échéance de vote)' })
+  @IsOptional()
+  @IsDateString()
+  dateMin?: string;
+
+  @ApiProperty({ required: false, description: 'Date cible (échéance de vote)' })
+  @IsOptional()
+  @IsDateString()
+  dateCible?: string;
+
+  @ApiProperty({ required: false, description: 'Date max (échéance de vote) — pilote les alertes J-90/J-60/J-30/J-15' })
+  @IsOptional()
+  @IsDateString()
+  dateMax?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

@@ -37,6 +37,9 @@ const schema = z.object({
   city: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  dateMin: z.string().optional(),
+  dateCible: z.string().optional(),
+  dateMax: z.string().optional(),
   description: z.string().optional(),
 });
 
@@ -69,6 +72,9 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       city: deal.city ?? '',
       startDate: toDateInput(deal.startDate),
       endDate: toDateInput(deal.endDate),
+      dateMin: toDateInput(deal.dateMin),
+      dateCible: toDateInput(deal.dateCible),
+      dateMax: toDateInput(deal.dateMax),
       description: deal.description ?? '',
     },
   });
@@ -197,6 +203,24 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="endDate">Échéance</Label>
               <Input id="endDate" type="date" {...register('endDate')} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-foreground">Échéance de vote (suivi J-90 / J-60 / J-30 / J-15)</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateMin">Date min</Label>
+                <Input id="dateMin" type="date" {...register('dateMin')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateCible">Date cible</Label>
+                <Input id="dateCible" type="date" {...register('dateCible')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateMax">Date max</Label>
+                <Input id="dateMax" type="date" {...register('dateMax')} />
+              </div>
             </div>
           </div>
 

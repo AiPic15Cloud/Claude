@@ -123,6 +123,10 @@ export interface Deal {
   riskScore?: number | null;
   startDate?: string | null;
   endDate?: string | null;
+  dateMin?: string | null;
+  dateCible?: string | null;
+  dateMax?: string | null;
+  deadlineAlert?: DeadlineAlert;
   createdById: string;
   createdBy?: UserSummary;
   assignedToId?: string | null;
@@ -215,6 +219,22 @@ export interface PipelineStage {
   totalAmount: number;
 }
 
+export type DeadlineLevel = 'RAS' | 'ATTENTION' | 'URGENT';
+
+export interface DeadlineAlert {
+  level: DeadlineLevel;
+  daysToMax: number;
+  stage: 'J90' | 'J60' | 'J30' | 'J15' | 'CONTENTIEUX' | null;
+  actionLabel: string | null;
+}
+
+export interface DealDeadlineAlert extends DeadlineAlert {
+  id: string;
+  name: string;
+  reference: string;
+  dateMax: string | null;
+}
+
 export interface CockpitSummary {
   generatedAt: string;
   kpis: DealKpis;
@@ -225,6 +245,7 @@ export interface CockpitSummary {
   notifications: number;
   recentActivity: Activity[];
   pipeline: PipelineStage[];
+  deadlineAlerts: DealDeadlineAlert[];
   autoSummary: string;
 }
 
