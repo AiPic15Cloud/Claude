@@ -52,8 +52,8 @@ export function IndicatorsStrip() {
 
   if (isLoading || !data) {
     return (
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24" />
         ))}
       </div>
@@ -61,11 +61,21 @@ export function IndicatorsStrip() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
       <IndicatorTile label="Taux long terme (OAT 10Y) — France" value={data.oat10y.value} previousValue={data.oat10y.previousValue} period={data.oat10y.period} />
       <IndicatorTile label="Taux court terme (zone euro)" value={data.euribor3m.value} previousValue={data.euribor3m.previousValue} period={data.euribor3m.period} />
       <IndicatorTile label="Inflation HICP — France (a/a)" value={data.inflationHicp.value} previousValue={data.inflationHicp.previousValue} period={data.inflationHicp.period} />
-      <p className="col-span-full text-[11px] text-muted-foreground">Source : Eurostat (données officielles, mises à jour ~mensuellement).</p>
+      <IndicatorTile
+        label="Permis de construire — indice, France"
+        value={data.buildingPermitsIndex.value}
+        previousValue={data.buildingPermitsIndex.previousValue}
+        period={data.buildingPermitsIndex.period}
+        suffix=""
+      />
+      <p className="col-span-full text-[11px] text-muted-foreground">
+        Source : Eurostat (données officielles, mises à jour ~mensuellement). L'indice permis de construire est une base 100 (2015), pas un
+        nombre brut de permis.
+      </p>
     </div>
   );
 }

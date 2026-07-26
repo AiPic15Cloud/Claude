@@ -56,19 +56,23 @@ export class MarketIndicatorsService {
       return this.cache.data;
     }
 
-    const [hicpFrance, longTermRateFrance, shortTermRateEuroArea] = await Promise.all([
+    const [hicpFrance, longTermRateFrance, shortTermRateEuroArea, buildingPermitsFrance] = await Promise.all([
       // HICP, annual rate of change, all-items, France.
       this.fetchEurostat('prc_hicp_manr', { geo: 'FR', coicop: 'CP00', sinceTimePeriod: '2024-01' }),
       // Long-term government bond yield (10y proxy), monthly, France.
       this.fetchEurostat('irt_lt_mcby_m', { geo: 'FR', sinceTimePeriod: '2024-01' }),
       // Short-term (money market / Euribor-based) interest rate, monthly, euro area.
       this.fetchEurostat('irt_st_m', { geo: 'EA', int_rt: 'IRT_M3', sinceTimePeriod: '2024-01' }),
+      // Building permits, production index (2015=100), construction, France —
+      // an activity index, not the raw permit count SDES publishes.
+      this.fetchEurostat('sts_cobp_m', { geo: 'FR', indic_bt: 'PERM', s_adj: 'CA', unit: 'I15', nace_r2: 'F', sinceTimePeriod: '2024-01' }),
     ]);
 
     const data = {
       inflationHicp: hicpFrance,
       oat10y: longTermRateFrance,
       euribor3m: shortTermRateEuroArea,
+      buildingPermitsIndex: buildingPermitsFrance,
     };
     this.cache = { fetchedAt: Date.now(), data };
     return data;
