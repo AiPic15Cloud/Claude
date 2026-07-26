@@ -1,3 +1,4 @@
+
 # ATLAS — Real Estate Intelligence Operating System
 
 ATLAS is the operating system for real estate financing, investment, crowdfunding and
@@ -86,3 +87,4 @@ Demo login (seeded): `nick.banza@outlook.com` / `Atlas2026!`
 ## API documentation
 
 OpenAPI/Swagger is served at `/api/docs` when the API is running.
+
