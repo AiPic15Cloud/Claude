@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { SourcesPanel } from './components/sources-panel';
 import { CreateArticleDialog } from './components/create-article-dialog';
+import { IndicatorsStrip } from './components/indicators-strip';
 import { useArticles } from './hooks/use-market-intelligence';
 import { ARTICLE_CATEGORY_LABELS, type ArticleCategory, type Priority } from '@/types';
 
@@ -41,6 +42,8 @@ export function MarchePage() {
         </div>
         <CreateArticleDialog />
       </div>
+
+      <IndicatorsStrip />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="flex flex-col gap-3">

@@ -1,9 +1,10 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { GraphService } from '../graph/graph.service';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { PlatformsSyncService } from './platforms-sync.service';
 
 /**
  * Intelligence Concurrentielle — platform profiles. A platform is a
@@ -19,11 +20,17 @@ export class PlatformsController {
   constructor(
     private readonly graphService: GraphService,
     private readonly prisma: PrismaService,
+    private readonly syncService: PlatformsSyncService,
   ) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.graphService.listEntities(user.organizationId, { type: 'PLATEFORME' });
+  }
+
+  @Post('sync')
+  sync(@CurrentUser() user: AuthenticatedUser) {
+    return this.syncService.syncFromBarometer(user.organizationId);
   }
 
   @Get(':id')

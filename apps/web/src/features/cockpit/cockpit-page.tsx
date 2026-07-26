@@ -10,6 +10,7 @@ import { AutoSummaryCard } from './components/auto-summary-card';
 import { DeadlineAlertsCard } from './components/deadline-alerts-card';
 import { FeesChartCard } from './components/fees-chart-card';
 import { RepaymentsChartCard } from './components/repayments-chart-card';
+import { MarketNewsCard } from './components/market-news-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 
@@ -90,11 +91,12 @@ export function CockpitPage() {
         <RepaymentsChartCard />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <DeadlineAlertsCard alerts={data.deadlineAlerts} />
         <TaskListCard title="Priorités" tasks={data.priorities} emptyLabel="Aucune priorité en attente" showDueDate />
         <TaskListCard title="Agenda (7 jours)" tasks={data.agenda} emptyLabel="Aucune échéance à venir" showDueDate />
         <ActivityFeedCard activities={data.recentActivity} />
+        <MarketNewsCard />
       </div>
     </div>
   );

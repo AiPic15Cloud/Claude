@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { IntelligenceMarcheService } from './intelligence-marche.service';
+import { MarketIndicatorsService } from './indicators.service';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { QueryArticlesDto } from './dto/query-articles.dto';
@@ -12,7 +13,15 @@ import { QueryArticlesDto } from './dto/query-articles.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('market-intelligence')
 export class IntelligenceMarcheController {
-  constructor(private readonly service: IntelligenceMarcheService) {}
+  constructor(
+    private readonly service: IntelligenceMarcheService,
+    private readonly indicators: MarketIndicatorsService,
+  ) {}
+
+  @Get('indicators')
+  getIndicators() {
+    return this.indicators.summary();
+  }
 
   @Get('connectors')
   listConnectors() {

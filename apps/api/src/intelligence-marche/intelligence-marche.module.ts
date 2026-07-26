@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { IntelligenceMarcheService } from './intelligence-marche.service';
+import { MarketIndicatorsService } from './indicators.service';
 import { IntelligenceMarcheController } from './intelligence-marche.controller';
 import { IntelligenceMarcheProcessor } from './intelligence-marche.processor';
 import { ConnectorRegistryService } from './connectors/connector-registry.service';
@@ -13,6 +14,7 @@ import { SearchModule } from '../search/search.module';
   imports: [BullModule.registerQueue({ name: 'market-intelligence' }), AlertsModule, SearchModule],
   providers: [
     IntelligenceMarcheService,
+    MarketIndicatorsService,
     IntelligenceMarcheProcessor,
     ConnectorRegistryService,
     DataGouvConnector,
