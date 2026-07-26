@@ -88,3 +88,4 @@ Demo login (seeded): `REDACTED-EMAIL@atlas-capital.demo` / `REDACTED-PASSWORD`
 
 OpenAPI/Swagger is served at `/api/docs` when the API is running.
 
+ 
