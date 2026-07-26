@@ -19,10 +19,18 @@ export function Sidebar() {
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Building2 className="h-4 w-4" />
         </div>
-        {!sidebarCollapsed && <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">ATLAS</span>}
+        {!sidebarCollapsed && (
+          <div className="flex flex-col leading-none">
+            <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">ATLAS</span>
+            <span className="text-[9px] font-medium uppercase tracking-wider text-sidebar-foreground/50">Real Estate OS</span>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto no-scrollbar px-2 py-3">
+        {!sidebarCollapsed && (
+          <p className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">Modules</p>
+        )}
         <ul className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
@@ -35,7 +43,7 @@ export function Sidebar() {
                   cn(
                     'flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-primary/10 text-primary'
+                      ? 'bg-sidebar-foreground/10 text-sidebar-foreground [&_svg]:text-primary'
                       : 'text-sidebar-foreground/70 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
                     !item.available && 'opacity-60',
                   )
