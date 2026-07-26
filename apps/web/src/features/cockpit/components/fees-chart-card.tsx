@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,12 @@ export function FeesChartCard() {
             </Button>
           </div>
         </div>
-        <EditFeesTargetDialog year={year} currentTarget={data?.annualTarget ?? null} />
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/objectifs">Voir en détail →</Link>
+          </Button>
+          <EditFeesTargetDialog year={year} currentTarget={data?.annualTarget ?? null} />
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {isLoading || !data ? (

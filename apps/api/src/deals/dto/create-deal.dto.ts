@@ -108,6 +108,17 @@ export class CreateDealDto {
   @IsDateString()
   dateMax?: string;
 
+  @ApiProperty({ required: false, description: 'Date de la dernière newsletter investisseurs envoyée' })
+  @IsOptional()
+  @IsDateString()
+  lastNewsletterDate?: string;
+
+  @ApiProperty({ required: false, description: 'Cadence cible (jours) entre deux newsletters', default: 45 })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  newsletterTargetDays?: number;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

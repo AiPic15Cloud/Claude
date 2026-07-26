@@ -26,6 +26,11 @@ export class DealsController {
     return this.dealsService.kpis(user.organizationId);
   }
 
+  @Get('newsletters')
+  newsletterSummary(@CurrentUser() user: AuthenticatedUser) {
+    return this.dealsService.newsletterSummary(user.organizationId);
+  }
+
   @Get(':id')
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.findOne(user.organizationId, id);
@@ -49,6 +54,11 @@ export class DealsController {
   @Patch(':id/tags')
   setTags(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: SetTagsDto) {
     return this.dealsService.setTags(user.organizationId, id, user.id, dto.tagIds);
+  }
+
+  @Patch(':id/newsletter')
+  pingNewsletter(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.dealsService.pingNewsletter(user.organizationId, id, user.id);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

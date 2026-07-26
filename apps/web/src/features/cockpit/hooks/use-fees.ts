@@ -9,6 +9,21 @@ export function useFeesSummary(year: number) {
   });
 }
 
+export interface FeesProjection {
+  avgFeesRate: number;
+  conversionRate: number;
+  pipelineValidatedAmount: number;
+  pipelinePendingAmount: number;
+  projectedFees: number;
+}
+
+export function useFeesProjection() {
+  return useQuery({
+    queryKey: ['fees', 'projection'],
+    queryFn: () => api.get<FeesProjection>('/fees/projection'),
+  });
+}
+
 export function useSetFeesTarget() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -7,6 +7,7 @@ import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
 import { computeDeadlineAlert } from './deadline.util';
+import { computeNewsletterStatus } from './newsletter.util';
 
 function computeFeesAmount(feesRate: number | null | undefined, amountRaised: number): number {
   if (!feesRate) return 0;
@@ -57,7 +58,7 @@ export class DealsService {
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
-    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, feesRate, amountRaised, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, ...rest } = dto;
     const data = {
       ...rest,
       amountRaised,
@@ -70,6 +71,7 @@ export class DealsService {
       dateMin: dateMin ? new Date(dateMin) : undefined,
       dateCible: dateCible ? new Date(dateCible) : undefined,
       dateMax: dateMax ? new Date(dateMax) : undefined,
+      lastNewsletterDate: lastNewsletterDate ? new Date(lastNewsletterDate) : undefined,
       tags: tagIds?.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
     };
 
@@ -153,7 +155,7 @@ export class DealsService {
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateDealDto) {
     await this.assertExists(organizationId, id);
-    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, feesRate, amountRaised, stage, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, stage, ...rest } = dto;
 
     const current = await this.prisma.deal.findUnique({
       where: { id },
@@ -188,6 +190,7 @@ export class DealsService {
         dateMin: dateMin ? new Date(dateMin) : undefined,
         dateCible: dateCible ? new Date(dateCible) : undefined,
         dateMax: dateMax ? new Date(dateMax) : undefined,
+        lastNewsletterDate: lastNewsletterDate ? new Date(lastNewsletterDate) : undefined,
         tags: tagIds
           ? {
               deleteMany: {},
@@ -254,6 +257,24 @@ export class DealsService {
       byStage,
       byType,
     };
+  }
+
+  async newsletterSummary(organizationId: string) {
+    const deals = await this.prisma.deal.findMany({
+      where: { organizationId, status: 'ACTIVE' },
+      select: { id: true, name: true, reference: true, lastNewsletterDate: true, newsletterTargetDays: true },
+    });
+
+    return deals
+      .map((d) => ({ ...d, ...computeNewsletterStatus(d.lastNewsletterDate) }))
+      .sort((a, b) => (b.daysSince ?? Infinity) - (a.daysSince ?? Infinity));
+  }
+
+  async pingNewsletter(organizationId: string, id: string, userId: string) {
+    await this.assertExists(organizationId, id);
+    const deal = await this.prisma.deal.update({ where: { id }, data: { lastNewsletterDate: new Date() } });
+    await this.activities.log(id, userId, 'DEAL_UPDATED', 'Newsletter investisseurs envoyée');
+    return { ...deal, ...computeNewsletterStatus(deal.lastNewsletterDate) };
   }
 
   private async assertExists(organizationId: string, id: string) {

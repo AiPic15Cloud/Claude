@@ -56,6 +56,13 @@ enum Priority {
   URGENT
 }
 
+enum CommitteeStatus {
+  PAS_DE_COMITE
+  VALIDE
+  CONDITIONS_SUSPENSIVES
+  REFUSE
+}
+
 enum AlertSeverity {
   INFO
   WARNING
@@ -154,6 +161,7 @@ model Organization {
   newsSources    NewsSource[]
   articles       Article[]
   feesTargets    FeesTarget[]
+  pipelineEntries PipelineEntry[]
 
   @@map("organizations")
 }
@@ -191,6 +199,7 @@ model User {
   notes         Note[]
   documents     Document[]
   repayments    Repayment[]
+  pipelineEntries PipelineEntry[]
   tasksAssigned Task[]         @relation("TaskAssignee")
   tasksCreated  Task[]         @relation("TaskCreatedBy")
   activities    Activity[]
@@ -264,6 +273,12 @@ model Deal {
   dateCible  DateTime?
   dateMax    DateTime?
 
+  // Investor newsletter follow-up — lastNewsletterDate resets the countdown;
+  // status (À jour / À relancer / Critique) is derived from the elapsed days
+  // vs. newsletterTargetDays, not stored.
+  lastNewsletterDate  DateTime?
+  newsletterTargetDays Int      @default(45)
+
   createdById  String
   createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
   assignedToId String?
@@ -313,6 +328,34 @@ model DealTag {
 
   @@id([dealId, tagId])
   @@map("deal_tags")
+}
+
+// A sourcing-stage entry — a deal file received and reviewed, before (or
+// instead of) becoming an actual Deal. Distinct from Deal because most
+// entries here are rejected and never enter the managed portfolio.
+model PipelineEntry {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  date       DateTime
+  operator   String
+  typology   String?
+  source     String?
+  amount     Decimal          @db.Decimal(14, 2)
+  margin     Decimal?         @db.Decimal(5, 2)
+  committee  CommitteeStatus  @default(PAS_DE_COMITE)
+  decision   String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([committee])
+  @@map("pipeline_entries")
 }
 
 // A repayment made to investors on a deal — either already paid (projected:
