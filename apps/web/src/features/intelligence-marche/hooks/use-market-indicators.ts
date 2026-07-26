@@ -11,6 +11,7 @@ interface MarketIndicators {
   inflationHicp: Indicator;
   oat10y: Indicator;
   euribor3m: Indicator;
+  buildingPermitsIndex: Indicator;
 }
 
 export function useMarketIndicators() {
