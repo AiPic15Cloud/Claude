@@ -1,12 +1,13 @@
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, MapPin, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useDeal } from '@/features/portfolio/hooks/use-deals';
+import { useDeal, useDeleteDeal } from '@/features/portfolio/hooks/use-deals';
 import { StageBadge, TypeBadge, ScoreBadge } from '@/features/portfolio/components/deal-badges';
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
+import { EditDealDialog } from './components/edit-deal-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
 import { FinancialModelPanel } from './components/financial-model-panel';
 import { EntitiesPanel } from './components/entities-panel';
@@ -18,7 +19,15 @@ const ANALYST_AGENT = { key: 'analyst', name: 'Analyst', description: "Analyse l
 
 export function DossierPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: deal, isLoading } = useDeal(id ?? null);
+  const deleteDeal = useDeleteDeal();
+
+  const handleDelete = () => {
+    if (!deal) return;
+    if (!window.confirm(`Supprimer définitivement "${deal.name}" ? Cette action est irréversible.`)) return;
+    deleteDeal.mutate(deal.id, { onSuccess: () => navigate('/portfolio') });
+  };
 
   if (isLoading || !deal) {
     return (
@@ -56,7 +65,14 @@ export function DossierPage() {
               ))}
             </div>
           </div>
-          <ScoreBadge score={deal.atlasScore} />
+          <div className="flex items-center gap-2">
+            <EditDealDialog deal={deal} />
+            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={handleDelete}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </Button>
+            <ScoreBadge score={deal.atlasScore} />
+          </div>
         </div>
       </div>
 

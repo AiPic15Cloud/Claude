@@ -43,6 +43,13 @@ export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
   DEFAUT: 'Défaut',
 };
 
+export const DEAL_STATUS_LABELS: Record<DealStatus, string> = {
+  ACTIVE: 'Active',
+  ON_HOLD: 'En pause',
+  CLOSED: 'Clôturée',
+  ARCHIVED: 'Archivée',
+};
+
 export const DEAL_TYPE_LABELS: Record<DealType, string> = {
   CROWDFUNDING: 'Crowdfunding',
   FRACTIONNE: 'Fractionné',
