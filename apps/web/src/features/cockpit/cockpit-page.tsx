@@ -11,6 +11,7 @@ import { DeadlineAlertsCard } from './components/deadline-alerts-card';
 import { FeesChartCard } from './components/fees-chart-card';
 import { RepaymentsChartCard } from './components/repayments-chart-card';
 import { MarketNewsCard } from './components/market-news-card';
+import { MarketDigestCard } from '@/features/intelligence-marche/components/market-digest-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 
@@ -51,6 +52,8 @@ export function CockpitPage() {
       </div>
 
       <AutoSummaryCard summary={data.autoSummary} generatedAt={data.generatedAt} />
+
+      <MarketDigestCard />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label="Opérations actives" value={String(data.kpis.activeDeals)} icon={Landmark} />
