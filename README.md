@@ -88,3 +88,4 @@ Demo login (seeded): `nick.banza@outlook.com` / `Atlas2026!`
 
 OpenAPI/Swagger is served at `/api/docs` when the API is running.
 
+ 
