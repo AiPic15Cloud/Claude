@@ -153,8 +153,26 @@ model Organization {
   graphRelations GraphRelation[]
   newsSources    NewsSource[]
   articles       Article[]
+  feesTargets    FeesTarget[]
 
   @@map("organizations")
+}
+
+// One row per year — the "objectif annuel" the Cockpit fees chart is
+// measured against.
+model FeesTarget {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  year         Int
+  targetAmount Decimal @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, year])
+  @@map("fees_targets")
 }
 
 model User {
@@ -217,6 +235,11 @@ model Deal {
   currency       String   @default("EUR")
   interestRate   Decimal? @db.Decimal(5, 2)
   durationMonths Int?
+
+  // Fees — feesRate is the input (%), feesAmount is always server-derived
+  // from feesRate × amountRaised, never accepted directly from a client.
+  feesRate   Decimal? @db.Decimal(5, 2)
+  feesAmount Decimal  @default(0) @db.Decimal(14, 2)
 
   // Location
   address  String?

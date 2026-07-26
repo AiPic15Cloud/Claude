@@ -113,6 +113,8 @@ export interface Deal {
   currency: string;
   interestRate?: string | null;
   durationMonths?: number | null;
+  feesRate?: string | null;
+  feesAmount?: string;
   address?: string | null;
   city?: string | null;
   postcode?: string | null;
@@ -234,6 +236,19 @@ export interface DealDeadlineAlert extends DeadlineAlert {
   name: string;
   reference: string;
   dateMax: string | null;
+}
+
+export interface FeesMonthPoint {
+  month: number;
+  amount: number;
+}
+
+export interface FeesSummary {
+  year: number;
+  monthly: FeesMonthPoint[];
+  annualActual: number;
+  annualTarget: number | null;
+  progressPct: number | null;
 }
 
 export interface CockpitSummary {

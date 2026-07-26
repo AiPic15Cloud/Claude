@@ -21,6 +21,7 @@ import {
   type DealType,
 } from '@/types';
 import { ApiError } from '@/lib/api';
+import { formatCurrency } from '@/lib/format';
 
 const DEAL_TYPES: DealType[] = ['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE'];
 const DEAL_STATUSES: DealStatus[] = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED'];
@@ -33,6 +34,7 @@ const schema = z.object({
   amountTarget: z.coerce.number().positive('Montant requis'),
   amountRaised: z.coerce.number().min(0),
   interestRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
+  feesRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
   durationMonths: z.coerce.number().int().positive().optional().or(z.literal(undefined)),
   city: z.string().optional(),
   startDate: z.string().optional(),
@@ -68,6 +70,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       amountTarget: Number(deal.amountTarget),
       amountRaised: Number(deal.amountRaised),
       interestRate: deal.interestRate ? Number(deal.interestRate) : undefined,
+      feesRate: deal.feesRate ? Number(deal.feesRate) : undefined,
       durationMonths: deal.durationMonths ?? undefined,
       city: deal.city ?? '',
       startDate: toDateInput(deal.startDate),
@@ -180,10 +183,17 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="interestRate">Taux (%)</Label>
               <Input id="interestRate" type="number" min={0} max={100} step={0.1} {...register('interestRate')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="feesRate">Fees (%)</Label>
+              <Input id="feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              {deal.feesAmount && Number(deal.feesAmount) > 0 && (
+                <p className="text-[11px] text-muted-foreground">= {formatCurrency(deal.feesAmount)} sur le collecté actuel</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="durationMonths">Durée (mois)</Label>

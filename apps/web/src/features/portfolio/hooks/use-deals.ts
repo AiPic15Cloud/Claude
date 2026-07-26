@@ -53,6 +53,7 @@ export interface CreateDealPayload {
   type: DealType;
   amountTarget: number;
   interestRate?: number;
+  feesRate?: number;
   durationMonths?: number;
   city?: string;
   address?: string;
@@ -85,6 +86,7 @@ export interface UpdateDealPayload {
   amountTarget?: number;
   amountRaised?: number;
   interestRate?: number | null;
+  feesRate?: number | null;
   durationMonths?: number | null;
   city?: string;
   description?: string;

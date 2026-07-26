@@ -20,6 +20,7 @@ const schema = z.object({
   type: z.enum(['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE']),
   amountTarget: z.coerce.number().positive('Montant requis'),
   interestRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
+  feesRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
   durationMonths: z.coerce.number().int().positive().optional().or(z.literal(undefined)),
   city: z.string().optional(),
   dateMin: z.string().optional(),
@@ -101,10 +102,14 @@ export function CreateDealDialog() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="interestRate">Taux (%)</Label>
               <Input id="interestRate" type="number" min={0} max={100} step={0.1} {...register('interestRate')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="feesRate">Fees (%)</Label>
+              <Input id="feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="durationMonths">Durée (mois)</Label>
