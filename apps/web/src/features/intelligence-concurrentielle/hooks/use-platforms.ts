@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Article, GraphEntity, GraphEntityDetail } from '@/types';
 
@@ -6,6 +6,21 @@ export function usePlatforms() {
   return useQuery({
     queryKey: ['platforms'],
     queryFn: () => api.get<GraphEntity[]>('/platforms'),
+  });
+}
+
+export interface PlatformsSyncResult {
+  synced: number;
+  source: string;
+  fetchedAt: string;
+  degraded: boolean;
+}
+
+export function useSyncPlatforms() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<PlatformsSyncResult>('/platforms/sync'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['platforms'] }),
   });
 }
 
