@@ -1,14 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Res,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -48,6 +38,7 @@ export class DocumentsController {
     return this.documentsService.getDownloadUrl(user.organizationId, dealId, documentId);
   }
 
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':documentId')
   remove(
     @CurrentUser() user: AuthenticatedUser,

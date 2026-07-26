@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { GraphEntityType } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -42,6 +42,7 @@ export class GraphController {
     return this.graphService.updateEntity(user.organizationId, id, dto);
   }
 
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('entities/:id')
   removeEntity(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.graphService.removeEntity(user.organizationId, id);
@@ -52,6 +53,7 @@ export class GraphController {
     return this.graphService.createRelation(user.organizationId, dto);
   }
 
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('relations/:id')
   removeRelation(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.graphService.removeRelation(user.organizationId, id);
