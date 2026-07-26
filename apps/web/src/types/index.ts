@@ -209,6 +209,7 @@ export interface DealKpis {
   totalRaised: number;
   fundingProgress: number;
   averageInterestRate: number;
+  lateDeals: number;
   byStage: Record<string, number>;
   byType: Record<string, number>;
 }

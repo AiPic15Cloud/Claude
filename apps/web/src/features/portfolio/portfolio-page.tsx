@@ -14,8 +14,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function PortfolioPage() {
   const [view, setView] = useState<PortfolioView>('kanban');
-  const [filters, setFilters] = useState<DealsFilters>({ sortBy: 'createdAt', sortOrder: 'desc' });
   const [searchParams, setSearchParams] = useSearchParams();
+  const [filters, setFilters] = useState<DealsFilters>({
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+    late: searchParams.get('late') === 'true',
+  });
   const dealId = searchParams.get('dealId');
 
   const { data, isLoading } = useDeals(filters);

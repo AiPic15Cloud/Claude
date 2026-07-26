@@ -7,6 +7,7 @@ export interface DealsFilters {
   stage?: DealStage[];
   type?: DealType[];
   tagIds?: string[];
+  late?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   pageSize?: number;
@@ -18,6 +19,7 @@ function buildQuery(filters: DealsFilters): string {
   filters.stage?.forEach((s) => params.append('stage', s));
   filters.type?.forEach((t) => params.append('type', t));
   filters.tagIds?.forEach((t) => params.append('tagIds', t));
+  if (filters.late) params.set('late', 'true');
   if (filters.sortBy) params.set('sortBy', filters.sortBy);
   if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
   params.set('pageSize', String(filters.pageSize ?? 200));

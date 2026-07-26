@@ -1,4 +1,4 @@
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, AlertTriangle, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -123,11 +123,20 @@ export function FiltersBar({ filters, onChange }: FiltersBarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {activeFilterCount > 0 && (
+        <Button
+          variant={filters.late ? 'destructive' : 'outline'}
+          size="sm"
+          onClick={() => onChange({ ...filters, late: !filters.late })}
+        >
+          <AlertTriangle className="h-3.5 w-3.5" />
+          En retard
+        </Button>
+
+        {(activeFilterCount > 0 || filters.late) && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onChange({ ...filters, stage: [], type: [], tagIds: [] })}
+            onClick={() => onChange({ ...filters, stage: [], type: [], tagIds: [], late: false })}
           >
             <X className="h-3.5 w-3.5" />
             Réinitialiser

@@ -21,6 +21,7 @@ export function KpiBar() {
     { label: 'Collecté', value: formatCurrency(data.totalRaised) },
     { label: 'Avancement', value: `${data.fundingProgress}%` },
     { label: 'Taux moyen', value: `${data.averageInterestRate}%` },
+    { label: 'En retard', value: String(data.lateDeals), destructive: data.lateDeals > 0 },
   ];
 
   return (
@@ -28,7 +29,7 @@ export function KpiBar() {
       {stats.map((stat) => (
         <div key={stat.label} className="flex flex-col">
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{stat.label}</span>
-          <span className="text-base font-semibold tabular-nums">{stat.value}</span>
+          <span className={`text-base font-semibold tabular-nums ${stat.destructive ? 'text-destructive' : ''}`}>{stat.value}</span>
         </div>
       ))}
     </div>
