@@ -1,0 +1,85 @@
+import { useState } from 'react';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useRepaymentsSummary } from '../hooks/use-repayments-summary';
+import { formatCurrency } from '@/lib/format';
+
+const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+export function RepaymentsChartCard() {
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const { data, isLoading } = useRepaymentsSummary(year);
+
+  const chartData = (data?.monthly ?? []).map((m) => ({ month: MONTH_LABELS[m.month - 1], Réalisé: m.actual, Projeté: m.projected }));
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle>Remboursements</CardTitle>
+          <div className="mt-1 flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => setYear((y) => y - 1)}>
+              ←
+            </Button>
+            <span className="text-xs font-medium text-muted-foreground">{year}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-xs"
+              onClick={() => setYear((y) => y + 1)}
+              disabled={year > currentYear}
+            >
+              →
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {isLoading || !data ? (
+          <Skeleton className="h-64 w-full" />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Réalisé {year}</span>
+                <span className="font-mono text-lg font-semibold tabular-nums">{formatCurrency(data.totalActual)}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Projeté {year}</span>
+                <span className="font-mono text-lg font-semibold tabular-nums text-warning">{formatCurrency(data.totalProjected)}</span>
+              </div>
+            </div>
+
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} className="fill-muted-foreground" />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    className="fill-muted-foreground"
+                    tickFormatter={(v) => formatCurrency(v)}
+                    width={70}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted))' }}
+                    contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                    formatter={(value: number) => formatCurrency(value)}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="Réalisé" stackId="a" fill="hsl(var(--chart-accent))" radius={[0, 0, 0, 0]} maxBarSize={32} />
+                  <Bar dataKey="Projeté" stackId="a" fill="hsl(var(--warning))" fillOpacity={0.4} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

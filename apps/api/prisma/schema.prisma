@@ -190,6 +190,7 @@ model User {
   assignedDeals Deal[]         @relation("DealAssignedTo")
   notes         Note[]
   documents     Document[]
+  repayments    Repayment[]
   tasksAssigned Task[]         @relation("TaskAssignee")
   tasksCreated  Task[]         @relation("TaskCreatedBy")
   activities    Activity[]
@@ -277,6 +278,7 @@ model Deal {
   guarantees          Guarantee[]
   financialAssumption FinancialAssumption?
   entityLinks         DealEntityLink[]
+  repayments          Repayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -311,6 +313,29 @@ model DealTag {
 
   @@id([dealId, tagId])
   @@map("deal_tags")
+}
+
+// A repayment made to investors on a deal — either already paid (projected:
+// false) or a forward-looking estimate (projected: true) used for the
+// Cockpit's repayment forecast.
+model Repayment {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  amount    Decimal  @db.Decimal(14, 2)
+  date      DateTime
+  projected Boolean  @default(false)
+  note      String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("repayments")
 }
 
 model Note {

@@ -311,6 +311,23 @@ export interface Guarantee {
   createdAt: string;
 }
 
+export interface Repayment {
+  id: string;
+  dealId: string;
+  amount: string;
+  date: string;
+  projected: boolean;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface RepaymentsSummary {
+  year: number;
+  monthly: { month: number; actual: number; projected: number }[];
+  totalActual: number;
+  totalProjected: number;
+}
+
 export interface FinancialAssumption {
   surfaceSqm: number;
   constructionCostPerSqm: number;
