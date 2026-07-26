@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { IntelligenceMarcheService } from './intelligence-marche.service';
 import { MarketIndicatorsService } from './indicators.service';
+import { MarketDigestService } from './market-digest.service';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { QueryArticlesDto } from './dto/query-articles.dto';
@@ -16,11 +17,17 @@ export class IntelligenceMarcheController {
   constructor(
     private readonly service: IntelligenceMarcheService,
     private readonly indicators: MarketIndicatorsService,
+    private readonly digest: MarketDigestService,
   ) {}
 
   @Get('indicators')
   getIndicators() {
     return this.indicators.summary();
+  }
+
+  @Get('digest')
+  getDigest(@CurrentUser() user: AuthenticatedUser) {
+    return this.digest.getDigest(user.organizationId);
   }
 
   @Get('connectors')
