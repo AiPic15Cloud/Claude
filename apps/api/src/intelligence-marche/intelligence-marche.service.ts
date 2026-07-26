@@ -51,8 +51,24 @@ export class IntelligenceMarcheService {
     return this.connectors.list();
   }
 
-  listSources(organizationId: string) {
-    return this.prisma.newsSource.findMany({ where: { organizationId }, orderBy: { name: 'asc' } });
+  async listSources(organizationId: string) {
+    const sources = await this.prisma.newsSource.findMany({ where: { organizationId }, orderBy: { name: 'asc' } });
+    if (sources.length > 0) return sources;
+
+    // Orgs created outside the seed script (self-registration, real-data
+    // import) never got the default automatic source — provision it lazily
+    // on first visit instead of leaving the module looking empty forever.
+    const defaultSource = await this.prisma.newsSource.create({
+      data: {
+        organizationId,
+        name: 'data.gouv.fr — Immobilier & construction',
+        connector: 'data-gouv-catalogue',
+        url: 'immobilier logement construction permis de construire',
+        active: true,
+      },
+    });
+    void this.ingestSource(defaultSource.id);
+    return [defaultSource];
   }
 
   createSource(organizationId: string, dto: CreateSourceDto) {
