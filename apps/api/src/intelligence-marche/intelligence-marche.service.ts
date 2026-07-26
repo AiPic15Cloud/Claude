@@ -53,11 +53,13 @@ export class IntelligenceMarcheService {
 
   async listSources(organizationId: string) {
     const sources = await this.prisma.newsSource.findMany({ where: { organizationId }, orderBy: { name: 'asc' } });
-    if (sources.length > 0) return sources;
+    if (sources.some((s) => s.connector === 'data-gouv-catalogue')) return sources;
 
     // Orgs created outside the seed script (self-registration, real-data
     // import) never got the default automatic source — provision it lazily
-    // on first visit instead of leaving the module looking empty forever.
+    // on first visit instead of leaving the module without automatic
+    // coverage forever. Only checks for this specific connector, so an org
+    // that already added its own manual source still gets it too.
     const defaultSource = await this.prisma.newsSource.create({
       data: {
         organizationId,
@@ -68,7 +70,7 @@ export class IntelligenceMarcheService {
       },
     });
     void this.ingestSource(defaultSource.id);
-    return [defaultSource];
+    return [...sources, defaultSource];
   }
 
   createSource(organizationId: string, dto: CreateSourceDto) {
