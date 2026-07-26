@@ -94,6 +94,7 @@ export class DealsService {
       ...(query.stage?.length ? { stage: { in: query.stage } } : {}),
       ...(query.type?.length ? { type: { in: query.type } } : {}),
       ...(query.tagIds?.length ? { tags: { some: { tagId: { in: query.tagIds } } } } : {}),
+      ...(query.late ? { dateMax: { lt: new Date() } } : {}),
       ...(query.search
         ? {
             OR: [
@@ -201,7 +202,7 @@ export class DealsService {
   async kpis(organizationId: string) {
     const deals = await this.prisma.deal.findMany({
       where: { organizationId, status: 'ACTIVE' },
-      select: { amountTarget: true, amountRaised: true, stage: true, type: true, interestRate: true },
+      select: { amountTarget: true, amountRaised: true, stage: true, type: true, interestRate: true, dateMax: true },
     });
 
     const totalAum = deals.reduce((sum, d) => sum + Number(d.amountTarget), 0);
@@ -216,12 +217,16 @@ export class DealsService {
     const byType: Record<string, number> = {};
     for (const d of deals) byType[d.type] = (byType[d.type] ?? 0) + 1;
 
+    const now = new Date();
+    const lateDeals = deals.filter((d) => d.dateMax && d.dateMax < now).length;
+
     return {
       activeDeals: deals.length,
       totalAum,
       totalRaised,
       fundingProgress: totalAum > 0 ? Math.round((totalRaised / totalAum) * 100) : 0,
       averageInterestRate: Math.round(avgRate * 100) / 100,
+      lateDeals,
       byStage,
       byType,
     };

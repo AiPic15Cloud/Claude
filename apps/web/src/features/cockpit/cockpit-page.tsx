@@ -1,4 +1,5 @@
-import { Wallet, TrendingUp, Landmark, Percent } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Wallet, TrendingUp, Landmark, Percent, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useCockpitSummary } from './hooks/use-cockpit-summary';
 import { KpiCard } from './components/kpi-card';
@@ -48,7 +49,7 @@ export function CockpitPage() {
 
       <AutoSummaryCard summary={data.autoSummary} generatedAt={data.generatedAt} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label="Opérations actives" value={String(data.kpis.activeDeals)} icon={Landmark} />
         <KpiCard
           label="Encours sous gestion"
@@ -64,6 +65,15 @@ export function CockpitPage() {
           trend={data.kpis.fundingProgress >= 50 ? 'up' : 'neutral'}
         />
         <KpiCard label="Taux moyen" value={`${data.kpis.averageInterestRate}%`} icon={Percent} />
+        <Link to="/portfolio?late=true">
+          <KpiCard
+            label="En retard"
+            value={String(data.kpis.lateDeals)}
+            icon={AlertTriangle}
+            hint={data.kpis.lateDeals > 0 ? 'échéance dépassée' : 'RAS'}
+            trend={data.kpis.lateDeals > 0 ? 'down' : 'neutral'}
+          />
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

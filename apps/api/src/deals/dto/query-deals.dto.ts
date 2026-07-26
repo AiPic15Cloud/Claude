@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DealStage, DealStatus, DealType } from '@prisma/client';
-import { IsArray, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class QueryDealsDto {
@@ -34,6 +34,12 @@ export class QueryDealsDto {
   @IsArray()
   @IsString({ each: true })
   tagIds?: string[];
+
+  @ApiProperty({ required: false, description: 'Ne renvoie que les opérations dont la date max est dépassée' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  late?: boolean;
 
   @ApiProperty({ required: false, default: 1 })
   @IsOptional()
