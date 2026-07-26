@@ -27,6 +27,7 @@ import { AgentsModule } from './agents/agents.module';
 import { SearchModule } from './search/search.module';
 import { MarketTickerModule } from './market-ticker/market-ticker.module';
 import { FeesModule } from './fees/fees.module';
+import { RepaymentsModule } from './repayments/repayments.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -68,6 +69,7 @@ import { HealthController } from './health/health.controller';
     SearchModule,
     MarketTickerModule,
     FeesModule,
+    RepaymentsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor }],

@@ -11,6 +11,7 @@ import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
+import { RepaymentsPanel } from './components/repayments-panel';
 import { FinancialModelPanel } from './components/financial-model-panel';
 import { EntitiesPanel } from './components/entities-panel';
 import { AgentChatPanel } from '@/features/agents/components/agent-chat-panel';
@@ -151,6 +152,7 @@ export function DossierPage() {
         <TabsList>
           <TabsTrigger value="score">Score ATLAS</TabsTrigger>
           <TabsTrigger value="guarantees">Garanties</TabsTrigger>
+          <TabsTrigger value="repayments">Remboursements</TabsTrigger>
           <TabsTrigger value="financial">Modèle financier</TabsTrigger>
           <TabsTrigger value="entities">Intervenants</TabsTrigger>
           <TabsTrigger value="assistant">Assistant IA</TabsTrigger>
@@ -161,6 +163,9 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="guarantees">
           <GuaranteesPanel dealId={deal.id} />
+        </TabsContent>
+        <TabsContent value="repayments">
+          <RepaymentsPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="financial">
           <FinancialModelPanel dealId={deal.id} />
