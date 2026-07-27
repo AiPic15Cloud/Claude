@@ -31,7 +31,7 @@ function stripAccents(s: string): string {
 }
 
 function parseNumber(raw: string): number | undefined {
-  const cleaned = raw.replace(/[^\d,.\-]/g, '').replace(',', '.');
+  const cleaned = raw.replace(/[^\d,.-]/g, '').replace(',', '.');
   if (!cleaned) return undefined;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : undefined;

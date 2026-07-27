@@ -36,7 +36,7 @@ export class MarketIndicatorsService {
 
       const periods = Object.entries(timeIndex).sort((a, b) => b[1] - a[1]);
       const [latestPeriod, latestPos] = periods[0] ?? [];
-      const [prevPeriod, prevPos] = periods[1] ?? [];
+      const [, prevPos] = periods[1] ?? [];
       const value = latestPos !== undefined ? json.value[String(latestPos)] : undefined;
       const previousValue = prevPos !== undefined ? json.value[String(prevPos)] : undefined;
 
