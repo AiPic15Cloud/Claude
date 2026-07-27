@@ -121,7 +121,7 @@ export function ObjectifsPage() {
                     contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                     formatter={(value: number) => formatCurrency(value)}
                   />
-                  <Bar dataKey="Objectif" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} maxBarSize={20} />
+                  <Bar dataKey="Objectif" fill="hsl(var(--muted-foreground))" fillOpacity={0.35} radius={[4, 4, 0, 0]} maxBarSize={20} />
                   <Bar dataKey="Réalisé" fill="hsl(var(--chart-accent))" radius={[4, 4, 0, 0]} maxBarSize={20} />
                 </BarChart>
               </ResponsiveContainer>
