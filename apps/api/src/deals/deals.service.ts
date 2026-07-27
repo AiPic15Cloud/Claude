@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
@@ -24,6 +24,8 @@ const DEAL_INCLUDE = {
 
 @Injectable()
 export class DealsService {
+  private readonly logger = new Logger(DealsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly activities: ActivitiesService,
@@ -61,13 +63,18 @@ export class DealsService {
   // no amount of retrying escapes that, since a failed insert never
   // changes what "max" resolves to. A single atomic SQL upsert against a
   // per-(org, year) counter closes the race entirely, at any concurrency.
+  //
+  // The counter can still legitimately fall behind the deals table itself
+  // (e.g. it was bootstrapped from a stale/partial max, or rows landed in
+  // the table outside this path) — plain "+1 every call" can never recover
+  // from that, it just walks forward one collision at a time. GREATEST(...)
+  // makes every call self-healing: it re-checks the true max on every
+  // invocation and jumps the counter past it if it's ever behind, not only
+  // when the row is first created.
   private async nextReference(organizationId: string): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `ATL-${year}-`;
 
-    // Only used to seed the counter the very first time it's touched for
-    // this org+year (e.g. deals that already exist from before this
-    // counter existed) — every call after that is a pure atomic increment.
     const seedRow = await this.prisma.deal.findFirst({
       where: { organizationId, reference: { startsWith: prefix } },
       orderBy: { reference: 'desc' },
@@ -79,10 +86,12 @@ export class DealsService {
       INSERT INTO reference_counters ("organizationId", "year", "value")
       VALUES (${organizationId}, ${year}, ${seed + 1})
       ON CONFLICT ("organizationId", "year")
-      DO UPDATE SET "value" = reference_counters."value" + 1
+      DO UPDATE SET "value" = GREATEST(reference_counters."value" + 1, ${seed + 1})
       RETURNING "value"
     `;
-    return `${prefix}${String(rows[0].value).padStart(4, '0')}`;
+    const value = rows[0].value;
+    this.logger.debug(`nextReference org=${organizationId} year=${year} seed=${seed} -> value=${value}`);
+    return `${prefix}${String(value).padStart(4, '0')}`;
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
@@ -117,6 +126,12 @@ export class DealsService {
         break;
       } catch (error) {
         const isUniqueClash = (error as { code?: string })?.code === 'P2002';
+        if (isUniqueClash) {
+          const existing = await this.prisma.deal.findUnique({ where: { reference }, select: { id: true, name: true, createdAt: true } });
+          this.logger.warn(
+            `reference clash on attempt ${attempt} org=${organizationId} reference=${reference} existingDealId=${existing?.id} existingDealName=${existing?.name} existingCreatedAt=${existing?.createdAt?.toISOString()}`,
+          );
+        }
         if (!isUniqueClash || attempt === 4) throw error;
       }
     }
