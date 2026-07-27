@@ -44,14 +44,25 @@ export class DataGouvConnector implements NewsConnector {
 
     try {
       const response = await fetch(endpoint, {
-        headers: { Accept: 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          // data.gouv.fr's CDN rejects requests with a generic/empty UA —
+          // identify ourselves explicitly rather than looking like a bot.
+          'User-Agent': 'AtlasRealEstateOS/1.0 (+https://atlas.app; veille immobiliere)',
+        },
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) {
-        this.logger.warn(`data.gouv.fr responded ${response.status}`);
+        const preview = await response.text().catch(() => '');
+        this.logger.warn(`data.gouv.fr responded ${response.status} for query "${query}": ${preview.slice(0, 300)}`);
         return [];
       }
       const body = (await response.json()) as DataGouvResponse;
+      if (!Array.isArray(body.data)) {
+        this.logger.warn(`data.gouv.fr returned unexpected shape for query "${query}"`);
+        return [];
+      }
+      this.logger.log(`data.gouv.fr returned ${body.data.length} dataset(s) for query "${query}"`);
 
       return body.data.map((dataset) => ({
         title: dataset.title,
