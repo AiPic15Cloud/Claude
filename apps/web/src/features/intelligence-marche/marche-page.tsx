@@ -36,7 +36,7 @@ export function MarchePage() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Intelligence Marché</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Marché</h1>
           <p className="text-sm text-muted-foreground">
             Veille agrégée, dédoublonnée et priorisée — data.gouv.fr en automatique, saisie manuelle en complément.
           </p>
