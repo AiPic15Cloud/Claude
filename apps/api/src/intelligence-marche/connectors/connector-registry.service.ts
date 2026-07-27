@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { NewsConnector } from './connector.interface';
 import { DataGouvConnector } from './data-gouv.connector';
 import { DvfConnector } from './dvf.connector';
-import { EuronewsConnector } from './euronews.connector';
 import { YahooFinanceConnector } from './yahoo-finance.connector';
 import { ManualConnector } from './manual.connector';
 
@@ -13,14 +12,12 @@ export class ConnectorRegistryService {
   constructor(
     dataGouv: DataGouvConnector,
     dvf: DvfConnector,
-    euronews: EuronewsConnector,
     yahooFinance: YahooFinanceConnector,
     manual: ManualConnector,
   ) {
     this.connectors = new Map<string, NewsConnector>([
       [dataGouv.key, dataGouv],
       [dvf.key, dvf],
-      [euronews.key, euronews],
       [yahooFinance.key, yahooFinance],
       [manual.key, manual],
     ]);

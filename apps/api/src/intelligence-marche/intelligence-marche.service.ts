@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { Prisma, Priority } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -16,9 +16,15 @@ import { QueryArticlesDto } from './dto/query-articles.dto';
 const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[] = [
   { name: 'data.gouv.fr — Immobilier & construction', connector: 'data-gouv-catalogue', url: 'immobilier logement construction permis de construire' },
   { name: 'data.gouv.fr — Valeurs foncières (DVF)', connector: 'data-gouv-dvf', url: null },
-  { name: 'Euronews — Actualités', connector: 'euronews-breaking', url: null },
   { name: 'Yahoo Finance — BTC/USD', connector: 'yahoo-finance-btc', url: null },
 ];
+
+// Connectors removed after turning out non-functional in production (e.g.
+// unresolvable/unexpected upstream response shape) — deleted on boot rather
+// than left as a dead "Collecter" button. No migration needed since it's a
+// plain runtime cleanup, and cascade-deletes whatever (if any) articles that
+// connector produced.
+const RETIRED_CONNECTORS = ['euronews-breaking'];
 
 const HIGH_PRIORITY_KEYWORDS = [
   'taux',
@@ -45,7 +51,7 @@ function inferPriority(title: string, summary?: string | null): Priority {
 }
 
 @Injectable()
-export class IntelligenceMarcheService {
+export class IntelligenceMarcheService implements OnApplicationBootstrap {
   private readonly logger = new Logger(IntelligenceMarcheService.name);
 
   constructor(
@@ -54,6 +60,11 @@ export class IntelligenceMarcheService {
     private readonly connectors: ConnectorRegistryService,
     private readonly search: MeilisearchService,
   ) {}
+
+  async onApplicationBootstrap() {
+    const { count } = await this.prisma.newsSource.deleteMany({ where: { connector: { in: RETIRED_CONNECTORS } } });
+    if (count > 0) this.logger.log(`Supprimé ${count} source(s) retirée(s) (connecteur(s) obsolète(s)).`);
+  }
 
   listConnectors() {
     return this.connectors.list();

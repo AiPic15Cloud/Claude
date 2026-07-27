@@ -6,7 +6,6 @@ import { IntelligenceMarcheController } from './intelligence-marche.controller';
 import { ConnectorRegistryService } from './connectors/connector-registry.service';
 import { DataGouvConnector } from './connectors/data-gouv.connector';
 import { DvfConnector } from './connectors/dvf.connector';
-import { EuronewsConnector } from './connectors/euronews.connector';
 import { YahooFinanceConnector } from './connectors/yahoo-finance.connector';
 import { ManualConnector } from './connectors/manual.connector';
 import { AlertsModule } from '../alerts/alerts.module';
@@ -21,7 +20,6 @@ import { SearchModule } from '../search/search.module';
     ConnectorRegistryService,
     DataGouvConnector,
     DvfConnector,
-    EuronewsConnector,
     YahooFinanceConnector,
     ManualConnector,
   ],
