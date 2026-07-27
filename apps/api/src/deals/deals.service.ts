@@ -55,20 +55,34 @@ export class DealsService {
     });
   }
 
-  // Based on the highest existing suffix, not a row count — a count-based
-  // scheme collides as soon as any deal is deleted (or a different import
-  // path uses the same organization), since the next count can match an
-  // already-used higher reference.
-  private async generateReference(organizationId: string, offset = 0): Promise<string> {
+  // A prior read-then-increment scheme (compute "current max", add one) is
+  // inherently racy: any two concurrent creates can read the same max
+  // before either commits, then both retry from that same stale reading —
+  // no amount of retrying escapes that, since a failed insert never
+  // changes what "max" resolves to. A single atomic SQL upsert against a
+  // per-(org, year) counter closes the race entirely, at any concurrency.
+  private async nextReference(organizationId: string): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `ATL-${year}-`;
-    const last = await this.prisma.deal.findFirst({
+
+    // Only used to seed the counter the very first time it's touched for
+    // this org+year (e.g. deals that already exist from before this
+    // counter existed) — every call after that is a pure atomic increment.
+    const seedRow = await this.prisma.deal.findFirst({
       where: { organizationId, reference: { startsWith: prefix } },
       orderBy: { reference: 'desc' },
       select: { reference: true },
     });
-    const lastNum = last ? parseInt(last.reference.slice(prefix.length), 10) || 0 : 0;
-    return `${prefix}${String(lastNum + 1 + offset).padStart(4, '0')}`;
+    const seed = seedRow ? parseInt(seedRow.reference.slice(prefix.length), 10) || 0 : 0;
+
+    const rows = await this.prisma.$queryRaw<{ value: number }[]>`
+      INSERT INTO reference_counters ("organizationId", "year", "value")
+      VALUES (${organizationId}, ${year}, ${seed + 1})
+      ON CONFLICT ("organizationId", "year")
+      DO UPDATE SET "value" = reference_counters."value" + 1
+      RETURNING "value"
+    `;
+    return `${prefix}${String(rows[0].value).padStart(4, '0')}`;
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
@@ -91,28 +105,12 @@ export class DealsService {
       tags: tagIds?.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
     };
 
-    // Retry on a reference collision (e.g. a near-simultaneous create from a
-    // double submit) instead of surfacing a 500 for what is otherwise a
-    // valid request. The offset is critical: a failed insert never changes
-    // what "last" resolves to, so without it every retry recomputes the
-    // exact same colliding candidate and the loop can never escape — this
-    // guarantees each attempt tries a genuinely different number.
-    const MAX_ATTEMPTS = 6;
-    let deal;
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const reference = await this.generateReference(organizationId, attempt);
-      try {
-        deal = await this.prisma.deal.create({ data: { ...data, reference }, include: DEAL_INCLUDE });
-        break;
-      } catch (error) {
-        const isUniqueClash = (error as { code?: string })?.code === 'P2002';
-        if (!isUniqueClash || attempt === MAX_ATTEMPTS - 1) throw error;
-      }
-    }
+    const reference = await this.nextReference(organizationId);
+    const deal = await this.prisma.deal.create({ data: { ...data, reference }, include: DEAL_INCLUDE });
 
-    await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
-    this.indexForSearch(deal!);
-    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), deal!.repaid) };
+    await this.activities.log(deal.id, userId, 'DEAL_CREATED', `Opération créée : ${deal.name}`);
+    this.indexForSearch(deal);
+    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid) };
   }
 
   async findAll(organizationId: string, query: QueryDealsDto) {

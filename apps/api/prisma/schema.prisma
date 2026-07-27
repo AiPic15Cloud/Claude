@@ -227,6 +227,20 @@ model RefreshToken {
 
 // ── Portfolio domain ───────────────────────────────────────
 
+// Backs atomic reference-number generation (ATL-YYYY-NNNN). A read-then-
+// increment in application code races under concurrent creates — two
+// requests can read the same "last" value before either commits, then
+// both retry from that same stale reading. A single atomic SQL upsert
+// against this counter closes that race entirely, regardless of load.
+model ReferenceCounter {
+  organizationId String
+  year           Int
+  value          Int
+
+  @@id([organizationId, year])
+  @@map("reference_counters")
+}
+
 model Deal {
   id             String       @id @default(cuid())
   organizationId String
