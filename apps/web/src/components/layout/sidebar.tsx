@@ -4,22 +4,16 @@ import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
 import { useUiStore } from '@/store/ui.store';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
-export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar } = useUiStore();
-
+function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   return (
-    <aside
-      className={cn(
-        'fixed inset-y-0 left-0 z-30 flex flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200',
-        sidebarCollapsed ? 'w-16' : 'w-60',
-      )}
-    >
+    <>
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Building2 className="h-4 w-4" />
         </div>
-        {!sidebarCollapsed && (
+        {!collapsed && (
           <div className="flex flex-col leading-none">
             <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">ATLAS</span>
             <span className="text-[9px] font-medium uppercase tracking-wider text-sidebar-foreground/50">Real Estate OS</span>
@@ -28,7 +22,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto no-scrollbar px-2 py-3">
-        {!sidebarCollapsed && (
+        {!collapsed && (
           <p className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">Modules</p>
         )}
         <ul className="flex flex-col gap-0.5">
@@ -39,6 +33,7 @@ export function Sidebar() {
                 key={item.path}
                 to={item.available ? item.path : '/roadmap'}
                 state={!item.available ? { module: item.label } : undefined}
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
@@ -50,10 +45,8 @@ export function Sidebar() {
                 }
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {!sidebarCollapsed && (
-                  <span className="flex-1 truncate">{item.label}</span>
-                )}
-                {!sidebarCollapsed && !item.available && (
+                {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                {!collapsed && !item.available && (
                   <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                     Bientôt
                   </span>
@@ -61,7 +54,7 @@ export function Sidebar() {
               </NavLink>
             );
 
-            if (sidebarCollapsed) {
+            if (collapsed) {
               return (
                 <Tooltip key={item.path}>
                   <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
@@ -73,16 +66,39 @@ export function Sidebar() {
           })}
         </ul>
       </nav>
+    </>
+  );
+}
 
-      <div className="border-t border-sidebar-border p-2">
-        <button
-          onClick={toggleSidebar}
-          className="flex w-full items-center justify-center gap-2 rounded-md px-2.5 py-2 text-xs text-sidebar-foreground/60 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground"
-        >
-          {sidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-          {!sidebarCollapsed && 'Réduire'}
-        </button>
-      </div>
-    </aside>
+export function Sidebar() {
+  const { sidebarCollapsed, toggleSidebar, mobileNavOpen, setMobileNavOpen } = useUiStore();
+
+  return (
+    <>
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 md:flex',
+          sidebarCollapsed ? 'w-16' : 'w-60',
+        )}
+      >
+        <SidebarNav collapsed={sidebarCollapsed} />
+        <div className="border-t border-sidebar-border p-2">
+          <button
+            onClick={toggleSidebar}
+            className="flex w-full items-center justify-center gap-2 rounded-md px-2.5 py-2 text-xs text-sidebar-foreground/60 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground"
+          >
+            {sidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+            {!sidebarCollapsed && 'Réduire'}
+          </button>
+        </div>
+      </aside>
+
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="flex w-60 flex-col bg-sidebar p-0">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <SidebarNav collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
