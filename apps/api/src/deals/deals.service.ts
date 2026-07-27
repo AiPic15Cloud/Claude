@@ -105,12 +105,25 @@ export class DealsService {
       tags: tagIds?.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
     };
 
-    const reference = await this.nextReference(organizationId);
-    const deal = await this.prisma.deal.create({ data: { ...data, reference }, include: DEAL_INCLUDE });
+    // Belt and braces: the counter is atomic so this shouldn't collide, but
+    // if it's ever behind the actual max (e.g. rows inserted outside this
+    // path), each retry pulls a fresh atomic increment — never the same
+    // stale candidate twice — guaranteeing forward progress either way.
+    let deal;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const reference = await this.nextReference(organizationId);
+      try {
+        deal = await this.prisma.deal.create({ data: { ...data, reference }, include: DEAL_INCLUDE });
+        break;
+      } catch (error) {
+        const isUniqueClash = (error as { code?: string })?.code === 'P2002';
+        if (!isUniqueClash || attempt === 4) throw error;
+      }
+    }
 
-    await this.activities.log(deal.id, userId, 'DEAL_CREATED', `Opération créée : ${deal.name}`);
-    this.indexForSearch(deal);
-    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid) };
+    await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
+    this.indexForSearch(deal!);
+    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), deal!.repaid) };
   }
 
   async findAll(organizationId: string, query: QueryDealsDto) {
