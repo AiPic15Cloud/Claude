@@ -27,6 +27,18 @@ export function useCreateRepayment(dealId: string) {
   });
 }
 
+export function useUpdateRepayment(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: CreateRepaymentPayload & { id: string }) =>
+      api.patch<Repayment>(`/deals/${dealId}/repayments/${id}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['repayments', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['repayments-summary'] });
+    },
+  });
+}
+
 export function useDeleteRepayment(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({

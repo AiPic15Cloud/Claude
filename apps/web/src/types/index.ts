@@ -128,6 +128,8 @@ export interface Deal {
   dateMin?: string | null;
   dateCible?: string | null;
   dateMax?: string | null;
+  repaid: boolean;
+  contentieux: boolean;
   deadlineAlert?: DeadlineAlert;
   createdById: string;
   createdBy?: UserSummary;

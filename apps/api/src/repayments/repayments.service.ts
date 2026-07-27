@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
+import { UpdateRepaymentDto } from './dto/update-repayment.dto';
 
 @Injectable()
 export class RepaymentsService {
@@ -29,6 +30,21 @@ export class RepaymentsService {
     const label = dto.projected ? 'Remboursement projeté ajouté' : 'Remboursement enregistré';
     await this.activities.log(dealId, userId, 'DEAL_UPDATED', `${label} : ${dto.amount.toLocaleString('fr-FR')} € (${deal.name})`);
     return repayment;
+  }
+
+  async update(organizationId: string, dealId: string, repaymentId: string, dto: UpdateRepaymentDto) {
+    await this.assertDealAccess(organizationId, dealId);
+    const existing = await this.prisma.repayment.findFirst({ where: { id: repaymentId, dealId } });
+    if (!existing) throw new NotFoundException('Remboursement introuvable');
+    return this.prisma.repayment.update({
+      where: { id: repaymentId },
+      data: {
+        amount: dto.amount,
+        date: dto.date ? new Date(dto.date) : undefined,
+        projected: dto.projected,
+        note: dto.note,
+      },
+    });
   }
 
   async remove(organizationId: string, dealId: string, repaymentId: string) {

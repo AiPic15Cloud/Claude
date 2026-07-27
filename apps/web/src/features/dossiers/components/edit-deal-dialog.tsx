@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
@@ -43,6 +44,8 @@ const schema = z.object({
   dateCible: z.string().optional(),
   dateMax: z.string().optional(),
   description: z.string().optional(),
+  repaid: z.boolean().optional(),
+  contentieux: z.boolean().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -79,6 +82,8 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       dateCible: toDateInput(deal.dateCible),
       dateMax: toDateInput(deal.dateMax),
       description: deal.description ?? '',
+      repaid: deal.repaid,
+      contentieux: deal.contentieux,
     },
   });
 
@@ -232,6 +237,33 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
                 <Input id="dateMax" type="date" {...register('dateMax')} />
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+            <Controller
+              control={control}
+              name="repaid"
+              render={({ field }) => (
+                <div className="flex items-center gap-2.5">
+                  <Switch checked={field.value} onCheckedChange={field.onChange} id="repaid" />
+                  <Label htmlFor="repaid" className="cursor-pointer font-normal">
+                    Remboursé (n'émet plus d'alerte d'échéance)
+                  </Label>
+                </div>
+              )}
+            />
+            <Controller
+              control={control}
+              name="contentieux"
+              render={({ field }) => (
+                <div className="flex items-center gap-2.5">
+                  <Switch checked={field.value} onCheckedChange={field.onChange} id="contentieux" />
+                  <Label htmlFor="contentieux" className="cursor-pointer font-normal">
+                    Contentieux / pré-contentieux
+                  </Label>
+                </div>
+              )}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

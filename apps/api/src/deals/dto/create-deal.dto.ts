@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { DealType } from '@prisma/client';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -112,6 +113,16 @@ export class CreateDealDto {
   @IsOptional()
   @IsDateString()
   lastNewsletterDate?: string;
+
+  @ApiProperty({ required: false, description: 'Marque le projet comme entièrement remboursé — supprime les alertes d\'échéance' })
+  @IsOptional()
+  @IsBoolean()
+  repaid?: boolean;
+
+  @ApiProperty({ required: false, description: 'Signale un dossier en contentieux ou pré-contentieux' })
+  @IsOptional()
+  @IsBoolean()
+  contentieux?: boolean;
 
   @ApiProperty({ required: false, description: 'Cadence cible (jours) entre deux newsletters', default: 45 })
   @IsOptional()

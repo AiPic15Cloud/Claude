@@ -28,7 +28,7 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
 
   private async checkAll() {
     const deals = await this.prisma.deal.findMany({
-      where: { status: 'ACTIVE', dateMax: { not: null } },
+      where: { status: 'ACTIVE', dateMax: { not: null }, repaid: false },
       select: { id: true, organizationId: true, name: true, reference: true, dateMax: true },
     });
 

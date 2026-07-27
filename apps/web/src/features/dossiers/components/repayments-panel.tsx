@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, Plus, Wallet, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plus, Wallet, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useRepayments, useCreateRepayment, useDeleteRepayment } from '../hooks/use-repayments';
+import { useRepayments, useCreateRepayment, useUpdateRepayment, useDeleteRepayment } from '../hooks/use-repayments';
 import { formatCurrency, formatDate } from '@/lib/format';
+import type { Repayment } from '@/types';
 
 const schema = z.object({
   amount: z.coerce.number().positive('Montant requis'),
@@ -24,8 +25,10 @@ type FormValues = z.infer<typeof schema>;
 export function RepaymentsPanel({ dealId }: { dealId: string }) {
   const { data: repayments = [], isLoading } = useRepayments(dealId);
   const createRepayment = useCreateRepayment(dealId);
+  const updateRepayment = useUpdateRepayment(dealId);
   const deleteRepayment = useDeleteRepayment(dealId);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Repayment | null>(null);
 
   const {
     register,
@@ -35,9 +38,27 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { projected: false } });
 
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      reset({ amount: Number(editing.amount), date: editing.date.slice(0, 10), projected: editing.projected, note: editing.note ?? '' });
+    } else {
+      reset({ amount: undefined, date: '', projected: false, note: '' });
+    }
+  }, [open, editing, reset]);
+
+  const openCreate = () => { setEditing(null); setOpen(true); };
+  const openEdit = (r: Repayment) => { setEditing(r); setOpen(true); };
+
   const onSubmit = (values: FormValues) => {
-    createRepayment.mutate(values, { onSuccess: () => { setOpen(false); reset(); } });
+    if (editing) {
+      updateRepayment.mutate({ id: editing.id, ...values }, { onSuccess: () => setOpen(false) });
+    } else {
+      createRepayment.mutate(values, { onSuccess: () => setOpen(false) });
+    }
   };
+
+  const isPending = editing ? updateRepayment.isPending : createRepayment.isPending;
 
   const totalActual = repayments.filter((r) => !r.projected).reduce((sum, r) => sum + Number(r.amount), 0);
   const totalProjected = repayments.filter((r) => r.projected).reduce((sum, r) => sum + Number(r.amount), 0);
@@ -54,13 +75,13 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" onClick={openCreate}>
               <Plus className="h-3.5 w-3.5" /> Ajouter
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nouveau remboursement</DialogTitle>
+              <DialogTitle>{editing ? 'Modifier le remboursement' : 'Nouveau remboursement'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
@@ -92,9 +113,9 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
                 <Input id="note" {...register('note')} />
               </div>
               <DialogFooter>
-                <Button type="submit" disabled={createRepayment.isPending}>
-                  {createRepayment.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Ajouter
+                <Button type="submit" disabled={isPending}>
+                  {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editing ? 'Enregistrer' : 'Ajouter'}
                 </Button>
               </DialogFooter>
             </form>
@@ -118,6 +139,9 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
               {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}
             </div>
             <span className="text-sm font-semibold tabular-nums">{formatCurrency(r.amount)}</span>
+            <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => deleteRepayment.mutate(r.id)}>
               <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
