@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { StageBadge, TypeBadge, ScoreBadge } from './deal-badges';
 import { TagBadge } from './tag-badge';
+import { RepaymentsPanel } from '@/features/dossiers/components/repayments-panel';
 import { useDeal, useAddNote } from '../hooks/use-deals';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { PRIORITY_LABELS } from '@/types';
@@ -77,6 +78,7 @@ export function DealDrawer({ dealId, onClose }: DealDrawerProps) {
             <Tabs defaultValue="overview" className="mt-4">
               <TabsList>
                 <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+                <TabsTrigger value="repayments">Remboursements</TabsTrigger>
                 <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
                 <TabsTrigger value="tasks">Tâches ({deal.tasks.length})</TabsTrigger>
                 <TabsTrigger value="documents">Documents ({deal.documents.length})</TabsTrigger>
@@ -134,6 +136,10 @@ export function DealDrawer({ dealId, onClose }: DealDrawerProps) {
                     {deal.assignedTo ? `${deal.assignedTo.firstName} ${deal.assignedTo.lastName}` : 'Non assigné'}
                   </span>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="repayments">
+                <RepaymentsPanel dealId={deal.id} />
               </TabsContent>
 
               <TabsContent value="notes" className="flex flex-col gap-4">
