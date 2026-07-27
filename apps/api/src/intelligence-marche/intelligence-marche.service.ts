@@ -16,6 +16,7 @@ import { QueryArticlesDto } from './dto/query-articles.dto';
 const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[] = [
   { name: 'data.gouv.fr — Immobilier & construction', connector: 'data-gouv-catalogue', url: 'immobilier logement construction permis de construire' },
   { name: 'data.gouv.fr — Valeurs foncières (DVF)', connector: 'data-gouv-dvf', url: null },
+  { name: 'Google News — Immobilier & finance', connector: 'google-news-rss', url: null },
   { name: 'Yahoo Finance — BTC/USD', connector: 'yahoo-finance-btc', url: null },
 ];
 
