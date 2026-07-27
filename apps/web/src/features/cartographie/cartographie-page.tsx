@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDeals } from '@/features/portfolio/hooks/use-deals';
 import { useEntities } from '@/features/knowledge-graph/hooks/use-graph';
 import { StageBadge } from '@/features/portfolio/components/deal-badges';
@@ -33,6 +33,7 @@ export function CartographiePage() {
   const [showDeals, setShowDeals] = useState(true);
   const [showEntities, setShowEntities] = useState(true);
   const theme = useThemeStore((s) => s.theme);
+  const navigate = useNavigate();
 
   const { data: dealsData } = useDeals({ pageSize: 200 });
   const { data: entities = [] } = useEntities();
@@ -78,7 +79,12 @@ export function CartographiePage() {
           />
           {showDeals &&
             geoDeals.map((deal) => (
-              <Marker key={deal.id} position={[Number(deal.lat), Number(deal.lng)]} icon={dealIcon}>
+              <Marker
+                key={deal.id}
+                position={[Number(deal.lat), Number(deal.lng)]}
+                icon={dealIcon}
+                eventHandlers={{ click: () => navigate(`/deals/${deal.id}`) }}
+              >
                 <Popup>
                   <div className="flex flex-col gap-1 text-sm">
                     <Link to={`/deals/${deal.id}`} className="font-medium hover:underline">

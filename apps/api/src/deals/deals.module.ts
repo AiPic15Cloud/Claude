@@ -1,12 +1,16 @@
 import { Module } from '@nestjs/common';
 import { DealsService } from './deals.service';
 import { DealsController } from './deals.controller';
+import { GeocodingService } from './geocoding.service';
+import { GeocodingBackfillService } from './geocoding-backfill.service';
+import { DeadlineAlertsService } from './deadline-alerts.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { SearchModule } from '../search/search.module';
+import { AlertsModule } from '../alerts/alerts.module';
 
 @Module({
-  imports: [ActivitiesModule, SearchModule],
-  providers: [DealsService],
+  imports: [ActivitiesModule, SearchModule, AlertsModule],
+  providers: [DealsService, GeocodingService, GeocodingBackfillService, DeadlineAlertsService],
   controllers: [DealsController],
   exports: [DealsService],
 })
