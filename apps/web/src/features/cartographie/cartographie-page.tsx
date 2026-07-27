@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import { MapContainer, Marker, Tooltip, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useDeals } from '@/features/portfolio/hooks/use-deals';
 import { useEntities } from '@/features/knowledge-graph/hooks/use-graph';
 import { StageBadge } from '@/features/portfolio/components/deal-badges';
@@ -85,28 +85,26 @@ export function CartographiePage() {
                 icon={dealIcon}
                 eventHandlers={{ click: () => navigate(`/deals/${deal.id}`) }}
               >
-                <Popup>
+                <Tooltip direction="top" offset={[0, -8]}>
                   <div className="flex flex-col gap-1 text-sm">
-                    <Link to={`/deals/${deal.id}`} className="font-medium hover:underline">
-                      {deal.name}
-                    </Link>
+                    <p className="font-medium">{deal.name}</p>
                     <p className="text-xs text-muted-foreground">{deal.city}</p>
                     <StageBadge stage={deal.stage} />
                     <p className="text-xs">{formatCurrency(deal.amountTarget)}</p>
                   </div>
-                </Popup>
+                </Tooltip>
               </Marker>
             ))}
           {showEntities &&
             geoEntities.map((entity) => (
               <Marker key={entity.id} position={[Number(entity.lat), Number(entity.lng)]} icon={entityIcon}>
-                <Popup>
+                <Tooltip direction="top" offset={[0, -6]}>
                   <div className="flex flex-col gap-1 text-sm">
                     <p className="font-medium">{entity.name}</p>
                     <p className="text-xs text-muted-foreground">{GRAPH_ENTITY_TYPE_LABELS[entity.type]}</p>
                     {entity.city && <p className="text-xs text-muted-foreground">{entity.city}</p>}
                   </div>
-                </Popup>
+                </Tooltip>
               </Marker>
             ))}
         </MapContainer>

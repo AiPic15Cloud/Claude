@@ -64,13 +64,38 @@ export class BarometerConnector {
       const html = await res.text();
       const stats = this.parseTable(html);
       if (stats.length === 0) {
-        this.logger.warn('Barometer page fetched but no recognizable platform table found — check the selectors.');
+        this.logDiagnostics(html);
       }
       return stats;
     } catch (error) {
       this.logger.warn(`Barometer fetch failed: ${(error as Error).message}`);
       return [];
     }
+  }
+
+  /**
+   * Reports exactly why nothing was extracted — how many <table> elements
+   * exist and what their header text looked like, or (if there are none
+   * at all) a text snippet of the page — so the real markup structure is
+   * visible from the logs instead of requiring another blind guess.
+   */
+  private logDiagnostics(html: string) {
+    const $ = cheerio.load(html);
+    const tables = $('table').toArray();
+    if (tables.length === 0) {
+      const snippet = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 500);
+      this.logger.warn(`Barometer page has no <table> element — likely a div/grid layout. Body text snippet: "${snippet}"`);
+      return;
+    }
+    const summaries = tables.slice(0, 3).map((table, i) => {
+      const headers = $(table)
+        .find('thead th, tr:first-child th, tr:first-child td')
+        .toArray()
+        .map((el) => $(el).text().trim())
+        .join(' | ');
+      return `table[${i}] headers: "${headers}"`;
+    });
+    this.logger.warn(`Barometer page has ${tables.length} <table>(s) but none matched a known header — ${summaries.join('; ')}`);
   }
 
   private parseTable(html: string): CompetitorStats[] {
