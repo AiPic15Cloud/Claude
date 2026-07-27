@@ -16,7 +16,7 @@ import { GRAPH_ENTITY_TYPE_LABELS } from '@/types';
 const FRANCE_CENTER: [number, number] = [46.6, 2.4];
 
 const dealIcon = L.divIcon({
-  html: '<div style="width:12px;height:12px;border-radius:9999px;background:#5b6ef5;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
+  html: '<div style="width:12px;height:12px;border-radius:9999px;background:#0d9488;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
   className: '',
   iconSize: [12, 12],
   iconAnchor: [6, 6],
