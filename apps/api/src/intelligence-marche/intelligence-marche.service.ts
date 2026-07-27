@@ -118,40 +118,48 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
     let created = 0;
 
     for (const item of fetched) {
-      const hash = dedupeHash(item.title, item.url);
-      const existing = await this.prisma.article.findUnique({ where: { dedupeHash: hash } });
-      if (existing) continue;
+      try {
+        const hash = dedupeHash(item.title, item.url);
+        const existing = await this.prisma.article.findUnique({ where: { dedupeHash: hash } });
+        if (existing) continue;
 
-      const priority = inferPriority(item.title, item.summary);
-      const article = await this.prisma.article.create({
-        data: {
-          organizationId: source.organizationId,
-          sourceId: source.id,
-          title: item.title,
-          summary: item.summary,
-          url: item.url,
-          category: item.category,
-          publishedAt: item.publishedAt,
-          dedupeHash: hash,
-          priority,
-        },
-      });
-      created += 1;
-      void this.search.indexArticle({
-        id: article.id,
-        organizationId: article.organizationId,
-        title: article.title,
-        summary: article.summary,
-        category: article.category,
-        publishedAt: article.publishedAt.toISOString(),
-      });
-
-      if (priority === Priority.HIGH) {
-        await this.alerts.create(source.organizationId, {
-          title: 'Nouvelle actualité prioritaire',
-          message: article.title,
-          severity: 'WARNING',
+        const publishedAt = item.publishedAt && !Number.isNaN(item.publishedAt.getTime()) ? item.publishedAt : new Date();
+        const priority = inferPriority(item.title, item.summary);
+        const article = await this.prisma.article.create({
+          data: {
+            organizationId: source.organizationId,
+            sourceId: source.id,
+            title: item.title,
+            summary: item.summary,
+            url: item.url,
+            category: item.category,
+            publishedAt,
+            dedupeHash: hash,
+            priority,
+          },
         });
+        created += 1;
+        void this.search.indexArticle({
+          id: article.id,
+          organizationId: article.organizationId,
+          title: article.title,
+          summary: article.summary,
+          category: article.category,
+          publishedAt: article.publishedAt.toISOString(),
+        });
+
+        if (priority === Priority.HIGH) {
+          await this.alerts.create(source.organizationId, {
+            title: 'Nouvelle actualité prioritaire',
+            message: article.title,
+            severity: 'WARNING',
+          });
+        }
+      } catch (error) {
+        // One malformed item (e.g. an unparseable date from a less
+        // controlled feed like Google News) must never abort the rest of
+        // the batch — skip it and keep going.
+        this.logger.warn(`Échec d'ingestion d'un article de "${source.name}": ${(error as Error).message}`);
       }
     }
 
