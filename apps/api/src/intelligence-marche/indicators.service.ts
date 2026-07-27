@@ -29,7 +29,14 @@ export class MarketIndicatorsService {
     const url = `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${dataset}?${search.toString()}`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // Eurostat's error body is normally self-explanatory (e.g. it lists
+        // the valid values for a rejected dimension) — surface it instead
+        // of just the status code, so a wrong dimension code is diagnosable
+        // from the logs alone rather than by guessing again blind.
+        const preview = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
+      }
       const json = (await res.json()) as EurostatJsonStat;
       const timeIndex = json.dimension?.time?.category?.index;
       if (!timeIndex) throw new Error('unexpected shape');
@@ -40,15 +47,43 @@ export class MarketIndicatorsService {
       const value = latestPos !== undefined ? json.value[String(latestPos)] : undefined;
       const previousValue = prevPos !== undefined ? json.value[String(prevPos)] : undefined;
 
+      if (value === undefined) throw new Error('no data point for the latest period');
+
       return {
         value: value ?? null,
         previousValue: previousValue ?? null,
         period: latestPeriod ?? null,
       };
     } catch (error) {
-      this.logger.warn(`Eurostat fetch failed for ${dataset}: ${(error as Error).message}`);
+      this.logger.warn(`Eurostat fetch failed for ${dataset} (${new URLSearchParams(params).toString()}): ${(error as Error).message}`);
       return { value: null, previousValue: null, period: null };
     }
+  }
+
+  /**
+   * The exact dimension code for "building permits" on sts_cobp_m isn't
+   * confidently known without live access to Eurostat's dimension metadata
+   * — tries a short list of plausible parameter sets in order and keeps the
+   * first one that actually returns a data point, logging which one worked
+   * (or, if none did, the per-attempt Eurostat errors) so this is fixable
+   * from the logs without another round of guessing.
+   */
+  private async fetchBuildingPermits(): Promise<EurostatIndicator> {
+    const attempts: Record<string, string>[] = [
+      { geo: 'FR', indic_bt: 'PERM', s_adj: 'CA', unit: 'I15', nace_r2: 'F', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'PSQM', s_adj: 'CA', unit: 'I15', nace_r2: 'F', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', cpa2_1: 'F_CC1', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', unit: 'I15', s_adj: 'CA', sinceTimePeriod: '2024-01' },
+    ];
+
+    for (const params of attempts) {
+      const result = await this.fetchEurostat('sts_cobp_m', params);
+      if (result.value !== null) {
+        this.logger.log(`Building permits resolved with params: ${new URLSearchParams(params).toString()}`);
+        return result;
+      }
+    }
+    return { value: null, previousValue: null, period: null };
   }
 
   async summary() {
@@ -65,7 +100,7 @@ export class MarketIndicatorsService {
       this.fetchEurostat('irt_st_m', { geo: 'EA', int_rt: 'IRT_M3', sinceTimePeriod: '2024-01' }),
       // Building permits, production index (2015=100), construction, France —
       // an activity index, not the raw permit count SDES publishes.
-      this.fetchEurostat('sts_cobp_m', { geo: 'FR', indic_bt: 'PERM', s_adj: 'CA', unit: 'I15', nace_r2: 'F', sinceTimePeriod: '2024-01' }),
+      this.fetchBuildingPermits(),
     ]);
 
     const data = {
