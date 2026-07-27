@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { MeilisearchService } from '../search/meilisearch.service';
+import { GeocodingService } from './geocoding.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
@@ -27,7 +28,20 @@ export class DealsService {
     private readonly prisma: PrismaService,
     private readonly activities: ActivitiesService,
     private readonly search: MeilisearchService,
+    private readonly geocoding: GeocodingService,
   ) {}
+
+  /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
+  private async resolveCoordinates(
+    lat: number | undefined,
+    lng: number | undefined,
+    location: { address?: string | null; city?: string | null; postcode?: string | null },
+  ): Promise<{ lat?: number; lng?: number }> {
+    if (lat !== undefined || lng !== undefined) return { lat, lng };
+    if (!location.address && !location.city) return {};
+    const result = await this.geocoding.geocode(location);
+    return result ? { lat: result.lat, lng: result.lng } : {};
+  }
 
   private indexForSearch(deal: { id: string; organizationId: string; name: string; reference: string; type: string; stage: string; city: string | null }) {
     void this.search.indexDeal({
@@ -58,9 +72,11 @@ export class DealsService {
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
-    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, lat, lng, ...rest } = dto;
+    const coords = await this.resolveCoordinates(lat, lng, { address: rest.address, city: rest.city, postcode: rest.postcode });
     const data = {
       ...rest,
+      ...coords,
       amountRaised,
       feesRate,
       feesAmount: computeFeesAmount(feesRate, amountRaised ?? 0),
@@ -155,12 +171,23 @@ export class DealsService {
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateDealDto) {
     await this.assertExists(organizationId, id);
-    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, stage, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, stage, lat, lng, ...rest } = dto;
 
     const current = await this.prisma.deal.findUnique({
       where: { id },
-      select: { stage: true, name: true, feesRate: true, amountRaised: true, dateMax: true },
+      select: { stage: true, name: true, feesRate: true, amountRaised: true, dateMax: true, address: true, city: true, postcode: true, lat: true, lng: true },
     });
+
+    let coords: { lat?: number; lng?: number } = { lat, lng };
+    const addressChanged = rest.address !== undefined || rest.city !== undefined || rest.postcode !== undefined;
+    const missingCoords = current ? current.lat === null && current.lng === null : false;
+    if (lat === undefined && lng === undefined && (addressChanged || missingCoords)) {
+      coords = await this.resolveCoordinates(undefined, undefined, {
+        address: rest.address ?? current?.address,
+        city: rest.city ?? current?.city,
+        postcode: rest.postcode ?? current?.postcode,
+      });
+    }
 
     if (stage && current && current.stage !== stage) {
       await this.activities.log(id, userId, 'STAGE_CHANGED', `Étape modifiée : ${current.stage} → ${stage}`);
@@ -181,6 +208,7 @@ export class DealsService {
       where: { id },
       data: {
         ...rest,
+        ...coords,
         amountRaised,
         feesRate,
         feesAmount: computeFeesAmount(nextFeesRate, nextAmountRaised),

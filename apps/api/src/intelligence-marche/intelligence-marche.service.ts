@@ -9,6 +9,17 @@ import { CreateSourceDto } from './dto/create-source.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { QueryArticlesDto } from './dto/query-articles.dto';
 
+// Connectors that need no configuration and should always be available —
+// provisioned lazily on an org's first visit so orgs created outside the
+// seed script (self-registration, real-data import) get automatic coverage
+// too, same as data-gouv-catalogue always has.
+const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[] = [
+  { name: 'data.gouv.fr — Immobilier & construction', connector: 'data-gouv-catalogue', url: 'immobilier logement construction permis de construire' },
+  { name: 'data.gouv.fr — Valeurs foncières (DVF)', connector: 'data-gouv-dvf', url: null },
+  { name: 'Euronews — Actualités', connector: 'euronews-breaking', url: null },
+  { name: 'Yahoo Finance — BTC/USD', connector: 'yahoo-finance-btc', url: null },
+];
+
 const HIGH_PRIORITY_KEYWORDS = [
   'taux',
   'inflation',
@@ -50,24 +61,19 @@ export class IntelligenceMarcheService {
 
   async listSources(organizationId: string) {
     const sources = await this.prisma.newsSource.findMany({ where: { organizationId }, orderBy: { name: 'asc' } });
-    if (sources.some((s) => s.connector === 'data-gouv-catalogue')) return sources;
+    const existingConnectors = new Set(sources.map((s) => s.connector));
+    const missing = DEFAULT_SOURCES.filter((d) => !existingConnectors.has(d.connector));
+    if (missing.length === 0) return sources;
 
-    // Orgs created outside the seed script (self-registration, real-data
-    // import) never got the default automatic source — provision it lazily
-    // on first visit instead of leaving the module without automatic
-    // coverage forever. Only checks for this specific connector, so an org
-    // that already added its own manual source still gets it too.
-    const defaultSource = await this.prisma.newsSource.create({
-      data: {
-        organizationId,
-        name: 'data.gouv.fr — Immobilier & construction',
-        connector: 'data-gouv-catalogue',
-        url: 'immobilier logement construction permis de construire',
-        active: true,
-      },
-    });
-    void this.ingestSource(defaultSource.id);
-    return [...sources, defaultSource];
+    const created = await Promise.all(
+      missing.map((d) =>
+        this.prisma.newsSource.create({
+          data: { organizationId, name: d.name, connector: d.connector, url: d.url, active: true },
+        }),
+      ),
+    );
+    for (const source of created) void this.ingestSource(source.id);
+    return [...sources, ...created].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   createSource(organizationId: string, dto: CreateSourceDto) {
