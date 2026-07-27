@@ -273,6 +273,13 @@ model Deal {
   dateCible  DateTime?
   dateMax    DateTime?
 
+  // repaid suppresses deadline-alert escalation entirely (a fully repaid
+  // deal shouldn't keep raising "échéance dépassée" once it's settled).
+  // contentieux is an independent manual flag — a deal can be repaid or
+  // active while also being flagged as in (pre-)litigation.
+  repaid      Boolean @default(false)
+  contentieux Boolean @default(false)
+
   // Investor newsletter follow-up — lastNewsletterDate resets the countdown;
   // status (À jour / À relancer / Critique) is derived from the elapsed days
   // vs. newsletterTargetDays, not stored.

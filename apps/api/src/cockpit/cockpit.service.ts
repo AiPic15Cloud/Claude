@@ -72,7 +72,7 @@ export class CockpitService {
         select: { id: true, name: true, reference: true, stage: true, amountTarget: true, amountRaised: true },
       }),
       this.prisma.deal.findMany({
-        where: { organizationId, status: 'ACTIVE', dateMax: { not: null } },
+        where: { organizationId, status: 'ACTIVE', dateMax: { not: null }, repaid: false },
         select: { id: true, name: true, reference: true, dateMax: true },
       }),
     ]);

@@ -107,7 +107,7 @@ export class DealsService {
 
     await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
     this.indexForSearch(deal!);
-    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax) };
+    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), deal!.repaid) };
   }
 
   async findAll(organizationId: string, query: QueryDealsDto) {
@@ -120,7 +120,7 @@ export class DealsService {
       ...(query.stage?.length ? { stage: { in: query.stage } } : {}),
       ...(query.type?.length ? { type: { in: query.type } } : {}),
       ...(query.tagIds?.length ? { tags: { some: { tagId: { in: query.tagIds } } } } : {}),
-      ...(query.late ? { dateMax: { lt: new Date() } } : {}),
+      ...(query.late ? { dateMax: { lt: new Date() }, repaid: false } : {}),
       ...(query.search
         ? {
             OR: [
@@ -144,7 +144,7 @@ export class DealsService {
     ]);
 
     return {
-      items: items.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax) })),
+      items: items.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), d.repaid) })),
       total,
       page,
       pageSize,
@@ -166,7 +166,7 @@ export class DealsService {
       },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
-    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax) };
+    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid) };
   }
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateDealDto) {
@@ -231,7 +231,7 @@ export class DealsService {
 
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Opération mise à jour');
     this.indexForSearch(deal);
-    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax) };
+    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid) };
   }
 
   async changeStage(organizationId: string, id: string, userId: string, stage: Prisma.DealUpdateInput['stage']) {
@@ -257,7 +257,7 @@ export class DealsService {
   async kpis(organizationId: string) {
     const deals = await this.prisma.deal.findMany({
       where: { organizationId, status: 'ACTIVE' },
-      select: { amountTarget: true, amountRaised: true, stage: true, type: true, interestRate: true, dateMax: true },
+      select: { amountTarget: true, amountRaised: true, stage: true, type: true, interestRate: true, dateMax: true, repaid: true },
     });
 
     const totalAum = deals.reduce((sum, d) => sum + Number(d.amountTarget), 0);
@@ -273,7 +273,7 @@ export class DealsService {
     for (const d of deals) byType[d.type] = (byType[d.type] ?? 0) + 1;
 
     const now = new Date();
-    const lateDeals = deals.filter((d) => d.dateMax && d.dateMax < now).length;
+    const lateDeals = deals.filter((d) => !d.repaid && d.dateMax && d.dateMax < now).length;
 
     return {
       activeDeals: deals.length,

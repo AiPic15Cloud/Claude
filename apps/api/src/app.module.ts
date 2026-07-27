@@ -5,6 +5,7 @@ import configuration from './common/config/configuration';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { StorageModule } from './common/storage/storage.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { SanitizeBodyInterceptor } from './common/interceptors/sanitize-body.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -60,6 +61,9 @@ import { HealthController } from './health/health.controller';
     PipelineModule,
   ],
   controllers: [HealthController],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor }],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: SanitizeBodyInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+  ],
 })
 export class AppModule {}

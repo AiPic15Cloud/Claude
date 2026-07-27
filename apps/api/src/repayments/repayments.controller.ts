@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { RepaymentsService } from './repayments.service';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
+import { UpdateRepaymentDto } from './dto/update-repayment.dto';
 
 @ApiTags('repayments')
 @ApiBearerAuth()
@@ -20,6 +21,16 @@ export class RepaymentsController {
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Body() dto: CreateRepaymentDto) {
     return this.repaymentsService.create(user.organizationId, dealId, user.id, dto);
+  }
+
+  @Patch(':repaymentId')
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('dealId') dealId: string,
+    @Param('repaymentId') repaymentId: string,
+    @Body() dto: UpdateRepaymentDto,
+  ) {
+    return this.repaymentsService.update(user.organizationId, dealId, repaymentId, dto);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

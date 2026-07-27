@@ -19,8 +19,12 @@ const DAY_MS = 86_400_000;
  * J-15 : dernier délai pour la newsletter de vote.
  * Après J-0 sans réponse : passage en contentieux avec vote investisseur.
  */
-export function computeDeadlineAlert(dateMax: Date | null | undefined, now: Date = new Date()): DeadlineAlert {
-  if (!dateMax) {
+export function computeDeadlineAlert(
+  dateMax: Date | null | undefined,
+  now: Date = new Date(),
+  repaid = false,
+): DeadlineAlert {
+  if (repaid || !dateMax) {
     return { level: 'RAS', daysToMax: Infinity, stage: null, actionLabel: null };
   }
 
