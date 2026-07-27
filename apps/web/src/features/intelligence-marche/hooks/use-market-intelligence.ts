@@ -29,9 +29,10 @@ export function useCreateSource() {
 export function useTriggerFetch() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (sourceId: string) => api.post(`/market-intelligence/sources/${sourceId}/fetch`),
+    mutationFn: (sourceId: string) => api.post<{ created: number }>(`/market-intelligence/sources/${sourceId}/fetch`),
     onSuccess: () => {
-      setTimeout(() => queryClient.invalidateQueries({ queryKey: ['mi-articles'] }), 3000);
+      queryClient.invalidateQueries({ queryKey: ['mi-articles'] });
+      queryClient.invalidateQueries({ queryKey: ['mi-sources'] });
     },
   });
 }

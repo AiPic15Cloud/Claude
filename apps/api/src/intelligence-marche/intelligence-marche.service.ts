@@ -1,6 +1,4 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import * as crypto from 'crypto';
 import { Prisma, Priority } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -44,7 +42,6 @@ export class IntelligenceMarcheService {
     private readonly alerts: AlertsService,
     private readonly connectors: ConnectorRegistryService,
     private readonly search: MeilisearchService,
-    @InjectQueue('market-intelligence') private readonly queue: Queue,
   ) {}
 
   listConnectors() {
@@ -86,11 +83,9 @@ export class IntelligenceMarcheService {
   async enqueueFetch(organizationId: string, sourceId: string) {
     const source = await this.prisma.newsSource.findFirst({ where: { id: sourceId, organizationId } });
     if (!source) throw new NotFoundException('Source introuvable');
-    await this.queue.add('ingest-source', { sourceId }, { removeOnComplete: true, removeOnFail: 50 });
-    return { queued: true };
+    return this.ingestSource(sourceId);
   }
 
-  /** Runs synchronously — invoked by the BullMQ processor, and directly for the "manual" connector's no-op path. */
   async ingestSource(sourceId: string) {
     const source = await this.prisma.newsSource.findUnique({ where: { id: sourceId } });
     if (!source || !source.active) return { created: 0 };

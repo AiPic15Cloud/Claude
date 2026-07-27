@@ -7,9 +7,6 @@ export default () => ({
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '7d',
   },
-  redis: {
-    url: process.env.REDIS_URL ?? 'redis://localhost:6379',
-  },
   meilisearch: {
     host: process.env.MEILISEARCH_HOST ?? 'http://localhost:7700',
     apiKey: process.env.MEILISEARCH_API_KEY ?? '',
