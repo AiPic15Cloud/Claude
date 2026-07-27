@@ -59,7 +59,7 @@ export class DealsService {
   // scheme collides as soon as any deal is deleted (or a different import
   // path uses the same organization), since the next count can match an
   // already-used higher reference.
-  private async generateReference(organizationId: string): Promise<string> {
+  private async generateReference(organizationId: string, offset = 0): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `ATL-${year}-`;
     const last = await this.prisma.deal.findFirst({
@@ -68,7 +68,7 @@ export class DealsService {
       select: { reference: true },
     });
     const lastNum = last ? parseInt(last.reference.slice(prefix.length), 10) || 0 : 0;
-    return `${prefix}${String(lastNum + 1).padStart(4, '0')}`;
+    return `${prefix}${String(lastNum + 1 + offset).padStart(4, '0')}`;
   }
 
   async create(organizationId: string, userId: string, dto: CreateDealDto) {
@@ -91,17 +91,22 @@ export class DealsService {
       tags: tagIds?.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
     };
 
-    // Retry once on a reference collision (e.g. a near-simultaneous create)
-    // instead of surfacing a 500 for what is otherwise a valid request.
+    // Retry on a reference collision (e.g. a near-simultaneous create from a
+    // double submit) instead of surfacing a 500 for what is otherwise a
+    // valid request. The offset is critical: a failed insert never changes
+    // what "last" resolves to, so without it every retry recomputes the
+    // exact same colliding candidate and the loop can never escape — this
+    // guarantees each attempt tries a genuinely different number.
+    const MAX_ATTEMPTS = 6;
     let deal;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const reference = await this.generateReference(organizationId);
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const reference = await this.generateReference(organizationId, attempt);
       try {
         deal = await this.prisma.deal.create({ data: { ...data, reference }, include: DEAL_INCLUDE });
         break;
       } catch (error) {
         const isUniqueClash = (error as { code?: string })?.code === 'P2002';
-        if (!isUniqueClash || attempt === 2) throw error;
+        if (!isUniqueClash || attempt === MAX_ATTEMPTS - 1) throw error;
       }
     }
 
