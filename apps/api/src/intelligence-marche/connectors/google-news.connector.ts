@@ -5,6 +5,14 @@ import { inferCategory } from './keyword-taxonomy';
 
 const DEFAULT_QUERY = 'immobilier France OR "crowdfunding immobilier" OR "taux immobilier" OR "marché immobilier"';
 
+// Google News serves a region/language-scoped "edition" — the fr/FR one
+// mostly indexes French-language press, so English-primary outlets (FT,
+// Bloomberg, Reuters) return next to nothing there even when the query
+// itself is well-formed. A leading "en:" on the stored query (NewsSource.url
+// doubles as the search query for this connector, see DEFAULT_SOURCES)
+// switches to the US/English edition where those outlets actually appear.
+const EN_PREFIX = 'en:';
+
 /**
  * Real editorial news via Google News' public RSS search feed — free, no
  * API key. Unlike Yahoo Finance (a single price point) or data.gouv.fr
@@ -21,8 +29,11 @@ export class GoogleNewsConnector implements NewsConnector {
   private readonly logger = new Logger(GoogleNewsConnector.name);
 
   async fetchArticles(sourceUrl: string | null): Promise<ConnectorArticle[]> {
-    const query = sourceUrl || DEFAULT_QUERY;
-    const endpoint = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=fr&gl=FR&ceid=FR:fr`;
+    const raw = sourceUrl || DEFAULT_QUERY;
+    const isEnglish = raw.startsWith(EN_PREFIX);
+    const query = isEnglish ? raw.slice(EN_PREFIX.length) : raw;
+    const edition = isEnglish ? 'hl=en-US&gl=US&ceid=US:en' : 'hl=fr&gl=FR&ceid=FR:fr';
+    const endpoint = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${edition}`;
 
     try {
       const response = await fetch(endpoint, {

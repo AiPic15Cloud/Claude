@@ -32,9 +32,9 @@ const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[]
   { name: 'AMF — Financement participatif', connector: 'google-news-rss', url: 'site:amf-france.org OR "AMF" financement participatif OR crowdfunding OR régulation' },
   { name: 'Assemblée Nationale & Légifrance', connector: 'google-news-rss', url: 'site:assemblee-nationale.fr OR site:legifrance.gouv.fr logement OR immobilier OR fiscalité' },
   { name: 'Business Immo', connector: 'google-news-rss', url: 'site:businessimmo.com' },
-  { name: 'Financial Times', connector: 'google-news-rss', url: 'site:ft.com France real estate OR "interest rates" OR ECB OR property market' },
-  { name: 'Bloomberg', connector: 'google-news-rss', url: 'site:bloomberg.com France real estate OR "interest rates" OR ECB OR property market' },
-  { name: 'Reuters', connector: 'google-news-rss', url: 'site:reuters.com France real estate OR "interest rates" OR ECB OR property market' },
+  { name: 'Financial Times', connector: 'google-news-rss', url: 'en:site:ft.com France real estate OR "interest rates" OR ECB OR property market' },
+  { name: 'Bloomberg', connector: 'google-news-rss', url: 'en:site:bloomberg.com France real estate OR "interest rates" OR ECB OR property market' },
+  { name: 'Reuters', connector: 'google-news-rss', url: 'en:site:reuters.com France real estate OR "interest rates" OR ECB OR property market' },
   { name: 'AFP', connector: 'google-news-rss', url: 'site:afp.com France immobilier OR économie OR taux OR politique' },
 ];
 
@@ -87,6 +87,20 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     const { count } = await this.prisma.newsSource.deleteMany({ where: { connector: { in: RETIRED_CONNECTORS } } });
     if (count > 0) this.logger.log(`Supprimé ${count} source(s) retirée(s) (connecteur(s) obsolète(s)).`);
+
+    // Self-heal drift between an already-provisioned source's stored query
+    // and its current DEFAULT_SOURCES entry (matched by name+connector,
+    // since a source is provisioned once per org and never touched again
+    // otherwise) — e.g. tuning a Google News query after the fact, or the
+    // fr/FR→en:… edition fix for FT/Bloomberg/Reuters, would otherwise only
+    // apply to orgs created after the change.
+    for (const d of DEFAULT_SOURCES) {
+      const { count: fixed } = await this.prisma.newsSource.updateMany({
+        where: { name: d.name, connector: d.connector, NOT: { url: d.url } },
+        data: { url: d.url },
+      });
+      if (fixed > 0) this.logger.log(`Requête mise à jour pour "${d.name}" sur ${fixed} organisation(s).`);
+    }
   }
 
   listConnectors() {
