@@ -162,6 +162,7 @@ model Organization {
   articles       Article[]
   feesTargets    FeesTarget[]
   pipelineEntries PipelineEntry[]
+  competitorProjects CompetitorProject[]
 
   @@map("organizations")
 }
@@ -204,6 +205,7 @@ model User {
   tasksCreated  Task[]         @relation("TaskCreatedBy")
   activities    Activity[]
   refreshTokens RefreshToken[]
+  competitorProjectsLogged CompetitorProject[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -564,6 +566,7 @@ model GraphEntity {
   relationsFrom GraphRelation[]     @relation("RelationFrom")
   relationsTo   GraphRelation[]     @relation("RelationTo")
   articles      ArticleEntityLink[]
+  competitorProjects CompetitorProject[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -611,6 +614,42 @@ model GraphRelation {
   @@index([fromEntityId])
   @@index([toEntityId])
   @@map("graph_relations")
+}
+
+enum CompetitorProjectStatus {
+  A_VENIR
+  EN_COLLECTE
+  CLOTURE
+}
+
+/// Manually logged by an analyst against a competitor PLATEFORME entity —
+/// there's no automated feed for a competitor's live/upcoming project
+/// listing (their "app" is behind a login, and scraping an authenticated
+/// competitor account is out of scope), so this is deliberately a fast,
+/// low-friction manual log rather than a sync target.
+model CompetitorProject {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityId       String
+  entity         GraphEntity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  name         String
+  status       CompetitorProjectStatus @default(EN_COLLECTE)
+  targetAmount Decimal?                @db.Decimal(14, 2)
+  expectedDate DateTime?
+  url          String?
+  note         String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([entityId])
+  @@map("competitor_projects")
 }
 
 // ── Intelligence Marché: news pipeline ─────────────────────

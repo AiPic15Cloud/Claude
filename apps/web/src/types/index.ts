@@ -500,6 +500,28 @@ export interface GraphEntityDetail extends GraphEntity {
   articles: { article: Article }[];
 }
 
+export type CompetitorProjectStatus = 'A_VENIR' | 'EN_COLLECTE' | 'CLOTURE';
+
+export const COMPETITOR_PROJECT_STATUS_LABELS: Record<CompetitorProjectStatus, string> = {
+  A_VENIR: 'À venir',
+  EN_COLLECTE: 'En collecte',
+  CLOTURE: 'Clôturé',
+};
+
+export interface CompetitorProject {
+  id: string;
+  entityId: string;
+  name: string;
+  status: CompetitorProjectStatus;
+  targetAmount?: string | null;
+  expectedDate?: string | null;
+  url?: string | null;
+  note?: string | null;
+  createdBy: UserSummary;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DealEntityLink {
   id: string;
   dealId: string;
