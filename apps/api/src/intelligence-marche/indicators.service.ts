@@ -41,16 +41,33 @@ export class MarketIndicatorsService {
       const timeIndex = json.dimension?.time?.category?.index;
       if (!timeIndex) throw new Error('unexpected shape');
 
+      // The dataset's time axis (every period Eurostat has ever published
+      // *something* for, across all series) can extend well past this
+      // specific series' actual last data point — series with a long
+      // compilation lag (building permits, for one) simply have no value
+      // yet for the axis's most recent months. Eurostat's JSON-stat "value"
+      // map is sparse (missing points are omitted entirely), so scan
+      // backward from the newest period to the first one that's actually
+      // present instead of assuming position 0 is populated.
       const periods = Object.entries(timeIndex).sort((a, b) => b[1] - a[1]);
-      const [latestPeriod, latestPos] = periods[0] ?? [];
-      const [, prevPos] = periods[1] ?? [];
-      const value = latestPos !== undefined ? json.value[String(latestPos)] : undefined;
-      const previousValue = prevPos !== undefined ? json.value[String(prevPos)] : undefined;
+      let value: number | undefined;
+      let previousValue: number | undefined;
+      let latestPeriod: string | undefined;
+      for (let i = 0; i < periods.length; i++) {
+        const [period, pos] = periods[i];
+        const v = json.value[String(pos)];
+        if (v === undefined) continue;
+        value = v;
+        latestPeriod = period;
+        const [, prevPos] = periods[i + 1] ?? [];
+        previousValue = prevPos !== undefined ? json.value[String(prevPos)] : undefined;
+        break;
+      }
 
-      if (value === undefined) throw new Error('no data point for the latest period');
+      if (value === undefined) throw new Error('no data point in any available period');
 
       return {
-        value: value ?? null,
+        value,
         previousValue: previousValue ?? null,
         period: latestPeriod ?? null,
       };
