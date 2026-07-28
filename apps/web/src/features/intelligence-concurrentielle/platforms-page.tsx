@@ -18,14 +18,14 @@ export function PlatformsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Intelligence Concurrentielle</h1>
           <p className="text-sm text-muted-foreground">
             Plateformes de crowdfunding immobilier et d'immobilier fractionné suivies par ATLAS.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => sync.mutate()} disabled={sync.isPending}>
             <RefreshCw className={cn('h-3.5 w-3.5', sync.isPending && 'animate-spin')} />
             Actualiser (baromètre)

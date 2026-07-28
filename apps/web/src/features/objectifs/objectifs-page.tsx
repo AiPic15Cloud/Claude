@@ -59,7 +59,7 @@ export function ObjectifsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Performance</p>
           <h1 className="text-xl font-semibold tracking-tight">Objectifs fees {year}</h1>
@@ -67,7 +67,7 @@ export function ObjectifsPage() {
             Fees facturés vs objectif annuel, avec projection basée sur le pipeline en cours.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => setYear((y) => y - 1)}>
             ← {year - 1}
           </Button>

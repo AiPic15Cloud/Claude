@@ -45,7 +45,7 @@ export function PipelinePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pipeline</p>
           <h1 className="text-xl font-semibold tracking-tight">Dossiers reçus &amp; décisions comité</h1>
