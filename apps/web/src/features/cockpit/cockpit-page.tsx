@@ -5,6 +5,7 @@ import { useCockpitSummary } from './hooks/use-cockpit-summary';
 import { KpiCard } from './components/kpi-card';
 import { TaskListCard } from './components/task-list-card';
 import { PipelineChart } from './components/pipeline-chart';
+import { AumHistoryChart } from './components/aum-history-chart';
 import { ActivityFeedCard } from './components/activity-feed-card';
 import { AutoSummaryCard } from './components/auto-summary-card';
 import { DeadlineAlertsCard } from './components/deadline-alerts-card';
@@ -81,6 +82,8 @@ export function CockpitPage() {
           />
         </Link>
       </div>
+
+      <AumHistoryChart history={data.aumHistory} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

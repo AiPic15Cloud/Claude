@@ -253,6 +253,12 @@ export interface FeesSummary {
   progressPct: number | null;
 }
 
+export interface AumHistoryPoint {
+  month: string;
+  label: string;
+  cumulativeAum: number;
+}
+
 export interface CockpitSummary {
   generatedAt: string;
   kpis: DealKpis;
@@ -263,6 +269,7 @@ export interface CockpitSummary {
   notifications: number;
   recentActivity: Activity[];
   pipeline: PipelineStage[];
+  aumHistory: AumHistoryPoint[];
   deadlineAlerts: DealDeadlineAlert[];
   autoSummary: string;
 }

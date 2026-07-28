@@ -37,6 +37,7 @@ export class CockpitService {
       recentActivities,
       pipelineDeals,
       deadlineDeals,
+      historyDeals,
     ] = await Promise.all([
       this.dealsService.kpis(organizationId),
       this.prisma.task.findMany({
@@ -75,9 +76,14 @@ export class CockpitService {
         where: { organizationId, status: 'ACTIVE', dateMax: { not: null }, repaid: false },
         select: { id: true, name: true, reference: true, dateMax: true },
       }),
+      this.prisma.deal.findMany({
+        where: { organizationId },
+        select: { amountTarget: true, startDate: true, createdAt: true },
+      }),
     ]);
 
     const pipeline = this.buildPipeline(pipelineDeals);
+    const aumHistory = this.buildAumHistory(historyDeals);
     const deadlineAlerts = deadlineDeals
       .map((d) => ({ id: d.id, name: d.name, reference: d.reference, dateMax: d.dateMax, ...computeDeadlineAlert(d.dateMax) }))
       .filter((d) => d.level !== 'RAS')
@@ -101,9 +107,40 @@ export class CockpitService {
       notifications: unreadAlerts.length,
       recentActivity: recentActivities,
       pipeline,
+      aumHistory,
       deadlineAlerts,
       autoSummary: summaryText,
     };
+  }
+
+  /**
+   * A monthly, cumulative "encours sous gestion" trend for the last 12
+   * months — built from real deal dates (startDate, falling back to
+   * createdAt like the fees chart does), not a stored snapshot series we
+   * don't have. Every deal ever onboarded counts once it entered the
+   * portfolio, regardless of its current stage/status, since the point is
+   * "how much was under management at that point in time", not "how much
+   * still is" — that's what the KPI tile already shows.
+   */
+  private buildAumHistory(deals: { amountTarget: any; startDate: Date | null; createdAt: Date }[]) {
+    const months = 12;
+    const now = new Date();
+    const points: { month: string; label: string; cumulativeAum: number }[] = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      const cumulativeAum = deals
+        .filter((d) => (d.startDate ?? d.createdAt) <= monthEnd)
+        .reduce((sum, d) => sum + Number(d.amountTarget), 0);
+
+      points.push({
+        month: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
+        label: monthDate.toLocaleDateString('fr-FR', { month: 'short' }),
+        cumulativeAum,
+      });
+    }
+    return points;
   }
 
   private buildPipeline(deals: { stage: string; amountTarget: any; amountRaised: any }[]) {
