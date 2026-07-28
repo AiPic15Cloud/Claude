@@ -56,15 +56,16 @@ export function CockpitPage() {
 
       <MarketDigestCard />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard label="Opérations actives" value={String(data.kpis.activeDeals)} icon={Landmark} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <KpiCard
           label="Encours sous gestion"
           value={formatCurrency(data.kpis.totalAum)}
           icon={Wallet}
           hint={`${formatCurrency(data.kpis.totalRaised)} collectés`}
           trend="neutral"
+          hero
         />
+        <KpiCard label="Opérations actives" value={String(data.kpis.activeDeals)} icon={Landmark} />
         <KpiCard
           label="Avancement de collecte"
           value={`${data.kpis.fundingProgress}%`}

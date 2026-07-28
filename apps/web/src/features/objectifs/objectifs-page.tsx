@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,12 +20,31 @@ import { cn } from '@/lib/utils';
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-function KpiTile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'success' | 'destructive' }) {
+function KpiTile({
+  label,
+  value,
+  hint,
+  tone,
+  hero,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'success' | 'destructive';
+  hero?: boolean;
+}) {
   return (
-    <Card>
-      <CardContent className="p-4">
+    <Card className={cn(hero && 'border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card lg:col-span-2')}>
+      <CardContent className={cn('p-4', hero && 'p-5')}>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className={cn('mt-1 font-mono text-2xl font-semibold tabular-nums', tone === 'success' && 'text-success', tone === 'destructive' && 'text-destructive')}>
+        <p
+          className={cn(
+            'mt-1 font-mono font-semibold tabular-nums',
+            hero ? 'text-4xl' : 'text-2xl',
+            tone === 'success' && 'text-success',
+            tone === 'destructive' && 'text-destructive',
+          )}
+        >
           {value}
         </p>
         {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
@@ -79,15 +98,20 @@ export function ObjectifsPage() {
       </div>
 
       {isLoading || !data ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+          <KpiTile
+            label="Réalisé YTD"
+            value={formatCurrency(data.annualActual)}
+            hint={data.progressPct !== null ? `${data.progressPct}%` : undefined}
+            hero
+          />
           <KpiTile label="Objectif annuel" value={data.annualTarget !== null ? formatCurrency(data.annualTarget) : '—'} />
-          <KpiTile label="Réalisé YTD" value={formatCurrency(data.annualActual)} hint={data.progressPct !== null ? `${data.progressPct}%` : undefined} />
           <KpiTile
             label="Écart (au prorata)"
             value={formatCurrency(Math.abs(ecart))}
@@ -117,7 +141,17 @@ export function ObjectifsPage() {
               <Skeleton className="h-full w-full" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthly} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <AreaChart data={monthly} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="objectifMensuelGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="realiseMensuelGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-accent))" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-accent))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} className="fill-muted-foreground" />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} className="fill-muted-foreground" tickFormatter={(v) => formatCurrency(v)} width={70} />
@@ -125,9 +159,15 @@ export function ObjectifsPage() {
                     contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                     formatter={(value: number) => formatCurrency(value)}
                   />
-                  <Bar dataKey="Objectif" fill="hsl(var(--muted-foreground))" fillOpacity={0.35} radius={[4, 4, 0, 0]} maxBarSize={20} />
-                  <Bar dataKey="Réalisé" fill="hsl(var(--chart-accent))" radius={[4, 4, 0, 0]} maxBarSize={20} />
-                </BarChart>
+                  <Area
+                    type="monotone"
+                    dataKey="Objectif"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeDasharray="4 4"
+                    fill="url(#objectifMensuelGradient)"
+                  />
+                  <Area type="monotone" dataKey="Réalisé" stroke="hsl(var(--chart-accent))" strokeWidth={2} fill="url(#realiseMensuelGradient)" />
+                </AreaChart>
               </ResponsiveContainer>
             )}
           </CardContent>
@@ -142,7 +182,13 @@ export function ObjectifsPage() {
               <Skeleton className="h-full w-full" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthly} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <ComposedChart data={monthly} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="cumRealiseGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-accent))" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-accent))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} className="fill-muted-foreground" />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} className="fill-muted-foreground" tickFormatter={(v) => formatCurrency(v)} width={70} />
@@ -151,8 +197,16 @@ export function ObjectifsPage() {
                     formatter={(value: number) => formatCurrency(value)}
                   />
                   <Line type="monotone" dataKey="cumObjectif" name="Cumul objectif" stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" dot={false} />
-                  <Line type="monotone" dataKey="cumRéalisé" name="Cumul réalisé" stroke="hsl(var(--chart-accent))" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
+                  <Area
+                    type="monotone"
+                    dataKey="cumRéalisé"
+                    name="Cumul réalisé"
+                    stroke="hsl(var(--chart-accent))"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    fill="url(#cumRealiseGradient)"
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             )}
           </CardContent>
