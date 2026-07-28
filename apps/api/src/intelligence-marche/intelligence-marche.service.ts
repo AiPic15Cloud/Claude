@@ -32,6 +32,10 @@ const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[]
   { name: 'AMF — Financement participatif', connector: 'google-news-rss', url: 'site:amf-france.org OR "AMF" financement participatif OR crowdfunding OR régulation' },
   { name: 'Assemblée Nationale & Légifrance', connector: 'google-news-rss', url: 'site:assemblee-nationale.fr OR site:legifrance.gouv.fr logement OR immobilier OR fiscalité' },
   { name: 'Business Immo', connector: 'google-news-rss', url: 'site:businessimmo.com' },
+  { name: 'Financial Times', connector: 'google-news-rss', url: 'site:ft.com France real estate OR "interest rates" OR ECB OR property market' },
+  { name: 'Bloomberg', connector: 'google-news-rss', url: 'site:bloomberg.com France real estate OR "interest rates" OR ECB OR property market' },
+  { name: 'Reuters', connector: 'google-news-rss', url: 'site:reuters.com France real estate OR "interest rates" OR ECB OR property market' },
+  { name: 'AFP', connector: 'google-news-rss', url: 'site:afp.com France immobilier OR économie OR taux OR politique' },
 ];
 
 // Connectors removed after turning out non-functional in production (e.g.
@@ -138,12 +142,12 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
   /**
    * Nothing else refreshes the veille on its own — without this, content
    * only ever appears when someone remembers to click "Collecter" on every
-   * source. Runs across every org's active sources once a day; failures on
+   * source. Runs across every org's active sources once an hour; failures on
    * one source (rate limiting, a moved feed) never block the rest since
    * ingestSource already isolates per-item errors and collectAll-style
    * fan-out here isolates per-source ones the same way via Promise.allSettled.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  @Cron(CronExpression.EVERY_HOUR)
   async collectAllOrgsScheduled() {
     const sources = await this.prisma.newsSource.findMany({
       where: { active: true, connector: { not: 'manual' } },
@@ -152,7 +156,7 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
     const results = await Promise.allSettled(sources.map((s) => this.ingestSource(s.id)));
     const created = results.reduce((sum, r) => (r.status === 'fulfilled' ? sum + r.value.created : sum), 0);
     const failed = results.filter((r) => r.status === 'rejected').length;
-    this.logger.log(`Collecte quotidienne : ${sources.length} source(s), ${created} article(s) créé(s), ${failed} échec(s).`);
+    this.logger.log(`Collecte horaire : ${sources.length} source(s), ${created} article(s) créé(s), ${failed} échec(s).`);
   }
 
   async ingestSource(sourceId: string) {
