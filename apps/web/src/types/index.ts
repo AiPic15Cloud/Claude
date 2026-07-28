@@ -338,6 +338,7 @@ export interface PipelineEntry {
   source?: string | null;
   amount: string;
   margin?: string | null;
+  feesRate?: string | null;
   committee: CommitteeStatus;
   decision?: string | null;
   convertedDealId?: string | null;
