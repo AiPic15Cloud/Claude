@@ -7,9 +7,10 @@ import { DeadlineAlertsService } from './deadline-alerts.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { SearchModule } from '../search/search.module';
 import { AlertsModule } from '../alerts/alerts.module';
+import { TasksModule } from '../tasks/tasks.module';
 
 @Module({
-  imports: [ActivitiesModule, SearchModule, AlertsModule],
+  imports: [ActivitiesModule, SearchModule, AlertsModule, TasksModule],
   providers: [DealsService, GeocodingService, GeocodingBackfillService, DeadlineAlertsService],
   controllers: [DealsController],
   exports: [DealsService],
