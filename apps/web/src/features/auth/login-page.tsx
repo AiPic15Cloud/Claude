@@ -75,10 +75,6 @@ export function LoginPage() {
             Créer une organisation
           </Link>
         </p>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Démo : REDACTED-EMAIL@atlas-capital.demo / REDACTED-PASSWORD
-        </p>
       </div>
     </div>
   );
