@@ -75,10 +75,6 @@ export function LoginPage() {
             Créer une organisation
           </Link>
         </p>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Démo : nick.banza@outlook.com / Atlas2026!
-        </p>
       </div>
     </div>
   );
