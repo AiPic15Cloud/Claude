@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToggleTask, useCreateTask, useDeleteTask, useUpdateTaskPriority } from '@/features/tasks/use-tasks';
+import { EditTaskDialog } from '@/features/tasks/edit-task-dialog';
 import { PRIORITY_LABELS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -137,6 +138,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
                 )}
               </div>
             </div>
+            <EditTaskDialog task={task} />
             <PriorityPicker priority={task.priority} onChange={(p) => updatePriority.mutate({ id: task.id, priority: p })} />
           </div>
         ))}
