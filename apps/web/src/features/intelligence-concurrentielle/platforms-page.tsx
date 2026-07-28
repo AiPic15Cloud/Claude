@@ -7,32 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { usePlatforms, useSyncPlatforms } from './hooks/use-platforms';
 import { EntityDrawer } from '@/features/knowledge-graph/components/entity-drawer';
 import { CreateEntityDialog } from '@/features/knowledge-graph/components/create-entity-dialog';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { CATEGORY_LABELS, type PlatformMetadata } from './platform-metadata';
+import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
-
-interface PlatformMetadata {
-  category?: string | null;
-  source?: string;
-  fetchedAt?: string;
-  isTerminated?: boolean | null;
-  totalFunded?: number | null;
-  projectCountFinanced?: number | null;
-  capitalReimbursed?: number | null;
-  projectCountReimbursed?: number | null;
-  riskAmount?: number | null;
-  riskProjects?: number | null;
-  capitalInDefault?: number | null;
-  lastReportDate?: string | null;
-  averageLoanDuration?: number | null;
-  atlasScore?: number | null;
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  'real-estate': 'Immobilier',
-  'renewable-energy': 'Énergies renouvelables',
-  crowdlending: 'Crowdlending',
-  other: 'Autre',
-};
 
 export function PlatformsPage() {
   const { data: platforms = [], isLoading } = usePlatforms();
@@ -108,55 +85,12 @@ export function PlatformsPage() {
                         <Globe className="h-3 w-3" /> Site
                       </span>
                     )}
-                    {meta.lastReportDate && <span>Rapport du {formatDate(meta.lastReportDate)}</span>}
                   </div>
 
-                  {meta.source && (
-                    <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border pt-2 text-xs">
-                      {meta.totalFunded != null && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Total financé</span>
-                          <span className="font-medium tabular-nums">{formatCurrency(meta.totalFunded)}</span>
-                        </div>
-                      )}
-                      {meta.projectCountFinanced != null && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Projets financés</span>
-                          <span className="font-medium tabular-nums">{meta.projectCountFinanced}</span>
-                        </div>
-                      )}
-                      {meta.capitalReimbursed != null && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Capital remboursé</span>
-                          <span className="font-medium tabular-nums">{formatCurrency(meta.capitalReimbursed)}</span>
-                        </div>
-                      )}
-                      {meta.projectCountReimbursed != null && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Projets remboursés</span>
-                          <span className="font-medium tabular-nums">{meta.projectCountReimbursed}</span>
-                        </div>
-                      )}
-                      {meta.riskAmount != null && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Capital à risque</span>
-                          <span className={cn('font-medium tabular-nums', meta.riskAmount > 0 && 'text-warning')}>
-                            {formatCurrency(meta.riskAmount)}
-                          </span>
-                        </div>
-                      )}
-                      {meta.capitalInDefault != null && meta.capitalInDefault > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Pertes définitives</span>
-                          <span className="font-medium tabular-nums text-destructive">{formatCurrency(meta.capitalInDefault)}</span>
-                        </div>
-                      )}
-                      {meta.averageLoanDuration != null && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Durée moy. prêts</span>
-                          <span className="font-medium tabular-nums">{meta.averageLoanDuration} mois</span>
-                        </div>
-                      )}
+                  {meta.totalFunded != null && (
+                    <div className="mt-1 flex items-center justify-between border-t border-border pt-2 text-xs">
+                      <span className="text-muted-foreground">Total financé</span>
+                      <span className="font-medium tabular-nums">{formatCurrency(meta.totalFunded)}</span>
                     </div>
                   )}
                 </CardContent>
