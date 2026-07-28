@@ -61,21 +61,19 @@ export class MarketIndicatorsService {
   }
 
   /**
-   * A first round confirmed (via a real Eurostat error, not a guess) that
-   * sts_cobp_m has no "NACE_R2" dimension at all — every nace_r2-filtered
-   * attempt failed with "INVALID_QUERY_DIMENSION". This round drops it and
-   * pairs indic_bt with cpa2_1 (the dimension Eurostat DID accept last
-   * time, just possibly with the wrong code value). If every attempt still
-   * comes up empty, logDimensionMetadata() below fetches the dataset's real
-   * dimension/category list directly from Eurostat so the next fix comes
-   * from that data, not another guess.
+   * The real dimension codebook for sts_cobp_m, read directly from Eurostat
+   * (via logDimensionMetadata's diagnostic dump, not guessed): indic_bt is
+   * BPRM_DW (permits — number of housing units) or BPRM_SQM (permits —
+   * useful floor area), and cpa2_1 uses "CPA_F..." prefixed codes, e.g.
+   * CPA_F41001 for residential buildings — nothing like the "PERM"/"F_CC1"
+   * codes from earlier guesses, which were never valid for this dataset.
    */
   private async fetchBuildingPermits(): Promise<EurostatIndicator> {
     const attempts: Record<string, string>[] = [
-      { geo: 'FR', indic_bt: 'PERM', cpa2_1: 'F_CC1_1', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'PERM', cpa2_1: 'F_CC2', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'PERM', unit: 'I15', s_adj: 'CA', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'PSQM', unit: 'I15', s_adj: 'CA', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_SQM', cpa2_1: 'CPA_F41001', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001_41002', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I15', sinceTimePeriod: '2024-01' },
     ];
 
     for (const params of attempts) {
