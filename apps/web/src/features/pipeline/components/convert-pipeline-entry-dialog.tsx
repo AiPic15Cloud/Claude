@@ -2,18 +2,26 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, Plus } from 'lucide-react';
+import { ArrowRightCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCreateDeal } from '../hooks/use-deals';
-import { DEAL_TYPE_LABELS, type DealType } from '@/types';
+import { useConvertPipelineEntry } from '../hooks/use-pipeline';
+import { DEAL_TYPE_LABELS, type DealType, type PipelineEntry } from '@/types';
 import { ApiError } from '@/lib/api';
 
 const DEAL_TYPES: DealType[] = ['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE'];
+
+/** Best-effort guess from the pipeline's free-text typology — always left editable before confirming. */
+function guessDealType(typology?: string | null): DealType {
+  const t = (typology ?? '').toLowerCase();
+  if (t.includes('promotion')) return 'PROMOTION';
+  if (t.includes('marchand')) return 'MARCHAND_DE_BIENS';
+  if (t.includes('fraction')) return 'FRACTIONNE';
+  return 'AUTRE';
+}
 
 // register()-bound number inputs pass the raw string through, and an empty
 // field coerces to 0 (not undefined) — which then fails .positive()/.int()
@@ -25,60 +33,56 @@ const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
   type: z.enum(['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE']),
   amountTarget: z.coerce.number().positive('Montant requis'),
-  interestRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   durationMonths: z.preprocess(blankToUndefined, z.coerce.number().int().positive().optional()),
   city: z.string().optional(),
-  dateMin: z.string().optional(),
-  dateCible: z.string().optional(),
-  dateMax: z.string().optional(),
-  description: z.string().optional(),
 });
-
 type FormValues = z.infer<typeof schema>;
 
-export function CreateDealDialog() {
+export function ConvertPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
   const [open, setOpen] = useState(false);
-  const createDeal = useCreateDeal();
+  const convertEntry = useConvertPipelineEntry();
   const {
     register,
     handleSubmit,
     control,
-    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'CROWDFUNDING' },
+    defaultValues: {
+      name: entry.operator,
+      type: guessDealType(entry.typology),
+      amountTarget: Number(entry.amount),
+      feesRate: entry.margin ? Number(entry.margin) : undefined,
+    },
   });
 
   const onSubmit = (values: FormValues) => {
-    createDeal.mutate(values, {
-      onSuccess: () => {
-        setOpen(false);
-        reset();
-      },
-    });
+    convertEntry.mutate({ id: entry.id, ...values }, { onSuccess: () => setOpen(false) });
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-4 w-4" />
-          Nouvelle opération
+        <Button size="sm" variant="outline">
+          <ArrowRightCircle className="h-3.5 w-3.5" />
+          Convertir en opération
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nouvelle opération</DialogTitle>
+          <DialogTitle>Convertir en opération</DialogTitle>
         </DialogHeader>
+        <p className="text-xs text-muted-foreground">
+          Crée une opération dans le Portefeuille à partir de ce dossier validé et lie définitivement les deux — le
+          dossier ne pourra plus être converti une seconde fois.
+        </p>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Nom de l'opération</Label>
-            <Input id="name" placeholder="Résidence Les Terrasses" {...register('name')} />
+            <Label htmlFor="convert-name">Nom de l'opération</Label>
+            <Input id="convert-name" {...register('name')} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Type</Label>
@@ -102,63 +106,33 @@ export function CreateDealDialog() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="amountTarget">Montant cible (€)</Label>
-              <Input id="amountTarget" type="number" min={0} step={1000} {...register('amountTarget')} />
+              <Label htmlFor="convert-amountTarget">Montant cible (€)</Label>
+              <Input id="convert-amountTarget" type="number" min={0} step={1000} {...register('amountTarget')} />
               {errors.amountTarget && <p className="text-xs text-destructive">{errors.amountTarget.message}</p>}
             </div>
           </div>
-
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="interestRate">Taux (%)</Label>
-              <Input id="interestRate" type="number" min={0} max={100} step={0.1} {...register('interestRate')} />
+              <Label htmlFor="convert-feesRate">Fees (%)</Label>
+              <Input id="convert-feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="feesRate">Fees (%)</Label>
-              <Input id="feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              <Label htmlFor="convert-durationMonths">Durée (mois)</Label>
+              <Input id="convert-durationMonths" type="number" min={1} step={1} {...register('durationMonths')} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="durationMonths">Durée (mois)</Label>
-              <Input id="durationMonths" type="number" min={1} step={1} {...register('durationMonths')} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="city">Ville</Label>
-              <Input id="city" placeholder="Lyon" {...register('city')} />
+              <Label htmlFor="convert-city">Ville</Label>
+              <Input id="convert-city" placeholder="Lyon" {...register('city')} />
             </div>
           </div>
-
-          <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
-            <p className="text-xs font-medium text-foreground">Échéance de vote (suivi J-90 / J-60 / J-30 / J-15)</p>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="dateMin">Date min</Label>
-                <Input id="dateMin" type="date" {...register('dateMin')} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="dateCible">Date cible</Label>
-                <Input id="dateCible" type="date" {...register('dateCible')} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="dateMax">Date max</Label>
-                <Input id="dateMax" type="date" {...register('dateMax')} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" rows={3} {...register('description')} />
-          </div>
-
-          {createDeal.isError && (
+          {convertEntry.isError && (
             <p className="text-xs text-destructive">
-              {createDeal.error instanceof ApiError ? createDeal.error.message : 'Une erreur est survenue'}
+              {convertEntry.error instanceof ApiError ? convertEntry.error.message : 'Une erreur est survenue'}
             </p>
           )}
-
           <DialogFooter>
-            <Button type="submit" disabled={createDeal.isPending}>
-              {createDeal.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={convertEntry.isPending}>
+              {convertEntry.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Créer l'opération
             </Button>
           </DialogFooter>

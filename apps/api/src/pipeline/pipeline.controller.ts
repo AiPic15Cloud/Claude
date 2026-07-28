@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { CreateDealDto } from '../deals/dto/create-deal.dto';
 import { PipelineService } from './pipeline.service';
 import { CreatePipelineEntryDto } from './dto/create-pipeline-entry.dto';
 import { UpdatePipelineEntryDto } from './dto/update-pipeline-entry.dto';
@@ -32,6 +33,11 @@ export class PipelineController {
   @Patch(':id')
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdatePipelineEntryDto) {
     return this.pipelineService.update(user.organizationId, id, dto);
+  }
+
+  @Post(':id/convert')
+  convertToDeal(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: CreateDealDto) {
+    return this.pipelineService.convertToDeal(user.organizationId, user.id, id, dto);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
