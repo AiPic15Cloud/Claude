@@ -13,7 +13,7 @@ export default () => ({
   },
   ai: {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
-    anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-5-20250929',
+    anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5',
   },
   storage: {
     driver: process.env.STORAGE_DRIVER ?? 'local',
