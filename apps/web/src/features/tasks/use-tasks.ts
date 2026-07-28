@@ -12,3 +12,25 @@ export function useToggleTask() {
     },
   });
 }
+
+export function useCreateTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { title: string; dueDate?: string }) => api.post<Task>('/tasks', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/tasks/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}

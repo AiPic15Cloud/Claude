@@ -86,7 +86,7 @@ export function CockpitPage() {
         <div className="lg:col-span-2">
           <PipelineChart pipeline={data.pipeline} />
         </div>
-        <TaskListCard title="Aujourd'hui" tasks={data.today} emptyLabel="Aucune tâche pour aujourd'hui" />
+        <TaskListCard title="Aujourd'hui" tasks={data.today} emptyLabel="Aucune tâche pour aujourd'hui" quickAdd />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
