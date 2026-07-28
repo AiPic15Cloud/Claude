@@ -82,7 +82,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  // Some endpoints resolve to undefined and Nest sends an empty body with a
+  // 2xx status other than 204 (e.g. Content-Length: 0 on a 201) — parsing
+  // that as JSON throws, which silently kills the caller's promise chain
+  // (no onSuccess, no error surfaced). Treat an empty body as "no content"
+  // regardless of status code instead of assuming 204 is the only case.
+  const text = await response.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 export const api = {
