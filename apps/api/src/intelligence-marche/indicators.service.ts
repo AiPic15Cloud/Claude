@@ -61,19 +61,21 @@ export class MarketIndicatorsService {
   }
 
   /**
-   * The exact dimension code for "building permits" on sts_cobp_m isn't
-   * confidently known without live access to Eurostat's dimension metadata
-   * — tries a short list of plausible parameter sets in order and keeps the
-   * first one that actually returns a data point, logging which one worked
-   * (or, if none did, the per-attempt Eurostat errors) so this is fixable
-   * from the logs without another round of guessing.
+   * A first round confirmed (via a real Eurostat error, not a guess) that
+   * sts_cobp_m has no "NACE_R2" dimension at all — every nace_r2-filtered
+   * attempt failed with "INVALID_QUERY_DIMENSION". This round drops it and
+   * pairs indic_bt with cpa2_1 (the dimension Eurostat DID accept last
+   * time, just possibly with the wrong code value). If every attempt still
+   * comes up empty, logDimensionMetadata() below fetches the dataset's real
+   * dimension/category list directly from Eurostat so the next fix comes
+   * from that data, not another guess.
    */
   private async fetchBuildingPermits(): Promise<EurostatIndicator> {
     const attempts: Record<string, string>[] = [
-      { geo: 'FR', indic_bt: 'PERM', s_adj: 'CA', unit: 'I15', nace_r2: 'F', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'PSQM', s_adj: 'CA', unit: 'I15', nace_r2: 'F', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', cpa2_1: 'F_CC1', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', unit: 'I15', s_adj: 'CA', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'PERM', cpa2_1: 'F_CC1_1', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'PERM', cpa2_1: 'F_CC2', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'PERM', unit: 'I15', s_adj: 'CA', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'PSQM', unit: 'I15', s_adj: 'CA', sinceTimePeriod: '2024-01' },
     ];
 
     for (const params of attempts) {
@@ -83,7 +85,36 @@ export class MarketIndicatorsService {
         return result;
       }
     }
+    await this.logDimensionMetadata();
     return { value: null, previousValue: null, period: null };
+  }
+
+  /**
+   * Fetches sts_cobp_m with only geo+time filtered — Eurostat still returns
+   * the full dimension/category metadata for the unfiltered dimensions in
+   * that response, which is exactly the codebook needed to pick correct
+   * indic_bt/cpa2_1 values instead of guessing them.
+   */
+  private async logDimensionMetadata() {
+    try {
+      const search = new URLSearchParams({ format: 'JSON', lang: 'FR', geo: 'FR', sinceTimePeriod: '2024-01' });
+      const res = await fetch(`https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/sts_cobp_m?${search}`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      const json = (await res.json()) as { dimension?: Record<string, { category?: { index?: Record<string, number>; label?: Record<string, string> } }> };
+      const dims = Object.keys(json.dimension ?? {}).filter((d) => d !== 'geo' && d !== 'time');
+      const summary = dims
+        .map((d) => {
+          const index = json.dimension![d]?.category?.index ?? {};
+          const label = json.dimension![d]?.category?.label ?? {};
+          const codes = Object.keys(index).map((code) => `${code}=${label[code] ?? '?'}`);
+          return `${d}: [${codes.join(', ')}]`;
+        })
+        .join(' | ');
+      this.logger.warn(`Building permits — sts_cobp_m real dimensions for geo=FR: ${summary}`);
+    } catch (error) {
+      this.logger.warn(`Building permits dimension discovery failed: ${(error as Error).message}`);
+    }
   }
 
   async summary() {
