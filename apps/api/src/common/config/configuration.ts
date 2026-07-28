@@ -4,6 +4,11 @@ export default () => ({
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret',
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret',
+    // Deliberately distinct from accessSecret: a 2FA challenge token must
+    // never verify as a real access token, or it would let anyone who only
+    // knows the password skip the second factor entirely by presenting the
+    // challenge token as a Bearer token on a normal API call.
+    twoFactorSecret: process.env.JWT_2FA_SECRET ?? 'dev-2fa-challenge-secret',
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '7d',
   },
