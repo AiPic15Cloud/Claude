@@ -7,9 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useToggleTask, useCreateTask, useDeleteTask } from '@/features/tasks/use-tasks';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useToggleTask, useCreateTask, useDeleteTask, useUpdateTaskPriority } from '@/features/tasks/use-tasks';
 import { PRIORITY_LABELS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
+
+const PRIORITY_ORDER: Task['priority'][] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 const PRIORITY_VARIANT: Record<Task['priority'], 'default' | 'warning' | 'destructive' | 'secondary'> = {
   LOW: 'secondary',
@@ -20,6 +23,27 @@ const PRIORITY_VARIANT: Record<Task['priority'], 'default' | 'warning' | 'destru
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function PriorityPicker({ priority, onChange }: { priority: Task['priority']; onChange: (p: Task['priority']) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="shrink-0" onClick={(e) => e.stopPropagation()} aria-label="Changer la priorité">
+          <Badge variant={PRIORITY_VARIANT[priority]} className="cursor-pointer select-none hover:opacity-80">
+            {PRIORITY_LABELS[priority]}
+          </Badge>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {PRIORITY_ORDER.map((p) => (
+          <DropdownMenuItem key={p} onClick={() => onChange(p)} className="gap-2">
+            <Badge variant={PRIORITY_VARIANT[p]}>{PRIORITY_LABELS[p]}</Badge>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 interface TaskListCardProps {
@@ -35,14 +59,16 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
   const toggleTask = useToggleTask();
   const createTask = useCreateTask();
   const deleteTask = useDeleteTask();
+  const updatePriority = useUpdateTaskPriority();
   const [newTitle, setNewTitle] = useState('');
   const [newDueDate, setNewDueDate] = useState(todayIso());
+  const [newPriority, setNewPriority] = useState<Task['priority']>('MEDIUM');
 
   const handleAdd = () => {
     const title = newTitle.trim();
     if (!title) return;
     createTask.mutate(
-      { title, dueDate: newDueDate || undefined },
+      { title, dueDate: newDueDate || undefined, priority: newPriority },
       { onSuccess: () => setNewTitle('') },
     );
   };
@@ -63,6 +89,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
               placeholder="Nouvelle tâche…"
               className="h-7 flex-1 border-0 bg-transparent px-1.5 text-sm shadow-none focus-visible:ring-0"
             />
+            <PriorityPicker priority={newPriority} onChange={setNewPriority} />
             <Input
               type="date"
               value={newDueDate}
@@ -108,9 +135,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
                 )}
               </div>
             </div>
-            <Badge variant={PRIORITY_VARIANT[task.priority]} className="shrink-0">
-              {PRIORITY_LABELS[task.priority]}
-            </Badge>
+            <PriorityPicker priority={task.priority} onChange={(p) => updatePriority.mutate({ id: task.id, priority: p })} />
           </div>
         ))}
       </CardContent>
