@@ -1,14 +1,21 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { MeilisearchService } from '../search/meilisearch.service';
+import { TasksService } from '../tasks/tasks.service';
 import { GeocodingService } from './geocoding.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
 import { computeDeadlineAlert } from './deadline.util';
 import { computeNewsletterStatus } from './newsletter.util';
+
+// Fixed, never-translated title so the daily check can recognize its own
+// previously-created reminder and never duplicate it — see
+// createOverdueNewsletterTasks() below.
+const NEWSLETTER_TASK_TITLE = 'Newsletter investisseurs à envoyer';
 
 function computeFeesAmount(feesRate: number | null | undefined, amountRaised: number): number {
   if (!feesRate) return 0;
@@ -31,6 +38,7 @@ export class DealsService {
     private readonly activities: ActivitiesService,
     private readonly search: MeilisearchService,
     private readonly geocoding: GeocodingService,
+    private readonly tasks: TasksService,
   ) {}
 
   /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
@@ -325,7 +333,7 @@ export class DealsService {
     });
 
     return deals
-      .map((d) => ({ ...d, ...computeNewsletterStatus(d.lastNewsletterDate) }))
+      .map((d) => ({ ...d, ...computeNewsletterStatus(d.lastNewsletterDate, d.newsletterTargetDays) }))
       .sort((a, b) => (b.daysSince ?? Infinity) - (a.daysSince ?? Infinity));
   }
 
@@ -333,12 +341,67 @@ export class DealsService {
     await this.assertExists(organizationId, id);
     const deal = await this.prisma.deal.update({ where: { id }, data: { lastNewsletterDate: new Date() } });
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Newsletter investisseurs envoyée');
-    return { ...deal, ...computeNewsletterStatus(deal.lastNewsletterDate) };
+    // Sending the NL resolves whatever reminder task the daily check may
+    // have created — closing the loop instead of leaving a stale task.
+    await this.prisma.task.updateMany({
+      where: { dealId: id, title: NEWSLETTER_TASK_TITLE, done: false },
+      data: { done: true, completedAt: new Date() },
+    });
+    return { ...deal, ...computeNewsletterStatus(deal.lastNewsletterDate, deal.newsletterTargetDays) };
   }
 
   private async assertExists(organizationId: string, id: string) {
     const deal = await this.prisma.deal.findFirst({ where: { id, organizationId }, select: { id: true } });
     if (!deal) throw new NotFoundException('Opération introuvable');
     return deal;
+  }
+
+  /**
+   * Turns the newsletter cadence from a passive status badge into an
+   * actual assigned task once a deal is overdue against its own
+   * newsletterTargetDays (45 by default), counted from lastNewsletterDate.
+   * Runs once a day across every org — idempotent (skips a deal that
+   * already has an open reminder) and self-clearing (pingNewsletter marks
+   * the task done as soon as the NL is actually sent), so it never piles
+   * up duplicate reminders while a project stays overdue.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_7AM)
+  async createOverdueNewsletterTasks() {
+    const deals = await this.prisma.deal.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        organizationId: true,
+        name: true,
+        lastNewsletterDate: true,
+        newsletterTargetDays: true,
+        assignedToId: true,
+        createdById: true,
+      },
+    });
+
+    let created = 0;
+    for (const deal of deals) {
+      const { daysSince } = computeNewsletterStatus(deal.lastNewsletterDate, deal.newsletterTargetDays);
+      if (daysSince === null || daysSince < deal.newsletterTargetDays) continue;
+
+      const existing = await this.prisma.task.findFirst({
+        where: { dealId: deal.id, title: NEWSLETTER_TASK_TITLE, done: false },
+        select: { id: true },
+      });
+      if (existing) continue;
+
+      const assigneeId = deal.assignedToId ?? deal.createdById;
+      await this.tasks.create(deal.organizationId, assigneeId, {
+        title: NEWSLETTER_TASK_TITLE,
+        dealId: deal.id,
+        priority: 'HIGH',
+        dueDate: new Date().toISOString().slice(0, 10),
+        assigneeId,
+      });
+      created += 1;
+    }
+
+    if (created > 0) this.logger.log(`Newsletter : ${created} tâche(s) de relance créée(s) pour des dossiers en retard.`);
   }
 }
