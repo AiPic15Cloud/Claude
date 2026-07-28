@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFeesSummary } from '../hooks/use-fees';
@@ -72,7 +72,13 @@ export function FeesChartCard() {
 
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="feesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-accent))" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-accent))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} className="fill-muted-foreground" />
                   <YAxis
@@ -84,7 +90,7 @@ export function FeesChartCard() {
                     width={70}
                   />
                   <Tooltip
-                    cursor={{ fill: 'hsl(var(--muted))' }}
+                    cursor={{ stroke: 'hsl(var(--chart-accent))', strokeWidth: 1 }}
                     contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                     formatter={(value: number) => [formatCurrency(value), 'Fees']}
                   />
@@ -96,8 +102,8 @@ export function FeesChartCard() {
                       label={{ value: 'Objectif / mois', fontSize: 10, fill: 'hsl(var(--muted-foreground))', position: 'insideTopRight' }}
                     />
                   )}
-                  <Bar dataKey="amount" fill="hsl(var(--chart-accent))" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                </BarChart>
+                  <Area type="monotone" dataKey="amount" stroke="hsl(var(--chart-accent))" strokeWidth={2} fill="url(#feesGradient)" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </>

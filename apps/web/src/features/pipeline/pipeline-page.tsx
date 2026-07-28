@@ -29,12 +29,12 @@ const COMMITTEE_VARIANT: Record<CommitteeStatus, 'secondary' | 'success' | 'warn
   REFUSE: 'destructive',
 };
 
-function KpiTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function KpiTile({ label, value, hint, hero }: { label: string; value: string; hint?: string; hero?: boolean }) {
   return (
-    <Card>
-      <CardContent className="p-4">
+    <Card className={cn(hero && 'border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card lg:col-span-2')}>
+      <CardContent className={cn('p-4', hero && 'p-5')}>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 font-mono text-2xl font-semibold tabular-nums">{value}</p>
+        <p className={cn('mt-1 font-mono font-semibold tabular-nums', hero ? 'text-4xl' : 'text-2xl')}>{value}</p>
         {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
@@ -62,15 +62,15 @@ export function PipelinePage() {
       </div>
 
       {summaryLoading || !summary ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-7">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-7">
+          <KpiTile label="Volume analysé" value={formatCurrency(summary.totalAmount)} hero />
           <KpiTile label="Dossiers reçus" value={String(summary.received)} hint="cumulé" />
-          <KpiTile label="Volume analysé" value={formatCurrency(summary.totalAmount)} />
           <KpiTile label="Validés comité" value={String(summary.validatedCount)} hint={`${summary.validatedRate}% conversion`} />
           <KpiTile label="À approfondir" value={String(summary.toReviewCount)} />
           <KpiTile label="Refusés" value={String(summary.rejectedCount)} />
