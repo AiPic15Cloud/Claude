@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
-import type { AuthResponse, CurrentUser } from '@/types';
+import type { AuthResponse, CurrentUser, LoginResult } from '@/types';
 
 interface LoginPayload {
   email: string;
@@ -20,10 +20,53 @@ export function useLogin() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: (payload: LoginPayload) => api.post<AuthResponse>('/auth/login', payload, { skipAuth: true }),
+    mutationFn: (payload: LoginPayload) => api.post<LoginResult>('/auth/login', payload, { skipAuth: true }),
+    onSuccess: (data) => {
+      if ('requiresTwoFactor' in data) return;
+      setSession(data.user, data.accessToken, data.refreshToken);
+      navigate('/cockpit', { replace: true });
+    },
+  });
+}
+
+export function useVerifyTwoFactor() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const navigate = useNavigate();
+
+  return useMutation({
+    mutationFn: (payload: { challengeToken: string; code: string }) =>
+      api.post<AuthResponse>('/auth/2fa/verify', payload, { skipAuth: true }),
     onSuccess: (data) => {
       setSession(data.user, data.accessToken, data.refreshToken);
       navigate('/cockpit', { replace: true });
+    },
+  });
+}
+
+export function useSetupTwoFactor() {
+  return useMutation({
+    mutationFn: () => api.post<{ secret: string; otpauthUrl: string; qrCodeDataUrl: string }>('/users/me/2fa/setup'),
+  });
+}
+
+export function useEnableTwoFactor() {
+  const setUser = useAuthStore((s) => s.setUser);
+  return useMutation({
+    mutationFn: (code: string) => api.post<{ recoveryCodes: string[] }>('/users/me/2fa/enable', { code }),
+    onSuccess: () => {
+      const user = useAuthStore.getState().user;
+      if (user) setUser({ ...user, twoFactorEnabled: true });
+    },
+  });
+}
+
+export function useDisableTwoFactor() {
+  const setUser = useAuthStore((s) => s.setUser);
+  return useMutation({
+    mutationFn: (password: string) => api.post<void>('/users/me/2fa/disable', { password }),
+    onSuccess: () => {
+      const user = useAuthStore.getState().user;
+      if (user) setUser({ ...user, twoFactorEnabled: false });
     },
   });
 }

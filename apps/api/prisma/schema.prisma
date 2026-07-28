@@ -195,6 +195,10 @@ model User {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  twoFactorEnabled       Boolean  @default(false)
+  twoFactorSecret        String?
+  twoFactorRecoveryCodes String[] @default([])
+
   createdDeals  Deal[]         @relation("DealCreatedBy")
   assignedDeals Deal[]         @relation("DealAssignedTo")
   notes         Note[]

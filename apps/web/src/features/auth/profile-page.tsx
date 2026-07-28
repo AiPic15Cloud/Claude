@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUpdateProfile, useChangePassword } from './use-auth';
+import { TwoFactorCard } from './two-factor-card';
 import { useAuthStore } from '@/store/auth.store';
 import { ApiError } from '@/lib/api';
 
@@ -145,6 +146,8 @@ export function ProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      <TwoFactorCard />
     </div>
   );
 }

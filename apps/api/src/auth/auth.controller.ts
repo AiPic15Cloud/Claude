@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { TwoFactorVerifyDto } from './dto/two-factor-verify.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -21,7 +22,15 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   login(@Req() req: any, @Body() _dto: LoginDto) {
+    if (req.user.twoFactorEnabled) {
+      return this.authService.createTwoFactorChallenge(req.user);
+    }
     return this.authService.login(req.user);
+  }
+
+  @Post('2fa/verify')
+  verifyTwoFactor(@Body() dto: TwoFactorVerifyDto) {
+    return this.authService.verifyTwoFactor(dto.challengeToken, dto.code);
   }
 
   @Post('refresh')

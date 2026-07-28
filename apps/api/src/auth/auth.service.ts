@@ -6,8 +6,14 @@ import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { TwoFactorService } from '../two-factor/two-factor.service';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+
+interface TwoFactorChallengePayload {
+  sub: string;
+  type: '2fa_challenge';
+}
 
 const SALT_ROUNDS = 12;
 
@@ -28,6 +34,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly twoFactorService: TwoFactorService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -62,6 +69,33 @@ export class AuthService {
     const tokens = await this.issueTokenPair(user.id, user.email, user.role, user.organizationId);
     const fullUser = await this.usersService.findById(user.id);
     return { user: this.sanitize(fullUser!), ...tokens };
+  }
+
+  createTwoFactorChallenge(user: { id: string }) {
+    const challengeToken = this.jwtService.sign(
+      { sub: user.id, type: '2fa_challenge' } satisfies TwoFactorChallengePayload,
+      { secret: this.config.get<string>('jwt.accessSecret'), expiresIn: '5m' },
+    );
+    return { requiresTwoFactor: true as const, challengeToken };
+  }
+
+  async verifyTwoFactor(challengeToken: string, code: string) {
+    let payload: TwoFactorChallengePayload;
+    try {
+      payload = this.jwtService.verify<TwoFactorChallengePayload>(challengeToken, {
+        secret: this.config.get<string>('jwt.accessSecret'),
+      });
+    } catch {
+      throw new UnauthorizedException('Session de connexion expirée, reconnectez-vous');
+    }
+    if (payload.type !== '2fa_challenge') throw new UnauthorizedException();
+
+    const valid = await this.twoFactorService.verifyCode(payload.sub, code);
+    if (!valid) throw new UnauthorizedException('Code invalide');
+
+    const user = await this.usersService.findById(payload.sub);
+    if (!user) throw new UnauthorizedException();
+    return this.login(user);
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {
@@ -140,8 +174,8 @@ export class AuthService {
     return value * multipliers[unit];
   }
 
-  private sanitize(user: { passwordHash: string; [key: string]: unknown }) {
-    const { passwordHash: _passwordHash, ...rest } = user;
+  private sanitize(user: { passwordHash: string; twoFactorSecret?: string | null; twoFactorRecoveryCodes?: string[]; [key: string]: unknown }) {
+    const { passwordHash: _passwordHash, twoFactorSecret: _twoFactorSecret, twoFactorRecoveryCodes: _twoFactorRecoveryCodes, ...rest } = user;
     return rest;
   }
 }
