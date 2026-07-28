@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useToggleTask } from '@/features/tasks/use-tasks';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { useToggleTask, useCreateTask, useDeleteTask } from '@/features/tasks/use-tasks';
 import { PRIORITY_LABELS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -14,15 +18,34 @@ const PRIORITY_VARIANT: Record<Task['priority'], 'default' | 'warning' | 'destru
   URGENT: 'destructive',
 };
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 interface TaskListCardProps {
   title: string;
   tasks: Task[];
   emptyLabel: string;
   showDueDate?: boolean;
+  /** Personal quick-tasks: an inline "add" form, and checking one off deletes it instead of just marking it done. */
+  quickAdd?: boolean;
 }
 
-export function TaskListCard({ title, tasks, emptyLabel, showDueDate }: TaskListCardProps) {
+export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }: TaskListCardProps) {
   const toggleTask = useToggleTask();
+  const createTask = useCreateTask();
+  const deleteTask = useDeleteTask();
+  const [newTitle, setNewTitle] = useState('');
+  const [newDueDate, setNewDueDate] = useState(todayIso());
+
+  const handleAdd = () => {
+    const title = newTitle.trim();
+    if (!title) return;
+    createTask.mutate(
+      { title, dueDate: newDueDate || undefined },
+      { onSuccess: () => setNewTitle('') },
+    );
+  };
 
   return (
     <Card>
@@ -31,11 +54,41 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate }: TaskList
         <span className="text-xs text-muted-foreground">{tasks.length}</span>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
+        {quickAdd && (
+          <div className="mb-1 flex items-center gap-1.5 rounded-md border border-dashed border-input p-1.5">
+            <Input
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              placeholder="Nouvelle tâche…"
+              className="h-7 flex-1 border-0 bg-transparent px-1.5 text-sm shadow-none focus-visible:ring-0"
+            />
+            <Input
+              type="date"
+              value={newDueDate}
+              onChange={(e) => setNewDueDate(e.target.value)}
+              className="h-7 w-[124px] shrink-0 px-1.5 text-xs"
+              aria-label="Date d'échéance"
+            />
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-7 w-7 shrink-0"
+              disabled={!newTitle.trim() || createTask.isPending}
+              onClick={handleAdd}
+              aria-label="Ajouter la tâche"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
         {tasks.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">{emptyLabel}</p>}
         {tasks.map((task) => (
           <div key={task.id} className="flex items-start gap-2.5 rounded-md px-1.5 py-1.5 hover:bg-accent">
             <button
-              onClick={() => toggleTask.mutate({ id: task.id, done: !task.done })}
+              onClick={() =>
+                quickAdd ? deleteTask.mutate(task.id) : toggleTask.mutate({ id: task.id, done: !task.done })
+              }
               className={cn(
                 'mt-0.5 h-4 w-4 shrink-0 rounded border transition-colors',
                 task.done ? 'border-primary bg-primary' : 'border-input bg-background hover:border-primary',
