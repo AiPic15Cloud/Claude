@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CircleAlert, Info, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAlerts, useMarkAlertRead, useMarkAllAlertsRead } from '@/features/alerts/use-alerts';
 import { cn } from '@/lib/utils';
-import type { AlertSeverity } from '@/types';
+import type { Alert, AlertSeverity } from '@/types';
 
 const SEVERITY_ICON: Record<AlertSeverity, typeof Info> = {
   INFO: Info,
@@ -30,7 +31,19 @@ export function NotificationsMenu() {
   const { data: alerts = [] } = useAlerts();
   const markRead = useMarkAlertRead();
   const markAllRead = useMarkAllAlertsRead();
+  const navigate = useNavigate();
   const unreadCount = alerts.filter((a) => !a.read).length;
+
+  const handleOpen = (alert: Alert) => {
+    if (!alert.read) markRead.mutate(alert.id);
+    if (alert.dealId) {
+      navigate(`/deals/${alert.dealId}`);
+    } else if (alert.article?.url) {
+      window.open(alert.article.url, '_blank', 'noopener,noreferrer');
+    } else if (alert.articleId) {
+      navigate('/market');
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -66,7 +79,7 @@ export function NotificationsMenu() {
             return (
               <DropdownMenuItem
                 key={alert.id}
-                onClick={() => !alert.read && markRead.mutate(alert.id)}
+                onClick={() => handleOpen(alert)}
                 className="flex items-start gap-2.5 whitespace-normal py-2"
               >
                 <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', SEVERITY_COLOR[alert.severity])} />

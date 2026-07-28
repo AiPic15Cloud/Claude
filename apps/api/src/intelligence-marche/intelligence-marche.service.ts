@@ -222,6 +222,7 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
             title: 'Nouvelle actualité prioritaire',
             message: article.title,
             severity: 'WARNING',
+            articleId: article.id,
           });
         }
       } catch (error) {
