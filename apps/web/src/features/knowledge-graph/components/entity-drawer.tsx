@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useEntity } from '../hooks/use-graph';
+import { CompetitorProjectsPanel } from '@/features/intelligence-concurrentielle/components/competitor-projects-panel';
 import { DEAL_ENTITY_ROLE_LABELS, GRAPH_ENTITY_TYPE_LABELS } from '@/types';
 
 interface EntityDrawerProps {
@@ -45,6 +46,13 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
             <Separator className="my-4" />
 
             <div className="flex flex-col gap-4">
+              {entity.type === 'PLATEFORME' && (
+                <div>
+                  <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Projets suivis</h3>
+                  <CompetitorProjectsPanel entityId={entity.id} />
+                </div>
+              )}
+
               <div>
                 <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Opérations liées ({entity.dealLinks.length})
