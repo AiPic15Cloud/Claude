@@ -1,28 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as cheerio from 'cheerio';
-import { ArticleCategory } from '@prisma/client';
 import { ConnectorArticle, NewsConnector } from './connector.interface';
+import { inferCategory } from './keyword-taxonomy';
 
 const DEFAULT_QUERY = 'immobilier France OR "crowdfunding immobilier" OR "taux immobilier" OR "marché immobilier"';
-
-const CATEGORY_KEYWORDS: [ArticleCategory, string[]][] = [
-  ['TAUX', ['taux', 'bce', 'banque centrale']],
-  ['INFLATION', ['inflation']],
-  ['CONSTRUCTION', ['construction', 'permis de construire', 'btp', 'chantier']],
-  ['LOGISTIQUE', ['logistique', 'entrepôt']],
-  ['COMMERCE', ['commerce', 'bureaux', 'retail']],
-  ['RESIDENTIEL', ['résidentiel', 'logement', 'location']],
-  ['REGLEMENTATION', ['loi', 'décret', 'réglementation', 'fiscalité']],
-  ['IMMOBILIER', ['immobilier', 'foncier', 'crowdfunding']],
-];
-
-function inferCategory(text: string): ArticleCategory {
-  const lower = text.toLowerCase();
-  for (const [category, keywords] of CATEGORY_KEYWORDS) {
-    if (keywords.some((k) => lower.includes(k))) return category;
-  }
-  return ArticleCategory.AUTRE;
-}
 
 /**
  * Real editorial news via Google News' public RSS search feed — free, no

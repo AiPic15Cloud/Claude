@@ -17,6 +17,9 @@ const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[]
   { name: 'data.gouv.fr — Immobilier & construction', connector: 'data-gouv-catalogue', url: 'immobilier logement construction permis de construire' },
   { name: 'data.gouv.fr — Valeurs foncières (DVF)', connector: 'data-gouv-dvf', url: null },
   { name: 'Google News — Immobilier & finance', connector: 'google-news-rss', url: null },
+  { name: 'Le Monde — Économie', connector: 'press-rss', url: 'https://www.lemonde.fr/economie/rss_full.xml' },
+  { name: 'Le Figaro — Économie', connector: 'press-rss', url: 'https://www.lefigaro.fr/rss/figaro_economie.xml' },
+  { name: 'France Info — Économie', connector: 'press-rss', url: 'https://www.francetvinfo.fr/economie.rss' },
   { name: 'Yahoo Finance — BTC/USD', connector: 'yahoo-finance-btc', url: null },
 ];
 
@@ -73,8 +76,11 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
 
   async listSources(organizationId: string) {
     const sources = await this.prisma.newsSource.findMany({ where: { organizationId }, orderBy: { name: 'asc' } });
-    const existingConnectors = new Set(sources.map((s) => s.connector));
-    const missing = DEFAULT_SOURCES.filter((d) => !existingConnectors.has(d.connector));
+    // Keyed on (connector, url), not connector alone — several DEFAULT_SOURCES
+    // entries (the press-rss ones) share the same connector with different
+    // feed URLs, so connector alone would treat the 2nd/3rd as already provisioned.
+    const existingKeys = new Set(sources.map((s) => `${s.connector}::${s.url ?? ''}`));
+    const missing = DEFAULT_SOURCES.filter((d) => !existingKeys.has(`${d.connector}::${d.url ?? ''}`));
     if (missing.length === 0) return sources;
 
     const created = await Promise.all(
