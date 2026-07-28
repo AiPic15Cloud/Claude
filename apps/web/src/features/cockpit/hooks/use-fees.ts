@@ -12,6 +12,7 @@ export function useFeesSummary(year: number) {
 export interface FeesProjection {
   avgFeesRate: number;
   conversionRate: number;
+  conversionRateIsDefault: boolean;
   pipelineValidatedAmount: number;
   pipelinePendingAmount: number;
   projectedFees: number;

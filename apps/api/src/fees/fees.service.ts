@@ -47,6 +47,13 @@ export class FeesService {
    * committee are weighted by the org's historical validation rate. Both
    * are then multiplied by the average fees rate actually set on existing
    * deals (0 if none have one yet, in which case the projection is 0 too).
+   *
+   * Until the org has at least one committee decision (VALIDE/REFUSE), there
+   * is no historical rate to weight by — defaulting that to 0% would zero
+   * out the entire pending pipeline and make the projection ignore every
+   * dossier just entered. Instead a neutral 50% prior is used until real
+   * history accumulates, and `conversionRateIsDefault` tells the frontend to
+   * label it as an assumption rather than a measured rate.
    */
   async projection(organizationId: string) {
     const [feesRates, pipelineEntries] = await Promise.all([
@@ -61,7 +68,8 @@ export class FeesService {
     const validated = pipelineEntries.filter((e) => e.committee === 'VALIDE');
     const pending = pipelineEntries.filter((e) => e.committee === 'PAS_DE_COMITE' || e.committee === 'CONDITIONS_SUSPENSIVES');
     const decided = pipelineEntries.filter((e) => e.committee === 'VALIDE' || e.committee === 'REFUSE');
-    const conversionRate = decided.length ? validated.length / decided.length : 0;
+    const conversionRateIsDefault = decided.length === 0;
+    const conversionRate = decided.length ? validated.length / decided.length : 0.5;
 
     const pipelineValidatedAmount = validated.reduce((sum, e) => sum + Number(e.amount), 0);
     const pipelinePendingAmount = pending.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -71,6 +79,7 @@ export class FeesService {
     return {
       avgFeesRate: Math.round(avgFeesRate * 100) / 100,
       conversionRate: Math.round(conversionRate * 1000) / 10,
+      conversionRateIsDefault,
       pipelineValidatedAmount,
       pipelinePendingAmount,
       projectedFees,
