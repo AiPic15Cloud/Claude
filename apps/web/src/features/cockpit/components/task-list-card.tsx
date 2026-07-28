@@ -81,32 +81,34 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         {quickAdd && (
-          <div className="mb-1 flex items-center gap-1.5 rounded-md border border-dashed border-input p-1.5">
+          <div className="mb-1 flex flex-col gap-1.5 rounded-md border border-dashed border-input p-1.5">
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
               placeholder="Nouvelle tâche…"
-              className="h-7 flex-1 border-0 bg-transparent px-1.5 text-sm shadow-none focus-visible:ring-0"
+              className="h-7 border-0 bg-transparent px-1.5 text-sm shadow-none focus-visible:ring-0"
             />
-            <PriorityPicker priority={newPriority} onChange={setNewPriority} />
-            <Input
-              type="date"
-              value={newDueDate}
-              onChange={(e) => setNewDueDate(e.target.value)}
-              className="h-7 w-[124px] shrink-0 px-1.5 text-xs"
-              aria-label="Date d'échéance"
-            />
-            <Button
-              size="icon"
-              variant="secondary"
-              className="h-7 w-7 shrink-0"
-              disabled={!newTitle.trim() || createTask.isPending}
-              onClick={handleAdd}
-              aria-label="Ajouter la tâche"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <PriorityPicker priority={newPriority} onChange={setNewPriority} />
+              <Input
+                type="date"
+                value={newDueDate}
+                onChange={(e) => setNewDueDate(e.target.value)}
+                className="h-7 flex-1 px-1.5 text-xs"
+                aria-label="Date d'échéance"
+              />
+              <Button
+                size="icon"
+                variant="secondary"
+                className="h-7 w-7 shrink-0"
+                disabled={!newTitle.trim() || createTask.isPending}
+                onClick={handleAdd}
+                aria-label="Ajouter la tâche"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         )}
         {tasks.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">{emptyLabel}</p>}
