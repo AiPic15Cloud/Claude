@@ -16,7 +16,19 @@ export function useToggleTask() {
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; dueDate?: string }) => api.post<Task>('/tasks', data),
+    mutationFn: (data: { title: string; dueDate?: string; priority?: Task['priority'] }) => api.post<Task>('/tasks', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+export function useUpdateTaskPriority() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, priority }: { id: string; priority: Task['priority'] }) =>
+      api.patch<Task>(`/tasks/${id}`, { priority }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cockpit'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
