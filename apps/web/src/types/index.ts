@@ -78,6 +78,7 @@ export interface CurrentUser extends UserSummary {
   email: string;
   role: Role;
   organizationId: string;
+  twoFactorEnabled: boolean;
   createdAt: string;
 }
 
@@ -290,6 +291,13 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
 }
+
+export interface TwoFactorChallenge {
+  requiresTwoFactor: true;
+  challengeToken: string;
+}
+
+export type LoginResult = AuthResponse | TwoFactorChallenge;
 
 // ── Dossiers: guarantees & financial model ──────────────────
 

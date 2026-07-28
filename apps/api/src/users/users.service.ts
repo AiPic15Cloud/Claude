@@ -64,8 +64,8 @@ export class UsersService {
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
   }
 
-  private sanitize(user: { passwordHash: string; [key: string]: unknown }) {
-    const { passwordHash: _passwordHash, ...rest } = user;
+  private sanitize(user: { passwordHash: string; twoFactorSecret?: string | null; twoFactorRecoveryCodes?: string[]; [key: string]: unknown }) {
+    const { passwordHash: _passwordHash, twoFactorSecret: _twoFactorSecret, twoFactorRecoveryCodes: _twoFactorRecoveryCodes, ...rest } = user;
     return rest;
   }
 }
