@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useEntity } from '../hooks/use-graph';
 import { CompetitorProjectsPanel } from '@/features/intelligence-concurrentielle/components/competitor-projects-panel';
+import { PlatformStatsPanel } from '@/features/intelligence-concurrentielle/components/platform-stats-panel';
+import type { PlatformMetadata } from '@/features/intelligence-concurrentielle/platform-metadata';
 import { DEAL_ENTITY_ROLE_LABELS, GRAPH_ENTITY_TYPE_LABELS } from '@/types';
 
 interface EntityDrawerProps {
@@ -47,10 +49,16 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
 
             <div className="flex flex-col gap-4">
               {entity.type === 'PLATEFORME' && (
-                <div>
-                  <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Projets suivis</h3>
-                  <CompetitorProjectsPanel entityId={entity.id} />
-                </div>
+                <>
+                  <div>
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Statistiques baromètre</h3>
+                    <PlatformStatsPanel metadata={entity.metadata as PlatformMetadata | null} />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Projets suivis</h3>
+                    <CompetitorProjectsPanel entityId={entity.id} />
+                  </div>
+                </>
               )}
 
               <div>
