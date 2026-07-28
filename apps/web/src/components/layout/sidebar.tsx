@@ -82,6 +82,11 @@ export function Sidebar() {
         )}
       >
         <SidebarNav collapsed={sidebarCollapsed} />
+        {!sidebarCollapsed && (
+          <p className="px-4 pb-2 text-center text-[10px] leading-tight text-sidebar-foreground/40">
+            Application privée — données confidentielles
+          </p>
+        )}
         <div className="border-t border-sidebar-border p-2">
           <button
             onClick={toggleSidebar}

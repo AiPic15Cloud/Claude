@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
-import { Building2, Loader2 } from 'lucide-react';
+import { Building2, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,6 +36,10 @@ export function LoginPage() {
           </div>
           <h1 className="text-lg font-semibold tracking-tight">ATLAS</h1>
           <p className="text-xs text-muted-foreground">Real Estate Intelligence Operating System</p>
+          <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            Application privée — accès réservé aux utilisateurs autorisés
+          </div>
         </div>
 
         <Card>
@@ -74,6 +78,11 @@ export function LoginPage() {
           <Link to="/register" className="font-medium text-primary hover:underline">
             Créer une organisation
           </Link>
+        </p>
+
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground/70">
+          Les données contenues dans cette application sont strictement confidentielles et destinées à un usage
+          interne uniquement.
         </p>
       </div>
     </div>
