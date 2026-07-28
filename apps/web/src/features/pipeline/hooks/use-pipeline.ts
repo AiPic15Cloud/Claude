@@ -24,12 +24,14 @@ export interface CreatePipelineEntryPayload {
   source?: string;
   amount: number;
   margin?: number;
+  feesRate?: number;
   committee?: CommitteeStatus;
   decision?: string;
 }
 
 function invalidatePipeline(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+  queryClient.invalidateQueries({ queryKey: ['fees'] });
 }
 
 export function useCreatePipelineEntry() {

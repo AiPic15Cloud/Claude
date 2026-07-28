@@ -14,13 +14,19 @@ import { ApiError } from '@/lib/api';
 
 const COMMITTEE_STATUSES: CommitteeStatus[] = ['PAS_DE_COMITE', 'VALIDE', 'CONDITIONS_SUSPENSIVES', 'REFUSE'];
 
+// register()-bound number inputs pass the raw string through, and an empty
+// field coerces to 0 rather than staying unset — a blank "Fees (%)" should
+// mean "not entered", not "confirmed at 0%".
+const blankToUndefined = (v: unknown) => (v === '' ? undefined : v);
+
 const schema = z.object({
   date: z.string().min(1, 'Date requise'),
   operator: z.string().min(1, 'Opérateur requis'),
   typology: z.string().optional(),
   source: z.string().optional(),
   amount: z.coerce.number().positive('Montant requis'),
-  margin: z.coerce.number().optional().or(z.literal(undefined)),
+  margin: z.preprocess(blankToUndefined, z.coerce.number().optional()),
+  feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   committee: z.enum(['PAS_DE_COMITE', 'VALIDE', 'CONDITIONS_SUSPENSIVES', 'REFUSE']),
   decision: z.string().optional(),
 });
@@ -76,7 +82,7 @@ export function CreatePipelineEntryDialog() {
               <Input id="source" {...register('source')} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amount">Montant (€)</Label>
               <Input id="amount" type="number" min={0} step={1000} {...register('amount')} />
@@ -85,6 +91,11 @@ export function CreatePipelineEntryDialog() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="margin">Marge (%)</Label>
               <Input id="margin" type="number" step={0.1} {...register('margin')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="feesRate">Fees ATLAS (%)</Label>
+              <Input id="feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              {errors.feesRate && <p className="text-xs text-destructive">{errors.feesRate.message}</p>}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">

@@ -368,6 +368,11 @@ model PipelineEntry {
   source     String?
   amount     Decimal          @db.Decimal(14, 2)
   margin     Decimal?         @db.Decimal(5, 2)
+  // ATLAS's own fee rate (%) negotiated on this dossier — distinct from
+  // `margin`, which is the underlying deal's profitability. Feeds the fees
+  // projection (below) per-dossier instead of falling back to the
+  // portfolio-wide average feesRate for every pipeline entry alike.
+  feesRate   Decimal?         @db.Decimal(5, 2)
   committee  CommitteeStatus  @default(PAS_DE_COMITE)
   decision   String?
 

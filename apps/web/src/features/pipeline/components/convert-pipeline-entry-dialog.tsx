@@ -53,7 +53,7 @@ export function ConvertPipelineEntryDialog({ entry }: { entry: PipelineEntry }) 
       name: entry.operator,
       type: guessDealType(entry.typology),
       amountTarget: Number(entry.amount),
-      feesRate: entry.margin ? Number(entry.margin) : undefined,
+      feesRate: entry.feesRate ? Number(entry.feesRate) : undefined,
     },
   });
 

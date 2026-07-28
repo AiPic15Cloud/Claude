@@ -44,9 +44,12 @@ export class FeesService {
   /**
    * A transparent, clearly-labelled estimate — not a promise. Validated
    * pipeline entries are assumed to convert in full; entries still awaiting
-   * committee are weighted by the org's historical validation rate. Both
-   * are then multiplied by the average fees rate actually set on existing
-   * deals (0 if none have one yet, in which case the projection is 0 too).
+   * committee are weighted by the org's historical validation rate. Each
+   * dossier is valued at its OWN negotiated feesRate when the operator set
+   * one — falling back to the portfolio-wide average feesRate (0 if no deal
+   * has one yet) only for dossiers where it wasn't entered, rather than
+   * applying one blanket rate to every dossier regardless of what was
+   * actually agreed.
    *
    * Until the org has at least one committee decision (VALIDE/REFUSE), there
    * is no historical rate to weight by — defaulting that to 0% would zero
@@ -58,12 +61,13 @@ export class FeesService {
   async projection(organizationId: string) {
     const [feesRates, pipelineEntries] = await Promise.all([
       this.prisma.deal.findMany({ where: { organizationId, feesRate: { not: null } }, select: { feesRate: true } }),
-      this.prisma.pipelineEntry.findMany({ where: { organizationId }, select: { amount: true, committee: true } }),
+      this.prisma.pipelineEntry.findMany({ where: { organizationId }, select: { amount: true, committee: true, feesRate: true } }),
     ]);
 
     const avgFeesRate = feesRates.length
       ? feesRates.reduce((sum, d) => sum + Number(d.feesRate), 0) / feesRates.length
       : 0;
+    const entryFeesRate = (e: { feesRate: unknown }) => (e.feesRate != null ? Number(e.feesRate) : avgFeesRate);
 
     const validated = pipelineEntries.filter((e) => e.committee === 'VALIDE');
     const pending = pipelineEntries.filter((e) => e.committee === 'PAS_DE_COMITE' || e.committee === 'CONDITIONS_SUSPENSIVES');
@@ -73,8 +77,9 @@ export class FeesService {
 
     const pipelineValidatedAmount = validated.reduce((sum, e) => sum + Number(e.amount), 0);
     const pipelinePendingAmount = pending.reduce((sum, e) => sum + Number(e.amount), 0);
-    const weightedPipelineAmount = pipelineValidatedAmount + pipelinePendingAmount * conversionRate;
-    const projectedFees = Math.round(weightedPipelineAmount * (avgFeesRate / 100));
+    const validatedFees = validated.reduce((sum, e) => sum + Number(e.amount) * (entryFeesRate(e) / 100), 0);
+    const pendingFees = pending.reduce((sum, e) => sum + Number(e.amount) * conversionRate * (entryFeesRate(e) / 100), 0);
+    const projectedFees = Math.round(validatedFees + pendingFees);
 
     return {
       avgFeesRate: Math.round(avgFeesRate * 100) / 100,

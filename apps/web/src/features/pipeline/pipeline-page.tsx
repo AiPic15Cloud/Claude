@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePipelineEntries, usePipelineSummary } from './hooks/use-pipeline';
+import { useFeesProjection } from '@/features/cockpit/hooks/use-fees';
 import { CreatePipelineEntryDialog } from './components/create-pipeline-entry-dialog';
 import { EditPipelineEntryDialog } from './components/edit-pipeline-entry-dialog';
 import { ConvertPipelineEntryDialog } from './components/convert-pipeline-entry-dialog';
@@ -43,6 +44,7 @@ function KpiTile({ label, value, hint }: { label: string; value: string; hint?: 
 export function PipelinePage() {
   const [committee, setCommittee] = useState<CommitteeStatus | undefined>(undefined);
   const { data: summary, isLoading: summaryLoading } = usePipelineSummary();
+  const { data: projection, isLoading: projectionLoading } = useFeesProjection();
   const { data: entriesData, isLoading: entriesLoading } = usePipelineEntries(committee);
   const entries = entriesData?.items ?? [];
 
@@ -60,18 +62,27 @@ export function PipelinePage() {
       </div>
 
       {summaryLoading || !summary ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
           <KpiTile label="Dossiers reçus" value={String(summary.received)} hint="cumulé" />
           <KpiTile label="Volume analysé" value={formatCurrency(summary.totalAmount)} />
           <KpiTile label="Validés comité" value={String(summary.validatedCount)} hint={`${summary.validatedRate}% conversion`} />
           <KpiTile label="À approfondir" value={String(summary.toReviewCount)} />
           <KpiTile label="Refusés" value={String(summary.rejectedCount)} />
+          <KpiTile
+            label="Projection CA (fees)"
+            value={projectionLoading || !projection ? '…' : formatCurrency(projection.projectedFees)}
+            hint={
+              projection
+                ? `taux moyen ${projection.avgFeesRate}% · conversion ${projection.conversionRate}%${projection.conversionRateIsDefault ? ' (estimation)' : ''}`
+                : undefined
+            }
+          />
         </div>
       )}
 
@@ -135,6 +146,7 @@ export function PipelinePage() {
               <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Source</th>
               <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Montant</th>
               <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Marge</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Fees</th>
               <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Comité</th>
               <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Décision</th>
               <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Opération</th>
@@ -145,14 +157,14 @@ export function PipelinePage() {
             {entriesLoading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-border">
-                  <td colSpan={10} className="px-4 py-2">
+                  <td colSpan={11} className="px-4 py-2">
                     <Skeleton className="h-5 w-full" />
                   </td>
                 </tr>
               ))}
             {!entriesLoading && entries.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                <td colSpan={11} className="px-4 py-8 text-center text-xs text-muted-foreground">
                   Aucun dossier
                 </td>
               </tr>
@@ -168,6 +180,7 @@ export function PipelinePage() {
                   <td className={cn('whitespace-nowrap px-4 py-2 text-right tabular-nums', Number(e.margin) < 0 && 'text-destructive')}>
                     {e.margin ? `${e.margin}%` : '—'}
                   </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">{e.feesRate ? `${e.feesRate}%` : '—'}</td>
                   <td className="px-4 py-2">
                     <Badge variant={COMMITTEE_VARIANT[e.committee]}>{COMMITTEE_STATUS_LABELS[e.committee]}</Badge>
                   </td>
