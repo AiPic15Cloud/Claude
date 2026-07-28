@@ -4,7 +4,6 @@ import { DataGouvConnector } from './data-gouv.connector';
 import { DvfConnector } from './dvf.connector';
 import { GoogleNewsConnector } from './google-news.connector';
 import { PressRssConnector } from './press-rss.connector';
-import { YahooFinanceConnector } from './yahoo-finance.connector';
 import { ManualConnector } from './manual.connector';
 
 @Injectable()
@@ -16,7 +15,6 @@ export class ConnectorRegistryService {
     dvf: DvfConnector,
     googleNews: GoogleNewsConnector,
     pressRss: PressRssConnector,
-    yahooFinance: YahooFinanceConnector,
     manual: ManualConnector,
   ) {
     this.connectors = new Map<string, NewsConnector>([
@@ -24,7 +22,6 @@ export class ConnectorRegistryService {
       [dvf.key, dvf],
       [googleNews.key, googleNews],
       [pressRss.key, pressRss],
-      [yahooFinance.key, yahooFinance],
       [manual.key, manual],
     ]);
   }

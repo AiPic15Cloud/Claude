@@ -8,7 +8,6 @@ import { DataGouvConnector } from './connectors/data-gouv.connector';
 import { DvfConnector } from './connectors/dvf.connector';
 import { GoogleNewsConnector } from './connectors/google-news.connector';
 import { PressRssConnector } from './connectors/press-rss.connector';
-import { YahooFinanceConnector } from './connectors/yahoo-finance.connector';
 import { ManualConnector } from './connectors/manual.connector';
 import { AlertsModule } from '../alerts/alerts.module';
 import { SearchModule } from '../search/search.module';
@@ -24,7 +23,6 @@ import { SearchModule } from '../search/search.module';
     DvfConnector,
     GoogleNewsConnector,
     PressRssConnector,
-    YahooFinanceConnector,
     ManualConnector,
   ],
   controllers: [IntelligenceMarcheController],
