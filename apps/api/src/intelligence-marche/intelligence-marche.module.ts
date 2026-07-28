@@ -7,6 +7,7 @@ import { ConnectorRegistryService } from './connectors/connector-registry.servic
 import { DataGouvConnector } from './connectors/data-gouv.connector';
 import { DvfConnector } from './connectors/dvf.connector';
 import { GoogleNewsConnector } from './connectors/google-news.connector';
+import { PressRssConnector } from './connectors/press-rss.connector';
 import { YahooFinanceConnector } from './connectors/yahoo-finance.connector';
 import { ManualConnector } from './connectors/manual.connector';
 import { AlertsModule } from '../alerts/alerts.module';
@@ -22,6 +23,7 @@ import { SearchModule } from '../search/search.module';
     DataGouvConnector,
     DvfConnector,
     GoogleNewsConnector,
+    PressRssConnector,
     YahooFinanceConnector,
     ManualConnector,
   ],
