@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { BarometerConnector } from './connectors/barometer.connector';
-import { computePlatformScore } from './platform-score.util';
 
 @Injectable()
 export class PlatformsSyncService {
@@ -20,18 +19,23 @@ export class PlatformsSyncService {
 
     let synced = 0;
     for (const stat of stats) {
-      const score = computePlatformScore(stat);
+      // The barometer publishes its own documented, rule-based quality score —
+      // use it directly rather than approximating one from a subset of fields.
       const metadata = {
         source: 'barometre-crowdfunding.com',
         fetchedAt: new Date().toISOString(),
-        activeProjectsCount: stat.activeProjectsCount ?? null,
-        cumulativeCollectedAmount: stat.cumulativeCollectedAmount ?? null,
-        currentYearCollectedAmount: stat.currentYearCollectedAmount ?? null,
-        cumulativeProjectsCount: stat.cumulativeProjectsCount ?? null,
-        currentYearProjectsCount: stat.currentYearProjectsCount ?? null,
-        lateRate: stat.lateRate ?? null,
-        averageInterestRate: stat.averageInterestRate ?? null,
-        atlasScore: score,
+        category: stat.category ?? null,
+        isTerminated: stat.isTerminated ?? null,
+        totalFunded: stat.totalFunded ?? null,
+        projectCountFinanced: stat.projectCountFinanced ?? null,
+        capitalReimbursed: stat.capitalReimbursed ?? null,
+        projectCountReimbursed: stat.projectCountReimbursed ?? null,
+        riskAmount: stat.riskAmount ?? null,
+        riskProjects: stat.riskProjects ?? null,
+        capitalInDefault: stat.capitalInDefault ?? null,
+        lastReportDate: stat.lastReportDate ?? null,
+        averageLoanDuration: stat.averageLoanDuration ?? null,
+        atlasScore: stat.qualityScore ?? null,
       };
 
       const existing = await this.prisma.graphEntity.findFirst({
@@ -41,14 +45,11 @@ export class PlatformsSyncService {
       if (existing) {
         await this.prisma.graphEntity.update({
           where: { id: existing.id },
-          data: {
-            website: stat.website ?? existing.website,
-            metadata: { ...(existing.metadata as object), ...metadata },
-          },
+          data: { metadata: { ...(existing.metadata as object), ...metadata } },
         });
       } else {
         await this.prisma.graphEntity.create({
-          data: { organizationId, type: 'PLATEFORME', name: stat.name, website: stat.website, metadata },
+          data: { organizationId, type: 'PLATEFORME', name: stat.name, metadata },
         });
       }
       synced++;
