@@ -1,16 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { DealsService } from '../deals/deals.service';
+import { CreateDealDto } from '../deals/dto/create-deal.dto';
 import { CreatePipelineEntryDto } from './dto/create-pipeline-entry.dto';
 import { UpdatePipelineEntryDto } from './dto/update-pipeline-entry.dto';
 import { QueryPipelineDto } from './dto/query-pipeline.dto';
 
+const PIPELINE_ENTRY_INCLUDE = {
+  convertedDeal: { select: { id: true, name: true, reference: true } },
+} as const;
+
 @Injectable()
 export class PipelineService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly deals: DealsService,
+  ) {}
 
   async create(organizationId: string, userId: string, dto: CreatePipelineEntryDto) {
     return this.prisma.pipelineEntry.create({
       data: { ...dto, date: new Date(dto.date), organizationId, createdById: userId },
+      include: PIPELINE_ENTRY_INCLUDE,
     });
   }
 
@@ -20,7 +30,13 @@ export class PipelineService {
     const where = { organizationId, ...(query.committee ? { committee: query.committee } : {}) };
 
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.pipelineEntry.findMany({ where, orderBy: { date: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+      this.prisma.pipelineEntry.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: PIPELINE_ENTRY_INCLUDE,
+      }),
       this.prisma.pipelineEntry.count({ where }),
     ]);
 
@@ -30,12 +46,38 @@ export class PipelineService {
   async update(organizationId: string, id: string, dto: UpdatePipelineEntryDto) {
     await this.assertExists(organizationId, id);
     const { date, ...rest } = dto;
-    return this.prisma.pipelineEntry.update({ where: { id }, data: { ...rest, date: date ? new Date(date) : undefined } });
+    return this.prisma.pipelineEntry.update({
+      where: { id },
+      data: { ...rest, date: date ? new Date(date) : undefined },
+      include: PIPELINE_ENTRY_INCLUDE,
+    });
   }
 
   async remove(organizationId: string, id: string) {
     await this.assertExists(organizationId, id);
     await this.prisma.pipelineEntry.delete({ where: { id } });
+  }
+
+  /**
+   * Turns a pipeline dossier into a real portfolio Deal, closing the loop
+   * the pipeline's own KPIs (conversion rate, fees projection) depend on —
+   * without this, "Validé comité" never becomes anything measurable in the
+   * portfolio. One-way and one-shot: once converted, the link is permanent
+   * and re-conversion is rejected rather than silently creating duplicates.
+   */
+  async convertToDeal(organizationId: string, userId: string, id: string, dto: CreateDealDto) {
+    const entry = await this.prisma.pipelineEntry.findFirst({ where: { id, organizationId } });
+    if (!entry) throw new NotFoundException('Entrée pipeline introuvable');
+    if (entry.convertedDealId) throw new ConflictException('Ce dossier a déjà été converti en opération');
+
+    const deal = await this.deals.create(organizationId, userId, dto);
+    const updatedEntry = await this.prisma.pipelineEntry.update({
+      where: { id },
+      data: { convertedDealId: deal.id },
+      include: PIPELINE_ENTRY_INCLUDE,
+    });
+
+    return { deal, pipelineEntry: updatedEntry };
   }
 
   async summary(organizationId: string) {

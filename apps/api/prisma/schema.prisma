@@ -317,6 +317,7 @@ model Deal {
   financialAssumption FinancialAssumption?
   entityLinks         DealEntityLink[]
   repayments          Repayment[]
+  convertedFromPipelineEntry PipelineEntry? @relation("PipelineConvertedDeal")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -369,6 +370,12 @@ model PipelineEntry {
   margin     Decimal?         @db.Decimal(5, 2)
   committee  CommitteeStatus  @default(PAS_DE_COMITE)
   decision   String?
+
+  // Set once this dossier has actually been turned into a live operation —
+  // the one-way link that lets the pipeline's conversion KPIs (and the fees
+  // projection) be grounded in real portfolio deals instead of guesswork.
+  convertedDealId String? @unique
+  convertedDeal   Deal?   @relation("PipelineConvertedDeal", fields: [convertedDealId], references: [id])
 
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])

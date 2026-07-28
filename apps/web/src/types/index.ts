@@ -340,6 +340,8 @@ export interface PipelineEntry {
   margin?: string | null;
   committee: CommitteeStatus;
   decision?: string | null;
+  convertedDealId?: string | null;
+  convertedDeal?: { id: string; name: string; reference: string } | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;

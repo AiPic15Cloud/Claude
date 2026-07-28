@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { CommitteeStatus, PaginatedResult, PipelineEntry, PipelineSummary } from '@/types';
+import type { CommitteeStatus, Deal, PaginatedResult, PipelineEntry, PipelineSummary } from '@/types';
+import type { CreateDealPayload } from '@/features/portfolio/hooks/use-deals';
 
 export function usePipelineEntries(committee?: CommitteeStatus) {
   return useQuery({
@@ -53,5 +54,19 @@ export function useDeletePipelineEntry() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/pipeline/${id}`),
     onSuccess: () => invalidatePipeline(queryClient),
+  });
+}
+
+export function useConvertPipelineEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string } & CreateDealPayload) =>
+      api.post<{ deal: Deal; pipelineEntry: PipelineEntry }>(`/pipeline/${id}/convert`, payload),
+    onSuccess: () => {
+      invalidatePipeline(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['fees'] });
+    },
   });
 }

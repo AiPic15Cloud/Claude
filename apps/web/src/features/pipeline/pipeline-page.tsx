@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePipelineEntries, usePipelineSummary } from './hooks/use-pipeline';
 import { CreatePipelineEntryDialog } from './components/create-pipeline-entry-dialog';
+import { EditPipelineEntryDialog } from './components/edit-pipeline-entry-dialog';
+import { ConvertPipelineEntryDialog } from './components/convert-pipeline-entry-dialog';
 import { NewslettersCard } from './components/newsletters-card';
 import { COMMITTEE_STATUS_LABELS, type CommitteeStatus } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -134,20 +137,22 @@ export function PipelinePage() {
               <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Marge</th>
               <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Comité</th>
               <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Décision</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Opération</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {entriesLoading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-border">
-                  <td colSpan={8} className="px-4 py-2">
+                  <td colSpan={10} className="px-4 py-2">
                     <Skeleton className="h-5 w-full" />
                   </td>
                 </tr>
               ))}
             {!entriesLoading && entries.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-xs text-muted-foreground">
                   Aucun dossier
                 </td>
               </tr>
@@ -167,6 +172,20 @@ export function PipelinePage() {
                     <Badge variant={COMMITTEE_VARIANT[e.committee]}>{COMMITTEE_STATUS_LABELS[e.committee]}</Badge>
                   </td>
                   <td className="px-4 py-2 text-muted-foreground">{e.decision || '—'}</td>
+                  <td className="whitespace-nowrap px-4 py-2">
+                    {e.convertedDeal ? (
+                      <Link to={`/deals/${e.convertedDeal.id}`} className="text-primary hover:underline">
+                        {e.convertedDeal.reference}
+                      </Link>
+                    ) : e.committee === 'VALIDE' ? (
+                      <ConvertPipelineEntryDialog entry={e} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right">
+                    <EditPipelineEntryDialog entry={e} />
+                  </td>
                 </tr>
               ))}
           </tbody>
