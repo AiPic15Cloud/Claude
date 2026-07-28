@@ -76,8 +76,10 @@ export function Topbar() {
                 <p className="text-xs font-normal text-muted-foreground">{user?.email}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>
-                <UserIcon /> Profil
+              <DropdownMenuItem asChild>
+                <Link to="/profile">
+                  <UserIcon /> Profil
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">

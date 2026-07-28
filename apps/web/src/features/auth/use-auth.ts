@@ -54,6 +54,20 @@ export function useLogout() {
   };
 }
 
+export function useUpdateProfile() {
+  const setUser = useAuthStore((s) => s.setUser);
+  return useMutation({
+    mutationFn: (payload: { firstName?: string; lastName?: string }) => api.patch<CurrentUser>('/users/me', payload),
+    onSuccess: (user) => setUser(user),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (payload: { currentPassword: string; newPassword: string }) => api.patch<void>('/users/me/password', payload),
+  });
+}
+
 export function useCurrentUser() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
