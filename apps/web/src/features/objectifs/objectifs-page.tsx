@@ -98,7 +98,11 @@ export function ObjectifsPage() {
           <KpiTile
             label="Projection pipeline"
             value={projectionLoading || !projection ? '…' : formatCurrency(projection.projectedFees)}
-            hint={projection ? `taux moyen ${projection.avgFeesRate}% · conversion ${projection.conversionRate}%` : undefined}
+            hint={
+              projection
+                ? `taux moyen ${projection.avgFeesRate}% · conversion ${projection.conversionRate}%${projection.conversionRateIsDefault ? ' (estimation, pas encore d\'historique comité)' : ''}`
+                : undefined
+            }
           />
         </div>
       )}
