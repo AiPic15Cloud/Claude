@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -22,6 +22,7 @@ export class AlertsController {
   }
 
   @Post('read-all')
+  @HttpCode(HttpStatus.NO_CONTENT)
   markAllRead(@CurrentUser() user: AuthenticatedUser) {
     return this.alertsService.markAllRead(user.organizationId);
   }
