@@ -59,6 +59,11 @@ export class IntelligenceMarcheController {
     return this.service.enqueueFetch(user.organizationId, id);
   }
 
+  @Post('sources/collect-all')
+  collectAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.collectAll(user.organizationId);
+  }
+
   @Get('articles')
   listArticles(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryArticlesDto) {
     return this.service.listArticles(user.organizationId, query);

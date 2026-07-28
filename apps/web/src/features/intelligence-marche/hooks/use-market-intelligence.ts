@@ -37,6 +37,17 @@ export function useTriggerFetch() {
   });
 }
 
+export function useCollectAll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ sourcesCollected: number; created: number }>('/market-intelligence/sources/collect-all'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mi-articles'] });
+      queryClient.invalidateQueries({ queryKey: ['mi-sources'] });
+    },
+  });
+}
+
 export function useArticles(params: { category?: ArticleCategory; search?: string } = {}) {
   const query = new URLSearchParams();
   if (params.category) query.set('category', params.category);

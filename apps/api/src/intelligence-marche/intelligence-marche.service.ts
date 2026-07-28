@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 import { Prisma, Priority } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -13,6 +14,12 @@ import { QueryArticlesDto } from './dto/query-articles.dto';
 // provisioned lazily on an org's first visit so orgs created outside the
 // seed script (self-registration, real-data import) get automatic coverage
 // too, same as data-gouv-catalogue always has.
+//
+// The google-news-rss entries below reuse that one connector with a
+// site-scoped search query in place of a native RSS URL — safer than
+// guessing each outlet's own (often undocumented, sometimes moved) RSS
+// path, since the connector already degrades to zero articles rather than
+// erroring on an unexpected response.
 const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[] = [
   { name: 'data.gouv.fr — Immobilier & construction', connector: 'data-gouv-catalogue', url: 'immobilier logement construction permis de construire' },
   { name: 'data.gouv.fr — Valeurs foncières (DVF)', connector: 'data-gouv-dvf', url: null },
@@ -20,7 +27,11 @@ const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[]
   { name: 'Le Monde — Économie', connector: 'press-rss', url: 'https://www.lemonde.fr/economie/rss_full.xml' },
   { name: 'Le Figaro — Économie', connector: 'press-rss', url: 'https://www.lefigaro.fr/rss/figaro_economie.xml' },
   { name: 'France Info — Économie', connector: 'press-rss', url: 'https://www.francetvinfo.fr/economie.rss' },
-  { name: 'Yahoo Finance — BTC/USD', connector: 'yahoo-finance-btc', url: null },
+  { name: 'Les Echos', connector: 'google-news-rss', url: 'site:lesechos.fr immobilier OR économie OR taux OR logement' },
+  { name: 'Banque de France', connector: 'google-news-rss', url: 'site:banque-france.fr OR "Banque de France" taux directeur OR politique monétaire OR inflation' },
+  { name: 'AMF — Financement participatif', connector: 'google-news-rss', url: 'site:amf-france.org OR "AMF" financement participatif OR crowdfunding OR régulation' },
+  { name: 'Assemblée Nationale & Légifrance', connector: 'google-news-rss', url: 'site:assemblee-nationale.fr OR site:legifrance.gouv.fr logement OR immobilier OR fiscalité' },
+  { name: 'Business Immo', connector: 'google-news-rss', url: 'site:businessimmo.com' },
 ];
 
 // Connectors removed after turning out non-functional in production (e.g.
@@ -28,7 +39,11 @@ const DEFAULT_SOURCES: { name: string; connector: string; url: string | null }[]
 // than left as a dead "Collecter" button. No migration needed since it's a
 // plain runtime cleanup, and cascade-deletes whatever (if any) articles that
 // connector produced.
-const RETIRED_CONNECTORS = ['euronews-breaking'];
+//
+// yahoo-finance-btc: BTC/USD has no bearing on a real-estate crowdfunding
+// platform's market intelligence — a leftover from the original seed, out
+// of scope for this domain regardless of whether it ever worked.
+const RETIRED_CONNECTORS = ['euronews-breaking', 'yahoo-finance-btc'];
 
 const HIGH_PRIORITY_KEYWORDS = [
   'taux',
@@ -108,6 +123,36 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
     const source = await this.prisma.newsSource.findFirst({ where: { id: sourceId, organizationId } });
     if (!source) throw new NotFoundException('Source introuvable');
     return this.ingestSource(sourceId);
+  }
+
+  /** "Tout collecter" — ingest every active source for one org in a single action instead of clicking each one. */
+  async collectAll(organizationId: string) {
+    const sources = await this.prisma.newsSource.findMany({
+      where: { organizationId, active: true, connector: { not: 'manual' } },
+      select: { id: true },
+    });
+    const results = await Promise.all(sources.map((s) => this.ingestSource(s.id)));
+    return { sourcesCollected: sources.length, created: results.reduce((sum, r) => sum + r.created, 0) };
+  }
+
+  /**
+   * Nothing else refreshes the veille on its own — without this, content
+   * only ever appears when someone remembers to click "Collecter" on every
+   * source. Runs across every org's active sources once a day; failures on
+   * one source (rate limiting, a moved feed) never block the rest since
+   * ingestSource already isolates per-item errors and collectAll-style
+   * fan-out here isolates per-source ones the same way via Promise.allSettled.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  async collectAllOrgsScheduled() {
+    const sources = await this.prisma.newsSource.findMany({
+      where: { active: true, connector: { not: 'manual' } },
+      select: { id: true, name: true },
+    });
+    const results = await Promise.allSettled(sources.map((s) => this.ingestSource(s.id)));
+    const created = results.reduce((sum, r) => (r.status === 'fulfilled' ? sum + r.value.created : sum), 0);
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    this.logger.log(`Collecte quotidienne : ${sources.length} source(s), ${created} article(s) créé(s), ${failed} échec(s).`);
   }
 
   async ingestSource(sourceId: string) {

@@ -9,13 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useConnectors, useSources, useCreateSource, useTriggerFetch } from '../hooks/use-market-intelligence';
+import { useConnectors, useSources, useCreateSource, useTriggerFetch, useCollectAll } from '../hooks/use-market-intelligence';
+import { cn } from '@/lib/utils';
 
 export function SourcesPanel() {
   const { data: sources = [] } = useSources();
   const { data: connectors = [] } = useConnectors();
   const createSource = useCreateSource();
   const triggerFetch = useTriggerFetch();
+  const collectAll = useCollectAll();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [connector, setConnector] = useState('');
@@ -33,12 +35,17 @@ export function SourcesPanel() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>Sources</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
-              <Plus className="h-3.5 w-3.5" /> Source
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => collectAll.mutate()} disabled={collectAll.isPending}>
+            <RefreshCw className={cn('h-3.5 w-3.5', collectAll.isPending && 'animate-spin')} />
+            Tout collecter
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="ghost">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nouvelle source</DialogTitle>
@@ -75,32 +82,36 @@ export function SourcesPanel() {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-1">
         {sources.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">Aucune source configurée</p>}
         {sources.map((source) => (
-          <div key={source.id} className="flex items-center gap-3 rounded-md border border-border p-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Rss className="h-4 w-4" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">{source.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {source.connector}
-                {source.lastFetchedAt &&
-                  ` · dernière collecte ${formatDistanceToNow(new Date(source.lastFetchedAt), { addSuffix: true, locale: fr })}`}
+          <div key={source.id} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+            <Rss className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium" title={source.name}>
+                {source.name}
               </p>
+              {source.lastFetchedAt && (
+                <p className="truncate text-[11px] text-muted-foreground">
+                  Collecté {formatDistanceToNow(new Date(source.lastFetchedAt), { addSuffix: true, locale: fr })}
+                </p>
+              )}
             </div>
             {!source.active && <Badge variant="secondary">Inactive</Badge>}
             {source.connector !== 'manual' && (
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
                 onClick={() => triggerFetch.mutate(source.id)}
                 disabled={triggerFetch.isPending}
+                aria-label={`Collecter ${source.name}`}
+                title={`Collecter ${source.name}`}
               >
-                <RefreshCw className="h-3.5 w-3.5" /> Collecter
+                <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
