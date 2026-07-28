@@ -500,6 +500,8 @@ model Alert {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   dealId         String?
   deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  articleId      String?
+  article        Article?     @relation(fields: [articleId], references: [id], onDelete: SetNull)
 
   severity AlertSeverity @default(INFO)
   title    String
@@ -705,6 +707,7 @@ model Article {
   priority    Priority        @default(MEDIUM)
 
   entities ArticleEntityLink[]
+  alerts   Alert[]
 
   createdAt DateTime @default(now())
 

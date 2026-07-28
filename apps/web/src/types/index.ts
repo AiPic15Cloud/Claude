@@ -189,6 +189,8 @@ export interface Alert {
   organizationId: string;
   dealId?: string | null;
   deal?: { id: string; name: string; reference: string } | null;
+  articleId?: string | null;
+  article?: { id: string; url: string | null } | null;
   severity: AlertSeverity;
   title: string;
   message: string;
