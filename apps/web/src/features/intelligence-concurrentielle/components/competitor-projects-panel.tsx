@@ -80,36 +80,38 @@ export function CompetitorProjectsPanel({ entityId }: { entityId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 rounded-md border border-dashed border-input p-1.5">
+      <div className="flex flex-col gap-1.5 rounded-md border border-dashed border-input p-1.5">
         <Input
           value={quickName}
           onChange={(e) => setQuickName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
           placeholder="Nom du projet…"
-          className="h-8 flex-1 border-0 bg-transparent px-1.5 text-sm shadow-none focus-visible:ring-0"
+          className="h-8 w-full min-w-0 border-0 bg-transparent px-1.5 text-sm shadow-none focus-visible:ring-0"
         />
-        <Select value={quickStatus} onValueChange={(v) => setQuickStatus(v as CompetitorProjectStatus)}>
-          <SelectTrigger className="h-8 w-[130px] shrink-0 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_ORDER.map((s) => (
-              <SelectItem key={s} value={s}>
-                {COMPETITOR_PROJECT_STATUS_LABELS[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="icon"
-          variant="secondary"
-          className="h-8 w-8 shrink-0"
-          disabled={!quickName.trim() || createProject.isPending}
-          onClick={handleQuickAdd}
-          aria-label="Ajouter le projet"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Select value={quickStatus} onValueChange={(v) => setQuickStatus(v as CompetitorProjectStatus)}>
+            <SelectTrigger className="h-8 flex-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_ORDER.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {COMPETITOR_PROJECT_STATUS_LABELS[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 shrink-0"
+            disabled={!quickName.trim() || createProject.isPending}
+            onClick={handleQuickAdd}
+            aria-label="Ajouter le projet"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="py-3 text-center text-xs text-muted-foreground">Chargement…</p>}

@@ -48,7 +48,7 @@ export function CartographiePage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Cartographie</h1>
           <p className="text-sm text-muted-foreground">Programmes et intervenants géolocalisés, avec filtres par couche.</p>
