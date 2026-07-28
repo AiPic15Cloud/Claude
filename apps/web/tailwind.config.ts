@@ -12,14 +12,13 @@ export default {
     extend: {
       fontFamily: {
         sans: [
-          'InterVariable',
-          'Inter',
+          'Plus Jakarta Sans Variable',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',
           'sans-serif',
         ],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        mono: ['JetBrains Mono Variable', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
         border: 'hsl(var(--border))',
