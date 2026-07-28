@@ -14,6 +14,11 @@ export class TwoFactorService {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateSetup(userId: string, email: string) {
+    const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { twoFactorEnabled: true } });
+    if (existing?.twoFactorEnabled) {
+      throw new BadRequestException('La double authentification est déjà activée — désactivez-la avant de la reconfigurer');
+    }
+
     const secret = generateSecret();
     await this.prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: secret } });
 

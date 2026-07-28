@@ -74,7 +74,7 @@ export class AuthService {
   createTwoFactorChallenge(user: { id: string }) {
     const challengeToken = this.jwtService.sign(
       { sub: user.id, type: '2fa_challenge' } satisfies TwoFactorChallengePayload,
-      { secret: this.config.get<string>('jwt.accessSecret'), expiresIn: '5m' },
+      { secret: this.config.get<string>('jwt.twoFactorSecret'), expiresIn: '5m' },
     );
     return { requiresTwoFactor: true as const, challengeToken };
   }
@@ -83,7 +83,7 @@ export class AuthService {
     let payload: TwoFactorChallengePayload;
     try {
       payload = this.jwtService.verify<TwoFactorChallengePayload>(challengeToken, {
-        secret: this.config.get<string>('jwt.accessSecret'),
+        secret: this.config.get<string>('jwt.twoFactorSecret'),
       });
     } catch {
       throw new UnauthorizedException('Session de connexion expirée, reconnectez-vous');
