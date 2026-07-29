@@ -149,6 +149,7 @@ export interface DealDetail extends Deal {
   notes: Note[];
   tasks: Task[];
   documents: DocumentFile[];
+  checkpointHealth?: CheckpointHealth;
 }
 
 export interface Note {
@@ -244,6 +245,14 @@ export interface DealDeadlineAlert extends DeadlineAlert {
   name: string;
   reference: string;
   dateMax: string | null;
+}
+
+export type CheckpointHealthLevel = 'VERT' | 'ORANGE' | 'ROUGE';
+
+export interface CheckpointHealth {
+  level: CheckpointHealthLevel | null;
+  reasons: string[];
+  checkpointDate: string | null;
 }
 
 export interface FeesMonthPoint {
