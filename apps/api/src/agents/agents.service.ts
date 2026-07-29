@@ -59,6 +59,16 @@ export class AgentsService {
     });
     if (!deal) return '';
 
+    // Checkpoints and recent notes are the closest thing ATLAS has to "what
+    // we actually told people, and when" — there's no stored newsletter
+    // content, so this is the real history the Cohérence agent (and any
+    // other agent reasoning about the dossier's track record) has to work
+    // with. Oldest-first so the model reads it as a timeline.
+    const [checkpoints, notes] = await Promise.all([
+      this.prisma.projectCheckpoint.findMany({ where: { dealId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.note.findMany({ where: { dealId }, orderBy: { createdAt: 'desc' }, take: 5 }),
+    ]);
+
     const score = await this.scoring.computeDealScore(organizationId, dealId, false);
 
     const lines = [
@@ -75,6 +85,31 @@ export class AgentsService {
         ? `Modèle financier : ${deal.financialAssumption.surfaceSqm} m², coût construction ${deal.financialAssumption.constructionCostPerSqm} €/m², prix vente ${deal.financialAssumption.sellingPricePerSqm} €/m²`
         : null,
       deal.tags.length ? `Tags : ${deal.tags.map((t) => t.tag.name).join(', ')}` : null,
+      checkpoints.length
+        ? `Historique des points à durée cible (du plus ancien au plus récent) :\n${checkpoints
+            .map((c) => {
+              const date = c.createdAt.toISOString().slice(0, 10);
+              const parts = [
+                c.travauxBudgetInitial !== null && c.travauxDepensesADate !== null
+                  ? `travaux ${c.travauxDepensesADate}€ dépensés / ${c.travauxBudgetInitial}€ budgétés`
+                  : null,
+                c.travauxTermines ? 'travaux terminés' : null,
+                c.commercialisationLancee ? `commercialisation lancée, ${c.pourcentageVendu ?? 0}% vendu` : 'commercialisation non lancée',
+                c.prixVenteInitialPrevu !== null && c.prixVenteReelADate !== null
+                  ? `prix réel ${c.prixVenteReelADate}€ vs ${c.prixVenteInitialPrevu}€ prévu`
+                  : null,
+                c.atterrissagePrevu ? `atterrissage annoncé : "${c.atterrissagePrevu}"` : null,
+                c.notes ? `note : "${c.notes}"` : null,
+              ].filter(Boolean);
+              return `  [${date}] ${parts.join(' · ')}`;
+            })
+            .join('\n')}`
+        : 'Historique des points à durée cible : aucun point enregistré.',
+      notes.length
+        ? `Notes récentes (les plus récentes en premier) :\n${notes
+            .map((n) => `  [${n.createdAt.toISOString().slice(0, 10)}] ${n.content}`)
+            .join('\n')}`
+        : null,
     ].filter(Boolean);
 
     return lines.join('\n');
