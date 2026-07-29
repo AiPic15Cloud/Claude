@@ -193,6 +193,8 @@ export interface DocumentFile {
   size: number;
   storageKey: string;
   storageDriver: string;
+  uploadedById: string;
+  uploadedBy?: UserSummary;
   createdAt: string;
 }
 

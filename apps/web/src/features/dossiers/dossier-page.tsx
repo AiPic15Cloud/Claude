@@ -16,6 +16,7 @@ import { RepaymentsPanel } from './components/repayments-panel';
 import { NotesPanel } from './components/notes-panel';
 import { FinancialModelPanel } from './components/financial-model-panel';
 import { CheckpointsPanel } from './components/checkpoints-panel';
+import { DocumentsPanel } from './components/documents-panel';
 import { EntitiesPanel } from './components/entities-panel';
 import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -155,6 +156,7 @@ export function DossierPage() {
         <TabsList>
           <TabsTrigger value="score">Score ATLAS</TabsTrigger>
           <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
+          <TabsTrigger value="documents">Documents ({deal.documents.length})</TabsTrigger>
           <TabsTrigger value="guarantees">Garanties</TabsTrigger>
           <TabsTrigger value="repayments">Remboursements</TabsTrigger>
           <TabsTrigger value="financial">Modèle financier</TabsTrigger>
@@ -168,6 +170,9 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="notes">
           <NotesPanel dealId={deal.id} notes={deal.notes} />
+        </TabsContent>
+        <TabsContent value="documents">
+          <DocumentsPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="guarantees">
           <GuaranteesPanel dealId={deal.id} />
