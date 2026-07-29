@@ -77,7 +77,7 @@ export function CommandPalette() {
               value={search}
               onValueChange={setSearch}
               placeholder="Rechercher une page, une opération…"
-              className="flex h-11 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="flex h-11 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-sm"
             />
           </div>
           <Command.List className="max-h-96 overflow-y-auto p-2">
