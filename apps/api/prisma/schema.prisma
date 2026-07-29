@@ -82,6 +82,7 @@ enum ActivityType {
   GUARANTEE_ADDED
   FINANCIAL_MODEL_UPDATED
   ENTITY_LINKED
+  CHECKPOINT_CREATED
 }
 
 enum GuaranteeType {
@@ -210,6 +211,7 @@ model User {
   activities    Activity[]
   refreshTokens RefreshToken[]
   competitorProjectsLogged CompetitorProject[]
+  projectCheckpointsRecorded ProjectCheckpoint[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -322,6 +324,7 @@ model Deal {
   entityLinks         DealEntityLink[]
   repayments          Repayment[]
   convertedFromPipelineEntry PipelineEntry? @relation("PipelineConvertedDeal")
+  checkpoints         ProjectCheckpoint[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -434,6 +437,37 @@ model Note {
 
   @@index([dealId])
   @@map("notes")
+}
+
+// État des lieux fait à la durée cible (et éventuellement au-delà, si le
+// dossier reste sous surveillance rapprochée) — un chargé d'affaires
+// enregistre un point à la fois, jamais modifié après coup, pour garder
+// l'historique des points successifs sur un même dossier plutôt qu'un
+// unique état toujours écrasé.
+model ProjectCheckpoint {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  recordedById String
+  recordedBy   User   @relation(fields: [recordedById], references: [id])
+
+  travauxBudgetInitial Decimal? @db.Decimal(14, 2)
+  travauxDepensesADate Decimal? @db.Decimal(14, 2)
+  travauxTermines      Boolean  @default(false)
+
+  commercialisationLancee Boolean  @default(false)
+  pourcentageVendu        Int?
+  prixVenteInitialPrevu   Decimal? @db.Decimal(14, 2)
+  prixVenteReelADate      Decimal? @db.Decimal(14, 2)
+
+  atterrissagePrevu String?
+  notes             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("project_checkpoints")
 }
 
 model Document {

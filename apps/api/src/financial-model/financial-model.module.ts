@@ -7,5 +7,6 @@ import { ActivitiesModule } from '../activities/activities.module';
   imports: [ActivitiesModule],
   providers: [FinancialModelService],
   controllers: [FinancialModelController],
+  exports: [FinancialModelService],
 })
 export class FinancialModelModule {}
