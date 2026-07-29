@@ -22,6 +22,7 @@ interface EurostatJsonStat {
 export class MarketIndicatorsService {
   private readonly logger = new Logger(MarketIndicatorsService.name);
   private cache: { fetchedAt: number; data: Record<string, EurostatIndicator> } | null = null;
+  private rateHistoryCache: { fetchedAt: number; data: { oat10y: { period: string; value: number }[]; ecbPolicyRate: { period: string; value: number }[] } } | null = null;
   private readonly CACHE_TTL_MS = 60 * 60_000;
 
   private async fetchEurostat(dataset: string, params: Record<string, string>): Promise<EurostatIndicator> {
@@ -75,6 +76,105 @@ export class MarketIndicatorsService {
       this.logger.warn(`Eurostat fetch failed for ${dataset} (${new URLSearchParams(params).toString()}): ${(error as Error).message}`);
       return { value: null, previousValue: null, period: null };
     }
+  }
+
+  /** Same Eurostat call as fetchEurostat, but returns every period present instead of only the latest two — used for history charts. */
+  private async fetchEurostatSeries(dataset: string, params: Record<string, string>): Promise<{ period: string; value: number }[]> {
+    const search = new URLSearchParams({ format: 'JSON', lang: 'FR', ...params });
+    const url = `https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${dataset}?${search.toString()}`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) {
+        const preview = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
+      }
+      const json = (await res.json()) as EurostatJsonStat;
+      const timeIndex = json.dimension?.time?.category?.index;
+      if (!timeIndex) throw new Error('unexpected shape');
+
+      return Object.entries(timeIndex)
+        .sort((a, b) => a[1] - b[1])
+        .map(([period, pos]) => ({ period, value: json.value[String(pos)] }))
+        .filter((point): point is { period: string; value: number } => point.value !== undefined);
+    } catch (error) {
+      this.logger.warn(`Eurostat series fetch failed for ${dataset} (${new URLSearchParams(params).toString()}): ${(error as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * ECB's official main refinancing rate ("taux directeur") — the rate
+   * French financial press actually means by that term, distinct from the
+   * Euribor-based market rate already shown elsewhere on this page. Source:
+   * ECB Data Portal (data-api.ecb.europa.eu, free, no key), dataflow FM,
+   * series D.U2.EUR.4F.KR.MRR_FR.LEV — published daily since it's a step
+   * function that only moves on Governing Council decisions, so daily
+   * observations are collapsed to one point per month (last value of the
+   * month) to line up with Eurostat's monthly cadence for OAT 10Y.
+   *
+   * This sandbox has no outbound network access to verify the exact SDMX-JSON
+   * shape against the live API — if the assumed structure is wrong, a raw
+   * response dump is logged so the real shape is recoverable from Railway's
+   * logs, same defensive pattern as logDimensionMetadata() below.
+   */
+  private async fetchEcbPolicyRateHistory(sinceIso: string): Promise<{ period: string; value: number }[]> {
+    const url = `https://data-api.ecb.europa.eu/service/data/FM/D.U2.EUR.4F.KR.MRR_FR.LEV?format=jsondata&startPeriod=${sinceIso}&detail=dataonly`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) {
+        const preview = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
+      }
+      const json = (await res.json()) as {
+        dataSets?: { series?: Record<string, { observations?: Record<string, number[]> }> }[];
+        structure?: { dimensions?: { observation?: { values?: { id: string }[] }[] } };
+      };
+      const seriesMap = json.dataSets?.[0]?.series;
+      const firstKey = seriesMap ? Object.keys(seriesMap)[0] : undefined;
+      const observations = firstKey ? seriesMap![firstKey].observations : undefined;
+      const timeValues = json.structure?.dimensions?.observation?.[0]?.values;
+      if (!observations || !timeValues) throw new Error('unexpected SDMX-JSON shape');
+
+      const byMonth = new Map<string, number>();
+      for (const [idx, obs] of Object.entries(observations)) {
+        const date = timeValues[Number(idx)]?.id;
+        const value = obs?.[0];
+        if (!date || value === undefined) continue;
+        byMonth.set(date.slice(0, 7), value);
+      }
+      return Array.from(byMonth.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([period, value]) => ({ period, value }));
+    } catch (error) {
+      this.logger.warn(`ECB policy rate history fetch failed: ${(error as Error).message}`);
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        this.logger.warn(`ECB policy rate raw response (first 500 chars): ${(await res.text()).slice(0, 500)}`);
+      } catch {
+        /* best-effort diagnostic only */
+      }
+      return [];
+    }
+  }
+
+  async rateHistory() {
+    if (this.rateHistoryCache && Date.now() - this.rateHistoryCache.fetchedAt < this.CACHE_TTL_MS) {
+      return this.rateHistoryCache.data;
+    }
+
+    const since = new Date();
+    since.setMonth(since.getMonth() - 24);
+    const sinceMonth = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}`;
+    const sinceIso = since.toISOString().slice(0, 10);
+
+    const [oat10y, ecbPolicyRate] = await Promise.all([
+      this.fetchEurostatSeries('irt_lt_mcby_m', { geo: 'FR', sinceTimePeriod: sinceMonth }),
+      this.fetchEcbPolicyRateHistory(sinceIso),
+    ]);
+
+    const data = { oat10y, ecbPolicyRate };
+    this.rateHistoryCache = { fetchedAt: Date.now(), data };
+    return data;
   }
 
   /**

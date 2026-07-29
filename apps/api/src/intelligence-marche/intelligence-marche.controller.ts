@@ -25,6 +25,11 @@ export class IntelligenceMarcheController {
     return this.indicators.summary();
   }
 
+  @Get('rate-history')
+  getRateHistory() {
+    return this.indicators.rateHistory();
+  }
+
   @Get('digest')
   getDigest(@CurrentUser() user: AuthenticatedUser) {
     return this.digest.getDigest(user.organizationId);
