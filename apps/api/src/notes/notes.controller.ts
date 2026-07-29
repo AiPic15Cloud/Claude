@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { NotesService } from './notes.service';
@@ -18,8 +19,20 @@ export class NotesController {
   }
 
   @Post()
-  create(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Body() dto: CreateNoteDto) {
-    return this.notesService.create(user.organizationId, dealId, user.id, dto);
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FilesInterceptor('images', 6, {
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (_req, file, callback) => callback(null, file.mimetype.startsWith('image/')),
+    }),
+  )
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('dealId') dealId: string,
+    @Body() dto: CreateNoteDto,
+    @UploadedFiles() images: Express.Multer.File[] = [],
+  ) {
+    return this.notesService.create(user.organizationId, dealId, user.id, dto, images);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

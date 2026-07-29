@@ -438,12 +438,28 @@ model Note {
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
   content  String
+  images   NoteImage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([dealId])
   @@map("notes")
+}
+
+model NoteImage {
+  id     String @id @default(cuid())
+  noteId String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  mimeType      String
+  storageKey    String
+  storageDriver String @default("local")
+
+  createdAt DateTime @default(now())
+
+  @@index([noteId])
+  @@map("note_images")
 }
 
 // État des lieux fait à la durée cible (et éventuellement au-delà, si le

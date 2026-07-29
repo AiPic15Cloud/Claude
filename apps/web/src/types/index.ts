@@ -152,12 +152,19 @@ export interface DealDetail extends Deal {
   documents: DocumentFile[];
 }
 
+export interface NoteImage {
+  id: string;
+  url: string;
+  mimeType: string;
+}
+
 export interface Note {
   id: string;
   dealId: string;
   authorId: string;
   author?: UserSummary;
   content: string;
+  images: NoteImage[];
   createdAt: string;
   updatedAt: string;
 }

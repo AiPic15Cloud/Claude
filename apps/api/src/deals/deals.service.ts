@@ -13,6 +13,8 @@ import { computeDeadlineAlert } from './deadline.util';
 import { computeNewsletterStatus } from './newsletter.util';
 import { buildMiseEnDemeure } from './mise-en-demeure.util';
 import { computeCheckpointHealth } from './checkpoint-health.util';
+import { withNoteImageUrls } from '../notes/note-image.util';
+import { StorageService } from '../common/storage/storage.service';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -41,6 +43,7 @@ export class DealsService {
     private readonly search: MeilisearchService,
     private readonly geocoding: GeocodingService,
     private readonly tasks: TasksService,
+    private readonly storage: StorageService,
   ) {}
 
   /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
@@ -237,7 +240,7 @@ export class DealsService {
       include: {
         ...DEAL_INCLUDE,
         notes: {
-          include: { author: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+          include: { author: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } }, images: true },
           orderBy: { createdAt: 'desc' },
         },
         tasks: { orderBy: { dueDate: 'asc' } },
@@ -247,7 +250,8 @@ export class DealsService {
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
     const checkpointHealth = this.toCheckpointHealth(deal.checkpoints[0] ?? null);
-    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid), checkpointHealth };
+    const notes = await Promise.all(deal.notes.map((note) => withNoteImageUrls(note, this.storage)));
+    return { ...deal, notes, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid), checkpointHealth };
   }
 
   async generateMiseEnDemeure(organizationId: string, id: string) {
