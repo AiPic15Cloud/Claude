@@ -93,11 +93,17 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
     const stageConfig = STAGE_TASK[alert.stage];
     const taskTitle = `${TASK_TITLE_PREFIX} — ${stageConfig.title} (${deal.reference})`;
 
-    const alreadyCurrent = await this.prisma.task.findFirst({
-      where: { dealId: deal.id, title: taskTitle, done: false },
+    // Matches regardless of done status: marking this stage's task done means
+    // the analyst handled that stage, not that the reminder should respawn on
+    // the next 6-hourly check (or app restart) as long as the deal's dateMax
+    // still puts it in the same stage. A previous version only excluded
+    // *open* tasks here, so completing (or deleting) the current stage's task
+    // made it reappear, unchecked, the next time checkAll() ran.
+    const alreadyExists = await this.prisma.task.findFirst({
+      where: { dealId: deal.id, title: taskTitle },
       select: { id: true },
     });
-    if (alreadyCurrent) return; // this exact stage's task already exists — nothing to do
+    if (alreadyExists) return; // this exact stage's task was already created for this deal — nothing to do
 
     // A later stage supersedes any earlier still-open escalation task for
     // this deal — closing it avoids a pile-up of stale reminders.
