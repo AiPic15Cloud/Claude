@@ -164,7 +164,12 @@ export class MarketIndicatorsService {
   }
 
   private async fetchHousePriceChangeYoy(): Promise<EurostatIndicator> {
+    // First deploy resolved the index level with unit=I15_Q and, from a
+    // sibling dataset's dimension dump (sts_cobp_m) logged in that same run,
+    // confirmed Eurostat's "% change vs same period last year" convention is
+    // PCH_SM — not RCH_A4/RT4/PCH_SM4, which were the first (wrong) guesses.
     const attempts: Record<string, string>[] = [
+      { geo: 'FR', purchase: 'TOTAL', unit: 'PCH_SM', sinceTimePeriod: '2023-01' },
       { geo: 'FR', purchase: 'TOTAL', unit: 'RCH_A4', sinceTimePeriod: '2023-01' },
       { geo: 'FR', purchase: 'TOTAL', unit: 'RT4', sinceTimePeriod: '2023-01' },
       { geo: 'FR', purchase: 'TOTAL', unit: 'PCH_SM4', sinceTimePeriod: '2023-01' },
@@ -176,8 +181,10 @@ export class MarketIndicatorsService {
         return result;
       }
     }
-    // No second dimension-discovery dump here — fetchHousePriceIndex's
-    // already covers this same dataset's full codebook if both fail.
+    // fetchHousePriceIndex resolved on its 2nd attempt and never triggered
+    // its own dump, so the real prc_hpi_q codebook was never actually
+    // logged — do it here if every guess above still fails.
+    await this.logDimensionMetadata('prc_hpi_q', 'House price change (y/y)');
     return { value: null, previousValue: null, period: null };
   }
 
