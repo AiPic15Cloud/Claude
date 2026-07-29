@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 
 interface MarketTickerSummary {
   eurUsd: { value: number | null; changePct: number | null; degraded: boolean };
+  cac40: { value: number | null; changePct: number | null; degraded: boolean };
   aum: { value: number };
   activeDeals: { value: number };
   asOf: string;

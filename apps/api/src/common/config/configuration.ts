@@ -20,6 +20,12 @@ export default () => ({
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
     anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5',
   },
+  marketData: {
+    // Free-tier key from twelvedata.com — powers the CAC 40 ticker. Without
+    // it the ticker just omits that item rather than erroring, same
+    // degrade-gracefully pattern as the Anthropic key gate.
+    twelveDataApiKey: process.env.TWELVE_DATA_API_KEY ?? '',
+  },
   storage: {
     driver: process.env.STORAGE_DRIVER ?? 'local',
     localPath: process.env.STORAGE_LOCAL_PATH ?? './uploads',
