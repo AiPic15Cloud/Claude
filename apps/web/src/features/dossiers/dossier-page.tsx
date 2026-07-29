@@ -14,6 +14,7 @@ import { GuaranteesPanel } from './components/guarantees-panel';
 import { RepaymentsPanel } from './components/repayments-panel';
 import { NotesPanel } from './components/notes-panel';
 import { FinancialModelPanel } from './components/financial-model-panel';
+import { CheckpointsPanel } from './components/checkpoints-panel';
 import { EntitiesPanel } from './components/entities-panel';
 import { AgentChatPanel } from '@/features/agents/components/agent-chat-panel';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -156,6 +157,7 @@ export function DossierPage() {
           <TabsTrigger value="guarantees">Garanties</TabsTrigger>
           <TabsTrigger value="repayments">Remboursements</TabsTrigger>
           <TabsTrigger value="financial">Modèle financier</TabsTrigger>
+          <TabsTrigger value="checkpoints">Suivi cible</TabsTrigger>
           <TabsTrigger value="entities">Intervenants</TabsTrigger>
           <TabsTrigger value="assistant">Assistant IA</TabsTrigger>
         </TabsList>
@@ -174,6 +176,9 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="financial">
           <FinancialModelPanel dealId={deal.id} />
+        </TabsContent>
+        <TabsContent value="checkpoints">
+          <CheckpointsPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="entities">
           <EntitiesPanel dealId={deal.id} />

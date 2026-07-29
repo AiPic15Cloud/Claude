@@ -20,6 +20,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { CockpitModule } from './cockpit/cockpit.module';
 import { GuaranteesModule } from './guarantees/guarantees.module';
 import { FinancialModelModule } from './financial-model/financial-model.module';
+import { ProjectCheckpointsModule } from './project-checkpoints/project-checkpoints.module';
 import { ScoringModule } from './scoring/scoring.module';
 import { GraphModule } from './graph/graph.module';
 import { IntelligenceConcurrentielleModule } from './intelligence-concurrentielle/intelligence-concurrentielle.module';
@@ -51,6 +52,7 @@ import { HealthController } from './health/health.controller';
     CockpitModule,
     GuaranteesModule,
     FinancialModelModule,
+    ProjectCheckpointsModule,
     ScoringModule,
     GraphModule,
     IntelligenceConcurrentielleModule,

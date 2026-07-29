@@ -428,6 +428,25 @@ export interface FinancialModel {
   sensitivity: FinancialScenario[] | null;
 }
 
+export interface ProjectCheckpoint {
+  id: string;
+  dealId: string;
+  recordedBy: { id: string; firstName: string; lastName: string };
+  travauxBudgetInitial: number | null;
+  travauxDepensesADate: number | null;
+  travauxTermines: boolean;
+  commercialisationLancee: boolean;
+  pourcentageVendu: number | null;
+  prixVenteInitialPrevu: number | null;
+  prixVenteReelADate: number | null;
+  atterrissagePrevu: string | null;
+  notes: string | null;
+  deltaTravaux: number | null;
+  deltaPrix: number | null;
+  margeADate: number | null;
+  createdAt: string;
+}
+
 // ── Score ATLAS ──────────────────────────────────────────────
 
 export interface ScoreFactor {
