@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useToggleTask, useCreateTask, useDeleteTask, useUpdateTaskPriority } from '@/features/tasks/use-tasks';
+import { useToggleTask, useCreateTask, useUpdateTaskPriority } from '@/features/tasks/use-tasks';
 import { EditTaskDialog } from '@/features/tasks/edit-task-dialog';
 import { PRIORITY_LABELS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
@@ -52,14 +52,13 @@ interface TaskListCardProps {
   tasks: Task[];
   emptyLabel: string;
   showDueDate?: boolean;
-  /** Personal quick-tasks: an inline "add" form, and checking one off deletes it instead of just marking it done. */
+  /** Shows an inline "add task" form above the list. */
   quickAdd?: boolean;
 }
 
 export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }: TaskListCardProps) {
   const toggleTask = useToggleTask();
   const createTask = useCreateTask();
-  const deleteTask = useDeleteTask();
   const updatePriority = useUpdateTaskPriority();
   const [newTitle, setNewTitle] = useState('');
   const [newDueDate, setNewDueDate] = useState(todayIso());
@@ -116,9 +115,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
         {tasks.map((task) => (
           <div key={task.id} className="flex items-start gap-2.5 rounded-md px-1.5 py-1.5 hover:bg-accent">
             <button
-              onClick={() =>
-                quickAdd ? deleteTask.mutate(task.id) : toggleTask.mutate({ id: task.id, done: !task.done })
-              }
+              onClick={() => toggleTask.mutate({ id: task.id, done: !task.done })}
               className={cn(
                 'mt-0.5 h-4 w-4 shrink-0 rounded border transition-colors',
                 task.done ? 'border-primary bg-primary' : 'border-input bg-background hover:border-primary',
