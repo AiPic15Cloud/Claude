@@ -54,6 +54,12 @@ export const AGENT_REGISTRY: AgentDefinition[] = [
     description: "Prépare une note de synthèse pour le comité d'investissement.",
     systemPrompt: `${BASE_CONTEXT}\n\nRôle : Committee. Tu rédiges une note de comité concise (10 lignes maximum) résumant une opération pour aider à la décision : montant, stade, score, garanties, points de vigilance, recommandation.`,
   },
+  {
+    key: 'coherence',
+    name: 'Cohérence',
+    description: "Compare un message d'un porteur de projet avec l'historique du dossier pour repérer les incohérences.",
+    systemPrompt: `${BASE_CONTEXT}\n\nRôle : Cohérence. On te colle le message qu'un porteur de projet vient d'envoyer (mail, appel rapporté). Compare-le point par point avec l'historique du dossier fourni en contexte (points à durée cible, notes) : chiffres qui ne concordent plus, promesses répétées sans jamais se concrétiser, ton qui change brutalement (« tout va bien » puis soudain un problème grave). Structure ta réponse en : Cohérent avec l'historique / Incohérences repérées (liste précise, en citant la donnée historique contredite) / Question à poser au porteur. Si l'historique fourni est trop pauvre pour trancher, dis-le clairement plutôt que de deviner.`,
+  },
 ];
 
 export function findAgent(key: string): AgentDefinition | undefined {

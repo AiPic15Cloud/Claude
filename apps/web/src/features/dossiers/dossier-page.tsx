@@ -17,13 +17,11 @@ import { NotesPanel } from './components/notes-panel';
 import { FinancialModelPanel } from './components/financial-model-panel';
 import { CheckpointsPanel } from './components/checkpoints-panel';
 import { EntitiesPanel } from './components/entities-panel';
-import { AgentChatPanel } from '@/features/agents/components/agent-chat-panel';
+import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
-
-const ANALYST_AGENT = { key: 'analyst', name: 'Analyst', description: "Analyse le dossier ouvert." };
 
 export function DossierPage() {
   const { id } = useParams<{ id: string }>();
@@ -186,7 +184,7 @@ export function DossierPage() {
           <EntitiesPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="assistant" className="h-[32rem]">
-          <AgentChatPanel agent={ANALYST_AGENT} dealId={deal.id} />
+          <DealAssistantPanel dealId={deal.id} />
         </TabsContent>
       </Tabs>
     </div>
