@@ -135,6 +135,7 @@ export interface Deal {
   porteurSociete?: string | null;
   porteurAdresse?: string | null;
   deadlineAlert?: DeadlineAlert;
+  checkpointHealth?: CheckpointHealth;
   createdById: string;
   createdBy?: UserSummary;
   assignedToId?: string | null;
@@ -149,7 +150,6 @@ export interface DealDetail extends Deal {
   notes: Note[];
   tasks: Task[];
   documents: DocumentFile[];
-  checkpointHealth?: CheckpointHealth;
 }
 
 export interface Note {
