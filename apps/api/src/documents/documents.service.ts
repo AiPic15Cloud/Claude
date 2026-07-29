@@ -53,7 +53,18 @@ export class DocumentsService {
     return { url };
   }
 
-  async readLocalFile(storageKey: string) {
+  /**
+   * The local-serve route is only key-based (no document id in the URL), so
+   * without this check any authenticated user of any organization could
+   * fetch another org's file by guessing/observing its storage key. Cross-
+   * checks both Document and NoteImage — the two tables that can own a
+   * local storage key — before reading the blob.
+   */
+  async readLocalFile(organizationId: string, storageKey: string) {
+    const owned =
+      (await this.prisma.document.findFirst({ where: { storageKey, deal: { organizationId } }, select: { id: true } })) ??
+      (await this.prisma.noteImage.findFirst({ where: { storageKey, note: { deal: { organizationId } } }, select: { id: true } }));
+    if (!owned) throw new NotFoundException('Fichier introuvable');
     return this.storage.readLocal(storageKey);
   }
 

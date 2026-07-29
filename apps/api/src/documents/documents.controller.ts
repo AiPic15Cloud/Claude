@@ -57,8 +57,8 @@ export class LocalDocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Get(':key')
-  async serve(@Param('key') key: string, @Res() res: Response) {
-    const buffer = await this.documentsService.readLocalFile(decodeURIComponent(key));
+  async serve(@CurrentUser() user: AuthenticatedUser, @Param('key') key: string, @Res() res: Response) {
+    const buffer = await this.documentsService.readLocalFile(user.organizationId, decodeURIComponent(key));
     res.send(buffer);
   }
 }

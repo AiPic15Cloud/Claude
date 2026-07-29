@@ -92,8 +92,34 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return JSON.parse(text) as T;
 }
 
+// Local-storage document/image URLs come back from the API as an
+// already-prefixed path ("/api/v1/documents/local/…"), meant to be resolved
+// against the API's origin directly — not appended after API_URL, which
+// already ends in "/api/v1" itself and would double it up. S3-backed URLs
+// are absolute and need no resolution at all.
+const API_ORIGIN = new URL(API_URL, window.location.origin).origin;
+
+// Plain <img src="..."> can't send an Authorization header, and locally-stored
+// files are served behind JwtAuthGuard — so displaying them inline requires
+// fetching the bytes with auth attached and handing the browser a blob: URL
+// instead of the API URL directly. Same token/refresh flow as request().
+async function getBlob(path: string): Promise<Blob> {
+  const url = /^https?:\/\//.test(path) ? path : `${API_ORIGIN}${path}`;
+  const accessToken = useAuthStore.getState().accessToken;
+  const doFetch = (token: string | null) => fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+  let response = await doFetch(accessToken);
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await doFetch(newToken);
+  }
+  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  return response.blob();
+}
+
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'GET' }),
+  getBlob,
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, { ...options, method: 'POST', body }),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>

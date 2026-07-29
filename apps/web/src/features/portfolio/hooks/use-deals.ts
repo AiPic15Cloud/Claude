@@ -150,8 +150,12 @@ export function useChangeDealStage() {
 export function useAddNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ dealId, content }: { dealId: string; content: string }) =>
-      api.post(`/deals/${dealId}/notes`, { content }),
+    mutationFn: ({ dealId, content, images }: { dealId: string; content: string; images?: File[] }) => {
+      const form = new FormData();
+      form.append('content', content);
+      images?.forEach((file) => form.append('images', file));
+      return api.post(`/deals/${dealId}/notes`, form);
+    },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['deals', 'detail', variables.dealId] });
     },
