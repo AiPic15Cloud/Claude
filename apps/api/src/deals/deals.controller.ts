@@ -36,6 +36,11 @@ export class DealsController {
     return this.dealsService.findOne(user.organizationId, id);
   }
 
+  @Get(':id/mise-en-demeure')
+  generateMiseEnDemeure(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.dealsService.generateMiseEnDemeure(user.organizationId, id);
+  }
+
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateDealDto) {
     return this.dealsService.create(user.organizationId, user.id, dto);

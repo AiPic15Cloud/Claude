@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -11,6 +11,7 @@ import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
 import { computeDeadlineAlert } from './deadline.util';
 import { computeNewsletterStatus } from './newsletter.util';
+import { buildMiseEnDemeure } from './mise-en-demeure.util';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -206,6 +207,29 @@ export class DealsService {
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
     return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid) };
+  }
+
+  async generateMiseEnDemeure(organizationId: string, id: string) {
+    const deal = await this.prisma.deal.findFirst({
+      where: { id, organizationId },
+      include: { organization: { select: { name: true } } },
+    });
+    if (!deal) throw new NotFoundException('Opération introuvable');
+    if (!deal.porteurNom || !deal.porteurAdresse) {
+      throw new BadRequestException(
+        "Coordonnées du porteur de projet manquantes — renseignez son nom et son adresse depuis \"Modifier\" avant de générer la mise en demeure.",
+      );
+    }
+
+    return buildMiseEnDemeure({
+      organizationName: deal.organization.name,
+      dealName: deal.name,
+      dealReference: deal.reference,
+      porteurNom: deal.porteurNom,
+      porteurSociete: deal.porteurSociete,
+      porteurAdresse: deal.porteurAdresse,
+      dateMax: deal.dateMax,
+    });
   }
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateDealDto) {

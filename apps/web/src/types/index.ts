@@ -131,6 +131,9 @@ export interface Deal {
   dateMax?: string | null;
   repaid: boolean;
   contentieux: boolean;
+  porteurNom?: string | null;
+  porteurSociete?: string | null;
+  porteurAdresse?: string | null;
   deadlineAlert?: DeadlineAlert;
   createdById: string;
   createdBy?: UserSummary;

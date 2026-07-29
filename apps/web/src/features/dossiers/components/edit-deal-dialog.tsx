@@ -46,6 +46,9 @@ const schema = z.object({
   description: z.string().optional(),
   repaid: z.boolean().optional(),
   contentieux: z.boolean().optional(),
+  porteurNom: z.string().optional(),
+  porteurSociete: z.string().optional(),
+  porteurAdresse: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -84,6 +87,9 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       description: deal.description ?? '',
       repaid: deal.repaid,
       contentieux: deal.contentieux,
+      porteurNom: deal.porteurNom ?? '',
+      porteurSociete: deal.porteurSociete ?? '',
+      porteurAdresse: deal.porteurAdresse ?? '',
     },
   });
 
@@ -218,6 +224,24 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="endDate">Échéance</Label>
               <Input id="endDate" type="date" {...register('endDate')} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-foreground">Porteur de projet (relances, mise en demeure)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="porteurNom">Nom du contact</Label>
+                <Input id="porteurNom" {...register('porteurNom')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="porteurSociete">Société</Label>
+                <Input id="porteurSociete" {...register('porteurSociete')} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="porteurAdresse">Adresse postale</Label>
+              <Textarea id="porteurAdresse" rows={2} {...register('porteurAdresse')} />
             </div>
           </div>
 
