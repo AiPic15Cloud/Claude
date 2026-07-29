@@ -5,7 +5,6 @@ import {
   Target,
   Globe2,
   Radar,
-  Network,
   Map as MapIcon,
   Bot,
   type LucideIcon,
@@ -26,7 +25,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Objectifs', path: '/objectifs', icon: Target, available: true },
   { label: 'Marché', path: '/market', icon: Globe2, available: true },
   { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar, available: true },
-  { label: 'Knowledge Graph', path: '/graph', icon: Network, available: true },
   { label: 'Cartographie', path: '/map', icon: MapIcon, available: true },
   { label: 'Agents IA', path: '/ai', icon: Bot, available: true },
 ];

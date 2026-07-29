@@ -8,7 +8,6 @@ import { PortfolioPage } from '@/features/portfolio/portfolio-page';
 import { PipelinePage } from '@/features/pipeline/pipeline-page';
 import { ObjectifsPage } from '@/features/objectifs/objectifs-page';
 import { DossierPage } from '@/features/dossiers/dossier-page';
-import { GraphPage } from '@/features/knowledge-graph/graph-page';
 import { CartographiePage } from '@/features/cartographie/cartographie-page';
 import { PlatformsPage } from '@/features/intelligence-concurrentielle/platforms-page';
 import { MarchePage } from '@/features/intelligence-marche/marche-page';
@@ -32,7 +31,7 @@ export default function App() {
           <Route path="/objectifs" element={<ObjectifsPage />} />
           <Route path="/deals" element={<Navigate to="/portfolio" replace />} />
           <Route path="/deals/:id" element={<DossierPage />} />
-          <Route path="/graph" element={<GraphPage />} />
+          <Route path="/graph" element={<Navigate to="/competitors" replace />} />
           <Route path="/map" element={<CartographiePage />} />
           <Route path="/competitors" element={<PlatformsPage />} />
           <Route path="/market" element={<MarchePage />} />
