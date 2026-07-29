@@ -33,6 +33,13 @@ export function MarketTicker() {
           ) : (
             <TickerItem label="EUR/USD" value="indisponible" />
           )}
+          {data.cac40.value !== null && (
+            <TickerItem
+              label="CAC 40"
+              value={data.cac40.value.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}
+              changePct={data.cac40.changePct}
+            />
+          )}
           <TickerItem label="ATLAS · Encours" value={formatCurrency(data.aum.value)} />
           <TickerItem label="ATLAS · Opérations actives" value={String(data.activeDeals.value)} />
         </>
