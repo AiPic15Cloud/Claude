@@ -100,20 +100,22 @@ export class MarketIndicatorsService {
         return result;
       }
     }
-    await this.logDimensionMetadata();
+    await this.logDimensionMetadata('sts_cobp_m', 'Building permits');
     return { value: null, previousValue: null, period: null };
   }
 
   /**
-   * Fetches sts_cobp_m with only geo+time filtered — Eurostat still returns
+   * Fetches a dataset with only geo+time filtered — Eurostat still returns
    * the full dimension/category metadata for the unfiltered dimensions in
    * that response, which is exactly the codebook needed to pick correct
-   * indic_bt/cpa2_1 values instead of guessing them.
+   * dimension values instead of guessing them. Used as a diagnostic
+   * fallback when every guessed parameter combination for a dataset fails —
+   * the real codes end up in the logs instead of a silent "unavailable".
    */
-  private async logDimensionMetadata() {
+  private async logDimensionMetadata(dataset: string, label: string) {
     try {
       const search = new URLSearchParams({ format: 'JSON', lang: 'FR', geo: 'FR', sinceTimePeriod: '2024-01' });
-      const res = await fetch(`https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/sts_cobp_m?${search}`, {
+      const res = await fetch(`https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/${dataset}?${search}`, {
         signal: AbortSignal.timeout(8000),
       });
       const json = (await res.json()) as { dimension?: Record<string, { category?: { index?: Record<string, number>; label?: Record<string, string> } }> };
@@ -121,15 +123,62 @@ export class MarketIndicatorsService {
       const summary = dims
         .map((d) => {
           const index = json.dimension![d]?.category?.index ?? {};
-          const label = json.dimension![d]?.category?.label ?? {};
-          const codes = Object.keys(index).map((code) => `${code}=${label[code] ?? '?'}`);
+          const catLabel = json.dimension![d]?.category?.label ?? {};
+          const codes = Object.keys(index).map((code) => `${code}=${catLabel[code] ?? '?'}`);
           return `${d}: [${codes.join(', ')}]`;
         })
         .join(' | ');
-      this.logger.warn(`Building permits — sts_cobp_m real dimensions for geo=FR: ${summary}`);
+      this.logger.warn(`${label} — ${dataset} real dimensions for geo=FR: ${summary}`);
     } catch (error) {
-      this.logger.warn(`Building permits dimension discovery failed: ${(error as Error).message}`);
+      this.logger.warn(`${label} dimension discovery failed: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * France's official residential house price index (all dwellings),
+   * Eurostat prc_hpi_q — sourced from INSEE, quarterly. Index level
+   * (2015=100) and year-on-year % change are two separate unit codes on
+   * the same dataset, so both are resolved independently: a wrong guess
+   * on one must not take the other down.
+   *
+   * The exact unit/purchase codes below are a best-effort first guess —
+   * this sandbox has no outbound access to verify them against the live
+   * API, so a discovery dump is logged if every attempt fails, the same
+   * pattern already used for building permits (see fetchBuildingPermits).
+   */
+  private async fetchHousePriceIndex(): Promise<EurostatIndicator> {
+    const attempts: Record<string, string>[] = [
+      { geo: 'FR', purchase: 'TOTAL', unit: 'INX_Q', sinceTimePeriod: '2023-01' },
+      { geo: 'FR', purchase: 'TOTAL', unit: 'I15_Q', sinceTimePeriod: '2023-01' },
+      { geo: 'FR', purchase: 'TOTAL', unit: 'INX', sinceTimePeriod: '2023-01' },
+    ];
+    for (const params of attempts) {
+      const result = await this.fetchEurostat('prc_hpi_q', params);
+      if (result.value !== null) {
+        this.logger.log(`House price index resolved with params: ${new URLSearchParams(params).toString()}`);
+        return result;
+      }
+    }
+    await this.logDimensionMetadata('prc_hpi_q', 'House price index');
+    return { value: null, previousValue: null, period: null };
+  }
+
+  private async fetchHousePriceChangeYoy(): Promise<EurostatIndicator> {
+    const attempts: Record<string, string>[] = [
+      { geo: 'FR', purchase: 'TOTAL', unit: 'RCH_A4', sinceTimePeriod: '2023-01' },
+      { geo: 'FR', purchase: 'TOTAL', unit: 'RT4', sinceTimePeriod: '2023-01' },
+      { geo: 'FR', purchase: 'TOTAL', unit: 'PCH_SM4', sinceTimePeriod: '2023-01' },
+    ];
+    for (const params of attempts) {
+      const result = await this.fetchEurostat('prc_hpi_q', params);
+      if (result.value !== null) {
+        this.logger.log(`House price change (y/y) resolved with params: ${new URLSearchParams(params).toString()}`);
+        return result;
+      }
+    }
+    // No second dimension-discovery dump here — fetchHousePriceIndex's
+    // already covers this same dataset's full codebook if both fail.
+    return { value: null, previousValue: null, period: null };
   }
 
   async summary() {
@@ -137,23 +186,30 @@ export class MarketIndicatorsService {
       return this.cache.data;
     }
 
-    const [hicpFrance, longTermRateFrance, shortTermRateEuroArea, buildingPermitsFrance] = await Promise.all([
-      // HICP, annual rate of change, all-items, France.
-      this.fetchEurostat('prc_hicp_manr', { geo: 'FR', coicop: 'CP00', sinceTimePeriod: '2024-01' }),
-      // Long-term government bond yield (10y proxy), monthly, France.
-      this.fetchEurostat('irt_lt_mcby_m', { geo: 'FR', sinceTimePeriod: '2024-01' }),
-      // Short-term (money market / Euribor-based) interest rate, monthly, euro area.
-      this.fetchEurostat('irt_st_m', { geo: 'EA', int_rt: 'IRT_M3', sinceTimePeriod: '2024-01' }),
-      // Building permits, production index (2015=100), construction, France —
-      // an activity index, not the raw permit count SDES publishes.
-      this.fetchBuildingPermits(),
-    ]);
+    const [hicpFrance, longTermRateFrance, shortTermRateEuroArea, buildingPermitsFrance, housePriceIndex, housePriceChangeYoy] =
+      await Promise.all([
+        // HICP, annual rate of change, all-items, France.
+        this.fetchEurostat('prc_hicp_manr', { geo: 'FR', coicop: 'CP00', sinceTimePeriod: '2024-01' }),
+        // Long-term government bond yield (10y proxy), monthly, France.
+        this.fetchEurostat('irt_lt_mcby_m', { geo: 'FR', sinceTimePeriod: '2024-01' }),
+        // Short-term (money market / Euribor-based) interest rate, monthly, euro area.
+        this.fetchEurostat('irt_st_m', { geo: 'EA', int_rt: 'IRT_M3', sinceTimePeriod: '2024-01' }),
+        // Building permits, production index (2015=100), construction, France —
+        // an activity index, not the raw permit count SDES publishes.
+        this.fetchBuildingPermits(),
+        // Residential house price index (all dwellings, 2015=100), France — quarterly, INSEE-sourced via Eurostat.
+        this.fetchHousePriceIndex(),
+        // Same dataset, year-on-year % change — the more directly readable of the two.
+        this.fetchHousePriceChangeYoy(),
+      ]);
 
     const data = {
       inflationHicp: hicpFrance,
       oat10y: longTermRateFrance,
       euribor3m: shortTermRateEuroArea,
       buildingPermitsIndex: buildingPermitsFrance,
+      housePriceIndex,
+      housePriceChangeYoy,
     };
     this.cache = { fetchedAt: Date.now(), data };
     return data;

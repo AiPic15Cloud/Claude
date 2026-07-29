@@ -12,6 +12,8 @@ interface MarketIndicators {
   oat10y: Indicator;
   euribor3m: Indicator;
   buildingPermitsIndex: Indicator;
+  housePriceIndex: Indicator;
+  housePriceChangeYoy: Indicator;
 }
 
 export function useMarketIndicators() {
