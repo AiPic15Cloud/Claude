@@ -3,7 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TagBadge } from './tag-badge';
-import { ScoreBadge } from './deal-badges';
+import { ScoreBadge, CheckpointHealthBadge } from './deal-badges';
 import { formatCurrency } from '@/lib/format';
 import type { Deal } from '@/types';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,10 @@ export function DealCard({ deal, onClick }: DealCardProps) {
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium leading-snug">{deal.name}</p>
-          <ScoreBadge score={deal.atlasScore} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <CheckpointHealthBadge health={deal.checkpointHealth} compact />
+            <ScoreBadge score={deal.atlasScore} />
+          </div>
         </div>
 
         {deal.city && (

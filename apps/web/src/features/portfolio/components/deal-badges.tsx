@@ -28,9 +28,26 @@ const CHECKPOINT_HEALTH_LABEL: Record<'VERT' | 'ORANGE' | 'ROUGE', string> = {
   ROUGE: 'Suivi cible : alerte',
 };
 
-export function CheckpointHealthBadge({ health }: { health?: CheckpointHealth }) {
+export function CheckpointHealthBadge({ health, compact }: { health?: CheckpointHealth; compact?: boolean }) {
   if (!health?.level) return null;
+  // On space-constrained cards (Kanban/liste), only surface something to
+  // act on — a healthy dossier doesn't need a dot cluttering every card.
+  if (compact && health.level === 'VERT') return null;
   const title = health.reasons.length ? `${CHECKPOINT_HEALTH_LABEL[health.level]} — ${health.reasons.join(' · ')}` : CHECKPOINT_HEALTH_LABEL[health.level];
+
+  if (compact) {
+    return (
+      <span
+        title={title}
+        className={cn(
+          'inline-block h-2 w-2 shrink-0 rounded-full',
+          health.level === 'ORANGE' && 'bg-warning',
+          health.level === 'ROUGE' && 'bg-destructive',
+        )}
+      />
+    );
+  }
+
   return (
     <span title={title} className="inline-flex items-center gap-1.5 text-xs font-medium">
       <span

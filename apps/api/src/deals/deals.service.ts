@@ -55,6 +55,42 @@ export class DealsService {
     return result ? { lat: result.lat, lng: result.lng } : {};
   }
 
+  private toCheckpointHealth(
+    checkpoint: {
+      travauxBudgetInitial: Prisma.Decimal | null;
+      travauxDepensesADate: Prisma.Decimal | null;
+      prixVenteInitialPrevu: Prisma.Decimal | null;
+      prixVenteReelADate: Prisma.Decimal | null;
+      createdAt: Date;
+    } | null,
+  ) {
+    return computeCheckpointHealth(
+      checkpoint
+        ? {
+            travauxBudgetInitial: checkpoint.travauxBudgetInitial !== null ? Number(checkpoint.travauxBudgetInitial) : null,
+            travauxDepensesADate: checkpoint.travauxDepensesADate !== null ? Number(checkpoint.travauxDepensesADate) : null,
+            prixVenteInitialPrevu: checkpoint.prixVenteInitialPrevu !== null ? Number(checkpoint.prixVenteInitialPrevu) : null,
+            prixVenteReelADate: checkpoint.prixVenteReelADate !== null ? Number(checkpoint.prixVenteReelADate) : null,
+            createdAt: checkpoint.createdAt,
+          }
+        : null,
+    );
+  }
+
+  /** Batch equivalent of toCheckpointHealth() for list endpoints — one query for the latest checkpoint of every deal in the page, instead of N+1. */
+  private async attachCheckpointHealth<T extends { id: string }>(deals: T[]) {
+    if (deals.length === 0) return deals as (T & { checkpointHealth: ReturnType<typeof computeCheckpointHealth> })[];
+    const checkpoints = await this.prisma.projectCheckpoint.findMany({
+      where: { dealId: { in: deals.map((d) => d.id) } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const latestByDeal = new Map<string, (typeof checkpoints)[number]>();
+    for (const c of checkpoints) {
+      if (!latestByDeal.has(c.dealId)) latestByDeal.set(c.dealId, c);
+    }
+    return deals.map((d) => ({ ...d, checkpointHealth: this.toCheckpointHealth(latestByDeal.get(d.id) ?? null) }));
+  }
+
   private indexForSearch(deal: { id: string; organizationId: string; name: string; reference: string; type: string; stage: string; city: string | null }) {
     void this.search.indexDeal({
       id: deal.id,
@@ -184,8 +220,10 @@ export class DealsService {
       this.prisma.deal.count({ where }),
     ]);
 
+    const withHealth = await this.attachCheckpointHealth(items);
+
     return {
-      items: items.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), d.repaid) })),
+      items: withHealth.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), d.repaid) })),
       total,
       page,
       pageSize,
@@ -208,18 +246,7 @@ export class DealsService {
       },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
-    const [latestCheckpoint] = deal.checkpoints;
-    const checkpointHealth = computeCheckpointHealth(
-      latestCheckpoint
-        ? {
-            travauxBudgetInitial: latestCheckpoint.travauxBudgetInitial !== null ? Number(latestCheckpoint.travauxBudgetInitial) : null,
-            travauxDepensesADate: latestCheckpoint.travauxDepensesADate !== null ? Number(latestCheckpoint.travauxDepensesADate) : null,
-            prixVenteInitialPrevu: latestCheckpoint.prixVenteInitialPrevu !== null ? Number(latestCheckpoint.prixVenteInitialPrevu) : null,
-            prixVenteReelADate: latestCheckpoint.prixVenteReelADate !== null ? Number(latestCheckpoint.prixVenteReelADate) : null,
-            createdAt: latestCheckpoint.createdAt,
-          }
-        : null,
-    );
+    const checkpointHealth = this.toCheckpointHealth(deal.checkpoints[0] ?? null);
     return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid), checkpointHealth };
   }
 
