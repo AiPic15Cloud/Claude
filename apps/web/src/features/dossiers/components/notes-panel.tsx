@@ -81,7 +81,7 @@ export function NotesPanel({ dealId, notes }: { dealId: string; notes: Note[] })
           />
           {images.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {images.map((file, i) => (
+              {images.map((_file, i) => (
                 <div key={i} className="relative h-16 w-16 overflow-hidden rounded-md border border-border">
                   <img src={previewUrls[i]} alt="" className="h-full w-full object-cover" />
                   <button
