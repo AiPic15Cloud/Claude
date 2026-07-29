@@ -3,6 +3,10 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { StorageService } from '../common/storage/storage.service';
 
+const DOCUMENT_INCLUDE = {
+  uploadedBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+} as const;
+
 @Injectable()
 export class DocumentsService {
   constructor(
@@ -32,6 +36,7 @@ export class DocumentsService {
         storageDriver: stored.driver,
         uploadedById: userId,
       },
+      include: DOCUMENT_INCLUDE,
     });
 
     await this.activities.log(dealId, userId, 'DOCUMENT_ADDED', `Document ajouté : ${file.originalname}`);
@@ -41,7 +46,7 @@ export class DocumentsService {
   async list(organizationId: string, dealId: string) {
     const deal = await this.prisma.deal.findFirst({ where: { id: dealId, organizationId } });
     if (!deal) throw new NotFoundException('Opération introuvable');
-    return this.prisma.document.findMany({ where: { dealId }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.document.findMany({ where: { dealId }, include: DOCUMENT_INCLUDE, orderBy: { createdAt: 'desc' } });
   }
 
   async getDownloadUrl(organizationId: string, dealId: string, documentId: string) {

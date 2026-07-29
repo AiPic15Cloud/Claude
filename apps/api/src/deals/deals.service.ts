@@ -244,7 +244,10 @@ export class DealsService {
           orderBy: { createdAt: 'desc' },
         },
         tasks: { orderBy: { dueDate: 'asc' } },
-        documents: true,
+        documents: {
+          include: { uploadedBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
         checkpoints: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
