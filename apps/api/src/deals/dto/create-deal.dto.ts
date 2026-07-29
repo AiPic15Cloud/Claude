@@ -130,6 +130,24 @@ export class CreateDealDto {
   @IsPositive()
   newsletterTargetDays?: number;
 
+  @ApiProperty({ required: false, description: 'Nom du contact porteur de projet (relances, mise en demeure)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  porteurNom?: string;
+
+  @ApiProperty({ required: false, description: 'Société du porteur de projet' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  porteurSociete?: string;
+
+  @ApiProperty({ required: false, description: 'Adresse postale du porteur de projet' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  porteurAdresse?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

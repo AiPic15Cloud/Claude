@@ -10,6 +10,7 @@ import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
+import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
 import { RepaymentsPanel } from './components/repayments-panel';
 import { NotesPanel } from './components/notes-panel';
@@ -119,6 +120,7 @@ export function DossierPage() {
             {deal.deadlineAlert.daysToMax <= 0 ? 'Échéance dépassée' : `J-${deal.deadlineAlert.daysToMax}`} —
           </span>
           <span className="flex-1">{deal.deadlineAlert.actionLabel}</span>
+          <MiseEnDemeureDialog dealId={deal.id} />
           <ExtendDeadlineDialog dealId={deal.id} dealName={deal.name} currentDateMax={deal.dateMax ?? null} />
         </div>
       )}

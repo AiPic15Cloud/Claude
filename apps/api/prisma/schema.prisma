@@ -308,6 +308,13 @@ model Deal {
   lastNewsletterDate  DateTime?
   newsletterTargetDays Int      @default(45)
 
+  // Porteur de projet (recipient of relance/mise en demeure correspondence)
+  // — distinct from the property's own address above, which is the asset's
+  // location, not the operator's contact details.
+  porteurNom     String?
+  porteurSociete String?
+  porteurAdresse String?
+
   createdById  String
   createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
   assignedToId String?
