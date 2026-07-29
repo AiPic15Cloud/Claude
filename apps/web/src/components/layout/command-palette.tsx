@@ -120,7 +120,7 @@ export function CommandPalette() {
                 {unified.entities.map((entity) => (
                   <Command.Item
                     key={entity.id}
-                    onSelect={() => go(entity.type === 'PLATEFORME' ? '/competitors' : '/graph')}
+                    onSelect={() => go('/competitors')}
                     className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-2 text-sm text-foreground data-[selected=true]:bg-accent"
                   >
                     <Network className="h-4 w-4 text-muted-foreground" />
