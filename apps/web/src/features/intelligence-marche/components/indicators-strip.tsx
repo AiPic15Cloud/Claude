@@ -52,29 +52,61 @@ export function IndicatorsStrip() {
 
   if (isLoading || !data) {
     return (
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24" />
-        ))}
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-      <IndicatorTile label="Taux long terme (OAT 10Y) — France" value={data.oat10y.value} previousValue={data.oat10y.previousValue} period={data.oat10y.period} />
-      <IndicatorTile label="Taux court terme (zone euro)" value={data.euribor3m.value} previousValue={data.euribor3m.previousValue} period={data.euribor3m.period} />
-      <IndicatorTile label="Inflation HICP — France (a/a)" value={data.inflationHicp.value} previousValue={data.inflationHicp.previousValue} period={data.inflationHicp.period} />
-      <IndicatorTile
-        label="Permis de construire — indice, France"
-        value={data.buildingPermitsIndex.value}
-        previousValue={data.buildingPermitsIndex.previousValue}
-        period={data.buildingPermitsIndex.period}
-        suffix=""
-      />
-      <p className="col-span-full text-[11px] text-muted-foreground">
-        Source : Eurostat (données officielles, mises à jour ~mensuellement). L'indice permis de construire est une base 100 (2015), pas un
-        nombre brut de permis.
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <IndicatorTile label="Taux long terme (OAT 10Y) — France" value={data.oat10y.value} previousValue={data.oat10y.previousValue} period={data.oat10y.period} />
+        <IndicatorTile label="Taux court terme (zone euro)" value={data.euribor3m.value} previousValue={data.euribor3m.previousValue} period={data.euribor3m.period} />
+        <IndicatorTile label="Inflation HICP — France (a/a)" value={data.inflationHicp.value} previousValue={data.inflationHicp.previousValue} period={data.inflationHicp.period} />
+        <IndicatorTile
+          label="Permis de construire — indice, France"
+          value={data.buildingPermitsIndex.value}
+          previousValue={data.buildingPermitsIndex.previousValue}
+          period={data.buildingPermitsIndex.period}
+          suffix=""
+        />
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Prix immobilier résidentiel — France
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <IndicatorTile
+            label="Indice des prix — logements anciens"
+            value={data.housePriceIndex.value}
+            previousValue={data.housePriceIndex.previousValue}
+            period={data.housePriceIndex.period}
+            suffix=""
+          />
+          <IndicatorTile
+            label="Évolution sur un an"
+            value={data.housePriceChangeYoy.value}
+            previousValue={null}
+            period={data.housePriceChangeYoy.period}
+          />
+        </div>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">
+        Source : Eurostat (données officielles, mises à jour ~mensuellement/trimestriellement). L'indice permis de construire et l'indice des
+        prix immobiliers sont en base 100 (2015), pas des valeurs brutes. Le tertiaire (bureaux, commerces, logistique) n'a pas d'équivalent en
+        données ouvertes fiables — cette page continue à le couvrir via la veille éditoriale ci-dessous.
       </p>
     </div>
   );
