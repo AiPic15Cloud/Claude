@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CreateArticleDialog } from './components/create-article-dialog';
 import { IndicatorsStrip } from './components/indicators-strip';
+import { RateHistoryChart } from './components/rate-history-chart';
 import { MarketDigestCard } from './components/market-digest-card';
 import { useArticles, useCollectAll } from './hooks/use-market-intelligence';
 import { ARTICLE_CATEGORY_LABELS, type ArticleCategory, type Priority } from '@/types';
@@ -52,6 +53,8 @@ export function MarchePage() {
       </div>
 
       <IndicatorsStrip />
+
+      <RateHistoryChart />
 
       <MarketDigestCard />
 
