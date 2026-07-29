@@ -12,6 +12,7 @@ import { QueryDealsDto } from './dto/query-deals.dto';
 import { computeDeadlineAlert } from './deadline.util';
 import { computeNewsletterStatus } from './newsletter.util';
 import { buildMiseEnDemeure } from './mise-en-demeure.util';
+import { computeCheckpointHealth } from './checkpoint-health.util';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -203,10 +204,23 @@ export class DealsService {
         },
         tasks: { orderBy: { dueDate: 'asc' } },
         documents: true,
+        checkpoints: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
-    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid) };
+    const [latestCheckpoint] = deal.checkpoints;
+    const checkpointHealth = computeCheckpointHealth(
+      latestCheckpoint
+        ? {
+            travauxBudgetInitial: latestCheckpoint.travauxBudgetInitial !== null ? Number(latestCheckpoint.travauxBudgetInitial) : null,
+            travauxDepensesADate: latestCheckpoint.travauxDepensesADate !== null ? Number(latestCheckpoint.travauxDepensesADate) : null,
+            prixVenteInitialPrevu: latestCheckpoint.prixVenteInitialPrevu !== null ? Number(latestCheckpoint.prixVenteInitialPrevu) : null,
+            prixVenteReelADate: latestCheckpoint.prixVenteReelADate !== null ? Number(latestCheckpoint.prixVenteReelADate) : null,
+            createdAt: latestCheckpoint.createdAt,
+          }
+        : null,
+    );
+    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid), checkpointHealth };
   }
 
   async generateMiseEnDemeure(organizationId: string, id: string) {

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDeal, useDeleteDeal } from '@/features/portfolio/hooks/use-deals';
-import { StageBadge, TypeBadge, ScoreBadge } from '@/features/portfolio/components/deal-badges';
+import { StageBadge, TypeBadge, ScoreBadge, CheckpointHealthBadge } from '@/features/portfolio/components/deal-badges';
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { EditDealDialog } from './components/edit-deal-dialog';
@@ -73,6 +73,7 @@ export function DossierPage() {
               {deal.tags.map(({ tag }) => (
                 <TagBadge key={tag.id} tag={tag} />
               ))}
+              <CheckpointHealthBadge health={deal.checkpointHealth} />
             </div>
           </div>
           <div className="flex items-center gap-2">

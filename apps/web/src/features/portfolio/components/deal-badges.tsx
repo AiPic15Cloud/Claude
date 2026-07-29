@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { DEAL_STAGE_LABELS, DEAL_TYPE_LABELS, type DealStage, type DealType } from '@/types';
+import { DEAL_STAGE_LABELS, DEAL_TYPE_LABELS, type CheckpointHealth, type DealStage, type DealType } from '@/types';
 
 const STAGE_VARIANT: Record<DealStage, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   SOURCING: 'outline',
@@ -20,6 +20,38 @@ export function StageBadge({ stage }: { stage: DealStage }) {
 
 export function TypeBadge({ type }: { type: DealType }) {
   return <Badge variant="outline">{DEAL_TYPE_LABELS[type]}</Badge>;
+}
+
+const CHECKPOINT_HEALTH_LABEL: Record<'VERT' | 'ORANGE' | 'ROUGE', string> = {
+  VERT: 'Suivi cible : conforme',
+  ORANGE: 'Suivi cible : vigilance',
+  ROUGE: 'Suivi cible : alerte',
+};
+
+export function CheckpointHealthBadge({ health }: { health?: CheckpointHealth }) {
+  if (!health?.level) return null;
+  const title = health.reasons.length ? `${CHECKPOINT_HEALTH_LABEL[health.level]} — ${health.reasons.join(' · ')}` : CHECKPOINT_HEALTH_LABEL[health.level];
+  return (
+    <span title={title} className="inline-flex items-center gap-1.5 text-xs font-medium">
+      <span
+        className={cn(
+          'h-2 w-2 shrink-0 rounded-full',
+          health.level === 'VERT' && 'bg-success',
+          health.level === 'ORANGE' && 'bg-warning',
+          health.level === 'ROUGE' && 'bg-destructive',
+        )}
+      />
+      <span
+        className={cn(
+          health.level === 'VERT' && 'text-success',
+          health.level === 'ORANGE' && 'text-warning',
+          health.level === 'ROUGE' && 'text-destructive',
+        )}
+      >
+        {CHECKPOINT_HEALTH_LABEL[health.level]}
+      </span>
+    </span>
+  );
 }
 
 export function ScoreBadge({ score }: { score?: number | null }) {
