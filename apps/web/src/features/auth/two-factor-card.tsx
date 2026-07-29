@@ -147,6 +147,16 @@ export function TwoFactorCard() {
               </DialogHeader>
               <div className="flex flex-col items-center gap-3">
                 {setup.isPending && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+                {setup.isError && (
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <p className="text-xs text-destructive">
+                      {setup.error instanceof ApiError ? setup.error.message : 'Impossible de générer le QR code'}
+                    </p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setup.mutate()}>
+                      Réessayer
+                    </Button>
+                  </div>
+                )}
                 {setup.data && (
                   <>
                     <img
