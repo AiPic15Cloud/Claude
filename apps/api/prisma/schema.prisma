@@ -637,6 +637,13 @@ model GraphEntity {
   lng         Decimal?        @db.Decimal(9, 6)
   metadata    Json?
 
+  /// Person to contact at this entity (e.g. the porteur de projet themselves,
+  /// or the relationship manager at a bank/notaire) — distinct from `name`,
+  /// which is the organization/company name.
+  contactName String?
+  email       String?
+  phone       String?
+
   dealLinks     DealEntityLink[]
   relationsFrom GraphRelation[]     @relation("RelationFrom")
   relationsTo   GraphRelation[]     @relation("RelationTo")

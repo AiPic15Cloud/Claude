@@ -7,6 +7,7 @@ import {
   Radar,
   Map as MapIcon,
   Bot,
+  BookUser,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Portefeuille', path: '/portfolio', icon: Briefcase, available: true },
   { label: 'Pipeline', path: '/pipeline', icon: GitBranch, available: true },
   { label: 'Objectifs', path: '/objectifs', icon: Target, available: true },
+  { label: 'Répertoire', path: '/repertoire', icon: BookUser, available: true },
   { label: 'Marché', path: '/market', icon: Globe2, available: true },
   { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar, available: true },
   { label: 'Cartographie', path: '/map', icon: MapIcon, available: true },
