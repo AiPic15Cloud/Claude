@@ -1,4 +1,17 @@
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -24,8 +37,9 @@ export class DocumentsController {
   upload(
     @CurrentUser() user: AuthenticatedUser,
     @Param('dealId') dealId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
+    if (!file) throw new BadRequestException('Aucun fichier reçu');
     return this.documentsService.upload(user.organizationId, dealId, user.id, file);
   }
 

@@ -21,6 +21,7 @@ export class TasksService {
 
     const task = await this.prisma.task.create({
       data: {
+        organizationId,
         title: dto.title,
         dealId: dto.dealId,
         priority: dto.priority,
@@ -39,30 +40,15 @@ export class TasksService {
 
   async findAllForOrganization(organizationId: string, userId: string, query: QueryTasksDto) {
     const where: Prisma.TaskWhereInput = {
-      deal: { organizationId },
+      organizationId,
+      ...(query.scope !== 'all' ? { assigneeId: userId } : {}),
       ...(query.done !== undefined ? { done: query.done === 'true' } : {}),
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.dueBefore ? { dueDate: { lte: new Date(query.dueBefore) } } : {}),
-      ...(query.scope !== 'all' ? { assigneeId: userId } : {}),
-    };
-
-    // Tasks not attached to a deal still belong to the org via the assignee;
-    // include them explicitly since the `deal` relation filter above would exclude them.
-    const orgWhere: Prisma.TaskWhereInput = {
-      OR: [
-        where,
-        {
-          dealId: null,
-          assigneeId: query.scope === 'all' ? undefined : userId,
-          ...(query.done !== undefined ? { done: query.done === 'true' } : {}),
-          ...(query.priority ? { priority: query.priority } : {}),
-          ...(query.dueBefore ? { dueDate: { lte: new Date(query.dueBefore) } } : {}),
-        },
-      ],
     };
 
     return this.prisma.task.findMany({
-      where: orgWhere,
+      where,
       include: {
         deal: { select: { id: true, name: true, reference: true } },
         assignee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
@@ -75,20 +61,17 @@ export class TasksService {
     const deal = await this.prisma.deal.findFirst({ where: { id: dealId, organizationId } });
     if (!deal) throw new NotFoundException('Opération introuvable');
     return this.prisma.task.findMany({
-      where: { dealId },
+      where: { dealId, organizationId },
       include: { assignee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
       orderBy: [{ done: 'asc' }, { dueDate: 'asc' }],
     });
   }
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateTaskDto) {
-    const task = await this.prisma.task.findFirst({
-      where: { id, deal: { organizationId } },
-    });
-    const orphanTask = task ?? (await this.prisma.task.findFirst({ where: { id, dealId: null } }));
-    if (!orphanTask) throw new NotFoundException('Tâche introuvable');
+    const task = await this.prisma.task.findFirst({ where: { id, organizationId } });
+    if (!task) throw new NotFoundException('Tâche introuvable');
 
-    const wasIncomplete = !orphanTask.done;
+    const wasIncomplete = !task.done;
     const updated = await this.prisma.task.update({
       where: { id },
       data: {
@@ -109,9 +92,7 @@ export class TasksService {
   }
 
   async remove(organizationId: string, id: string) {
-    const task = await this.prisma.task.findFirst({
-      where: { OR: [{ id, deal: { organizationId } }, { id, dealId: null }] },
-    });
+    const task = await this.prisma.task.findFirst({ where: { id, organizationId } });
     if (!task) throw new NotFoundException('Tâche introuvable');
     await this.prisma.task.delete({ where: { id } });
   }

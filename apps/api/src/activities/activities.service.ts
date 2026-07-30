@@ -10,9 +10,9 @@ export class ActivitiesService {
     return this.prisma.activity.create({ data: { dealId, userId, type, message } });
   }
 
-  listForDeal(dealId: string) {
+  listForDeal(organizationId: string, dealId: string) {
     return this.prisma.activity.findMany({
-      where: { dealId },
+      where: { dealId, deal: { organizationId } },
       include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
       orderBy: { createdAt: 'desc' },
     });

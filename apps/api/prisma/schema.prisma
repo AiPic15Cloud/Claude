@@ -164,6 +164,7 @@ model Organization {
   feesTargets    FeesTarget[]
   pipelineEntries PipelineEntry[]
   competitorProjects CompetitorProject[]
+  tasks          Task[]
 
   @@map("organizations")
 }
@@ -518,6 +519,12 @@ model Task {
   dealId String?
   deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
+  /// Set directly at creation (not derived from `deal`) so deal-less tasks
+  /// still carry a real tenant boundary — every query filters on this
+  /// column, never on "no deal means no scope" fallbacks.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   title    String
   done     Boolean   @default(false)
   priority Priority  @default(MEDIUM)
@@ -533,6 +540,7 @@ model Task {
   completedAt DateTime?
 
   @@index([dealId])
+  @@index([organizationId])
   @@index([assigneeId])
   @@index([dueDate])
   @@map("tasks")

@@ -1,14 +1,26 @@
+// A silently-applied fallback secret here is the same failure either way:
+// anyone who reads this (public) source can forge a valid token. These three
+// must be real, operator-supplied values — refuse to boot rather than run
+// with a forgeable default.
+function requireSecret(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}. Refusing to start with an insecure default.`);
+  }
+  return value;
+}
+
 export default () => ({
   port: parseInt(process.env.API_PORT ?? '3001', 10),
   corsOrigin: process.env.API_CORS_ORIGIN ?? 'http://localhost:5173',
   jwt: {
-    accessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret',
-    refreshSecret: process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret',
+    accessSecret: requireSecret('JWT_ACCESS_SECRET'),
+    refreshSecret: requireSecret('JWT_REFRESH_SECRET'),
     // Deliberately distinct from accessSecret: a 2FA challenge token must
     // never verify as a real access token, or it would let anyone who only
     // knows the password skip the second factor entirely by presenting the
     // challenge token as a Bearer token on a normal API call.
-    twoFactorSecret: process.env.JWT_2FA_SECRET ?? 'dev-2fa-challenge-secret',
+    twoFactorSecret: requireSecret('JWT_2FA_SECRET'),
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '7d',
   },

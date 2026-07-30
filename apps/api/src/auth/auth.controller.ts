@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -14,11 +15,16 @@ import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-use
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // These three are the realistic brute-force targets (password guessing,
+  // 2FA code guessing, mass account creation) — a much tighter budget than
+  // the app-wide default, per IP.
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @UseGuards(LocalAuthGuard)
   @Post('login')
   login(@Req() req: any, @Body() _dto: LoginDto) {
@@ -28,6 +34,7 @@ export class AuthController {
     return this.authService.login(req.user);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('2fa/verify')
   verifyTwoFactor(@Body() dto: TwoFactorVerifyDto) {
     return this.authService.verifyTwoFactor(dto.challengeToken, dto.code);
