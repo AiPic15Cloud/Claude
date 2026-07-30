@@ -46,8 +46,29 @@ export class StorageService {
     }
   }
 
+  /**
+   * `file.originalname` is attacker-controlled (raw multipart header, never
+   * sanitized by multer) — without this, a name like `../../../../app/dist/main.js`
+   * escapes the uploads directory entirely via path.join. Keep only the
+   * basename and a safe character set.
+   */
+  private sanitizeFileName(name: string): string {
+    const base = path.basename(name).replace(/[^\w.-]/g, '_');
+    return base || 'file';
+  }
+
+  /** Resolves a storage key to an on-disk path and refuses to leave `localPath`, even if a malformed key ever reaches here. */
+  private resolveLocalPath(storageKey: string): string {
+    const root = path.resolve(this.localPath);
+    const resolved = path.resolve(root, storageKey);
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+      throw new Error('Invalid storage key');
+    }
+    return resolved;
+  }
+
   async save(dealId: string, originalName: string, buffer: Buffer, mimeType: string): Promise<StoredObject> {
-    const key = `${dealId}/${nanoid()}-${originalName}`;
+    const key = `${dealId}/${nanoid()}-${this.sanitizeFileName(originalName)}`;
 
     if (this.driver === 's3') {
       await this.s3!.send(
@@ -61,7 +82,7 @@ export class StorageService {
       return { storageKey: key, driver: 's3' };
     }
 
-    const fullPath = path.join(this.localPath, key);
+    const fullPath = this.resolveLocalPath(key);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, buffer);
     return { storageKey: key, driver: 'local' };
@@ -79,7 +100,7 @@ export class StorageService {
   }
 
   async readLocal(storageKey: string): Promise<Buffer> {
-    return fs.readFile(path.join(this.localPath, storageKey));
+    return fs.readFile(this.resolveLocalPath(storageKey));
   }
 
   async delete(storageKey: string, driver: string): Promise<void> {
@@ -87,6 +108,6 @@ export class StorageService {
       await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: storageKey }));
       return;
     }
-    await fs.rm(path.join(this.localPath, storageKey), { force: true });
+    await fs.rm(this.resolveLocalPath(storageKey), { force: true });
   }
 }

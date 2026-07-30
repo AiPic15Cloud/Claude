@@ -26,16 +26,23 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const config = new DocumentBuilder()
-    .setTitle('ATLAS API')
-    .setDescription(
-      'Real Estate Intelligence Operating System — REST API (foundation, Cockpit & Portefeuille modules)',
-    )
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // A full route/DTO map is a free reconnaissance tool for anyone probing
+  // the API — every route stays behind JwtAuthGuard regardless, but there's
+  // no reason to hand out the map in production. Set ENABLE_API_DOCS=true
+  // to opt back in if ever needed there.
+  const docsEnabled = process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true';
+  if (docsEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('ATLAS API')
+      .setDescription(
+        'Real Estate Intelligence Operating System — REST API (foundation, Cockpit & Portefeuille modules)',
+      )
+      .setVersion('0.1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   // Railway (and most PaaS hosts) inject PORT — it takes priority over the
   // local-dev-oriented API_PORT variable.
@@ -43,8 +50,10 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`ATLAS API listening on port ${port}`);
-  // eslint-disable-next-line no-console
-  console.log(`OpenAPI docs on /api/docs`);
+  if (docsEnabled) {
+    // eslint-disable-next-line no-console
+    console.log(`OpenAPI docs on /api/docs`);
+  }
 }
 
 bootstrap();

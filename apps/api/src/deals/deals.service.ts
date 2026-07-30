@@ -176,9 +176,12 @@ export class DealsService {
       } catch (error) {
         const isUniqueClash = (error as { code?: string })?.code === 'P2002';
         if (isUniqueClash) {
-          const existing = await this.prisma.deal.findUnique({ where: { reference }, select: { id: true, name: true, createdAt: true } });
+          // Deliberately not logging the existing deal's name here: it may
+          // belong to a different organization than the one retrying, and
+          // this line ends up in a shared log stream.
+          const existing = await this.prisma.deal.findUnique({ where: { reference }, select: { id: true, createdAt: true } });
           this.logger.warn(
-            `reference clash on attempt ${attempt} org=${organizationId} reference=${reference} existingDealId=${existing?.id} existingDealName=${existing?.name} existingCreatedAt=${existing?.createdAt?.toISOString()}`,
+            `reference clash on attempt ${attempt} org=${organizationId} reference=${reference} existingDealId=${existing?.id} existingCreatedAt=${existing?.createdAt?.toISOString()}`,
           );
         }
         if (!isUniqueClash || attempt === 4) throw error;
@@ -353,7 +356,13 @@ export class DealsService {
     await this.assertExists(organizationId, id);
     await this.prisma.dealTag.deleteMany({ where: { dealId: id } });
     if (tagIds.length) {
-      await this.prisma.dealTag.createMany({ data: tagIds.map((tagId) => ({ dealId: id, tagId })) });
+      // Without this, a tagId from another organization would silently link —
+      // and then render that foreign tag's name/colour on this deal.
+      const ownedTagIds = await this.prisma.tag.findMany({
+        where: { id: { in: tagIds }, organizationId },
+        select: { id: true },
+      });
+      await this.prisma.dealTag.createMany({ data: ownedTagIds.map(({ id: tagId }) => ({ dealId: id, tagId })) });
     }
     await this.activities.log(id, userId, 'TAG_ADDED', 'Tags mis à jour');
     return this.findOne(organizationId, id);

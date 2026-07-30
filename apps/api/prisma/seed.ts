@@ -224,6 +224,7 @@ async function main() {
         const dueOffsetDays = randomInt(-3, 10);
         await prisma.task.create({
           data: {
+            organizationId: organization.id,
             dealId: deal.id,
             title: randomFrom(taskTitles),
             priority: randomFrom(Object.values(Priority)),
@@ -432,6 +433,7 @@ async function main() {
     // A couple of tasks with no linked deal (personal admin tasks) for Cockpit "Aujourd'hui".
     await prisma.task.create({
       data: {
+        organizationId: organization.id,
         title: 'Préparer le comité hebdomadaire',
         priority: Priority.HIGH,
         dueDate: new Date(),
@@ -441,6 +443,7 @@ async function main() {
     });
     await prisma.task.create({
       data: {
+        organizationId: organization.id,
         title: 'Revue de la veille concurrentielle',
         priority: Priority.MEDIUM,
         dueDate: new Date(Date.now() + 86_400_000),
