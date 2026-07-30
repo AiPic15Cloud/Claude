@@ -36,12 +36,39 @@ export interface CreateEntityPayload {
   website?: string;
   city?: string;
   metadata?: Record<string, unknown>;
+  contactName?: string;
+  email?: string;
+  phone?: string;
 }
 
 export function useCreateEntity() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateEntityPayload) => api.post<GraphEntity>('/graph/entities', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['graph-entities'] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
+    },
+  });
+}
+
+export function useUpdateEntity() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string } & Partial<CreateEntityPayload>) =>
+      api.patch<GraphEntity>(`/graph/entities/${id}`, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['graph-entities'] });
+      queryClient.invalidateQueries({ queryKey: ['graph-entity', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
+    },
+  });
+}
+
+export function useDeleteEntity() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/graph/entities/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['graph-entities'] });
       queryClient.invalidateQueries({ queryKey: ['graph'] });

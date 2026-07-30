@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Globe, MapPin } from 'lucide-react';
+import { Globe, Mail, MapPin, Phone, User } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useEntity } from '../hooks/use-graph';
+import { CreateEntityDialog } from './create-entity-dialog';
 import { CompetitorProjectsPanel } from '@/features/intelligence-concurrentielle/components/competitor-projects-panel';
 import { PlatformStatsPanel } from '@/features/intelligence-concurrentielle/components/platform-stats-panel';
 import type { PlatformMetadata } from '@/features/intelligence-concurrentielle/platform-metadata';
@@ -26,11 +27,19 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
         ) : (
           <>
             <SheetHeader>
-              <Badge variant="outline" className="w-fit">
-                {GRAPH_ENTITY_TYPE_LABELS[entity.type]}
-              </Badge>
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="outline" className="w-fit">
+                  {GRAPH_ENTITY_TYPE_LABELS[entity.type]}
+                </Badge>
+                <CreateEntityDialog entity={entity} />
+              </div>
               <SheetTitle>{entity.name}</SheetTitle>
               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                {entity.contactName && (
+                  <span className="flex items-center gap-1">
+                    <User className="h-3 w-3" /> {entity.contactName}
+                  </span>
+                )}
                 {entity.city && (
                   <span className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" /> {entity.city}
@@ -42,6 +51,20 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
                   </a>
                 )}
               </div>
+              {(entity.email || entity.phone) && (
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  {entity.email && (
+                    <a href={`mailto:${entity.email}`} className="flex items-center gap-1 hover:text-primary hover:underline">
+                      <Mail className="h-3 w-3" /> {entity.email}
+                    </a>
+                  )}
+                  {entity.phone && (
+                    <a href={`tel:${entity.phone}`} className="flex items-center gap-1 hover:text-primary hover:underline">
+                      <Phone className="h-3 w-3" /> {entity.phone}
+                    </a>
+                  )}
+                </div>
+              )}
               {entity.description && <p className="text-sm text-muted-foreground">{entity.description}</p>}
             </SheetHeader>
 

@@ -541,6 +541,9 @@ export interface GraphEntity {
   lat?: string | null;
   lng?: string | null;
   metadata?: Record<string, unknown> | null;
+  contactName?: string | null;
+  email?: string | null;
+  phone?: string | null;
   createdAt: string;
   updatedAt: string;
   _count?: { dealLinks: number; relationsFrom: number; relationsTo: number };
