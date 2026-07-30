@@ -15,7 +15,10 @@ import { CreateEntityDialog } from '@/features/knowledge-graph/components/create
 import { EntityDrawer } from '@/features/knowledge-graph/components/entity-drawer';
 import { GRAPH_ENTITY_TYPE_LABELS, type GraphEntity, type GraphEntityType } from '@/types';
 
-const TYPES: GraphEntityType[] = ['PROMOTEUR', 'BANQUE', 'NOTAIRE', 'ARCHITECTE', 'COLLECTIVITE', 'INVESTISSEUR', 'PLATEFORME'];
+// Plateformes concurrentes vivent uniquement dans Intelligence Concurrentielle —
+// le Répertoire ne liste que les contacts réels (porteurs, banques, notaires…).
+const HIDDEN_TYPES: GraphEntityType[] = ['PLATEFORME'];
+const TYPES: GraphEntityType[] = ['PROMOTEUR', 'BANQUE', 'NOTAIRE', 'ARCHITECTE', 'COLLECTIVITE', 'INVESTISSEUR'];
 
 function ContactRow({ entity, onOpen }: { entity: GraphEntity; onOpen: () => void }) {
   const remove = useDeleteEntity();
@@ -54,7 +57,11 @@ function ContactRow({ entity, onOpen }: { entity: GraphEntity; onOpen: () => voi
           </span>
         )}
         <div onClick={(e) => e.stopPropagation()} className="flex shrink-0 items-center gap-1">
-          <CreateEntityDialog entity={entity} trigger={<Button size="sm" variant="ghost">Modifier</Button>} />
+          <CreateEntityDialog
+            entity={entity}
+            hideTypes={HIDDEN_TYPES}
+            trigger={<Button size="sm" variant="ghost">Modifier</Button>}
+          />
           {confirming ? (
             <div className="flex items-center gap-1">
               <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
@@ -79,7 +86,8 @@ export function RepertoirePage() {
   const [type, setType] = useState<GraphEntityType | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data: entities = [], isLoading } = useEntities({ type, search: search || undefined });
+  const { data: rawEntities = [], isLoading } = useEntities({ type, search: search || undefined });
+  const entities = rawEntities.filter((e) => !HIDDEN_TYPES.includes(e.type));
 
   return (
     <div className="flex flex-col gap-5">
@@ -90,7 +98,7 @@ export function RepertoirePage() {
             Coordonnées de vos porteurs de projet, banques, notaires et autres partenaires.
           </p>
         </div>
-        <CreateEntityDialog />
+        <CreateEntityDialog hideTypes={HIDDEN_TYPES} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

@@ -41,7 +41,17 @@ function toDefaults(entity?: GraphEntity | null): FormValues {
 }
 
 /** Create/edit form for a Knowledge Graph entity (also the Répertoire's contact card) — pass `entity` to edit it in place. */
-export function CreateEntityDialog({ entity, trigger }: { entity?: GraphEntity; trigger?: React.ReactNode }) {
+export function CreateEntityDialog({
+  entity,
+  trigger,
+  hideTypes,
+}: {
+  entity?: GraphEntity;
+  trigger?: React.ReactNode;
+  /** Types to omit from the picker — e.g. Répertoire hides PLATEFORME, which belongs to Intelligence Concurrentielle only. */
+  hideTypes?: GraphEntityType[];
+}) {
+  const availableTypes = hideTypes?.length ? TYPES.filter((t) => !hideTypes.includes(t)) : TYPES;
   const [open, setOpen] = useState(false);
   const create = useCreateEntity();
   const update = useUpdateEntity();
@@ -101,7 +111,7 @@ export function CreateEntityDialog({ entity, trigger }: { entity?: GraphEntity; 
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TYPES.map((t) => (
+                    {availableTypes.map((t) => (
                       <SelectItem key={t} value={t}>
                         {GRAPH_ENTITY_TYPE_LABELS[t]}
                       </SelectItem>
