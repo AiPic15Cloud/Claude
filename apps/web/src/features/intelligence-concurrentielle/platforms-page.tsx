@@ -21,7 +21,7 @@ export function PlatformsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Intelligence Concurrentielle"
-        description="Plateformes de crowdfunding immobilier et d'immobilier fractionné suivies par ATLAS."
+        description="Plateformes de crowdfunding immobilier et d'immobilier fractionné suivies par Atlas Capital."
         actions={
           <>
             <Button size="sm" variant="outline" onClick={() => sync.mutate()} disabled={sync.isPending}>

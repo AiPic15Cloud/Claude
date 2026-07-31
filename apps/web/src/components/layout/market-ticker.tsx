@@ -40,8 +40,8 @@ export function MarketTicker() {
               changePct={data.cac40.changePct}
             />
           )}
-          <TickerItem label="ATLAS · Encours" value={formatCurrency(data.aum.value)} />
-          <TickerItem label="ATLAS · Opérations actives" value={String(data.activeDeals.value)} />
+          <TickerItem label="Atlas Capital · Encours" value={formatCurrency(data.aum.value)} />
+          <TickerItem label="Atlas Capital · Opérations actives" value={String(data.activeDeals.value)} />
         </>
       ) : (
         <span className="text-[11px]">Chargement…</span>

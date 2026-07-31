@@ -37,7 +37,7 @@ export function RegisterPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Building2 className="h-5 w-5" />
           </div>
-          <h1 className="text-lg font-semibold tracking-tight">ATLAS</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Atlas Capital</h1>
           <p className="text-xs text-muted-foreground">Créer votre organisation</p>
         </div>
 
