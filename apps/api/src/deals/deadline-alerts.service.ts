@@ -49,12 +49,7 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
 
   private async checkAll() {
     const deals = await this.prisma.deal.findMany({
-      // organizationId: { not: null } excludes orphaned deals — without an
-      // organizationId, upsertEscalationTask() would try to create a Task
-      // with organizationId: null, which Prisma rejects (P2011) since the
-      // organizationId migration made the column NOT NULL. That rejection,
-      // left unhandled, used to crash the whole process on every boot.
-      where: { status: 'ACTIVE', dateMax: { not: null }, repaid: false, organizationId: { not: null } },
+      where: { status: 'ACTIVE', dateMax: { not: null }, repaid: false },
       select: {
         id: true,
         organizationId: true,
@@ -72,6 +67,18 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
       // able to take down the whole check (or the whole server, since this
       // runs from onApplicationBootstrap via an un-awaited promise).
       try {
+        // Runtime guard (not just a type-level filter): organizationId is
+        // required in the Prisma schema, so `{ not: null }` in the `where`
+        // above isn't even valid TypeScript for this field. But a legacy/
+        // orphaned row could still have organizationId null at the DB level
+        // regardless of what the schema declares — skip it defensively
+        // instead of letting tasks.create() reject it with an unhandled
+        // Prisma P2011, which used to crash the whole process on boot.
+        if (!deal.organizationId) {
+          this.logger.warn(`Deal ${deal.id} sans organizationId — ignoré.`);
+          continue;
+        }
+
         const alert = computeDeadlineAlert(deal.dateMax);
         if (alert.level === 'RAS' || !alert.stage) continue;
 
@@ -144,3 +151,4 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
       assigneeId,
     });
   }
+}
