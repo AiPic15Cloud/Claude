@@ -144,4 +144,3 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
       assigneeId,
     });
   }
-}Commit directly to the claude/atlas-real-estate-os-64x200 branch
