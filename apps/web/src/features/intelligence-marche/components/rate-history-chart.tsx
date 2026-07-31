@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRateHistory } from '../hooks/use-rate-history';
@@ -83,11 +83,12 @@ export function RateHistoryChart() {
               type="monotone"
               dataKey="ecbPolicyRate"
               name="Taux directeur BCE"
-              stroke="hsl(var(--warning))"
+              stroke="hsl(var(--chart-3))"
               strokeWidth={2}
               dot={false}
               connectNulls
             />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
           </LineChart>
         </ResponsiveContainer>
         <p className="mt-2 text-[11px] text-muted-foreground">Sources : Eurostat (OAT 10Y, France) · ECB Data Portal (taux de refinancement principal).</p>
