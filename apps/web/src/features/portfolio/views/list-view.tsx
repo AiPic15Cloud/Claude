@@ -1,5 +1,6 @@
 import { MapPin } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { StageBadge, TypeBadge, ScoreBadge, CheckpointHealthBadge } from '../components/deal-badges';
 import { TagBadge } from '../components/tag-badge';
 import { formatCurrency } from '@/lib/format';
@@ -52,9 +53,7 @@ export function ListView({ deals, onSelectDeal }: ListViewProps) {
 
               <div className="hidden w-40 flex-col items-end gap-1 sm:flex">
                 <span className="text-sm font-medium tabular-nums">{formatCurrency(deal.amountTarget)}</span>
-                <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-                </div>
+                <Progress value={progress} className="h-1" />
               </div>
             </div>
           </Card>

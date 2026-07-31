@@ -18,6 +18,7 @@ import { EntityDrawer } from './components/entity-drawer';
 import { CreateEntityDialog } from './components/create-entity-dialog';
 import { GRAPH_ENTITY_TYPE_LABELS, type GraphEntityType } from '@/types';
 import { SlidersHorizontal } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 
 const ALL_TYPES: GraphEntityType[] = [
   'PROMOTEUR',
@@ -66,39 +67,36 @@ export function GraphPage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Knowledge Graph</h1>
-          <p className="text-sm text-muted-foreground">
-            Promoteurs, banques, notaires, architectes, collectivités, investisseurs, plateformes et opérations —
-            toutes les relations sont cliquables.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <SlidersHorizontal className="h-3.5 w-3.5" /> Types ({activeTypes.length})
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Filtrer par type</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {ALL_TYPES.map((type) => (
-                <DropdownMenuCheckboxItem
-                  key={type}
-                  checked={activeTypes.includes(type)}
-                  onCheckedChange={() => toggleType(type)}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  {GRAPH_ENTITY_TYPE_LABELS[type]}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <CreateEntityDialog />
-        </div>
-      </div>
+      <PageHeader
+        title="Knowledge Graph"
+        description="Promoteurs, banques, notaires, architectes, collectivités, investisseurs, plateformes et opérations — toutes les relations sont cliquables."
+        actions={
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <SlidersHorizontal className="h-3.5 w-3.5" /> Types ({activeTypes.length})
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Filtrer par type</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {ALL_TYPES.map((type) => (
+                  <DropdownMenuCheckboxItem
+                    key={type}
+                    checked={activeTypes.includes(type)}
+                    onCheckedChange={() => toggleType(type)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    {GRAPH_ENTITY_TYPE_LABELS[type]}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <CreateEntityDialog />
+          </>
+        }
+      />
 
       {isLoading ? (
         <Skeleton className="flex-1" />

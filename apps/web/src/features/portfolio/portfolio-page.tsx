@@ -11,6 +11,7 @@ import { TableView } from './views/table-view';
 import { MapView } from './views/map-view';
 import { useDeals, type DealsFilters } from './hooks/use-deals';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
 
 export function PortfolioPage() {
   const [view, setView] = useState<PortfolioView>('kanban');
@@ -42,13 +43,11 @@ export function PortfolioPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Portefeuille</h1>
-          <p className="text-sm text-muted-foreground">Toutes les opérations de votre organisation.</p>
-        </div>
-        <CreateDealDialog />
-      </div>
+      <PageHeader
+        title="Portefeuille"
+        description="Toutes les opérations de votre organisation."
+        actions={<CreateDealDialog />}
+      />
 
       <KpiBar />
 

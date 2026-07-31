@@ -14,14 +14,17 @@ const TYPE_ICON: Record<GraphEntityType | 'DEAL', typeof Building2> = {
   DEAL: FileStack,
 };
 
+// Entity type is identity, not status — every type gets the same neutral
+// treatment (icon shape carries the distinction) except the deal itself,
+// which anchors the graph and gets the sole accent color.
 const TYPE_COLOR: Record<GraphEntityType | 'DEAL', string> = {
-  PROMOTEUR: 'text-blue-600 bg-blue-500/10 dark:text-blue-400',
-  BANQUE: 'text-emerald-600 bg-emerald-500/10 dark:text-emerald-400',
-  NOTAIRE: 'text-amber-600 bg-amber-500/10 dark:text-amber-400',
-  ARCHITECTE: 'text-fuchsia-600 bg-fuchsia-500/10 dark:text-fuchsia-400',
-  COLLECTIVITE: 'text-cyan-600 bg-cyan-500/10 dark:text-cyan-400',
-  INVESTISSEUR: 'text-orange-600 bg-orange-500/10 dark:text-orange-400',
-  PLATEFORME: 'text-violet-600 bg-violet-500/10 dark:text-violet-400',
+  PROMOTEUR: 'text-foreground bg-muted',
+  BANQUE: 'text-foreground bg-muted',
+  NOTAIRE: 'text-foreground bg-muted',
+  ARCHITECTE: 'text-foreground bg-muted',
+  COLLECTIVITE: 'text-foreground bg-muted',
+  INVESTISSEUR: 'text-foreground bg-muted',
+  PLATEFORME: 'text-foreground bg-muted',
   DEAL: 'text-primary bg-primary/10',
 };
 

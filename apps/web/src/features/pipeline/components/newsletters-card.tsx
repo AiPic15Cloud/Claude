@@ -7,6 +7,7 @@ import { useNewsletters, usePingNewsletter } from '../hooks/use-newsletters';
 import { NEWSLETTER_STATUS_LABELS, type NewsletterStatus } from '@/types';
 import { formatDate } from '@/lib/format';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 const STATUS_VARIANT: Record<NewsletterStatus, 'success' | 'warning' | 'destructive'> = {
   A_JOUR: 'success',
@@ -31,38 +32,38 @@ export function NewslettersCard() {
         )}
         {!isLoading && entries && entries.length > 0 && (
           <div className="max-h-[28rem] overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-card">
-                <tr className="border-b border-border text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-2">Projet</th>
-                  <th className="px-4 py-2">Dernière NL</th>
-                  <th className="px-4 py-2 text-right">Écart (j)</th>
-                  <th className="px-4 py-2">Statut</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader className="sticky top-0 bg-card">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Projet</TableHead>
+                  <TableHead>Dernière NL</TableHead>
+                  <TableHead className="text-right">Écart (j)</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {entries.map((e) => (
-                  <tr key={e.id} className="border-b border-border/60 hover:bg-accent">
-                    <td className="px-4 py-2">
+                  <TableRow key={e.id}>
+                    <TableCell>
                       <Link to={`/deals/${e.id}`} className="font-medium hover:text-primary hover:underline">
                         {e.name}
                       </Link>
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">{e.lastNewsletterDate ? formatDate(e.lastNewsletterDate) : '—'}</td>
-                    <td className="px-4 py-2 text-right tabular-nums">{e.daysSince ?? '—'}</td>
-                    <td className="px-4 py-2">
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums text-muted-foreground">{e.lastNewsletterDate ? formatDate(e.lastNewsletterDate) : '—'}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{e.daysSince ?? '—'}</TableCell>
+                    <TableCell>
                       <Badge variant={STATUS_VARIANT[e.status]}>{NEWSLETTER_STATUS_LABELS[e.status]}</Badge>
-                    </td>
-                    <td className="px-4 py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => ping.mutate(e.id)} disabled={ping.isPending}>
                         <Mail className="h-3.5 w-3.5" /> NL envoyée
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,15 +92,11 @@ export function RepertoirePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Répertoire</h1>
-          <p className="text-sm text-muted-foreground">
-            Coordonnées de vos porteurs de projet, banques, notaires et autres partenaires.
-          </p>
-        </div>
-        <CreateEntityDialog hideTypes={HIDDEN_TYPES} />
-      </div>
+      <PageHeader
+        title="Répertoire"
+        description="Coordonnées de vos porteurs de projet, banques, notaires et autres partenaires."
+        actions={<CreateEntityDialog hideTypes={HIDDEN_TYPES} />}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

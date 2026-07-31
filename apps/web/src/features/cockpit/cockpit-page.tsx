@@ -14,6 +14,7 @@ import { RepaymentsChartCard } from './components/repayments-chart-card';
 import { MarketNewsCard } from './components/market-news-card';
 import { MarketDigestCard } from '@/features/intelligence-marche/components/market-digest-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
 import { formatCurrency } from '@/lib/format';
 
 export function CockpitPage() {
@@ -43,14 +44,10 @@ export function CockpitPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">
-          {greeting}, {user?.firstName}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Voici l'état de votre activité au {new Date(data.generatedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.
-        </p>
-      </div>
+      <PageHeader
+        title={`${greeting}, ${user?.firstName}`}
+        description={`Voici l'état de votre activité au ${new Date(data.generatedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`}
+      />
 
       <AutoSummaryCard summary={data.autoSummary} generatedAt={data.generatedAt} />
 

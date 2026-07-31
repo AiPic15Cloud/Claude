@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { StageBadge, TypeBadge, ScoreBadge } from '../components/deal-badges';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Deal } from '@/types';
@@ -32,15 +33,12 @@ const COLUMNS: Column[] = [
 
 export function TableView({ deals, onSelectDeal, sortBy, sortOrder, onSort }: TableViewProps) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-secondary/40 text-xs text-muted-foreground">
+    <div className="rounded-lg border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-secondary/40 hover:bg-secondary/40">
             {COLUMNS.map((col) => (
-              <th
-                key={col.key}
-                className={cn('whitespace-nowrap px-4 py-2.5 font-medium', col.align === 'right' && 'text-right')}
-              >
+              <TableHead key={col.key} className={cn('whitespace-nowrap', col.align === 'right' && 'text-right')}>
                 {col.sortable ? (
                   <button
                     onClick={() => onSort(col.key)}
@@ -63,40 +61,36 @@ export function TableView({ deals, onSelectDeal, sortBy, sortOrder, onSort }: Ta
                 ) : (
                   col.label
                 )}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {deals.map((deal) => (
-            <tr
-              key={deal.id}
-              onClick={() => onSelectDeal(deal.id)}
-              className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-accent"
-            >
-              <td className="whitespace-nowrap px-4 py-2.5">
+            <TableRow key={deal.id} onClick={() => onSelectDeal(deal.id)} className="cursor-pointer">
+              <TableCell className="whitespace-nowrap">
                 <p className="font-medium">{deal.name}</p>
                 <p className="text-xs text-muted-foreground">{deal.reference}</p>
-              </td>
-              <td className="whitespace-nowrap px-4 py-2.5">
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
                 <TypeBadge type={deal.type} />
-              </td>
-              <td className="whitespace-nowrap px-4 py-2.5">
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
                 <StageBadge stage={deal.stage} />
-              </td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">{deal.city ?? '—'}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums">{formatCurrency(deal.amountTarget)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums">{formatCurrency(deal.amountRaised)}</td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-right">
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-muted-foreground">{deal.city ?? '—'}</TableCell>
+              <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{formatCurrency(deal.amountTarget)}</TableCell>
+              <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{formatCurrency(deal.amountRaised)}</TableCell>
+              <TableCell className="whitespace-nowrap text-right">
                 <ScoreBadge score={deal.atlasScore} />
-              </td>
-              <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-muted-foreground">
                 {deal.assignedTo ? `${deal.assignedTo.firstName} ${deal.assignedTo.lastName}` : '—'}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {deals.length === 0 && <p className="py-16 text-center text-sm text-muted-foreground">Aucune opération ne correspond aux filtres.</p>}
     </div>
   );

@@ -8,6 +8,7 @@ import {
   Map as MapIcon,
   Bot,
   BookUser,
+  Network,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -28,5 +29,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Marché', path: '/market', icon: Globe2, available: true },
   { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar, available: true },
   { label: 'Cartographie', path: '/map', icon: MapIcon, available: true },
+  { label: 'Knowledge Graph', path: '/graph', icon: Network, available: true },
   { label: 'Agents IA', path: '/ai', icon: Bot, available: true },
 ];
