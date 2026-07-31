@@ -49,7 +49,7 @@ export function RepaymentsChartCard() {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Projeté {year}</span>
-                <span className="font-mono text-lg font-semibold tabular-nums text-warning">{formatCurrency(data.totalProjected)}</span>
+                <span className="font-mono text-lg font-semibold tabular-nums text-chart-3">{formatCurrency(data.totalProjected)}</span>
               </div>
             </div>
 
@@ -62,8 +62,8 @@ export function RepaymentsChartCard() {
                       <stop offset="100%" stopColor="hsl(var(--chart-accent))" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="repaymentsProjeteGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--warning))" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="hsl(var(--warning))" stopOpacity={0} />
+                      <stop offset="0%" stopColor="hsl(var(--chart-3))" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-3))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
@@ -94,7 +94,7 @@ export function RepaymentsChartCard() {
                     type="monotone"
                     dataKey="Projeté"
                     stackId="a"
-                    stroke="hsl(var(--warning))"
+                    stroke="hsl(var(--chart-3))"
                     strokeWidth={2}
                     fill="url(#repaymentsProjeteGradient)"
                   />

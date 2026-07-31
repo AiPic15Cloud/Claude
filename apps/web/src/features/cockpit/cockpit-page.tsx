@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Wallet, TrendingUp, Landmark, Percent, AlertTriangle } from 'lucide-react';
+import { Wallet, TrendingUp, Percent, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useCockpitSummary } from './hooks/use-cockpit-summary';
 import { KpiCard } from './components/kpi-card';
@@ -61,13 +61,16 @@ export function CockpitPage() {
           hint={`${formatCurrency(data.kpis.totalRaised)} collectés`}
           trend="neutral"
           hero
+          tone="violet"
         />
-        <KpiCard label="Opérations actives" value={String(data.kpis.activeDeals)} icon={Landmark} />
         <KpiCard
           label="Avancement de collecte"
           value={`${data.kpis.fundingProgress}%`}
           icon={TrendingUp}
+          hint={`${data.kpis.activeDeals} opérations actives`}
           trend={data.kpis.fundingProgress >= 50 ? 'up' : 'neutral'}
+          hero
+          tone="cyan"
         />
         <KpiCard label="Taux moyen" value={`${data.kpis.averageInterestRate}%`} icon={Percent} />
         <Link to="/portfolio?late=true">

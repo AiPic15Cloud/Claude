@@ -68,6 +68,9 @@ export default {
           border: 'hsl(var(--sidebar-border))',
         },
         'chart-accent': 'hsl(var(--chart-accent))',
+        'chart-2': 'hsl(var(--chart-2))',
+        'chart-3': 'hsl(var(--chart-3))',
+        'chart-4': 'hsl(var(--chart-4))',
       },
       borderRadius: {
         lg: 'var(--radius)',
