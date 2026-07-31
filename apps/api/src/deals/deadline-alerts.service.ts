@@ -49,7 +49,12 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
 
   private async checkAll() {
     const deals = await this.prisma.deal.findMany({
-      where: { status: 'ACTIVE', dateMax: { not: null }, repaid: false },
+      // organizationId: { not: null } excludes orphaned deals — without an
+      // organizationId, upsertEscalationTask() would try to create a Task
+      // with organizationId: null, which Prisma rejects (P2011) since the
+      // organizationId migration made the column NOT NULL. That rejection,
+      // left unhandled, used to crash the whole process on every boot.
+      where: { status: 'ACTIVE', dateMax: { not: null }, repaid: false, organizationId: { not: null } },
       select: {
         id: true,
         organizationId: true,
@@ -63,24 +68,34 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
 
     let created = 0;
     for (const deal of deals) {
-      const alert = computeDeadlineAlert(deal.dateMax);
-      if (alert.level === 'RAS' || !alert.stage) continue;
+      // Isolate failures per-deal: one bad/edge-case record should never be
+      // able to take down the whole check (or the whole server, since this
+      // runs from onApplicationBootstrap via an un-awaited promise).
+      try {
+        const alert = computeDeadlineAlert(deal.dateMax);
+        if (alert.level === 'RAS' || !alert.stage) continue;
 
-      const alertTitle = `Échéance ${alert.stage} — ${deal.reference}`;
-      const existingAlert = await this.prisma.alert.findFirst({
-        where: { organizationId: deal.organizationId, dealId: deal.id, title: alertTitle },
-      });
-      if (!existingAlert) {
-        await this.alerts.create(deal.organizationId, {
-          title: alertTitle,
-          message: `${deal.name} — ${alert.actionLabel}`,
-          severity: alert.level === 'URGENT' ? 'CRITICAL' : 'WARNING',
-          dealId: deal.id,
+        const alertTitle = `Échéance ${alert.stage} — ${deal.reference}`;
+        const existingAlert = await this.prisma.alert.findFirst({
+          where: { organizationId: deal.organizationId, dealId: deal.id, title: alertTitle },
         });
-        created += 1;
-      }
+        if (!existingAlert) {
+          await this.alerts.create(deal.organizationId, {
+            title: alertTitle,
+            message: `${deal.name} — ${alert.actionLabel}`,
+            severity: alert.level === 'URGENT' ? 'CRITICAL' : 'WARNING',
+            dealId: deal.id,
+          });
+          created += 1;
+        }
 
-      await this.upsertEscalationTask(deal, alert);
+        await this.upsertEscalationTask(deal, alert);
+      } catch (err) {
+        this.logger.error(
+          `Échec du traitement de l'échéance pour le deal ${deal.id}`,
+          err instanceof Error ? err.stack : err,
+        );
+      }
     }
     if (created > 0) this.logger.log(`${created} nouvelle(s) alerte(s) d'échéance créée(s).`);
   }
@@ -129,4 +144,4 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
       assigneeId,
     });
   }
-}
+}Commit directly to the claude/atlas-real-estate-os-64x200 branch
