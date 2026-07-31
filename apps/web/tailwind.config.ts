@@ -19,6 +19,7 @@ export default {
           'sans-serif',
         ],
         mono: ['JetBrains Mono Variable', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        display: ['Spectral', 'ui-serif', 'Georgia', 'serif'],
       },
       colors: {
         border: 'hsl(var(--border))',

@@ -2,40 +2,32 @@ import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-/** Two-stop gradients drawn from the validated categorical palette (see index.css) — never an arbitrary hue. */
-const TONE_GRADIENT: Record<'violet' | 'cyan', string> = {
-  violet: 'bg-gradient-to-br from-chart-accent to-chart-4',
-  cyan: 'bg-gradient-to-br from-chart-3 to-chart-accent',
-};
-
 interface KpiCardProps {
   label: string;
   value: string;
   icon: LucideIcon;
   hint?: string;
   trend?: 'up' | 'down' | 'neutral';
-  /** Renders as the larger, accented bento tile — reserve for the single most important metric in the row. */
+  /** Renders as the larger, gold-filled bento tile — reserve for the most important metrics in the row. The
+   * accent is spent in one place only: every hero tile shares the same gold fill rather than a different hue each. */
   hero?: boolean;
-  /** Vivid gradient fill for a hero tile. Ignored when `hero` is false. */
-  tone?: 'violet' | 'cyan';
 }
 
-export function KpiCard({ label, value, icon: Icon, hint, trend, hero, tone }: KpiCardProps) {
-  const gradient = hero && tone;
+export function KpiCard({ label, value, icon: Icon, hint, trend, hero }: KpiCardProps) {
   return (
-    <Card className={cn(hero && !gradient && 'border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card lg:col-span-2', gradient && cn('border-transparent text-white lg:col-span-2', TONE_GRADIENT[tone!]))}>
+    <Card className={cn(hero && 'border-transparent bg-primary text-primary-foreground lg:col-span-2')}>
       <CardContent className={cn('flex items-start justify-between gap-3 p-4', hero && 'p-5')}>
         <div className="flex flex-col gap-1.5">
-          <span className={cn('text-[10px] font-semibold uppercase tracking-wider', gradient ? 'text-white/70' : 'text-muted-foreground')}>
+          <span className={cn('text-[10px] font-semibold uppercase tracking-wider', hero ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
             {label}
           </span>
-          <span className={cn('font-mono font-semibold tracking-tight tabular-nums', hero ? 'text-4xl' : 'text-2xl')}>{value}</span>
+          <span className={cn('font-display font-semibold tracking-tight tabular-nums', hero ? 'text-4xl' : 'text-2xl')}>{value}</span>
           {hint && (
             <span
               className={cn(
                 'text-xs font-medium',
-                gradient
-                  ? 'text-white/80'
+                hero
+                  ? 'text-primary-foreground/80'
                   : cn(
                       trend === 'up' && 'text-success',
                       trend === 'down' && 'text-destructive',
@@ -50,9 +42,7 @@ export function KpiCard({ label, value, icon: Icon, hint, trend, hero, tone }: K
         <div
           className={cn(
             'flex shrink-0 items-center justify-center rounded-md text-muted-foreground',
-            gradient && 'h-9 w-9 bg-white/15 text-white',
-            hero && !gradient && 'h-9 w-9 border border-primary/30 bg-primary/10 text-primary',
-            !hero && 'h-7 w-7 border border-border',
+            hero ? 'h-9 w-9 bg-primary-foreground/15 text-primary-foreground' : 'h-7 w-7 border border-border',
           )}
         >
           <Icon className={hero ? 'h-4 w-4' : 'h-3.5 w-3.5'} />

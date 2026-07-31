@@ -61,7 +61,6 @@ export function CockpitPage() {
           hint={`${formatCurrency(data.kpis.totalRaised)} collectés`}
           trend="neutral"
           hero
-          tone="violet"
         />
         <KpiCard
           label="Avancement de collecte"
@@ -70,7 +69,6 @@ export function CockpitPage() {
           hint={`${data.kpis.activeDeals} opérations actives`}
           trend={data.kpis.fundingProgress >= 50 ? 'up' : 'neutral'}
           hero
-          tone="cyan"
         />
         <KpiCard label="Taux moyen" value={`${data.kpis.averageInterestRate}%`} icon={Percent} />
         <Link to="/portfolio?late=true">

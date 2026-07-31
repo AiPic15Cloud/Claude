@@ -64,7 +64,7 @@ export function DossierPage() {
               <TypeBadge type={deal.type} />
               <StageBadge stage={deal.stage} />
             </div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight">{deal.name}</h1>
+            <h1 className="font-display mt-1 text-xl font-semibold tracking-tight">{deal.name}</h1>
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
               {deal.city && (
                 <span className="flex items-center gap-1">
