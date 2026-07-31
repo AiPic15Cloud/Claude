@@ -17,7 +17,7 @@ export function RoadmapPage() {
             {moduleName ? `Module « ${moduleName} »` : 'Module'} en développement
           </h2>
           <p className="text-sm text-muted-foreground">
-            Ce module fait partie de la feuille de route ATLAS et sera livré dans une prochaine phase.
+            Ce module fait partie de la feuille de route Atlas Capital et sera livré dans une prochaine phase.
             Le socle technique (authentification, données, design system) est déjà en place pour l'accueillir.
           </p>
         </CardContent>
