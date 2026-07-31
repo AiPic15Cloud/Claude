@@ -2,6 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { TagBadge } from './tag-badge';
 import { ScoreBadge, CheckpointHealthBadge } from './deal-badges';
 import { formatCurrency } from '@/lib/format';
@@ -44,9 +45,7 @@ export function DealCard({ deal, onClick }: DealCardProps) {
         )}
 
         <div className="flex flex-col gap-1">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-          </div>
+          <Progress value={progress} className="h-1.5" />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatCurrency(deal.amountRaised)}</span>
             <span>{formatCurrency(deal.amountTarget)}</span>

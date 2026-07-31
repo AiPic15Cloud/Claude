@@ -2,8 +2,8 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import { useDealScore, useRecomputeScore } from '../hooks/use-score';
-import { cn } from '@/lib/utils';
 
 function scoreColor(value: number): string {
   if (value >= 70) return 'bg-success';
@@ -46,9 +46,7 @@ export function ScoreBreakdownCard({ dealId }: { dealId: string }) {
                 {factor.value}/100 · poids {Math.round(factor.weight * 100)}%
               </span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div className={cn('h-full rounded-full', scoreColor(factor.value))} style={{ width: `${factor.value}%` }} />
-            </div>
+            <Progress value={factor.value} className="h-1.5" indicatorClassName={scoreColor(factor.value)} />
             <p className="text-xs text-muted-foreground">{factor.explanation}</p>
           </div>
         ))}

@@ -14,11 +14,14 @@ interface MapViewProps {
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.4];
 
+// Leaflet marker HTML is inserted into the live DOM, so var(--x) resolves
+// against the current theme just like any other CSS — no hardcoded hex,
+// no manual dark-mode branching.
 function scoreColor(score?: number | null): string {
-  if (score === null || score === undefined) return '#6b7280';
-  if (score >= 70) return '#16a34a';
-  if (score >= 40) return '#f59e0b';
-  return '#dc2626';
+  if (score === null || score === undefined) return 'hsl(var(--muted-foreground))';
+  if (score >= 70) return 'hsl(var(--success))';
+  if (score >= 40) return 'hsl(var(--warning))';
+  return 'hsl(var(--destructive))';
 }
 
 function buildIcon(score?: number | null) {

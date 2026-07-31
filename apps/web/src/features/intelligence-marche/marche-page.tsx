@@ -19,6 +19,7 @@ import { MarketDigestCard } from './components/market-digest-card';
 import { useArticles, useCollectAll } from './hooks/use-market-intelligence';
 import { ARTICLE_CATEGORY_LABELS, type ArticleCategory, type Priority } from '@/types';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/page-header';
 
 const CATEGORIES = Object.keys(ARTICLE_CATEGORY_LABELS) as ArticleCategory[];
 
@@ -36,21 +37,19 @@ export function MarchePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Marché</h1>
-          <p className="text-sm text-muted-foreground">
-            Veille agrégée, dédoublonnée et priorisée — data.gouv.fr en automatique, saisie manuelle en complément.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => collectAll.mutate()} disabled={collectAll.isPending}>
-            <RefreshCw className={cn('h-3.5 w-3.5', collectAll.isPending && 'animate-spin')} />
-            Actualiser
-          </Button>
-          <CreateArticleDialog />
-        </div>
-      </div>
+      <PageHeader
+        title="Marché"
+        description="Veille agrégée, dédoublonnée et priorisée — data.gouv.fr en automatique, saisie manuelle en complément."
+        actions={
+          <>
+            <Button size="sm" variant="outline" onClick={() => collectAll.mutate()} disabled={collectAll.isPending}>
+              <RefreshCw className={cn('h-3.5 w-3.5', collectAll.isPending && 'animate-spin')} />
+              Actualiser
+            </Button>
+            <CreateArticleDialog />
+          </>
+        }
+      />
 
       <IndicatorsStrip />
 

@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { useAgentsList } from './hooks/use-agents';
 import { AgentChatPanel } from './components/agent-chat-panel';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
 
 export function AgentsPage() {
   const { data: agents = [], isLoading } = useAgentsList();
@@ -17,15 +19,13 @@ export function AgentsPage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Agents IA</h1>
-        <p className="text-sm text-muted-foreground">
-          Sept agents spécialisés, chacun avec son propre prompt système. Nécessite une clé Anthropic côté serveur.
-        </p>
-      </div>
+      <PageHeader
+        title="Agents IA"
+        description="Sept agents spécialisés, chacun avec son propre prompt système. Nécessite une clé Anthropic côté serveur."
+      />
 
       <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[16rem_1fr]">
-        <div className="flex flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-card p-2">
+        <Card className="flex flex-col gap-1 overflow-y-auto p-2">
           {isLoading && Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
           {agents.map((agent) => (
             <button
@@ -43,7 +43,7 @@ export function AgentsPage() {
               </div>
             </button>
           ))}
-        </div>
+        </Card>
 
         <div className="overflow-hidden">{selected && <AgentChatPanel agent={selected} />}</div>
       </div>

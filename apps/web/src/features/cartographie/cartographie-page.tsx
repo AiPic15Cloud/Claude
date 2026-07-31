@@ -12,18 +12,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useThemeStore } from '@/store/theme.store';
 import { formatCurrency } from '@/lib/format';
 import { GRAPH_ENTITY_TYPE_LABELS } from '@/types';
+import { PageHeader } from '@/components/ui/page-header';
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.4];
 
+// Rendered into the live DOM by Leaflet, so var(--x) resolves against the
+// current theme — circle vs. square carries the layer distinction rather
+// than an arbitrary second color, in keeping with color-for-status-only.
 const dealIcon = L.divIcon({
-  html: '<div style="width:12px;height:12px;border-radius:9999px;background:#0d9488;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
+  html: '<div style="width:12px;height:12px;border-radius:9999px;background:hsl(var(--chart-accent));border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
   className: '',
   iconSize: [12, 12],
   iconAnchor: [6, 6],
 });
 
 const entityIcon = L.divIcon({
-  html: '<div style="width:10px;height:10px;border-radius:2px;background:#f59e0b;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
+  html: '<div style="width:10px;height:10px;border-radius:2px;background:hsl(var(--muted-foreground));border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
   className: '',
   iconSize: [10, 10],
   iconAnchor: [5, 5],
@@ -48,28 +52,28 @@ export function CartographiePage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Cartographie</h1>
-          <p className="text-sm text-muted-foreground">Programmes et intervenants géolocalisés, avec filtres par couche.</p>
-        </div>
-        <Card>
-          <CardContent className="flex items-center gap-5 p-3">
-            <div className="flex items-center gap-2">
-              <Switch id="layer-deals" checked={showDeals} onCheckedChange={setShowDeals} />
-              <Label htmlFor="layer-deals" className="text-sm">
-                Opérations ({geoDeals.length})
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch id="layer-entities" checked={showEntities} onCheckedChange={setShowEntities} />
-              <Label htmlFor="layer-entities" className="text-sm">
-                Intervenants ({geoEntities.length})
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <PageHeader
+        title="Cartographie"
+        description="Programmes et intervenants géolocalisés, avec filtres par couche."
+        actions={
+          <Card>
+            <CardContent className="flex items-center gap-5 p-3">
+              <div className="flex items-center gap-2">
+                <Switch id="layer-deals" checked={showDeals} onCheckedChange={setShowDeals} />
+                <Label htmlFor="layer-deals" className="text-sm">
+                  Opérations ({geoDeals.length})
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch id="layer-entities" checked={showEntities} onCheckedChange={setShowEntities} />
+                <Label htmlFor="layer-entities" className="text-sm">
+                  Intervenants ({geoEntities.length})
+                </Label>
+              </div>
+            </CardContent>
+          </Card>
+        }
+      />
 
       <div className="flex-1 overflow-hidden rounded-lg border border-border">
         <MapContainer center={FRANCE_CENTER} zoom={6} className="h-full w-full" scrollWheelZoom>

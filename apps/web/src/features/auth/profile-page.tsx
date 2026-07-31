@@ -10,6 +10,7 @@ import { useUpdateProfile, useChangePassword } from './use-auth';
 import { TwoFactorCard } from './two-factor-card';
 import { useAuthStore } from '@/store/auth.store';
 import { ApiError } from '@/lib/api';
+import { PageHeader } from '@/components/ui/page-header';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'Prénom requis'),
@@ -63,10 +64,7 @@ export function ProfilePage() {
 
   return (
     <div className="flex max-w-xl flex-col gap-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Profil</h1>
-        <p className="text-sm text-muted-foreground">Gérer vos informations personnelles et votre mot de passe.</p>
-      </div>
+      <PageHeader title="Profil" description="Gérer vos informations personnelles et votre mot de passe." />
 
       <Card>
         <CardHeader>

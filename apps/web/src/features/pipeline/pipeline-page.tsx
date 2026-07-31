@@ -13,6 +13,8 @@ import { NewslettersCard } from './components/newsletters-card';
 import { COMMITTEE_STATUS_LABELS, type CommitteeStatus } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/page-header';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 const FILTERS: { label: string; value: CommitteeStatus | undefined }[] = [
   { label: 'Tous', value: undefined },
@@ -50,16 +52,12 @@ export function PipelinePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pipeline</p>
-          <h1 className="text-xl font-semibold tracking-tight">Dossiers reçus &amp; décisions comité</h1>
-          <p className="text-sm text-muted-foreground">
-            {summary ? `${summary.received} dossiers analysés · pipeline cumulé de ${formatCurrency(summary.totalAmount)}.` : '…'}
-          </p>
-        </div>
-        <CreatePipelineEntryDialog />
-      </div>
+      <PageHeader
+        eyebrow="Pipeline"
+        title="Dossiers reçus & décisions comité"
+        description={summary ? `${summary.received} dossiers analysés · pipeline cumulé de ${formatCurrency(summary.totalAmount)}.` : '…'}
+        actions={<CreatePipelineEntryDialog />}
+      />
 
       {summaryLoading || !summary ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-7">
@@ -136,56 +134,56 @@ export function PipelinePage() {
         ))}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-secondary/40 text-xs text-muted-foreground">
-              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Date</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Opérateur</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Typologie</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Source</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Montant</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Marge</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Fees</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Comité</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Décision</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-left font-medium">Opération</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-secondary/40 hover:bg-secondary/40">
+              <TableHead>Date</TableHead>
+              <TableHead>Opérateur</TableHead>
+              <TableHead>Typologie</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead className="text-right">Montant</TableHead>
+              <TableHead className="text-right">Marge</TableHead>
+              <TableHead className="text-right">Fees</TableHead>
+              <TableHead>Comité</TableHead>
+              <TableHead>Décision</TableHead>
+              <TableHead>Opération</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {entriesLoading &&
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-border">
-                  <td colSpan={11} className="px-4 py-2">
+                <TableRow key={i}>
+                  <TableCell colSpan={11}>
                     <Skeleton className="h-5 w-full" />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
             {!entriesLoading && entries.length === 0 && (
-              <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-xs text-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={11} className="py-8 text-center text-xs text-muted-foreground">
                   Aucun dossier
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {!entriesLoading &&
               entries.map((e) => (
-                <tr key={e.id} className="border-b border-border/60 hover:bg-accent">
-                  <td className="whitespace-nowrap px-4 py-2 text-muted-foreground">{formatDate(e.date)}</td>
-                  <td className="px-4 py-2 font-medium">{e.operator}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{e.typology || '—'}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{e.source || '—'}</td>
-                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">{formatCurrency(e.amount)}</td>
-                  <td className={cn('whitespace-nowrap px-4 py-2 text-right tabular-nums', Number(e.margin) < 0 && 'text-destructive')}>
+                <TableRow key={e.id}>
+                  <TableCell className="whitespace-nowrap font-mono tabular-nums text-muted-foreground">{formatDate(e.date)}</TableCell>
+                  <TableCell className="font-medium">{e.operator}</TableCell>
+                  <TableCell className="text-muted-foreground">{e.typology || '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">{e.source || '—'}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{formatCurrency(e.amount)}</TableCell>
+                  <TableCell className={cn('whitespace-nowrap text-right font-mono tabular-nums', Number(e.margin) < 0 && 'text-destructive')}>
                     {e.margin ? `${e.margin}%` : '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">{e.feesRate ? `${e.feesRate}%` : '—'}</td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{e.feesRate ? `${e.feesRate}%` : '—'}</TableCell>
+                  <TableCell>
                     <Badge variant={COMMITTEE_VARIANT[e.committee]}>{COMMITTEE_STATUS_LABELS[e.committee]}</Badge>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">{e.decision || '—'}</td>
-                  <td className="whitespace-nowrap px-4 py-2">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{e.decision || '—'}</TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {e.convertedDeal ? (
                       <Link to={`/deals/${e.convertedDeal.id}`} className="text-primary hover:underline">
                         {e.convertedDeal.reference}
@@ -195,14 +193,14 @@ export function PipelinePage() {
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2 text-right">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right">
                     <EditPipelineEntryDialog entry={e} />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <NewslettersCard />
