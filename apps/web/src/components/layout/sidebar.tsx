@@ -15,7 +15,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
         </div>
         {!collapsed && (
           <div className="flex flex-col leading-none">
-            <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">Atlas Capital</span>
+            <span className="font-display text-sm font-semibold tracking-tight text-sidebar-foreground">Atlas Capital</span>
             <span className="text-[9px] font-medium uppercase tracking-wider text-sidebar-foreground/50">Real Estate OS</span>
           </div>
         )}

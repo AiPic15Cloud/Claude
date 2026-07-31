@@ -1,5 +1,8 @@
 @import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource/spectral/400.css';
+@import '@fontsource/spectral/600.css';
+@import '@fontsource/spectral/700.css';
 
 @tailwind base;
 @tailwind components;
@@ -7,103 +10,108 @@
 
 @layer base {
   /*
-   * Vivid dark-first dashboard: deep indigo-navy surface, a violet primary,
-   * and a validated 4-hue categorical set (violet/amber/cyan/pink) for
-   * charts and hero KPI gradients — chosen and ordered with
-   * scripts/validate_palette.js from the dataviz skill (CVD-safe adjacent
-   * pairs, both modes). Status colors (success/warning/destructive) stay
-   * out of that set so a chart series never impersonates a status.
+   * "Onyx & Or" — warm near-black onyx in dark, warm ivory in light, a
+   * single brass/gold accent running through both. The gold used for chart
+   * series (--chart-accent) is a slightly deeper, more saturated step than
+   * the UI --primary gold: the softer brass reads well as a button or a
+   * hero fill, but fails the categorical CVD/chroma gates from the dataviz
+   * skill's validator when it has to stand next to 3 sibling hues — the
+   * chart set (gold/wine/blue/teal) was chosen and ordered with
+   * scripts/validate_palette.js against this file's own surfaces, in both
+   * modes. Status colors (success/warning/destructive) stay out of that
+   * set, and warning is pushed toward orange specifically so it never
+   * reads as "the gold accent" at a glance.
    */
   :root {
-    --background: 240 20% 98%;
-    --foreground: 250 30% 12%;
+    --background: 46 37% 93%;
+    --foreground: 39 26% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 250 30% 12%;
+    --card: 45 67% 98%;
+    --card-foreground: 39 26% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 250 30% 12%;
+    --popover: 45 67% 98%;
+    --popover-foreground: 39 26% 11%;
 
-    --primary: 262 83% 58%;
+    --primary: 39 50% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 250 20% 94%;
-    --secondary-foreground: 250 30% 12%;
+    --secondary: 44 38% 87%;
+    --secondary-foreground: 39 26% 11%;
 
-    --muted: 250 20% 94%;
-    --muted-foreground: 250 10% 42%;
+    --muted: 44 38% 87%;
+    --muted-foreground: 43 16% 37%;
 
-    --accent: 250 20% 93%;
-    --accent-foreground: 250 30% 12%;
+    --accent: 45 39% 84%;
+    --accent-foreground: 39 26% 11%;
 
-    --destructive: 358 65% 48%;
+    --destructive: 5 51% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 55% 30%;
+    --success: 135 26% 33%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 80% 42%;
-    --warning-foreground: 24 10% 10%;
+    --warning: 30 70% 41%;
+    --warning-foreground: 35 50% 9%;
 
-    --border: 250 16% 88%;
-    --input: 250 16% 88%;
-    --ring: 262 83% 58%;
+    --border: 44 40% 81%;
+    --input: 44 40% 81%;
+    --ring: 39 50% 36%;
 
-    --sidebar: 250 25% 97%;
-    --sidebar-foreground: 250 20% 20%;
-    --sidebar-border: 250 16% 88%;
+    --sidebar: 44 41% 87%;
+    --sidebar-foreground: 39 26% 20%;
+    --sidebar-border: 44 40% 81%;
 
-    --chart-accent: 262 83% 58%;
-    --chart-2: 26 90% 37%;
-    --chart-3: 192 91% 36%;
-    --chart-4: 335 78% 42%;
+    --chart-accent: 41 66% 35%;
+    --chart-2: 344 39% 39%;
+    --chart-3: 228 49% 48%;
+    --chart-4: 163 88% 27%;
 
     --radius: 0.85rem;
   }
 
   .dark {
-    --background: 252 32% 8%;
-    --foreground: 250 20% 94%;
+    --background: 40 18% 7%;
+    --foreground: 43 39% 91%;
 
-    --card: 250 28% 12%;
-    --card-foreground: 250 20% 94%;
+    --card: 40 18% 10%;
+    --card-foreground: 43 39% 91%;
 
-    --popover: 250 28% 12%;
-    --popover-foreground: 250 20% 94%;
+    --popover: 40 18% 10%;
+    --popover-foreground: 43 39% 91%;
 
-    --primary: 258 90% 66%;
-    --primary-foreground: 250 32% 8%;
+    --primary: 39 48% 57%;
+    --primary-foreground: 42 28% 7%;
 
-    --secondary: 250 22% 16%;
-    --secondary-foreground: 250 20% 94%;
+    --secondary: 42 25% 13%;
+    --secondary-foreground: 43 39% 91%;
 
-    --muted: 250 22% 16%;
-    --muted-foreground: 250 12% 65%;
+    --muted: 37 22% 12%;
+    --muted-foreground: 39 12% 56%;
 
-    --accent: 250 22% 19%;
-    --accent-foreground: 250 20% 94%;
+    --accent: 42 25% 13%;
+    --accent-foreground: 43 39% 91%;
 
-    --destructive: 358 70% 55%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 5 50% 47%;
+    --destructive-foreground: 30 56% 94%;
 
-    --success: 152 50% 45%;
-    --success-foreground: 250 32% 8%;
+    --success: 137 28% 56%;
+    --success-foreground: 40 18% 7%;
 
-    --warning: 38 85% 55%;
-    --warning-foreground: 24 10% 8%;
+    --warning: 30 65% 54%;
+    --warning-foreground: 35 62% 8%;
 
-    --chart-accent: 258 90% 66%;
-    --chart-2: 32 95% 44%;
-    --chart-3: 192 91% 36%;
-    --chart-4: 333 71% 51%;
+    --chart-accent: 39 49% 44%;
+    --chart-2: 348 41% 51%;
+    --chart-3: 228 60% 60%;
+    --chart-4: 166 86% 33%;
 
-    --border: 250 20% 20%;
-    --input: 250 20% 20%;
-    --ring: 258 90% 66%;
+    --border: 42 16% 15%;
+    --input: 42 16% 15%;
+    --ring: 39 48% 57%;
 
-    --sidebar: 252 34% 6%;
-    --sidebar-foreground: 250 15% 85%;
-    --sidebar-border: 250 20% 17%;
+    --sidebar: 36 20% 5%;
+    --sidebar-foreground: 44 33% 84%;
+    --sidebar-border: 42 16% 15%;
   }
 
   * {
