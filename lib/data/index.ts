@@ -44,13 +44,21 @@ export async function getOperatorById(id: string): Promise<Operator | null> {
   return all.find((o) => o.id === id) ?? null;
 }
 
+export async function getAllDealNotes(): Promise<DealNote[]> {
+  return fromTableOrSeed<DealNote>("deal_notes", seed.dealNotes);
+}
+
 export async function getDealNotes(dealId: string): Promise<DealNote[]> {
-  const all = await fromTableOrSeed<DealNote>("deal_notes", seed.dealNotes);
+  const all = await getAllDealNotes();
   return all.filter((n) => n.deal_id === dealId);
 }
 
+export async function getAllDealDocuments(): Promise<DealDocument[]> {
+  return fromTableOrSeed<DealDocument>("deal_documents", seed.dealDocuments);
+}
+
 export async function getDealDocuments(dealId: string): Promise<DealDocument[]> {
-  const all = await fromTableOrSeed<DealDocument>("deal_documents", seed.dealDocuments);
+  const all = await getAllDealDocuments();
   return all.filter((d) => d.deal_id === dealId);
 }
 
