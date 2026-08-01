@@ -21,7 +21,7 @@ export function AgentsPage() {
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-5">
       <PageHeader
         title="Agents IA"
-        description="Sept agents spécialisés, chacun avec son propre prompt système. Nécessite une clé Anthropic côté serveur."
+        description="Cinq agents spécialisés — dont Analyste, Juriste et Contrôleur pour la pré-analyse de dossier — chacun avec son propre prompt système. Nécessite une clé Anthropic côté serveur."
       />
 
       <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[16rem_1fr]">
