@@ -12,7 +12,7 @@ export function useAgentsList() {
 
 export function useAgentChat(agentKey: string) {
   return useMutation({
-    mutationFn: (payload: { messages: ChatMessage[]; dealId?: string }) =>
+    mutationFn: (payload: { messages: ChatMessage[]; dealId?: string; documentId?: string }) =>
       api.post<ChatResponse>(`/agents/${agentKey}/chat`, payload),
   });
 }

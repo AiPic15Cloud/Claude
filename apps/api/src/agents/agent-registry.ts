@@ -31,7 +31,7 @@ const BASE_CONTEXT =
 
 // Grille de marge fournie par l'utilisateur (classeur d'audit) — le rendu se fait en texte brut
 // dans le chat, d'où la pastille emoji plutôt qu'une vraie couleur CSS.
-const MARGIN_SCALE =
+export const MARGIN_SCALE =
   "Grille de couleur de marge, à appliquer strictement dès que la marge est calculable, toujours " +
   "accompagnée du pourcentage exact et jamais de la pastille seule (ex. « 🟢 Marge : 34 % (> 30 %) ») :\n" +
   '🟢 vert : marge > 30 %\n' +
@@ -41,10 +41,19 @@ const MARGIN_SCALE =
   "Si le coût de revient ou le chiffre d'affaires manque pour calculer la marge, n'affiche aucune " +
   'pastille et écris « Marge non calculable — information absente ».';
 
+/** Same thresholds as MARGIN_SCALE — used server-side (extraction endpoint) so the badge doesn't depend on the model restating the band correctly in prose. */
+export function marginBand(marginPct: number | null | undefined): 'vert' | 'jaune' | 'orange' | 'rouge' | null {
+  if (marginPct === null || marginPct === undefined || Number.isNaN(marginPct)) return null;
+  if (marginPct > 30) return 'vert';
+  if (marginPct >= 20) return 'jaune';
+  if (marginPct >= 10) return 'orange';
+  return 'rouge';
+}
+
 // Reprend la structure du classeur d'audit interne de l'utilisateur (Porteur de projet, Société de
 // projet, Projet, Étude de marché, Fiche Produit, Synthèse comité) — partagée par Analyste et
 // Contrôleur pour que les deux agents restituent leurs résultats sur la même base.
-const AUDIT_FRAMEWORK =
+export const AUDIT_FRAMEWORK =
   "Structure de référence (classeur d'audit de l'utilisateur) à restituer systématiquement, dans cet " +
   "ordre, en écrivant « Information absente » pour toute rubrique non documentée plutôt que de " +
   "l'omettre :\n" +

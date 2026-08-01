@@ -1,10 +1,52 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { z } from 'zod/v4';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
-import { AGENT_REGISTRY, findAgent } from './agent-registry';
+import { DocumentsService } from '../documents/documents.service';
+import { AGENT_REGISTRY, findAgent, marginBand } from './agent-registry';
 import { ChatDto } from './dto/chat.dto';
+import { buildDocumentContentBlock } from './document-content.util';
+
+// Mirrors the Fiche Produit section of the audit classeur (agent-registry.ts AUDIT_FRAMEWORK) —
+// every field nullable so the model can express "information absente" instead of guessing.
+const FinancialExtractionSchema = z.object({
+  coutDeRevientTotal: z.number().nullable().describe("Coût de revient total de l'opération, en euros"),
+  chiffreAffairesTotal: z.number().nullable().describe("Chiffre d'affaires total prévisionnel, en euros"),
+  margeEuros: z.number().nullable().describe('Marge en euros (CA − coût de revient)'),
+  margePct: z.number().nullable().describe('Marge en pourcentage du chiffre d\'affaires'),
+  surfaceM2: z.number().nullable().describe('Surface totale du projet, en m²'),
+  prixAcquisitionM2: z.number().nullable().describe("Prix au m² à l'acquisition du foncier"),
+  coutTravauxM2: z.number().nullable().describe('Coût des travaux par m²'),
+  montantTravaux: z.number().nullable().describe('Montant total des travaux, en euros'),
+  aleasTravauxPct: z.number().nullable().describe('Provision pour aléas travaux, en % du montant des travaux'),
+  prixSortieM2: z.number().nullable().describe('Prix de sortie (vente) par m²'),
+  tauxInteretPct: z.number().nullable().describe("Taux d'intérêt du financement, en %"),
+  dureeMinMois: z.number().nullable().describe('Durée minimale du financement, en mois'),
+  dureeCibleMois: z.number().nullable().describe('Durée cible du financement, en mois'),
+  dureeMaxMois: z.number().nullable().describe('Durée maximale du financement, en mois'),
+  apportPdp: z.number().nullable().describe('Apport du porteur de projet, en euros'),
+  montantBanque: z.number().nullable().describe('Montant financé par la banque, en euros'),
+  garanties: z.string().nullable().describe('Sûretés/garanties mentionnées dans le document'),
+  notes: z
+    .string()
+    .describe(
+      'Incertitudes, hypothèses de calcul retenues, incohérences internes au document, ou liste des champs non trouvés',
+    ),
+});
+
+const EXTRACTION_SYSTEM_PROMPT =
+  "Tu extrais les données financières d'un business plan d'opérateur immobilier transmis en pièce " +
+  'jointe, selon la Fiche Produit du classeur d\'audit de référence : coût de revient, chiffre ' +
+  "d'affaires, marge (€ et %), surface, prix d'acquisition/m², coût travaux/m², montant total des " +
+  'travaux, aléas travaux (%), prix de sortie/m², financement (taux, durée min/cible/max, apport du ' +
+  'porteur, montant banque), garanties. Ne complète un champ que si la valeur est explicitement ' +
+  'présente dans le document, ou directement calculable à partir de chiffres qui y sont explicitement ' +
+  'présents (indique alors le calcul dans le champ notes) ; sinon laisse-le à null. Ne devine et ' +
+  "n'invente jamais une donnée. Dans le champ notes, résume les incertitudes, les hypothèses de " +
+  'calcul retenues et toute incohérence interne constatée dans le document.';
 
 @Injectable()
 export class AgentsService {
@@ -14,6 +56,7 @@ export class AgentsService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly scoring: ScoringService,
+    private readonly documents: DocumentsService,
   ) {
     const apiKey = this.config.get<string>('ai.anthropicApiKey');
     if (apiKey) this.client = new Anthropic({ apiKey });
@@ -33,15 +76,33 @@ export class AgentsService {
       );
     }
 
+    if (dto.documentId && !dto.dealId) {
+      throw new BadRequestException('documentId nécessite dealId — le document est rattaché à un dossier.');
+    }
+
     const contextBlock = dto.dealId ? await this.buildDealContext(organizationId, dto.dealId) : null;
 
     const system = contextBlock ? `${agent.systemPrompt}\n\n## Contexte du dossier\n${contextBlock}` : agent.systemPrompt;
 
+    const messages: Anthropic.MessageParam[] = dto.messages.map((m) => ({ role: m.role, content: m.content }));
+
+    if (dto.documentId && dto.dealId) {
+      const { buffer, mimeType, name } = await this.documents.getBuffer(organizationId, dto.dealId, dto.documentId);
+      const built = buildDocumentContentBlock(buffer, mimeType, name);
+      if (!built.ok) throw new BadRequestException(built.error);
+
+      const last = messages[messages.length - 1];
+      if (last && last.role === 'user') {
+        const text = typeof last.content === 'string' ? last.content : '';
+        last.content = [built.block, { type: 'text', text }];
+      }
+    }
+
     const response = await this.client.messages.create({
       model: this.config.get<string>('ai.anthropicModel')!,
-      max_tokens: 1024,
+      max_tokens: 4096,
       system,
-      messages: dto.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages,
     });
 
     const textBlock = response.content.find((block) => block.type === 'text');
@@ -50,6 +111,38 @@ export class AgentsService {
       message: textBlock && 'text' in textBlock ? textBlock.text : '',
       usage: response.usage,
     };
+  }
+
+  async extractFinancials(organizationId: string, dealId: string, documentId: string) {
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        "Agents IA non configurés : définissez ANTHROPIC_API_KEY côté serveur pour activer ce module.",
+      );
+    }
+
+    const { buffer, mimeType, name } = await this.documents.getBuffer(organizationId, dealId, documentId);
+    const built = buildDocumentContentBlock(buffer, mimeType, name);
+    if (!built.ok) throw new BadRequestException(built.error);
+
+    const response = await this.client.messages.parse({
+      model: this.config.get<string>('ai.anthropicModel')!,
+      max_tokens: 4096,
+      system: EXTRACTION_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [built.block, { type: 'text', text: `Extrait les données financières du document « ${name} ».` }],
+        },
+      ],
+      output_config: { format: zodOutputFormat(FinancialExtractionSchema) },
+    });
+
+    const parsed = response.parsed_output;
+    if (!parsed) {
+      throw new ServiceUnavailableException("L'extraction n'a pas pu être interprétée — réessayez ou vérifiez le document.");
+    }
+
+    return { ...parsed, marginBand: marginBand(parsed.margePct), sourceDocument: name };
   }
 
   private async buildDealContext(organizationId: string, dealId: string): Promise<string> {

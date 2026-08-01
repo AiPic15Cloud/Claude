@@ -22,3 +22,20 @@ export class AgentsController {
     return this.agentsService.chat(user.organizationId, key, dto);
   }
 }
+
+@ApiTags('agents')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('deals/:dealId/documents/:documentId/extract-financials')
+export class FinancialExtractionController {
+  constructor(private readonly agentsService: AgentsService) {}
+
+  @Post()
+  extract(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('dealId') dealId: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.agentsService.extractFinancials(user.organizationId, dealId, documentId);
+  }
+}

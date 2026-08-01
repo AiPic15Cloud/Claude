@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { AlertTriangle, Bot, Loader2, Send, User as UserIcon } from 'lucide-react';
+import { AlertTriangle, Bot, Loader2, Paperclip, Send, User as UserIcon, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAgentChat, isAgentUnavailable } from '../hooks/use-agents';
+import { useDocuments } from '@/features/dossiers/hooks/use-documents';
+import { isDocumentReadableByAgent } from '@/lib/document-support';
 import type { AgentInfo, ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -15,7 +18,14 @@ interface AgentChatPanelProps {
 export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [attachedDocumentId, setAttachedDocumentId] = useState<string | null>(null);
+  const [showAttachPicker, setShowAttachPicker] = useState(false);
   const chat = useAgentChat(agent.key);
+  // Attachment picker only makes sense inside a deal's own chat — a standalone /ai
+  // conversation has no dealId, hence no document list to attach from.
+  const { data: documents = [] } = useDocuments(dealId ?? '');
+  const readableDocuments = dealId ? documents.filter(isDocumentReadableByAgent) : [];
+  const attachedDocument = documents.find((d) => d.id === attachedDocumentId);
 
   const send = () => {
     if (!input.trim()) return;
@@ -23,13 +33,18 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
     setMessages(nextMessages);
     setInput('');
     chat.mutate(
-      { messages: nextMessages, dealId },
+      { messages: nextMessages, dealId, documentId: attachedDocumentId ?? undefined },
       {
         onSuccess: (data) => {
           setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
         },
       },
     );
+    // The document was already read by the model for this turn — its content
+    // isn't resent on follow-up turns, so clear the attachment rather than
+    // silently re-sending it (or worse, implying it still is) each message.
+    setAttachedDocumentId(null);
+    setShowAttachPicker(false);
   };
 
   const unavailable = chat.isError && isAgentUnavailable(chat.error);
@@ -85,6 +100,49 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
             </div>
           )}
         </div>
+
+        {dealId && (
+          <div className="flex flex-col gap-1.5">
+            {attachedDocument ? (
+              <div className="flex items-center gap-2 self-start rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-xs">
+                <Paperclip className="h-3 w-3 text-primary" />
+                <span className="max-w-[16rem] truncate">{attachedDocument.name}</span>
+                <button type="button" onClick={() => setAttachedDocumentId(null)} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : showAttachPicker ? (
+              <div className="flex items-center gap-2">
+                <Select
+                  onValueChange={(value) => {
+                    setAttachedDocumentId(value);
+                    setShowAttachPicker(false);
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-64 text-xs">
+                    <SelectValue placeholder={readableDocuments.length ? 'Choisir un document…' : 'Aucun document PDF/Excel déposé'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {readableDocuments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="ghost" onClick={() => setShowAttachPicker(false)}>
+                  Annuler
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="ghost" className="self-start text-muted-foreground" onClick={() => setShowAttachPicker(true)}>
+                <Paperclip className="h-3.5 w-3.5" />
+                Joindre un document du dossier
+              </Button>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-2">
           <Textarea
             value={input}

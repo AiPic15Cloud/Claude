@@ -103,6 +103,16 @@ export class StorageService {
     return fs.readFile(this.resolveLocalPath(storageKey));
   }
 
+  /** Reads the raw bytes of a stored object regardless of driver — used server-side (e.g. sending a document to Claude), unlike `getUrl` which only hands out a client-facing link. */
+  async read(storageKey: string, driver: string): Promise<Buffer> {
+    if (driver === 's3' && this.s3) {
+      const result = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: storageKey }));
+      const bytes = await result.Body!.transformToByteArray();
+      return Buffer.from(bytes);
+    }
+    return this.readLocal(storageKey);
+  }
+
   async delete(storageKey: string, driver: string): Promise<void> {
     if (driver === 's3' && this.s3) {
       await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: storageKey }));

@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,13 +21,22 @@ const schema = z.object({
   targetMarginPct: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().optional(),
 });
-type FormValues = z.infer<typeof schema>;
+export type FinancialModelFormValues = z.infer<typeof schema>;
+type FormValues = FinancialModelFormValues;
 
-export function FinancialModelPanel({ dealId }: { dealId: string }) {
+interface FinancialModelPanelProps {
+  dealId: string;
+  /** Values proposed by the BP extraction — applied once, then the parent should clear it via onPrefillApplied. */
+  prefill?: Partial<FormValues> | null;
+  onPrefillApplied?: () => void;
+}
+
+export function FinancialModelPanel({ dealId, prefill, onPrefillApplied }: FinancialModelPanelProps) {
   const { data, isLoading } = useFinancialModel(dealId);
   const save = useSaveFinancialModel(dealId);
+  const [prefillNotice, setPrefillNotice] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, getValues, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
 
@@ -37,7 +46,17 @@ export function FinancialModelPanel({ dealId }: { dealId: string }) {
     }
   }, [data, reset]);
 
-  const onSubmit = (values: FormValues) => save.mutate(values);
+  useEffect(() => {
+    if (prefill) {
+      reset({ ...getValues(), ...prefill });
+      setPrefillNotice(true);
+      onPrefillApplied?.();
+    }
+    // getValues/reset/onPrefillApplied are stable across renders here; only re-run when a new prefill arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
+
+  const onSubmit = (values: FormValues) => save.mutate(values, { onSuccess: () => setPrefillNotice(false) });
 
   if (isLoading) {
     return (
@@ -56,6 +75,15 @@ export function FinancialModelPanel({ dealId }: { dealId: string }) {
           <CardTitle>Hypothèses</CardTitle>
         </CardHeader>
         <CardContent>
+          {prefillNotice && (
+            <div className="mb-4 flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
+              <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              <p className="flex-1">Valeurs proposées par l'IA à partir d'un document déposé — vérifiez-les avant d'enregistrer.</p>
+              <button type="button" onClick={() => setPrefillNotice(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">

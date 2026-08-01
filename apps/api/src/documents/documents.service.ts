@@ -58,6 +58,16 @@ export class DocumentsService {
     return { url };
   }
 
+  /** Raw bytes for server-side processing (e.g. sending the document to an AI agent) — unlike getDownloadUrl, which only produces a client-facing link. */
+  async getBuffer(organizationId: string, dealId: string, documentId: string) {
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, dealId, deal: { organizationId } },
+    });
+    if (!document) throw new NotFoundException('Document introuvable');
+    const buffer = await this.storage.read(document.storageKey, document.storageDriver);
+    return { buffer, mimeType: document.mimeType, name: document.name };
+  }
+
   /**
    * The local-serve route is only key-based (no document id in the URL), so
    * without this check any authenticated user of any organization could

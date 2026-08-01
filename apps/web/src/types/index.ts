@@ -682,3 +682,28 @@ export interface ChatResponse {
   message: string;
   usage?: unknown;
 }
+
+// Mirrors the Fiche Produit section of the audit classeur — see
+// apps/api/src/agents/agents.service.ts FinancialExtractionSchema.
+export interface FinancialExtraction {
+  coutDeRevientTotal: number | null;
+  chiffreAffairesTotal: number | null;
+  margeEuros: number | null;
+  margePct: number | null;
+  surfaceM2: number | null;
+  prixAcquisitionM2: number | null;
+  coutTravauxM2: number | null;
+  montantTravaux: number | null;
+  aleasTravauxPct: number | null;
+  prixSortieM2: number | null;
+  tauxInteretPct: number | null;
+  dureeMinMois: number | null;
+  dureeCibleMois: number | null;
+  dureeMaxMois: number | null;
+  apportPdp: number | null;
+  montantBanque: number | null;
+  garanties: string | null;
+  notes: string;
+  marginBand: 'vert' | 'jaune' | 'orange' | 'rouge' | null;
+  sourceDocument: string;
+}
