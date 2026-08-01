@@ -36,7 +36,7 @@ export function DealAssistantPanel({ dealId }: { dealId: string }) {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex-1 overflow-hidden">{selected && <AgentChatPanel agent={selected} dealId={dealId} />}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">{selected && <AgentChatPanel agent={selected} dealId={dealId} />}</div>
     </div>
   );
 }

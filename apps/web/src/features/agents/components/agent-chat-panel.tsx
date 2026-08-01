@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAgentChat, useAgentChatWithFile, isAgentUnavailable } from '../hooks/use-agents';
 import { useDocuments } from '@/features/dossiers/hooks/use-documents';
 import { isDocumentReadableByAgent } from '@/lib/document-support';
+import { ChatMarkdown } from '@/components/chat-markdown';
 import type { AgentInfo, ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -79,7 +80,7 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex min-h-48 flex-1 flex-col gap-3 overflow-y-auto rounded-md border border-border bg-secondary/30 p-3">
           {messages.length === 0 && !unavailable && (
             <p className="py-6 text-center text-xs text-muted-foreground">
@@ -95,11 +96,11 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
               </div>
               <div
                 className={cn(
-                  'max-w-[85%] rounded-md px-3 py-2 text-sm whitespace-pre-wrap',
-                  m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background border border-border',
+                  'max-w-[85%] rounded-md px-3 py-2 text-sm',
+                  m.role === 'user' ? 'bg-primary text-primary-foreground whitespace-pre-wrap' : 'bg-background border border-border',
                 )}
               >
-                {m.content}
+                {m.role === 'assistant' ? <ChatMarkdown content={m.content} /> : m.content}
               </div>
             </div>
           ))}
