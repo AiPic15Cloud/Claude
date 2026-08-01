@@ -24,7 +24,7 @@ export function AgentsPage() {
         description="Cinq agents spécialisés — dont Analyste, Juriste et Contrôleur pour la pré-analyse de dossier — chacun avec son propre prompt système. Nécessite une clé Anthropic côté serveur."
       />
 
-      <div className="flex flex-col gap-4 lg:grid lg:flex-1 lg:grid-cols-[16rem_1fr] lg:overflow-hidden">
+      <div className="flex flex-col gap-4 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_1fr] lg:overflow-hidden">
         {/* Mobile/tablet: a horizontal chip row keeps the picker from eating the viewport
             the way a full vertical list would — the chat below needs the room instead. */}
         <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
