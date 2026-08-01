@@ -6,9 +6,14 @@ import { z } from 'zod/v4';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { DocumentsService } from '../documents/documents.service';
-import { AGENT_REGISTRY, findAgent, marginBand } from './agent-registry';
+import { AGENT_REGISTRY, AgentDefinition, findAgent, marginBand } from './agent-registry';
 import { ChatDto } from './dto/chat.dto';
 import { buildDocumentContentBlock } from './document-content.util';
+
+interface RawChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 // Mirrors the Fiche Produit section of the audit classeur (agent-registry.ts AUDIT_FRAMEWORK) —
 // every field nullable so the model can express "information absente" instead of guessing.
@@ -98,7 +103,43 @@ export class AgentsService {
       }
     }
 
-    const response = await this.client.messages.create({
+    return this.runChat(agent, system, messages);
+  }
+
+  /**
+   * Same as chat(), but for a file that isn't (and won't be) a Document row —
+   * lets the general Agents IA page (no dealId, no dossier) analyze an ad hoc
+   * upload without requiring the operation to already exist in the portfolio.
+   */
+  async chatWithFile(
+    organizationId: string,
+    agentKey: string,
+    dto: { history: RawChatMessage[]; message: string; dealId?: string },
+    file: { buffer: Buffer; mimeType: string; name: string },
+  ) {
+    const agent = findAgent(agentKey);
+    if (!agent) throw new NotFoundException('Agent inconnu');
+
+    if (!this.client) {
+      throw new ServiceUnavailableException(
+        "Agents IA non configurés : définissez ANTHROPIC_API_KEY côté serveur pour activer ce module.",
+      );
+    }
+
+    const built = buildDocumentContentBlock(file.buffer, file.mimeType, file.name);
+    if (!built.ok) throw new BadRequestException(built.error);
+
+    const contextBlock = dto.dealId ? await this.buildDealContext(organizationId, dto.dealId) : null;
+    const system = contextBlock ? `${agent.systemPrompt}\n\n## Contexte du dossier\n${contextBlock}` : agent.systemPrompt;
+
+    const messages: Anthropic.MessageParam[] = dto.history.map((m) => ({ role: m.role, content: m.content }));
+    messages.push({ role: 'user', content: [built.block, { type: 'text', text: dto.message }] });
+
+    return this.runChat(agent, system, messages);
+  }
+
+  private async runChat(agent: AgentDefinition, system: string, messages: Anthropic.MessageParam[]) {
+    const response = await this.client!.messages.create({
       model: this.config.get<string>('ai.anthropicModel')!,
       max_tokens: 4096,
       system,
