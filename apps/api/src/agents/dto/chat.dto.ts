@@ -24,4 +24,9 @@ export class ChatDto {
   @IsOptional()
   @IsString()
   dealId?: string;
+
+  @ApiProperty({ required: false, description: 'Document already deposited on dealId, attached to the newest user message' })
+  @IsOptional()
+  @IsString()
+  documentId?: string;
 }

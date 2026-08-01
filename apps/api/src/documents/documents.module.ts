@@ -8,5 +8,6 @@ import { StorageModule } from '../common/storage/storage.module';
   imports: [ActivitiesModule, StorageModule],
   providers: [DocumentsService],
   controllers: [DocumentsController, LocalDocumentsController],
+  exports: [DocumentsService],
 })
 export class DocumentsModule {}

@@ -14,7 +14,7 @@ import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
 import { RepaymentsPanel } from './components/repayments-panel';
 import { NotesPanel } from './components/notes-panel';
-import { FinancialModelPanel } from './components/financial-model-panel';
+import { FinancialModelPanel, type FinancialModelFormValues } from './components/financial-model-panel';
 import { CheckpointsPanel } from './components/checkpoints-panel';
 import { DocumentsPanel } from './components/documents-panel';
 import { EntitiesPanel } from './components/entities-panel';
@@ -23,6 +23,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import type { FinancialExtraction } from '@/types';
 
 export function DossierPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,26 @@ export function DossierPage() {
   const { data: deal, isLoading } = useDeal(id ?? null);
   const deleteDeal = useDeleteDeal();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [activeTab, setActiveTab] = useState('score');
+  const [financialPrefill, setFinancialPrefill] = useState<Partial<FinancialModelFormValues> | null>(null);
+
+  const handleApplyExtraction = (extraction: FinancialExtraction) => {
+    const prefill: Partial<FinancialModelFormValues> = {};
+    if (extraction.surfaceM2 !== null) prefill.surfaceSqm = extraction.surfaceM2;
+    if (extraction.coutTravauxM2 !== null) prefill.constructionCostPerSqm = extraction.coutTravauxM2;
+    if (extraction.prixSortieM2 !== null) prefill.sellingPricePerSqm = extraction.prixSortieM2;
+    if (extraction.margePct !== null) prefill.targetMarginPct = extraction.margePct;
+    if (extraction.coutDeRevientTotal !== null && extraction.coutTravauxM2 !== null && extraction.surfaceM2 !== null) {
+      const other = extraction.coutDeRevientTotal - extraction.coutTravauxM2 * extraction.surfaceM2;
+      if (other >= 0) prefill.otherCosts = Math.round(other);
+    }
+    const notesParts = [`Chiffres extraits automatiquement du document « ${extraction.sourceDocument} » — à vérifier avant utilisation.`];
+    if (extraction.notes) notesParts.push(extraction.notes);
+    prefill.notes = notesParts.join(' ');
+
+    setFinancialPrefill(prefill);
+    setActiveTab('financial');
+  };
 
   const handleDelete = () => {
     if (!deal) return;
@@ -152,7 +173,7 @@ export function DossierPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="score">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="score">Score ATLAS</TabsTrigger>
           <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
@@ -172,7 +193,7 @@ export function DossierPage() {
           <NotesPanel dealId={deal.id} notes={deal.notes} />
         </TabsContent>
         <TabsContent value="documents">
-          <DocumentsPanel dealId={deal.id} />
+          <DocumentsPanel dealId={deal.id} onApplyToFinancialModel={handleApplyExtraction} />
         </TabsContent>
         <TabsContent value="guarantees">
           <GuaranteesPanel dealId={deal.id} />
@@ -181,7 +202,11 @@ export function DossierPage() {
           <RepaymentsPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="financial">
-          <FinancialModelPanel dealId={deal.id} />
+          <FinancialModelPanel
+            dealId={deal.id}
+            prefill={financialPrefill}
+            onPrefillApplied={() => setFinancialPrefill(null)}
+          />
         </TabsContent>
         <TabsContent value="checkpoints">
           <CheckpointsPanel dealId={deal.id} />

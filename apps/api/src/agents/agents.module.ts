@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AgentsService } from './agents.service';
-import { AgentsController } from './agents.controller';
+import { AgentsController, FinancialExtractionController } from './agents.controller';
 import { ScoringModule } from '../scoring/scoring.module';
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
-  imports: [ScoringModule],
+  imports: [ScoringModule, DocumentsModule],
   providers: [AgentsService],
-  controllers: [AgentsController],
+  controllers: [AgentsController, FinancialExtractionController],
 })
 export class AgentsModule {}

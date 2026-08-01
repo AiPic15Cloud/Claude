@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { DocumentFile } from '@/types';
+import type { DocumentFile, FinancialExtraction } from '@/types';
 
 export function useDocuments(dealId: string) {
   return useQuery({
     queryKey: ['documents', dealId],
     queryFn: () => api.get<DocumentFile[]>(`/deals/${dealId}/documents`),
+    enabled: Boolean(dealId),
   });
 }
 
@@ -34,6 +35,13 @@ export function useDeleteDocument(dealId: string) {
       queryClient.invalidateQueries({ queryKey: ['documents', dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
     },
+  });
+}
+
+export function useExtractFinancials(dealId: string) {
+  return useMutation({
+    mutationFn: (documentId: string) =>
+      api.post<FinancialExtraction>(`/deals/${dealId}/documents/${documentId}/extract-financials`),
   });
 }
 
