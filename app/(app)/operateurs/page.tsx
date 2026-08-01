@@ -25,12 +25,12 @@ export default async function OperatorIntelligencePage() {
         subtitle="Historique, notation, TRI moyen, délais, défauts, retards, qualité de reporting et indice de confiance — pour chaque opérateur partenaire."
       />
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {sorted.map((op) => {
           const opDeals = deals.filter((d) => d.operator_id === op.id);
           return (
             <Card key={op.id}>
-              <div className="mb-4 flex items-start justify-between">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-medium text-ink">{op.name}</h3>
                   <p className="mt-0.5 text-xs text-muted">{opDeals.length} dossier(s) au total</p>
@@ -40,7 +40,7 @@ export default async function OperatorIntelligencePage() {
                 </Badge>
               </div>
 
-              <div className="mb-4 grid grid-cols-4 gap-3">
+              <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <StatTile label="TRI moyen" value={formatPercent(op.tri_moyen)} />
                 <StatTile label="Délai moyen" value={`${op.delai_moyen_jours} j`} />
                 <StatTile label="Défauts" value={op.defauts_count} />

@@ -32,7 +32,7 @@ export default async function InvestorRelationsPage() {
         subtitle="Rapport de performance généré automatiquement à partir du portefeuille financé. TRI cible tant qu'un dossier n'est pas remboursé ; TRI réalisé extrait du dossier une fois la sortie effective."
       />
 
-      <div className="mb-6 grid grid-cols-5 gap-6 rounded border border-line bg-surface p-6">
+      <div className="mb-6 grid grid-cols-2 gap-6 rounded border border-line bg-surface p-6 sm:grid-cols-3 lg:grid-cols-5">
         <Metric label="Encours total" value={formatEurCompact(perf.totalEngage)} />
         <Metric label="TRI pondéré (cible)" value={formatPercent(perf.triPondere)} />
         <Metric label="Multiple pondéré" value={`${perf.multiplePondere.toFixed(2)}x`} />
@@ -50,13 +50,13 @@ export default async function InvestorRelationsPage() {
             <Link
               key={d.dealId}
               href={`/pipeline/${d.dealId}`}
-              className="flex items-center justify-between rounded border border-line px-4 py-3 transition-colors hover:border-accent/40"
+              className="flex flex-col gap-2 rounded border border-line px-4 py-3 transition-colors hover:border-accent/40 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <p className="text-sm text-ink">{d.name}</p>
                 <p className="tabular text-xs text-muted">{formatEur(d.montant)}</p>
               </div>
-              <div className="flex items-center gap-5 text-xs">
+              <div className="flex flex-wrap items-center gap-3 text-xs sm:gap-5">
                 <span className="tabular text-muted">
                   TRI {d.triRealise ? `${formatPercent(d.triRealise)} (réalisé)` : `${formatPercent(d.triCible)} (cible)`}
                 </span>

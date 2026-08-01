@@ -41,9 +41,9 @@ export default async function TaskEnginePage() {
                 {group.map((task) => {
                   const deal = task.related_deal_id ? dealById.get(task.related_deal_id) : null;
                   const content = (
-                    <div className="flex items-center justify-between rounded border border-line px-4 py-3">
+                    <div className="flex flex-col gap-2 rounded border border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <div className="mb-0.5 flex items-center gap-2">
+                        <div className="mb-0.5 flex flex-wrap items-center gap-2">
                           <p className="text-sm text-ink">{task.title}</p>
                           <Badge tone={PRIORITY_TONE[task.priority]}>{task.priority}</Badge>
                           {task.source === "alerte" && <Badge tone="accent">Généré par alerte</Badge>}

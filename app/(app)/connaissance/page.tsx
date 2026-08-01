@@ -57,7 +57,7 @@ export default async function KnowledgePage({
                 href={r.href}
                 className="block rounded border border-line px-4 py-3 transition-colors hover:border-accent/40"
               >
-                <div className="mb-1 flex items-center gap-2">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
                   <Badge tone="accent">{TYPE_LABELS[r.type]}</Badge>
                   <span className="text-sm text-ink">{r.title}</span>
                   <span className="ml-auto text-xs text-faint">{formatDate(r.date)}</span>

@@ -25,14 +25,14 @@ export default async function AssetManagementPage() {
           const jours = daysUntil(deal.echeance_prevue);
           return (
             <Card key={deal.id}>
-              <div className="mb-3 flex items-start justify-between gap-4">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div>
                   <Link href={`/pipeline/${deal.id}`} className="text-sm font-medium text-ink hover:text-accent">
                     {deal.name}
                   </Link>
                   <p className="mt-0.5 text-xs text-muted">{formatEur(deal.montant)}</p>
                 </div>
-                <div className="text-right">
+                <div className="sm:text-right">
                   <p className="text-xs text-faint">Échéance prévue</p>
                   <p className="tabular text-sm text-ink">
                     {formatDate(deal.echeance_prevue)}{" "}
@@ -51,7 +51,7 @@ export default async function AssetManagementPage() {
                   <SectionLabel>Alertes ouvertes</SectionLabel>
                   <div className="mt-1.5 flex flex-col gap-1.5">
                     {dealAlerts.map((a) => (
-                      <div key={a.id} className="flex items-center gap-2 text-sm">
+                      <div key={a.id} className="flex flex-wrap items-center gap-2 text-sm">
                         <Badge tone={severityTone(a.severity)}>{a.type}</Badge>
                         <span className="text-muted">{a.message}</span>
                       </div>

@@ -23,7 +23,7 @@ export default async function PipelinePage() {
         {DEAL_STAGES.map((stage) => {
           const stageDeals = deals.filter((d) => d.stage === stage);
           return (
-            <div key={stage} className="w-72 shrink-0">
+            <div key={stage} className="w-[85vw] max-w-72 shrink-0 sm:w-72">
               <div className="mb-3 flex items-center justify-between px-1">
                 <p className="text-micro font-medium uppercase tracking-wider text-faint">
                   {DEAL_STAGE_LABELS[stage]}

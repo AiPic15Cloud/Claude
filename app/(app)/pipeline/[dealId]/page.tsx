@@ -45,8 +45,8 @@ export default async function DealDetailPage({ params }: { params: { dealId: str
         action={<StageBadge stage={deal.stage} />}
       />
 
-      <div className="grid grid-cols-3 gap-8">
-        <div className="col-span-2 flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+        <div className="flex flex-col gap-6 lg:col-span-2">
           <AtlasAnalystPanel dealId={deal.id} />
 
           <Card>
@@ -93,7 +93,7 @@ export default async function DealDetailPage({ params }: { params: { dealId: str
               <div className="flex flex-col gap-4">
                 {decisions.map((d) => (
                   <div key={d.id} className="border-b border-line pb-4 last:border-b-0 last:pb-0">
-                    <div className="mb-1.5 flex items-center gap-2">
+                    <div className="mb-1.5 flex flex-wrap items-center gap-2">
                       <span className="text-sm text-ink">{formatDate(d.committee_date)}</span>
                       <Badge tone={d.decision === "approuve" ? "low" : d.decision === "refuse" ? "high" : "medium"}>
                         {d.decision}

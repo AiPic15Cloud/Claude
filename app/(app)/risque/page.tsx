@@ -27,7 +27,7 @@ export default async function RiskOfficePage() {
         subtitle="Indice de risque global et évaluation opération par opération, recalculés à chaque chargement — score, causes, probabilité, impact, actions recommandées."
       />
 
-      <div className="mb-6 grid grid-cols-4 gap-6 rounded border border-line bg-surface p-6">
+      <div className="mb-6 grid grid-cols-1 gap-6 rounded border border-line bg-surface p-6 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="mb-1.5 text-micro font-medium uppercase tracking-wider text-faint">
             Indice de risque global
@@ -44,7 +44,7 @@ export default async function RiskOfficePage() {
           </p>
           <p className="text-xs text-faint">sur {assessments.length} opérations en portefeuille</p>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <p className="mb-1.5 text-micro font-medium uppercase tracking-wider text-faint">Méthode</p>
           <p className="text-xs leading-relaxed text-muted">
             Score = 55% score de risque interne du dossier + 30% défiance envers l'opérateur (indice de
@@ -60,7 +60,7 @@ export default async function RiskOfficePage() {
           if (!deal) return null;
           return (
             <Card key={assessment.dealId}>
-              <div className="mb-3 flex items-start justify-between gap-4">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div>
                   <Link
                     href={`/pipeline/${deal.id}`}
@@ -70,7 +70,7 @@ export default async function RiskOfficePage() {
                   </Link>
                   <p className="mt-0.5 text-xs text-muted">{formatEur(deal.montant)}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={LEVEL_TONE[assessment.probabilite]}>
                     Probabilité {assessment.probabilite}
                   </Badge>
@@ -79,7 +79,7 @@ export default async function RiskOfficePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
                   <SectionLabel>Causes</SectionLabel>
                   <ul className="mt-2 flex flex-col gap-1">

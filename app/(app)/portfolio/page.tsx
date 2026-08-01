@@ -47,7 +47,7 @@ export default async function PortfolioPage() {
         subtitle="Vision globale du portefeuille financé — répartitions, concentration, corrélations et stress tests."
       />
 
-      <div className="mb-6 grid grid-cols-5 gap-6 rounded border border-line bg-surface p-6">
+      <div className="mb-6 grid grid-cols-2 gap-6 rounded border border-line bg-surface p-6 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile label="Encours total" value={formatEurCompact(snapshot.totalEngage)} />
         <StatTile label="Rendement pondéré" value={formatPercent(snapshot.rendementMoyenPondere)} />
         <StatTile label="Risque pondéré" value={`${snapshot.risqueMoyenPondere.toFixed(1)}/10`} />
@@ -55,8 +55,8 @@ export default async function PortfolioPage() {
         <StatTile label="Concentration top 3 régions" value={formatPercent(snapshot.concentrationTop3Region)} />
       </div>
 
-      <div className="mb-6 grid grid-cols-3 gap-6">
-        <Card className="col-span-2">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
           <CardHeader title="Note Atlas Risk" subtitle="Indice de risque global et points d'attention" />
           {riskNote.generated ? (
             <div>
@@ -136,7 +136,7 @@ export default async function PortfolioPage() {
       <p className="mb-3 text-micro font-medium uppercase tracking-wider text-faint">
         Diversification du portefeuille
       </p>
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <BreakdownList title="Par région" rows={breakdowns.region} />
         <BreakdownList title="Par opérateur" rows={breakdowns.operateur} />
         <BreakdownList title="Par typologie" rows={breakdowns.typologie} />

@@ -33,13 +33,13 @@ export default async function ComitePage() {
                 <Link
                   key={deal.id}
                   href={`/pipeline/${deal.id}`}
-                  className="flex items-center justify-between rounded border border-line px-4 py-3 transition-colors hover:border-accent/40"
+                  className="flex flex-col gap-2 rounded border border-line px-4 py-3 transition-colors hover:border-accent/40 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
                     <p className="text-sm text-ink">{deal.name}</p>
                     <p className="text-xs text-muted">{operator?.name ?? deal.operator_id} · {formatEur(deal.montant)}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {jours !== null && (
                       <span className="text-xs text-faint">
                         Vote le {deal.vote_expires_at ? formatDate(deal.vote_expires_at) : "—"} ({jours} j)
