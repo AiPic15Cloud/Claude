@@ -18,15 +18,33 @@ export function AgentsPage() {
   const selected = agents.find((a) => a.key === selectedKey);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col gap-5">
+    <div className="flex flex-col gap-5 lg:h-[calc(100vh-8rem)]">
       <PageHeader
         title="Agents IA"
         description="Cinq agents spécialisés — dont Analyste, Juriste et Contrôleur pour la pré-analyse de dossier — chacun avec son propre prompt système. Nécessite une clé Anthropic côté serveur."
       />
 
-      <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[16rem_1fr]">
-        <Card className="flex flex-col gap-1 overflow-y-auto p-2">
-          {isLoading && Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+      <div className="flex flex-col gap-4 lg:grid lg:flex-1 lg:grid-cols-[16rem_1fr] lg:overflow-hidden">
+        {/* Mobile/tablet: a horizontal chip row keeps the picker from eating the viewport
+            the way a full vertical list would — the chat below needs the room instead. */}
+        <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
+          {isLoading && Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-24 shrink-0 rounded-full" />)}
+          {agents.map((agent) => (
+            <button
+              key={agent.key}
+              onClick={() => setSelectedKey(agent.key)}
+              className={cn(
+                'shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                selectedKey === agent.key ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent',
+              )}
+            >
+              {agent.name}
+            </button>
+          ))}
+        </div>
+
+        <Card className="hidden shrink-0 flex-col gap-1 overflow-y-auto p-2 lg:flex">
+          {isLoading && Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
           {agents.map((agent) => (
             <button
               key={agent.key}
@@ -45,7 +63,9 @@ export function AgentsPage() {
           ))}
         </Card>
 
-        <div className="overflow-hidden">{selected && <AgentChatPanel agent={selected} />}</div>
+        <div className="min-h-[32rem] flex-1 lg:min-h-0 lg:overflow-hidden">
+          {selected && <AgentChatPanel agent={selected} />}
+        </div>
       </div>
     </div>
   );
