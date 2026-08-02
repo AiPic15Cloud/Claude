@@ -1,23 +1,36 @@
-import { useRef, useState } from 'react';
-import { AlertTriangle, Bot, Loader2, Paperclip, Send, User as UserIcon, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Bot, Loader2, Paperclip, Send, Swords, User as UserIcon, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { api } from '@/lib/api';
 import { useAgentChat, useAgentChatWithFile, isAgentUnavailable } from '../hooks/use-agents';
 import { useDocuments } from '@/features/dossiers/hooks/use-documents';
 import { isDocumentReadableByAgent } from '@/lib/document-support';
 import { ChatMarkdown } from '@/components/chat-markdown';
-import type { AgentInfo, ChatMessage } from '@/types';
+import type { AgentInfo, ChatMessage, ChatResponse } from '@/types';
 import { cn } from '@/lib/utils';
+import { useMutation } from '@tanstack/react-query';
+
+interface DisplayMessage extends ChatMessage {
+  /** Local-only tag for rendering — never sent to the API (see toApiMessages). */
+  source?: 'devil';
+}
+
+function toApiMessages(messages: DisplayMessage[]): ChatMessage[] {
+  return messages.map(({ role, content }) => ({ role, content }));
+}
 
 interface AgentChatPanelProps {
   agent: AgentInfo;
   dealId?: string;
+  /** Preset prompts (e.g. "Préparer le comité") rendered as buttons above the input — sent immediately on click. */
+  quickActions?: { label: string; prompt: string }[];
 }
 
-export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelProps) {
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState('');
   const [attachedDocumentId, setAttachedDocumentId] = useState<string | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -25,24 +38,28 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
   const [showDossierPicker, setShowDossierPicker] = useState(false);
   const chat = useAgentChat(agent.key);
   const chatWithFile = useAgentChatWithFile(agent.key);
+  const devilChallenge = useMutation({
+    mutationFn: (payload: { messages: ChatMessage[]; dealId?: string }) => api.post<ChatResponse>('/agents/devil/chat', payload),
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
   // "Documents du dossier" only makes sense inside a deal's own chat — a standalone
   // /ai conversation has no dealId, hence no pre-existing document list to pick from.
   // The device-file attachment below works either way.
   const { data: documents = [] } = useDocuments(dealId ?? '');
   const readableDocuments = dealId ? documents.filter(isDocumentReadableByAgent) : [];
   const attachedDocument = documents.find((d) => d.id === attachedDocumentId);
-  const sending = chat.isPending || chatWithFile.isPending;
+  const sending = chat.isPending || chatWithFile.isPending || devilChallenge.isPending;
 
   const clearAttachment = () => {
     setAttachedDocumentId(null);
     setAttachedFile(null);
   };
 
-  const send = () => {
-    if (!input.trim()) return;
-    const text = input.trim();
-    const nextMessages = [...messages, { role: 'user' as const, content: text }];
+  const send = (override?: string) => {
+    const text = (override ?? input).trim();
+    if (!text) return;
+    const nextMessages: DisplayMessage[] = [...messages, { role: 'user', content: text }];
     setMessages(nextMessages);
     setInput('');
 
@@ -51,9 +68,9 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
     };
 
     if (attachedFile) {
-      chatWithFile.mutate({ history: messages, message: text, dealId, file: attachedFile }, { onSuccess });
+      chatWithFile.mutate({ history: toApiMessages(messages), message: text, dealId, file: attachedFile }, { onSuccess });
     } else {
-      chat.mutate({ messages: nextMessages, dealId, documentId: attachedDocumentId ?? undefined }, { onSuccess });
+      chat.mutate({ messages: toApiMessages(nextMessages), dealId, documentId: attachedDocumentId ?? undefined }, { onSuccess });
     }
 
     // The document was already read by the model for this turn — its content
@@ -64,7 +81,27 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
     setShowDossierPicker(false);
   };
 
-  const unavailable = (chat.isError && isAgentUnavailable(chat.error)) || (chatWithFile.isError && isAgentUnavailable(chatWithFile.error));
+  const challenge = () => {
+    devilChallenge.mutate(
+      { messages: toApiMessages(messages), dealId },
+      {
+        onSuccess: (data) => {
+          setMessages((prev) => [...prev, { role: 'assistant', content: data.message, source: 'devil' }]);
+        },
+      },
+    );
+  };
+
+  useEffect(() => {
+    const el = messageListRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, sending]);
+
+  const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
+  const unavailable =
+    (chat.isError && isAgentUnavailable(chat.error)) ||
+    (chatWithFile.isError && isAgentUnavailable(chatWithFile.error)) ||
+    (devilChallenge.isError && isAgentUnavailable(devilChallenge.error));
   const attachmentError = chatWithFile.isError && !isAgentUnavailable(chatWithFile.error);
 
   return (
@@ -81,7 +118,7 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
         </div>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="flex min-h-48 flex-1 flex-col gap-3 overflow-y-auto rounded-md border border-border bg-secondary/30 p-3">
+        <div ref={messageListRef} className="flex min-h-48 flex-1 flex-col gap-3 overflow-y-auto rounded-md border border-border bg-secondary/30 p-3">
           {messages.length === 0 && !unavailable && (
             <p className="py-6 text-center text-xs text-muted-foreground">
               Posez une question à l'agent {agent.name}
@@ -91,22 +128,34 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
           )}
           {messages.map((m, i) => (
             <div key={i} className={cn('flex gap-2', m.role === 'user' && 'flex-row-reverse')}>
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                {m.role === 'user' ? <UserIcon className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-              </div>
               <div
                 className={cn(
-                  'max-w-[85%] rounded-md px-3 py-2 text-sm',
-                  m.role === 'user' ? 'bg-primary text-primary-foreground whitespace-pre-wrap' : 'bg-background border border-border',
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground',
+                  m.source === 'devil' ? 'bg-destructive/10 text-destructive' : 'bg-muted',
                 )}
               >
-                {m.role === 'assistant' ? <ChatMarkdown content={m.content} /> : m.content}
+                {m.role === 'user' ? <UserIcon className="h-3.5 w-3.5" /> : m.source === 'devil' ? <Swords className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+              </div>
+              <div className="flex max-w-[85%] flex-col gap-1">
+                {m.source === 'devil' && <span className="text-[0.65rem] font-medium uppercase tracking-wide text-destructive">Avocat du diable</span>}
+                <div
+                  className={cn(
+                    'rounded-md px-3 py-2 text-sm',
+                    m.role === 'user'
+                      ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
+                      : m.source === 'devil'
+                        ? 'border border-destructive/30 bg-destructive/5'
+                        : 'bg-background border border-border',
+                  )}
+                >
+                  {m.role === 'assistant' ? <ChatMarkdown content={m.content} /> : m.content}
+                </div>
               </div>
             </div>
           ))}
           {sending && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {agent.name} réfléchit…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {devilChallenge.isPending ? "L'avocat du diable réfléchit…" : `${agent.name} réfléchit…`}
             </div>
           )}
           {unavailable && (
@@ -125,6 +174,23 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
             </div>
           )}
         </div>
+
+        {lastIsAssistant && (
+          <Button size="sm" variant="outline" className="self-start" onClick={challenge} disabled={sending}>
+            <Swords className="h-3.5 w-3.5" />
+            Challenger cette analyse
+          </Button>
+        )}
+
+        {quickActions && quickActions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {quickActions.map((qa) => (
+              <Button key={qa.label} size="sm" variant="outline" onClick={() => send(qa.prompt)} disabled={sending}>
+                {qa.label}
+              </Button>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <input
@@ -210,7 +276,7 @@ export function AgentChatPanel({ agent, dealId }: AgentChatPanelProps) {
             rows={2}
             className="flex-1"
           />
-          <Button size="icon" onClick={send} disabled={!input.trim() || sending}>
+          <Button size="icon" onClick={() => send()} disabled={!input.trim() || sending}>
             <Send className="h-4 w-4" />
           </Button>
         </div>
