@@ -39,6 +39,11 @@ export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelPr
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
+  // isSending/isChallenging (React state) only reflect reality after the next
+  // render — two send() calls fired back-to-back in the same tick (e.g. a
+  // double Enter keypress) both read the pre-update value and both proceed.
+  // This ref is mutated synchronously, so the second call sees it immediately.
+  const sendingRef = useRef(false);
   // "Documents du dossier" only makes sense inside a deal's own chat — a standalone
   // /ai conversation has no dealId, hence no pre-existing document list to pick from.
   // The device-file attachment below works either way.
@@ -73,7 +78,12 @@ export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelPr
 
   const send = async (override?: string) => {
     const text = (override ?? input).trim();
-    if (!text) return;
+    // The send button disables while sending, but Enter in the textarea
+    // bypasses that — without this guard a double Enter mid-stream starts a
+    // second request whose appendDelta races the first one onto the same
+    // "last message" slot, interleaving both replies into garbled text.
+    if (!text || sendingRef.current) return;
+    sendingRef.current = true;
     setError(null);
     const nextMessages: DisplayMessage[] = [...messages, { role: 'user', content: text }];
     setMessages([...nextMessages, { role: 'assistant', content: '' }]);
@@ -102,10 +112,13 @@ export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelPr
       setError(err instanceof Error ? err.message : "Échec de l'envoi du message.");
     } finally {
       setIsSending(false);
+      sendingRef.current = false;
     }
   };
 
   const challenge = async () => {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
     setError(null);
     setMessages((prev) => [...prev, { role: 'assistant', content: '', source: 'devil' }]);
     setIsChallenging(true);
@@ -116,12 +129,17 @@ export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelPr
       setError(err instanceof Error ? err.message : "Échec de l'analyse contradictoire.");
     } finally {
       setIsChallenging(false);
+      sendingRef.current = false;
     }
   };
 
   useEffect(() => {
     const el = messageListRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    // Only stick to the bottom if the user was already there — otherwise a
+    // reply streaming in mid-read keeps yanking them back down on every token.
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 120) el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
   const lastMessage = messages[messages.length - 1];
