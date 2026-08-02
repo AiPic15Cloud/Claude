@@ -19,7 +19,7 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 
 let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const { refreshToken, setTokens, clear } = useAuthStore.getState();
   if (!refreshToken) return null;
 
@@ -117,6 +117,65 @@ async function getBlob(path: string): Promise<Blob> {
   return response.blob();
 }
 
+// NDJSON body: one {"delta": "..."} object per line, a trailing {"done": true},
+// or {"error": "..."} if the model call fails mid-stream (after the 200 has
+// already been sent, so it can't surface as an HTTP error status — see
+// agents.controller.ts streamDeltas). Pre-flight failures (bad auth, agent
+// not found, no API key configured) still come back as a normal non-2xx
+// response and throw ApiError exactly like request() does.
+async function postStream(path: string, body: unknown, onDelta: (delta: string) => void): Promise<void> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const doFetch = (token: string | null) =>
+    fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+  let response = await doFetch(accessToken);
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await doFetch(newToken);
+  }
+
+  if (!response.ok) {
+    let message = response.statusText;
+    try {
+      const data = await response.json();
+      message = data.message ?? message;
+    } catch {
+      // response has no JSON body
+    }
+    throw new ApiError(response.status, Array.isArray(message) ? message.join(', ') : message);
+  }
+
+  if (!response.body) throw new Error('Réponse vide du serveur.');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const consumeLine = (line: string) => {
+    if (!line.trim()) return;
+    const parsed = JSON.parse(line);
+    if (typeof parsed.delta === 'string') onDelta(parsed.delta);
+    if (typeof parsed.error === 'string') throw new Error(parsed.error);
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) consumeLine(line);
+  }
+  if (buffer.trim()) consumeLine(buffer);
+}
+
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'GET' }),
   getBlob,
@@ -127,6 +186,7 @@ export const api = {
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, { ...options, method: 'PATCH', body }),
   delete: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'DELETE' }),
+  postStream,
 };
 
 export { API_URL };

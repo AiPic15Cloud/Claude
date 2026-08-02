@@ -677,12 +677,6 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface ChatResponse {
-  agent: string;
-  message: string;
-  usage?: unknown;
-}
-
 // Mirrors the Fiche Produit section of the audit classeur — see
 // apps/api/src/agents/agents.service.ts FinancialExtractionSchema.
 export interface FinancialExtraction {
