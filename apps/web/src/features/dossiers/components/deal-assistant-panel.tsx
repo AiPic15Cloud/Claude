@@ -36,7 +36,25 @@ export function DealAssistantPanel({ dealId }: { dealId: string }) {
           </SelectContent>
         </Select>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">{selected && <AgentChatPanel agent={selected} dealId={dealId} />}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {selected && (
+          <AgentChatPanel
+            agent={selected}
+            dealId={dealId}
+            quickActions={
+              agentKey === 'analyst'
+                ? [
+                    {
+                      label: 'Préparer le comité',
+                      prompt:
+                        "Prépare la synthèse comité d'investissement de ce dossier (section 7 du cadre de référence) : montant de la collecte, fees, taux d'intérêt, durée min / cible / max, sûretés, avec ta recommandation GO / GO sous conditions / à approfondir / REFUS et les conditions à imposer le cas échéant. Format condensé, directement exploitable en comité.",
+                    },
+                  ]
+                : undefined
+            }
+          />
+        )}
+      </div>
     </div>
   );
 }
