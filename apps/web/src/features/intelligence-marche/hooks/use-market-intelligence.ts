@@ -9,6 +9,45 @@ export function useSources() {
   });
 }
 
+export function useConnectors() {
+  return useQuery({
+    queryKey: ['mi-connectors'],
+    queryFn: () => api.get<{ key: string; label: string }[]>('/market-intelligence/connectors'),
+  });
+}
+
+export function useCreateSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name: string; connector: string; url?: string; active?: boolean }) =>
+      api.post<NewsSource>('/market-intelligence/sources', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mi-sources'] });
+      queryClient.invalidateQueries({ queryKey: ['mi-articles'] });
+    },
+  });
+}
+
+export function useSetSourceActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      api.patch<NewsSource>(`/market-intelligence/sources/${id}`, { active }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mi-sources'] }),
+  });
+}
+
+export function useFetchSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<{ created: number }>(`/market-intelligence/sources/${id}/fetch`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mi-sources'] });
+      queryClient.invalidateQueries({ queryKey: ['mi-articles'] });
+    },
+  });
+}
+
 export function useCollectAll() {
   const queryClient = useQueryClient();
   return useMutation({
