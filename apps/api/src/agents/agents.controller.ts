@@ -5,17 +5,38 @@ import {
   Get,
   Param,
   Post,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AgentsService } from './agents.service';
 import { ChatDto } from './dto/chat.dto';
 import { ChatWithFileDto } from './dto/chat-with-file.dto';
+
+// Newline-delimited JSON: one {"delta": "..."} object per text chunk, a
+// trailing {"done": true}, or {"error": "..."} if generation fails midway
+// (validation errors happen before this runs — see AgentsService.prepareChat
+// — and go through Nest's normal exception filters with a proper status).
+async function streamDeltas(res: Response, deltas: AsyncGenerator<string>): Promise<void> {
+  res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  try {
+    for await (const delta of deltas) {
+      res.write(JSON.stringify({ delta }) + '\n');
+    }
+    res.write(JSON.stringify({ done: true }) + '\n');
+  } catch (err) {
+    res.write(JSON.stringify({ error: err instanceof Error ? err.message : 'Erreur pendant la génération.' }) + '\n');
+  } finally {
+    res.end();
+  }
+}
 
 @ApiTags('agents')
 @ApiBearerAuth()
@@ -30,17 +51,19 @@ export class AgentsController {
   }
 
   @Post(':key/chat')
-  chat(@CurrentUser() user: AuthenticatedUser, @Param('key') key: string, @Body() dto: ChatDto) {
-    return this.agentsService.chat(user.organizationId, key, dto);
+  async chat(@CurrentUser() user: AuthenticatedUser, @Param('key') key: string, @Body() dto: ChatDto, @Res() res: Response) {
+    const { system, messages } = await this.agentsService.prepareChat(user.organizationId, key, dto);
+    await streamDeltas(res, this.agentsService.streamText(system, messages));
   }
 
   @Post(':key/chat-with-file')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
-  chatWithFile(
+  async chatWithFile(
     @CurrentUser() user: AuthenticatedUser,
     @Param('key') key: string,
     @Body() dto: ChatWithFileDto,
+    @Res() res: Response,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('Aucun fichier reçu');
@@ -59,12 +82,13 @@ export class AgentsController {
       }
     }
 
-    return this.agentsService.chatWithFile(
+    const { system, messages } = await this.agentsService.prepareChatWithFile(
       user.organizationId,
       key,
       { history, message: dto.message, dealId: dto.dealId },
       { buffer: file.buffer, mimeType: file.mimetype, name: file.originalname },
     );
+    await streamDeltas(res, this.agentsService.streamText(system, messages));
   }
 }
 

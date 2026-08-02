@@ -6,7 +6,7 @@ import { z } from 'zod/v4';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { DocumentsService } from '../documents/documents.service';
-import { AGENT_REGISTRY, AgentDefinition, findAgent, marginBand } from './agent-registry';
+import { AGENT_REGISTRY, findAgent, marginBand } from './agent-registry';
 import { ChatDto } from './dto/chat.dto';
 import { buildDocumentContentBlock } from './document-content.util';
 
@@ -71,7 +71,15 @@ export class AgentsService {
     return AGENT_REGISTRY.map(({ key, name, description }) => ({ key, name, description }));
   }
 
-  async chat(organizationId: string, agentKey: string, dto: ChatDto) {
+  /**
+   * Validation/setup only — throws NotFoundException/BadRequestException/
+   * ServiceUnavailableException as before. Kept separate from streamText()
+   * so the controller can await this (and let Nest's normal exception
+   * filters produce a proper status + JSON body) BEFORE any response bytes
+   * are written, then switch to manual streaming only once we know the
+   * request is valid.
+   */
+  async prepareChat(organizationId: string, agentKey: string, dto: ChatDto): Promise<{ system: string; messages: Anthropic.MessageParam[] }> {
     const agent = findAgent(agentKey);
     if (!agent) throw new NotFoundException('Agent inconnu');
 
@@ -103,20 +111,21 @@ export class AgentsService {
       }
     }
 
-    return this.runChat(agent, system, messages);
+    return { system, messages };
   }
 
   /**
-   * Same as chat(), but for a file that isn't (and won't be) a Document row —
-   * lets the general Agents IA page (no dealId, no dossier) analyze an ad hoc
-   * upload without requiring the operation to already exist in the portfolio.
+   * Same as prepareChat(), but for a file that isn't (and won't be) a Document
+   * row — lets the general Agents IA page (no dealId, no dossier) analyze an
+   * ad hoc upload without requiring the operation to already exist in the
+   * portfolio.
    */
-  async chatWithFile(
+  async prepareChatWithFile(
     organizationId: string,
     agentKey: string,
     dto: { history: RawChatMessage[]; message: string; dealId?: string },
     file: { buffer: Buffer; mimeType: string; name: string },
-  ) {
+  ): Promise<{ system: string; messages: Anthropic.MessageParam[] }> {
     const agent = findAgent(agentKey);
     if (!agent) throw new NotFoundException('Agent inconnu');
 
@@ -135,23 +144,23 @@ export class AgentsService {
     const messages: Anthropic.MessageParam[] = dto.history.map((m) => ({ role: m.role, content: m.content }));
     messages.push({ role: 'user', content: [built.block, { type: 'text', text: dto.message }] });
 
-    return this.runChat(agent, system, messages);
+    return { system, messages };
   }
 
-  private async runChat(agent: AgentDefinition, system: string, messages: Anthropic.MessageParam[]) {
-    const response = await this.client!.messages.create({
+  /** Pure generation — yields text deltas as Claude produces them. Call only after prepareChat(WithFile) has validated the request. */
+  async *streamText(system: string, messages: Anthropic.MessageParam[]): AsyncGenerator<string> {
+    const stream = this.client!.messages.stream({
       model: this.config.get<string>('ai.anthropicModel')!,
       max_tokens: 4096,
       system,
       messages,
     });
 
-    const textBlock = response.content.find((block) => block.type === 'text');
-    return {
-      agent: agent.key,
-      message: textBlock && 'text' in textBlock ? textBlock.text : '',
-      usage: response.usage,
-    };
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        yield event.delta.text;
+      }
+    }
   }
 
   async extractFinancials(organizationId: string, dealId: string, documentId: string) {
