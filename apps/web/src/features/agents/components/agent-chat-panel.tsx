@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { useDocuments } from '@/features/dossiers/hooks/use-documents';
 import { isDocumentReadableByAgent } from '@/lib/document-support';
 import { ChatMarkdown } from '@/components/chat-markdown';
+import { useAgentMessages } from '../hooks/use-agents';
 import type { AgentInfo, ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +30,11 @@ interface AgentChatPanelProps {
 
 export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  // Every analysis (and every Devil's Advocate challenge) run against a
+  // dossier is recorded server-side — load it once so it survives a
+  // navigation/refresh instead of only living in this component's state.
+  const { data: history, isLoading: isLoadingHistory } = useAgentMessages(dealId);
+  const hydratedRef = useRef(false);
   const [input, setInput] = useState('');
   const [attachedDocumentId, setAttachedDocumentId] = useState<string | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -51,6 +57,18 @@ export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelPr
   const readableDocuments = dealId ? documents.filter(isDocumentReadableByAgent) : [];
   const attachedDocument = documents.find((d) => d.id === attachedDocumentId);
   const sending = isSending || isChallenging;
+
+  // Hydrate from server history exactly once per dossier — a second fetch
+  // (refetch on window focus, etc.) must not clobber messages the user is
+  // actively composing/streaming in this tab.
+  useEffect(() => {
+    hydratedRef.current = false;
+  }, [dealId]);
+  useEffect(() => {
+    if (!history || hydratedRef.current) return;
+    hydratedRef.current = true;
+    if (history.length > 0) setMessages(history);
+  }, [history]);
 
   const clearAttachment = () => {
     setAttachedDocumentId(null);
@@ -161,7 +179,12 @@ export function AgentChatPanel({ agent, dealId, quickActions }: AgentChatPanelPr
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
         <div ref={messageListRef} className="flex min-h-48 flex-1 flex-col gap-3 overflow-y-auto rounded-md border border-border bg-secondary/30 p-3">
-          {messages.length === 0 && !error && (
+          {dealId && isLoadingHistory && messages.length === 0 && (
+            <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Chargement de l'historique…
+            </div>
+          )}
+          {!(dealId && isLoadingHistory) && messages.length === 0 && !error && (
             <p className="py-6 text-center text-xs text-muted-foreground">
               Posez une question à l'agent {agent.name}
               {dealId ? ' à propos de ce dossier' : ''}. Vous pouvez joindre un PDF ou Excel (business plan, comptes…) à

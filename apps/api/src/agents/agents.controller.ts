@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -23,14 +24,19 @@ import { ChatWithFileDto } from './dto/chat-with-file.dto';
 // trailing {"done": true}, or {"error": "..."} if generation fails midway
 // (validation errors happen before this runs — see AgentsService.prepareChat
 // — and go through Nest's normal exception filters with a proper status).
-async function streamDeltas(res: Response, deltas: AsyncGenerator<string>): Promise<void> {
+async function streamDeltas(res: Response, deltas: AsyncGenerator<string>, onComplete?: (fullText: string) => Promise<void>): Promise<void> {
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');
+  let full = '';
   try {
     for await (const delta of deltas) {
+      full += delta;
       res.write(JSON.stringify({ delta }) + '\n');
     }
     res.write(JSON.stringify({ done: true }) + '\n');
+    // Only persisted once generation succeeds in full — a mid-stream error
+    // below means `full` is a garbled partial reply, not worth remembering.
+    if (onComplete) await onComplete(full);
   } catch (err) {
     res.write(JSON.stringify({ error: err instanceof Error ? err.message : 'Erreur pendant la génération.' }) + '\n');
   } finally {
@@ -50,10 +56,33 @@ export class AgentsController {
     return this.agentsService.listAgents();
   }
 
+  // The whole Assistant IA thread for a dossier — every agent persona's
+  // replies and the Devil's Advocate's, in send order — as rendered by a
+  // single AgentChatPanel (switching the agent dropdown doesn't split it
+  // into separate threads client-side, so history isn't split either).
+  @Get('messages')
+  history(@CurrentUser() user: AuthenticatedUser, @Query('dealId') dealId?: string) {
+    if (!dealId) throw new BadRequestException('dealId requis');
+    return this.agentsService.loadAgentMessages(user.organizationId, dealId);
+  }
+
   @Post(':key/chat')
   async chat(@CurrentUser() user: AuthenticatedUser, @Param('key') key: string, @Body() dto: ChatDto, @Res() res: Response) {
     const { system, messages } = await this.agentsService.prepareChat(user.organizationId, key, dto);
-    await streamDeltas(res, this.agentsService.streamText(system, messages));
+
+    const dealId = dto.dealId;
+    if (dealId) {
+      const lastMessage = dto.messages[dto.messages.length - 1];
+      if (lastMessage?.role === 'user') {
+        await this.agentsService.recordAgentMessage(user.organizationId, user.id, dealId, key, 'user', lastMessage.content);
+      }
+    }
+
+    await streamDeltas(
+      res,
+      this.agentsService.streamText(system, messages),
+      dealId ? (full) => this.agentsService.recordAgentMessage(user.organizationId, user.id, dealId, key, 'assistant', full) : undefined,
+    );
   }
 
   @Post(':key/chat-with-file')
@@ -88,7 +117,18 @@ export class AgentsController {
       { history, message: dto.message, dealId: dto.dealId },
       { buffer: file.buffer, mimeType: file.mimetype, name: file.originalname },
     );
-    await streamDeltas(res, this.agentsService.streamText(system, messages));
+
+    const dealId = dto.dealId;
+    if (dealId) {
+      const userTurn = `${dto.message}\n\n[Pièce jointe : ${file.originalname}]`;
+      await this.agentsService.recordAgentMessage(user.organizationId, user.id, dealId, key, 'user', userTurn);
+    }
+
+    await streamDeltas(
+      res,
+      this.agentsService.streamText(system, messages),
+      dealId ? (full) => this.agentsService.recordAgentMessage(user.organizationId, user.id, dealId, key, 'assistant', full) : undefined,
+    );
   }
 }
 

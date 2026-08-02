@@ -163,6 +163,42 @@ export class AgentsService {
     }
   }
 
+  /**
+   * Loads the full Assistant IA conversation for a deal — every agent's
+   * replies and the Devil's Advocate's, interleaved in send order, exactly
+   * as the frontend renders them in a single thread per dossier.
+   */
+  async loadAgentMessages(organizationId: string, dealId: string) {
+    const deal = await this.prisma.deal.findFirst({ where: { id: dealId, organizationId }, select: { id: true } });
+    if (!deal) throw new NotFoundException('Dossier introuvable');
+
+    const rows = await this.prisma.agentMessage.findMany({ where: { dealId }, orderBy: { createdAt: 'asc' } });
+    return rows.map((r) => ({
+      role: r.role as 'user' | 'assistant',
+      content: r.content,
+      source: r.agentKey === 'devil' ? ('devil' as const) : undefined,
+    }));
+  }
+
+  /**
+   * Persists one turn of the Assistant IA conversation. Silently a no-op if
+   * dealId doesn't resolve within the caller's organization — chat still
+   * works for a deal the user can't see, it just won't be remembered.
+   */
+  async recordAgentMessage(
+    organizationId: string,
+    userId: string,
+    dealId: string,
+    agentKey: string,
+    role: 'user' | 'assistant',
+    content: string,
+  ): Promise<void> {
+    if (!content) return;
+    const deal = await this.prisma.deal.findFirst({ where: { id: dealId, organizationId }, select: { id: true } });
+    if (!deal) return;
+    await this.prisma.agentMessage.create({ data: { dealId, agentKey, role, content, createdById: userId } });
+  }
+
   async extractFinancials(organizationId: string, dealId: string, documentId: string) {
     if (!this.client) {
       throw new ServiceUnavailableException(

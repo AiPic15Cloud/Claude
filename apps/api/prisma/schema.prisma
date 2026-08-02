@@ -153,18 +153,18 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users          User[]
-  deals          Deal[]
-  tags           Tag[]
-  alerts         Alert[]
-  graphEntities  GraphEntity[]
-  graphRelations GraphRelation[]
-  newsSources    NewsSource[]
-  articles       Article[]
-  feesTargets    FeesTarget[]
-  pipelineEntries PipelineEntry[]
+  users              User[]
+  deals              Deal[]
+  tags               Tag[]
+  alerts             Alert[]
+  graphEntities      GraphEntity[]
+  graphRelations     GraphRelation[]
+  newsSources        NewsSource[]
+  articles           Article[]
+  feesTargets        FeesTarget[]
+  pipelineEntries    PipelineEntry[]
   competitorProjects CompetitorProject[]
-  tasks          Task[]
+  tasks              Task[]
 
   @@map("organizations")
 }
@@ -201,18 +201,19 @@ model User {
   twoFactorSecret        String?
   twoFactorRecoveryCodes String[] @default([])
 
-  createdDeals  Deal[]         @relation("DealCreatedBy")
-  assignedDeals Deal[]         @relation("DealAssignedTo")
-  notes         Note[]
-  documents     Document[]
-  repayments    Repayment[]
-  pipelineEntries PipelineEntry[]
-  tasksAssigned Task[]         @relation("TaskAssignee")
-  tasksCreated  Task[]         @relation("TaskCreatedBy")
-  activities    Activity[]
-  refreshTokens RefreshToken[]
-  competitorProjectsLogged CompetitorProject[]
+  createdDeals               Deal[]              @relation("DealCreatedBy")
+  assignedDeals              Deal[]              @relation("DealAssignedTo")
+  notes                      Note[]
+  documents                  Document[]
+  repayments                 Repayment[]
+  pipelineEntries            PipelineEntry[]
+  tasksAssigned              Task[]              @relation("TaskAssignee")
+  tasksCreated               Task[]              @relation("TaskCreatedBy")
+  activities                 Activity[]
+  refreshTokens              RefreshToken[]
+  competitorProjectsLogged   CompetitorProject[]
   projectCheckpointsRecorded ProjectCheckpoint[]
+  agentMessages              AgentMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -292,9 +293,9 @@ model Deal {
   // Deadline tracking (échéance de vote) — dateMax drives the J-90/J-60/J-30/J-15
   // escalation process; dateMin/dateCible are informational targets either
   // side of it.
-  dateMin    DateTime?
-  dateCible  DateTime?
-  dateMax    DateTime?
+  dateMin   DateTime?
+  dateCible DateTime?
+  dateMax   DateTime?
 
   // repaid suppresses deadline-alert escalation entirely (a fully repaid
   // deal shouldn't keep raising "échéance dépassée" once it's settled).
@@ -306,8 +307,8 @@ model Deal {
   // Investor newsletter follow-up — lastNewsletterDate resets the countdown;
   // status (À jour / À relancer / Critique) is derived from the elapsed days
   // vs. newsletterTargetDays, not stored.
-  lastNewsletterDate  DateTime?
-  newsletterTargetDays Int      @default(45)
+  lastNewsletterDate   DateTime?
+  newsletterTargetDays Int       @default(45)
 
   // Porteur de projet (recipient of relance/mise en demeure correspondence)
   // — distinct from the property's own address above, which is the asset's
@@ -321,18 +322,19 @@ model Deal {
   assignedToId String?
   assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
 
-  tags                DealTag[]
-  notes               Note[]
-  documents           Document[]
-  tasks               Task[]
-  activities          Activity[]
-  alerts              Alert[]
-  guarantees          Guarantee[]
-  financialAssumption FinancialAssumption?
-  entityLinks         DealEntityLink[]
-  repayments          Repayment[]
-  convertedFromPipelineEntry PipelineEntry? @relation("PipelineConvertedDeal")
-  checkpoints         ProjectCheckpoint[]
+  tags                       DealTag[]
+  notes                      Note[]
+  documents                  Document[]
+  tasks                      Task[]
+  activities                 Activity[]
+  alerts                     Alert[]
+  guarantees                 Guarantee[]
+  financialAssumption        FinancialAssumption?
+  entityLinks                DealEntityLink[]
+  repayments                 Repayment[]
+  convertedFromPipelineEntry PipelineEntry?       @relation("PipelineConvertedDeal")
+  checkpoints                ProjectCheckpoint[]
+  agentMessages              AgentMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -377,19 +379,19 @@ model PipelineEntry {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  date       DateTime
-  operator   String
-  typology   String?
-  source     String?
-  amount     Decimal          @db.Decimal(14, 2)
-  margin     Decimal?         @db.Decimal(5, 2)
+  date      DateTime
+  operator  String
+  typology  String?
+  source    String?
+  amount    Decimal         @db.Decimal(14, 2)
+  margin    Decimal?        @db.Decimal(5, 2)
   // ATLAS's own fee rate (%) negotiated on this dossier — distinct from
   // `margin`, which is the underlying deal's profitability. Feeds the fees
   // projection (below) per-dossier instead of falling back to the
   // portfolio-wide average feesRate for every pipeline entry alike.
-  feesRate   Decimal?         @db.Decimal(5, 2)
-  committee  CommitteeStatus  @default(PAS_DE_COMITE)
-  decision   String?
+  feesRate  Decimal?        @db.Decimal(5, 2)
+  committee CommitteeStatus @default(PAS_DE_COMITE)
+  decision  String?
 
   // Set once this dossier has actually been turned into a live operation —
   // the one-way link that lets the pipeline's conversion KPIs (and the fees
@@ -437,7 +439,7 @@ model Note {
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   authorId String
-  author   User   @relation(fields: [authorId], references: [id])
+  author   User        @relation(fields: [authorId], references: [id])
   content  String
   images   NoteImage[]
 
@@ -492,6 +494,31 @@ model ProjectCheckpoint {
 
   @@index([dealId])
   @@map("project_checkpoints")
+}
+
+// One row per turn of an Assistant IA conversation on a deal — including the
+// Devil's Advocate replies (agentKey "devil"), so both the agents' analyses
+// and the contradictory review survive navigation/reload instead of living
+// only in the browser tab's React state, and keep feeding the dossier's
+// analysis over time instead of being re-derived from scratch each session.
+model AgentMessage {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  /// Which agent persona produced (or received, for a user turn) this
+  /// message — e.g. "analyst", "legal", "devil".
+  agentKey String
+  role     String
+  content  String @db.Text
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("agent_messages")
 }
 
 model Document {
@@ -652,10 +679,10 @@ model GraphEntity {
   email       String?
   phone       String?
 
-  dealLinks     DealEntityLink[]
-  relationsFrom GraphRelation[]     @relation("RelationFrom")
-  relationsTo   GraphRelation[]     @relation("RelationTo")
-  articles      ArticleEntityLink[]
+  dealLinks          DealEntityLink[]
+  relationsFrom      GraphRelation[]     @relation("RelationFrom")
+  relationsTo        GraphRelation[]     @relation("RelationTo")
+  articles           ArticleEntityLink[]
   competitorProjects CompetitorProject[]
 
   createdAt DateTime @default(now())
