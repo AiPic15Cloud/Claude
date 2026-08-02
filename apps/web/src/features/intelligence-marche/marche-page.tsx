@@ -16,6 +16,7 @@ import { CreateArticleDialog } from './components/create-article-dialog';
 import { IndicatorsStrip } from './components/indicators-strip';
 import { RateHistoryChart } from './components/rate-history-chart';
 import { MarketDigestCard } from './components/market-digest-card';
+import { SourcesPanel } from './components/sources-panel';
 import { useArticles, useCollectAll } from './hooks/use-market-intelligence';
 import { ARTICLE_CATEGORY_LABELS, type ArticleCategory, type Priority } from '@/types';
 import { cn } from '@/lib/utils';
@@ -56,6 +57,8 @@ export function MarchePage() {
       <RateHistoryChart />
 
       <MarketDigestCard />
+
+      <SourcesPanel />
 
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
