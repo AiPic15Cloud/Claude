@@ -677,6 +677,10 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface AgentHistoryMessage extends ChatMessage {
+  source?: 'devil';
+}
+
 // Mirrors the Fiche Produit section of the audit classeur — see
 // apps/api/src/agents/agents.service.ts FinancialExtractionSchema.
 export interface FinancialExtraction {
