@@ -425,6 +425,15 @@ export interface RepaymentsSummary {
   totalProjected: number;
 }
 
+export interface RepaymentWithDeal {
+  id: string;
+  amount: string;
+  date: string;
+  projected: boolean;
+  note?: string | null;
+  deal: { id: string; name: string; reference: string };
+}
+
 export interface FinancialAssumption {
   surfaceSqm: number;
   constructionCostPerSqm: number;

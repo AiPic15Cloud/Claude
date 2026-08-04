@@ -54,6 +54,28 @@ export class RepaymentsService {
     await this.prisma.repayment.delete({ where: { id: repaymentId } });
   }
 
+  /**
+   * Every repayment for the organization in one year, with the deal it
+   * belongs to — the detailed ledger behind the monthly summary chart, so
+   * a month can be read down to "which project, how much, real or
+   * projected" instead of just its total.
+   */
+  async listForOrganization(organizationId: string, year: number) {
+    const repayments = await this.prisma.repayment.findMany({
+      where: { deal: { organizationId }, date: { gte: new Date(`${year}-01-01`), lt: new Date(`${year + 1}-01-01`) } },
+      include: { deal: { select: { id: true, name: true, reference: true } } },
+      orderBy: { date: 'desc' },
+    });
+    return repayments.map((r) => ({
+      id: r.id,
+      amount: r.amount,
+      date: r.date,
+      projected: r.projected,
+      note: r.note,
+      deal: r.deal,
+    }));
+  }
+
   /** Monthly actual vs. projected repayments for the organization, for one year. */
   async summary(organizationId: string, year: number) {
     const repayments = await this.prisma.repayment.findMany({

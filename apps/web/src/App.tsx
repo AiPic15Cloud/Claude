@@ -7,6 +7,7 @@ import { CockpitPage } from '@/features/cockpit/cockpit-page';
 import { PortfolioPage } from '@/features/portfolio/portfolio-page';
 import { PipelinePage } from '@/features/pipeline/pipeline-page';
 import { ObjectifsPage } from '@/features/objectifs/objectifs-page';
+import { RemboursementsPage } from '@/features/remboursements/remboursements-page';
 import { DossierPage } from '@/features/dossiers/dossier-page';
 import { CartographiePage } from '@/features/cartographie/cartographie-page';
 import { PlatformsPage } from '@/features/intelligence-concurrentielle/platforms-page';
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/portfolio" element={<PortfolioPage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
           <Route path="/objectifs" element={<ObjectifsPage />} />
+          <Route path="/remboursements" element={<RemboursementsPage />} />
           <Route path="/deals" element={<Navigate to="/portfolio" replace />} />
           <Route path="/deals/:id" element={<DossierPage />} />
           <Route path="/graph" element={<GraphPage />} />
