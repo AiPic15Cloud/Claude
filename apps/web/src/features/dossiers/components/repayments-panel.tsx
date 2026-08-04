@@ -87,7 +87,7 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="amount">Montant (€)</Label>
-                  <Input id="amount" type="number" min={0} step={100} {...register('amount')} />
+                  <Input id="amount" type="number" min={0} step={0.01} {...register('amount')} />
                   {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
