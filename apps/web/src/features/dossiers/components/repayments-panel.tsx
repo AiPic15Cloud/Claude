@@ -14,8 +14,21 @@ import { useRepayments, useCreateRepayment, useUpdateRepayment, useDeleteRepayme
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Repayment } from '@/types';
 
+// A native <input type="number"> parses "." as the decimal separator only
+// under an English locale — under a French browser/OS locale it expects
+// "," and silently rejects "." keystrokes, so typing "240096.61" stops
+// dead at "240096". Using a plain text field with our own parsing sidesteps
+// that entirely: both "," and "." (plus any thousands spacing) are accepted.
+function parseAmount(raw: string): number {
+  return Number(raw.trim().replace(/[\s  ]/g, '').replace(',', '.'));
+}
+
 const schema = z.object({
-  amount: z.coerce.number().positive('Montant requis'),
+  amount: z
+    .string()
+    .min(1, 'Montant requis')
+    .refine((v) => Number.isFinite(parseAmount(v)), 'Montant invalide')
+    .refine((v) => parseAmount(v) > 0, 'Montant requis'),
   date: z.string().min(1, 'Date requise'),
   projected: z.boolean().optional(),
   note: z.string().optional(),
@@ -41,9 +54,9 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
   useEffect(() => {
     if (!open) return;
     if (editing) {
-      reset({ amount: Number(editing.amount), date: editing.date.slice(0, 10), projected: editing.projected, note: editing.note ?? '' });
+      reset({ amount: editing.amount, date: editing.date.slice(0, 10), projected: editing.projected, note: editing.note ?? '' });
     } else {
-      reset({ amount: undefined, date: '', projected: false, note: '' });
+      reset({ amount: '', date: '', projected: false, note: '' });
     }
   }, [open, editing, reset]);
 
@@ -51,10 +64,11 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
   const openEdit = (r: Repayment) => { setEditing(r); setOpen(true); };
 
   const onSubmit = (values: FormValues) => {
+    const payload = { ...values, amount: parseAmount(values.amount) };
     if (editing) {
-      updateRepayment.mutate({ id: editing.id, ...values }, { onSuccess: () => setOpen(false) });
+      updateRepayment.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) });
     } else {
-      createRepayment.mutate(values, { onSuccess: () => setOpen(false) });
+      createRepayment.mutate(payload, { onSuccess: () => setOpen(false) });
     }
   };
 
@@ -87,7 +101,7 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="amount">Montant (€)</Label>
-                  <Input id="amount" type="number" min={0} step={0.01} {...register('amount')} />
+                  <Input id="amount" type="text" inputMode="decimal" placeholder="0,00" {...register('amount')} />
                   {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
