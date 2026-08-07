@@ -8,14 +8,17 @@ interface KpiCardProps {
   icon: LucideIcon;
   hint?: string;
   trend?: 'up' | 'down' | 'neutral';
-  /** Renders as the larger, gold-filled bento tile — reserve for the most important metrics in the row. The
-   * accent is spent in one place only: every hero tile shares the same gold fill rather than a different hue each. */
+  /** Renders as the larger, gradient-filled bento tile — reserve for the most important metrics in the row. The
+   * accent is spent in one place only: every hero tile shares the same primary→chart-3 diagonal gradient rather
+   * than a different hue each. chart-3 (blue) was picked over success/warning specifically because
+   * primary-foreground text stays comfortably AA-legible against it in both themes — checked against the real
+   * contrast formula, not eyeballed (worst case is dark mode's near-black text on chart-3, ~5:1). */
   hero?: boolean;
 }
 
 export function KpiCard({ label, value, icon: Icon, hint, trend, hero }: KpiCardProps) {
   return (
-    <Card className={cn(hero && 'border-transparent bg-primary text-primary-foreground lg:col-span-2')}>
+    <Card className={cn(hero && 'border-transparent bg-gradient-to-br from-primary to-chart-3 text-primary-foreground lg:col-span-2')}>
       <CardContent className={cn('flex items-start justify-between gap-3 p-4', hero && 'p-5')}>
         <div className="flex flex-col gap-1.5">
           <span className={cn('text-[10px] font-semibold uppercase tracking-wider', hero ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
