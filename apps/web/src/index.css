@@ -10,17 +10,20 @@
 
 @layer base {
   /*
-   * "Onyx & Or" — warm near-black onyx in dark, warm ivory in light, a
-   * single brass/gold accent running through both. The gold used for chart
-   * series (--chart-accent) is a slightly deeper, more saturated step than
-   * the UI --primary gold: the softer brass reads well as a button or a
-   * hero fill, but fails the categorical CVD/chroma gates from the dataviz
-   * skill's validator when it has to stand next to 3 sibling hues — the
-   * chart set (gold/wine/blue/teal) was chosen and ordered with
-   * scripts/validate_palette.js against this file's own surfaces, in both
-   * modes. Status colors (success/warning/destructive) stay out of that
-   * set, and warning is pushed toward orange specifically so it never
-   * reads as "the gold accent" at a glance.
+   * Dark-green "crypto dashboard" identity — near-black onyx surfaces (a
+   * neutral-cool hue-150 base, not warm) with a single vivid lime accent
+   * (hue 84) running through primary/chart-accent/ring. --success is
+   * deliberately a *different* green (hue 160, teal-emerald) so status
+   * green never gets mistaken for the brand accent; --warning stays
+   * amber/orange (hue 38) for a third, unambiguous hue. The light theme
+   * keeps its existing warm-ivory neutrals (untouched) but shifts the
+   * colored tokens to hue 108 rather than 84 — pure lime desaturates into
+   * a muddy olive at the lower lightness a light background demands, and
+   * nudging the hue greener keeps it reading as "green" instead. Every
+   * pairing below (foreground/background, X-foreground/X) was checked
+   * against the real sRGB relative-luminance contrast formula, not eyeballed:
+   * dark foreground/background 15.7:1, dark primary-foreground/primary
+   * 11.4:1, light primary-foreground/primary 5.3:1 — all AA or better.
    */
   :root {
     --background: 46 37% 93%;
@@ -32,7 +35,7 @@
     --popover: 45 67% 98%;
     --popover-foreground: 39 26% 11%;
 
-    --primary: 39 50% 36%;
+    --primary: 108 60% 30%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 44 38% 87%;
@@ -44,74 +47,74 @@
     --accent: 45 39% 84%;
     --accent-foreground: 39 26% 11%;
 
-    --destructive: 8 65% 42%;
+    --destructive: 5 70% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 145 55% 32%;
+    --success: 160 70% 28%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 42 80% 42%;
-    --warning-foreground: 35 50% 9%;
+    --warning: 38 85% 30%;
+    --warning-foreground: 0 0% 100%;
 
     --border: 44 40% 81%;
     --input: 44 40% 81%;
-    --ring: 39 50% 36%;
+    --ring: 108 60% 30%;
 
     --sidebar: 44 41% 87%;
     --sidebar-foreground: 39 26% 20%;
     --sidebar-border: 44 40% 81%;
 
-    --chart-accent: 41 66% 35%;
-    --chart-2: 344 39% 39%;
-    --chart-3: 228 49% 48%;
-    --chart-4: 163 88% 27%;
+    --chart-accent: 106 60% 32%;
+    --chart-2: 344 50% 40%;
+    --chart-3: 228 55% 46%;
+    --chart-4: 166 75% 30%;
 
-    --radius: 0.85rem;
+    --radius: 1rem;
   }
 
   .dark {
-    --background: 40 18% 7%;
-    --foreground: 43 39% 91%;
+    --background: 150 8% 7%;
+    --foreground: 60 5% 92%;
 
-    --card: 40 18% 10%;
-    --card-foreground: 43 39% 91%;
+    --card: 150 8% 10%;
+    --card-foreground: 60 5% 92%;
 
-    --popover: 40 18% 10%;
-    --popover-foreground: 43 39% 91%;
+    --popover: 150 8% 10%;
+    --popover-foreground: 60 5% 92%;
 
-    --primary: 39 48% 57%;
-    --primary-foreground: 42 28% 7%;
+    --primary: 84 75% 55%;
+    --primary-foreground: 140 30% 8%;
 
-    --secondary: 42 25% 13%;
-    --secondary-foreground: 43 39% 91%;
+    --secondary: 150 8% 13%;
+    --secondary-foreground: 60 5% 92%;
 
-    --muted: 37 22% 12%;
-    --muted-foreground: 39 12% 56%;
+    --muted: 150 6% 12%;
+    --muted-foreground: 150 6% 62%;
 
-    --accent: 42 25% 13%;
-    --accent-foreground: 43 39% 91%;
+    --accent: 150 8% 13%;
+    --accent-foreground: 60 5% 92%;
 
-    --destructive: 8 75% 52%;
-    --destructive-foreground: 30 56% 94%;
+    --destructive: 5 75% 55%;
+    --destructive-foreground: 20 45% 93%;
 
-    --success: 145 60% 45%;
-    --success-foreground: 40 18% 7%;
+    --success: 160 60% 45%;
+    --success-foreground: 150 30% 8%;
 
-    --warning: 48 85% 55%;
+    --warning: 38 90% 55%;
     --warning-foreground: 35 62% 8%;
 
-    --chart-accent: 39 49% 44%;
-    --chart-2: 348 41% 51%;
-    --chart-3: 228 60% 60%;
-    --chart-4: 166 86% 33%;
+    --chart-accent: 84 70% 50%;
+    --chart-2: 344 55% 58%;
+    --chart-3: 228 60% 64%;
+    --chart-4: 166 70% 48%;
 
-    --border: 42 16% 15%;
-    --input: 42 16% 15%;
-    --ring: 39 48% 57%;
+    --border: 150 8% 16%;
+    --input: 150 8% 16%;
+    --ring: 84 75% 55%;
 
-    --sidebar: 36 20% 5%;
-    --sidebar-foreground: 44 33% 84%;
-    --sidebar-border: 42 16% 15%;
+    --sidebar: 150 10% 5%;
+    --sidebar-foreground: 60 5% 84%;
+    --sidebar-border: 150 8% 16%;
   }
 
   * {
