@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { PeriodStepper } from '@/components/ui/period-stepper';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
@@ -81,14 +81,12 @@ export function RemboursementsPage() {
         title={`Remboursements ${year}`}
         description="Détail mois par mois des remboursements réalisés et projetés, avec les projets concernés."
         actions={
-          <>
-            <Button variant="ghost" size="sm" onClick={() => setYear((y) => y - 1)}>
-              ← {year - 1}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setYear((y) => y + 1)} disabled={year >= currentYear}>
-              {year + 1} →
-            </Button>
-          </>
+          <PeriodStepper
+            label={year}
+            onPrev={() => setYear((y) => y - 1)}
+            onNext={() => setYear((y) => y + 1)}
+            nextDisabled={year >= currentYear}
+          />
         }
       />
 

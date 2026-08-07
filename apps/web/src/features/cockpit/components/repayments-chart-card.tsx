@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { PeriodStepper } from '@/components/ui/period-stepper';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepaymentsSummary } from '../hooks/use-repayments-summary';
 import { formatCurrency } from '@/lib/format';
@@ -20,20 +20,14 @@ export function RepaymentsChartCard() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div>
           <CardTitle>Remboursements</CardTitle>
-          <div className="mt-1 flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => setYear((y) => y - 1)}>
-              ←
-            </Button>
-            <span className="text-xs font-medium text-muted-foreground">{year}</span>
-            <Button
-              variant="ghost"
+          <div className="mt-1">
+            <PeriodStepper
               size="sm"
-              className="h-6 px-1.5 text-xs"
-              onClick={() => setYear((y) => y + 1)}
-              disabled={year > currentYear}
-            >
-              →
-            </Button>
+              label={year}
+              onPrev={() => setYear((y) => y - 1)}
+              onNext={() => setYear((y) => y + 1)}
+              nextDisabled={year > currentYear}
+            />
           </div>
         </div>
       </CardHeader>
