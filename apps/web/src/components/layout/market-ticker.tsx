@@ -40,6 +40,16 @@ export function MarketTicker() {
               changePct={data.cac40.changePct}
             />
           )}
+          {data.btcEur.value !== null ? (
+            <TickerItem
+              label="BTC/EUR"
+              value={data.btcEur.value.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
+              changePct={data.btcEur.changePct}
+            />
+          ) : (
+            <TickerItem label="BTC/EUR" value="indisponible" />
+          )}
+          {data.fr10y.value !== null && <TickerItem label="FR Taux 10 ans" value={`${data.fr10y.value.toFixed(2)}%`} />}
           <TickerItem label="Atlas Capital · Encours" value={formatCurrency(data.aum.value)} />
           <TickerItem label="Atlas Capital · Opérations actives" value={String(data.activeDeals.value)} />
         </>

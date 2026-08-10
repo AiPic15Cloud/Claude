@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { MarketIndicatorsService } from '../intelligence-marche/indicators.service';
 
 interface CachedFx {
   value: number;
@@ -17,6 +18,9 @@ interface CachedIndex {
 const FX_CACHE_TTL_MS = 5 * 60 * 1000;
 const FX_URL = 'https://api.frankfurter.app/latest?from=EUR&to=USD';
 const FX_YESTERDAY_URL = (date: string) => `https://api.frankfurter.app/${date}?from=EUR&to=USD`;
+
+const BTC_CACHE_TTL_MS = 5 * 60 * 1000;
+const BTC_URL = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur&include_24hr_change=true';
 
 const INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 // Twelve Data's exact symbol for the CAC 40 hasn't been verified against the
@@ -37,11 +41,32 @@ export class MarketTickerService {
   private readonly logger = new Logger(MarketTickerService.name);
   private fxCache: CachedFx | null = null;
   private cac40Cache: CachedIndex | null = null;
+  private btcCache: CachedFx | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly marketIndicators: MarketIndicatorsService,
   ) {}
+
+  /** Bitcoin/EUR — CoinGecko's public price endpoint, free, no key required. */
+  private async fetchBtc(): Promise<CachedFx | null> {
+    if (this.btcCache && Date.now() - this.btcCache.fetchedAt < BTC_CACHE_TTL_MS) {
+      return this.btcCache;
+    }
+    try {
+      const res = await fetch(BTC_URL, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { bitcoin?: { eur: number; eur_24h_change: number } };
+      if (data.bitcoin?.eur === undefined) throw new Error('unexpected response shape');
+
+      this.btcCache = { value: data.bitcoin.eur, changePct: data.bitcoin.eur_24h_change ?? null, fetchedAt: Date.now() };
+      return this.btcCache;
+    } catch (error) {
+      this.logger.warn(`BTC/EUR fetch failed: ${(error as Error).message}`);
+      return this.btcCache; // serve last known value if we have one, else null
+    }
+  }
 
   private async fetchFx(): Promise<CachedFx | null> {
     if (this.fxCache && Date.now() - this.fxCache.fetchedAt < FX_CACHE_TTL_MS) {
@@ -111,9 +136,11 @@ export class MarketTickerService {
   }
 
   async summary(organizationId: string) {
-    const [fx, cac40, aumAgg, activeCount] = await Promise.all([
+    const [fx, cac40, btc, indicators, aumAgg, activeCount] = await Promise.all([
       this.fetchFx(),
       this.fetchCac40(),
+      this.fetchBtc(),
+      this.marketIndicators.summary(),
       this.prisma.deal.aggregate({
         where: { organizationId, status: 'ACTIVE' },
         _sum: { amountRaised: true },
@@ -126,6 +153,14 @@ export class MarketTickerService {
       cac40: cac40
         ? { value: cac40.value, changePct: cac40.changePct, degraded: false }
         : { value: null, changePct: null, degraded: true },
+      btcEur: btc ? { value: btc.value, changePct: btc.changePct, degraded: false } : { value: null, changePct: null, degraded: true },
+      // Eurostat's OAT 10Y series is monthly (irt_lt_mcby_m), not intraday —
+      // shown without a change badge on purpose, so it never reads as a
+      // live daily delta the way eurUsd/cac40/btcEur's changePct do.
+      fr10y:
+        indicators.oat10y.value !== null
+          ? { value: indicators.oat10y.value, period: indicators.oat10y.period, degraded: false }
+          : { value: null, period: null, degraded: true },
       aum: { value: Number(aumAgg._sum.amountRaised ?? 0) },
       activeDeals: { value: activeCount },
       asOf: new Date().toISOString(),
