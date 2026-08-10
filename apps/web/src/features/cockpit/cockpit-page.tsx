@@ -11,6 +11,8 @@ import { AutoSummaryCard } from './components/auto-summary-card';
 import { DeadlineAlertsCard } from './components/deadline-alerts-card';
 import { FeesChartCard } from './components/fees-chart-card';
 import { RepaymentsChartCard } from './components/repayments-chart-card';
+import { PipelineFunnelCard } from './components/pipeline-funnel-card';
+import { DealTypeDonutCard } from './components/deal-type-donut-card';
 import { MarketNewsCard } from './components/market-news-card';
 import { MarketDigestCard } from '@/features/intelligence-marche/components/market-digest-card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,6 +96,11 @@ export function CockpitPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <FeesChartCard />
         <RepaymentsChartCard />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PipelineFunnelCard />
+        <DealTypeDonutCard />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">

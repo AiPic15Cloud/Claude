@@ -17,7 +17,7 @@ export function PipelineChart({ pipeline }: PipelineChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pipeline</CardTitle>
+        <CardTitle>Répartition par étape</CardTitle>
       </CardHeader>
       <CardContent className="h-64 pl-0">
         <ResponsiveContainer width="100%" height="100%">
