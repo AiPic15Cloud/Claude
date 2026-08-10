@@ -26,6 +26,6 @@ import { SearchModule } from '../search/search.module';
     ManualConnector,
   ],
   controllers: [IntelligenceMarcheController],
-  exports: [IntelligenceMarcheService],
+  exports: [IntelligenceMarcheService, MarketIndicatorsService],
 })
 export class IntelligenceMarcheModule {}
