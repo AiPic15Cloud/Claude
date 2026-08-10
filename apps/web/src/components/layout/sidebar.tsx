@@ -38,7 +38,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
                   cn(
                     'flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-sidebar-foreground/10 text-sidebar-foreground [&_svg]:text-primary'
+                      ? 'bg-sidebar-foreground/10 text-sidebar-foreground [&_svg]:text-sidebar-accent'
                       : 'text-sidebar-foreground/70 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
                     !item.available && 'opacity-60',
                   )

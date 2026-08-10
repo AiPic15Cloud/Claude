@@ -10,111 +10,119 @@
 
 @layer base {
   /*
-   * Dark-green "crypto dashboard" identity — near-black onyx surfaces (a
-   * neutral-cool hue-150 base, not warm) with a single vivid lime accent
-   * (hue 84) running through primary/chart-accent/ring. --success is
-   * deliberately a *different* green (hue 160, teal-emerald) so status
-   * green never gets mistaken for the brand accent; --warning stays
-   * amber/orange (hue 38) for a third, unambiguous hue. The light theme
-   * keeps its existing warm-ivory neutrals (untouched) but shifts the
-   * colored tokens to hue 108 rather than 84 — pure lime desaturates into
-   * a muddy olive at the lower lightness a light background demands, and
-   * nudging the hue greener keeps it reading as "green" instead. Every
-   * pairing below (foreground/background, X-foreground/X) was checked
-   * against the real sRGB relative-luminance contrast formula, not eyeballed:
-   * dark foreground/background 15.7:1, dark primary-foreground/primary
-   * 11.4:1, light primary-foreground/primary 5.3:1 — all AA or better.
+   * "Navy dashboard" identity — light theme is white cards on a cool
+   * blue-gray page with a deep navy primary (hue 230); dark theme swaps to
+   * a near-black indigo base (hue 240) with a bright indigo primary (hue
+   * 235) and a five-stop cyan→blue→violet→magenta→rose chart spectrum
+   * (185°/222°/260°/297°/335°, evenly spaced ~35-38° apart) used both as
+   * flat categorical fills and, in dark mode only, as adjacent-token
+   * gradients (see PipelineFunnelCard) — light mode stays flat-color per
+   * the reference, gradients are a dark-mode-only motif. The sidebar is
+   * deliberately NOT part of the light/dark split: --sidebar* and
+   * --sidebar-accent carry one fixed dark-navy value in both blocks, so
+   * the nav rail reads the same regardless of page theme (matches the
+   * reference, which keeps a dark sidebar even on its light dashboard).
+   * Every pairing below was checked against the real sRGB relative-
+   * luminance contrast formula, not eyeballed: light primary-foreground/
+   * primary 12.6:1, dark primary-foreground/primary 5.65:1 — all AA or
+   * better (dark primary sits at L=70%, the minimum lightness that clears
+   * 4.5:1 for its near-black label text; lighter reads better here than a
+   * darker near-black would).
    */
   :root {
-    --background: 46 37% 93%;
-    --foreground: 39 26% 11%;
+    --background: 210 20% 96%;
+    --foreground: 222 20% 14%;
 
-    --card: 45 67% 98%;
-    --card-foreground: 39 26% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 20% 14%;
 
-    --popover: 45 67% 98%;
-    --popover-foreground: 39 26% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 20% 14%;
 
-    --primary: 108 60% 30%;
+    --primary: 230 55% 28%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 44 38% 87%;
-    --secondary-foreground: 39 26% 11%;
+    --secondary: 210 20% 93%;
+    --secondary-foreground: 222 20% 14%;
 
-    --muted: 44 38% 87%;
-    --muted-foreground: 43 16% 37%;
+    --muted: 210 20% 93%;
+    --muted-foreground: 220 10% 45%;
 
-    --accent: 45 39% 84%;
-    --accent-foreground: 39 26% 11%;
+    --accent: 210 25% 92%;
+    --accent-foreground: 222 20% 14%;
 
-    --destructive: 5 70% 40%;
+    --destructive: 0 70% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 160 70% 28%;
+    --success: 150 60% 32%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 85% 30%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 44 40% 81%;
-    --input: 44 40% 81%;
-    --ring: 108 60% 30%;
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 230 55% 28%;
 
-    --sidebar: 44 41% 87%;
-    --sidebar-foreground: 39 26% 20%;
-    --sidebar-border: 44 40% 81%;
+    --sidebar: 228 45% 15%;
+    --sidebar-foreground: 220 25% 92%;
+    --sidebar-border: 228 30% 22%;
+    --sidebar-accent: 235 85% 70%;
 
-    --chart-accent: 106 60% 32%;
-    --chart-2: 344 50% 40%;
-    --chart-3: 228 55% 46%;
-    --chart-4: 166 75% 30%;
+    --chart-accent: 230 55% 45%;
+    --chart-2: 28 85% 45%;
+    --chart-3: 200 80% 38%;
+    --chart-4: 265 60% 50%;
+    --chart-5: 325 70% 48%;
 
     --radius: 1rem;
   }
 
   .dark {
-    --background: 150 8% 7%;
-    --foreground: 60 5% 92%;
+    --background: 240 25% 6%;
+    --foreground: 220 20% 92%;
 
-    --card: 150 8% 10%;
-    --card-foreground: 60 5% 92%;
+    --card: 240 20% 9%;
+    --card-foreground: 220 20% 92%;
 
-    --popover: 150 8% 10%;
-    --popover-foreground: 60 5% 92%;
+    --popover: 240 20% 9%;
+    --popover-foreground: 220 20% 92%;
 
-    --primary: 84 75% 55%;
-    --primary-foreground: 140 30% 8%;
+    --primary: 235 85% 70%;
+    --primary-foreground: 240 50% 5%;
 
-    --secondary: 150 8% 13%;
-    --secondary-foreground: 60 5% 92%;
+    --secondary: 240 18% 14%;
+    --secondary-foreground: 220 20% 92%;
 
-    --muted: 150 6% 12%;
-    --muted-foreground: 150 6% 62%;
+    --muted: 240 15% 13%;
+    --muted-foreground: 220 10% 62%;
 
-    --accent: 150 8% 13%;
-    --accent-foreground: 60 5% 92%;
+    --accent: 240 18% 14%;
+    --accent-foreground: 220 20% 92%;
 
-    --destructive: 5 75% 55%;
-    --destructive-foreground: 20 45% 93%;
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 240 50% 5%;
 
-    --success: 160 60% 45%;
-    --success-foreground: 150 30% 8%;
+    --success: 150 65% 48%;
+    --success-foreground: 240 50% 5%;
 
-    --warning: 38 90% 55%;
-    --warning-foreground: 35 62% 8%;
+    --warning: 38 90% 58%;
+    --warning-foreground: 240 50% 5%;
 
-    --chart-accent: 84 70% 50%;
-    --chart-2: 344 55% 58%;
-    --chart-3: 228 60% 64%;
-    --chart-4: 166 70% 48%;
+    --chart-accent: 185 85% 55%;
+    --chart-2: 222 85% 62%;
+    --chart-3: 260 80% 65%;
+    --chart-4: 297 78% 62%;
+    --chart-5: 335 80% 62%;
 
-    --border: 150 8% 16%;
-    --input: 150 8% 16%;
-    --ring: 84 75% 55%;
+    --border: 240 15% 18%;
+    --input: 240 15% 18%;
+    --ring: 235 85% 70%;
 
-    --sidebar: 150 10% 5%;
-    --sidebar-foreground: 60 5% 84%;
-    --sidebar-border: 150 8% 16%;
+    --sidebar: 228 45% 15%;
+    --sidebar-foreground: 220 25% 92%;
+    --sidebar-border: 228 30% 22%;
+    --sidebar-accent: 235 85% 70%;
   }
 
   * {
