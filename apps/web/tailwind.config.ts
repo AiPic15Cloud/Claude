@@ -67,11 +67,13 @@ export default {
           DEFAULT: 'hsl(var(--sidebar))',
           foreground: 'hsl(var(--sidebar-foreground))',
           border: 'hsl(var(--sidebar-border))',
+          accent: 'hsl(var(--sidebar-accent))',
         },
         'chart-accent': 'hsl(var(--chart-accent))',
         'chart-2': 'hsl(var(--chart-2))',
         'chart-3': 'hsl(var(--chart-3))',
         'chart-4': 'hsl(var(--chart-4))',
+        'chart-5': 'hsl(var(--chart-5))',
       },
       borderRadius: {
         lg: 'var(--radius)',
