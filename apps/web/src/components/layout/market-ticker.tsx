@@ -28,19 +28,23 @@ export function MarketTicker() {
       </span>
       {data ? (
         <>
-          {data.eurUsd.value !== null ? (
+          {data.eurUsd?.value != null ? (
             <TickerItem label="EUR/USD" value={data.eurUsd.value.toFixed(4)} changePct={data.eurUsd.changePct} />
           ) : (
             <TickerItem label="EUR/USD" value="indisponible" />
           )}
-          {data.cac40.value !== null && (
+          {data.cac40?.value != null && (
             <TickerItem
               label="CAC 40"
               value={data.cac40.value.toLocaleString('fr-FR', { maximumFractionDigits: 2 })}
               changePct={data.cac40.changePct}
             />
           )}
-          {data.btcEur.value !== null ? (
+          {/* eurUsd/cac40 predate btcEur/fr10y — guarded with `?.` so a Railway
+              deploy that's briefly behind Vercel (backend not yet redeployed,
+              still serving the old response shape) degrades to "indisponible"
+              instead of throwing and blanking out the whole Topbar. */}
+          {data.btcEur?.value != null ? (
             <TickerItem
               label="BTC/EUR"
               value={data.btcEur.value.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}
@@ -49,7 +53,7 @@ export function MarketTicker() {
           ) : (
             <TickerItem label="BTC/EUR" value="indisponible" />
           )}
-          {data.fr10y.value !== null && <TickerItem label="FR Taux 10 ans" value={`${data.fr10y.value.toFixed(2)}%`} />}
+          {data.fr10y?.value != null && <TickerItem label="FR Taux 10 ans" value={`${data.fr10y.value.toFixed(2)}%`} />}
           <TickerItem label="Atlas Capital · Encours" value={formatCurrency(data.aum.value)} />
           <TickerItem label="Atlas Capital · Opérations actives" value={String(data.activeDeals.value)} />
         </>
