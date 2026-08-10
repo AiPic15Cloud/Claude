@@ -83,13 +83,14 @@ export class PipelineService {
   async summary(organizationId: string) {
     const entries = await this.prisma.pipelineEntry.findMany({
       where: { organizationId },
-      select: { amount: true, committee: true, source: true, typology: true },
+      select: { amount: true, committee: true, source: true, typology: true, convertedDealId: true },
     });
 
     const totalAmount = entries.reduce((sum, e) => sum + Number(e.amount), 0);
     const validated = entries.filter((e) => e.committee === 'VALIDE');
     const toReview = entries.filter((e) => e.committee === 'PAS_DE_COMITE' || e.committee === 'CONDITIONS_SUSPENSIVES');
     const rejected = entries.filter((e) => e.committee === 'REFUSE');
+    const converted = entries.filter((e) => e.convertedDealId);
 
     const bySource: Record<string, number> = {};
     for (const e of entries) {
@@ -112,6 +113,7 @@ export class PipelineService {
       validatedRate: entries.length > 0 ? Math.round((validated.length / entries.length) * 1000) / 10 : 0,
       toReviewCount: toReview.length,
       rejectedCount: rejected.length,
+      convertedCount: converted.length,
       bySource: Object.entries(bySource)
         .map(([source, count]) => ({ source, count }))
         .sort((a, b) => b.count - a.count),

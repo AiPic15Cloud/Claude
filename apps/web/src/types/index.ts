@@ -386,6 +386,7 @@ export interface PipelineSummary {
   validatedRate: number;
   toReviewCount: number;
   rejectedCount: number;
+  convertedCount: number;
   bySource: { source: string; count: number }[];
   byTypology: { typology: string; count: number; amount: number }[];
 }
