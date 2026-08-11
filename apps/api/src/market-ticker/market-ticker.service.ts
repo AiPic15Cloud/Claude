@@ -29,6 +29,25 @@ const INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 // first guess is fixable from production logs instead of a silent 502.
 const CAC40_SYMBOL_CANDIDATES = ['CAC40', 'CAC', 'FCHI'];
 
+// Yahoo Finance's chart endpoint — unofficial and undocumented (Yahoo killed
+// its real public API around 2017), but free and keyless, unlike Twelve
+// Data. Used as the primary CAC 40 source specifically because no
+// TWELVE_DATA_API_KEY is configured; Twelve Data below stays as a secondary
+// attempt for whenever one is. Accepted risk, explicitly: this endpoint can
+// be rate-limited or change shape without notice — degrades to "no value"
+// like every other source here rather than ever guessing a number.
+const YAHOO_CAC40_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EFCHI';
+
+// Alpha Vantage's GLOBAL_QUOTE is built for individual tickers, and its
+// coverage of raw indices (as opposed to index-tracking ETFs) is inconsistent
+// — the exact symbol that resolves the CAC 40 hasn't been verified against
+// the live API from this sandbox (no outbound access), so several plausible
+// candidates are tried and the raw response is logged if every one fails,
+// same diagnostic pattern as CAC40_SYMBOL_CANDIDATES above. Free tier is
+// capped at 25 requests/day, so this only ever runs as a fallback once
+// Yahoo has already failed — never on the common path.
+const ALPHA_VANTAGE_SYMBOL_CANDIDATES = ['^FCHI', 'FCHI', 'PX1'];
+
 /**
  * Live market/portfolio strip shown in the Topbar. EUR/USD comes from
  * Frankfurter (free, ECB reference rates, no key) — never fabricated.
@@ -100,12 +119,89 @@ export class MarketTickerService {
     }
   }
 
+  private async fetchCac40FromYahoo(): Promise<CachedIndex | null> {
+    try {
+      const res = await fetch(YAHOO_CAC40_URL, {
+        signal: AbortSignal.timeout(4000),
+        // Yahoo's unofficial endpoint rejects requests with no User-Agent (or
+        // a non-browser one) more often than not — a plain browser UA is the
+        // documented workaround across every community client that uses it.
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        chart?: { result?: { meta?: { regularMarketPrice?: number; previousClose?: number; chartPreviousClose?: number } }[] };
+      };
+      const meta = data.chart?.result?.[0]?.meta;
+      if (typeof meta?.regularMarketPrice !== 'number') throw new Error('unexpected response shape');
+
+      const value = meta.regularMarketPrice;
+      const previousClose = meta.previousClose ?? meta.chartPreviousClose;
+      const changePct = typeof previousClose === 'number' && previousClose !== 0 ? ((value - previousClose) / previousClose) * 100 : null;
+
+      this.logger.log('CAC 40 resolved with Yahoo Finance');
+      return { value, changePct, fetchedAt: Date.now() };
+    } catch (error) {
+      this.logger.warn(`Yahoo Finance CAC 40 fetch failed: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  private async fetchCac40FromAlphaVantage(): Promise<CachedIndex | null> {
+    const apiKey = this.config.get<string>('marketData.alphaVantageApiKey');
+    if (!apiKey) return null; // not configured — omitted, not an error
+
+    for (const symbol of ALPHA_VANTAGE_SYMBOL_CANDIDATES) {
+      try {
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        const data = (await res.json()) as {
+          Note?: string;
+          Information?: string;
+          'Global Quote'?: { '05. price'?: string; '10. change percent'?: string };
+        };
+        const quote = data['Global Quote'];
+        if (!res.ok || !quote?.['05. price']) {
+          this.logger.warn(`Alpha Vantage CAC 40 symbol "${symbol}" failed: ${data.Note ?? data.Information ?? `HTTP ${res.status}`}`);
+          continue;
+        }
+        const value = Number(quote['05. price']);
+        if (Number.isNaN(value)) {
+          this.logger.warn(`Alpha Vantage CAC 40 symbol "${symbol}" returned an unexpected shape: ${JSON.stringify(data)}`);
+          continue;
+        }
+        this.logger.log(`CAC 40 resolved with Alpha Vantage symbol "${symbol}"`);
+        return {
+          value,
+          changePct: quote['10. change percent'] ? Number(quote['10. change percent'].replace('%', '')) : null,
+          fetchedAt: Date.now(),
+        };
+      } catch (error) {
+        this.logger.warn(`Alpha Vantage CAC 40 fetch failed for symbol "${symbol}": ${(error as Error).message}`);
+      }
+    }
+    return null;
+  }
+
   private async fetchCac40(): Promise<CachedIndex | null> {
     if (this.cac40Cache && Date.now() - this.cac40Cache.fetchedAt < INDEX_CACHE_TTL_MS) {
       return this.cac40Cache;
     }
+
+    const yahoo = await this.fetchCac40FromYahoo();
+    if (yahoo) {
+      this.cac40Cache = yahoo;
+      return this.cac40Cache;
+    }
+
+    const alphaVantage = await this.fetchCac40FromAlphaVantage();
+    if (alphaVantage) {
+      this.cac40Cache = alphaVantage;
+      return this.cac40Cache;
+    }
+
     const apiKey = this.config.get<string>('marketData.twelveDataApiKey');
-    if (!apiKey) return null; // not configured — omitted, not an error
+    if (!apiKey) return this.cac40Cache; // Twelve Data not configured either — everything above already failed, serve last known value if any
 
     for (const symbol of CAC40_SYMBOL_CANDIDATES) {
       try {
