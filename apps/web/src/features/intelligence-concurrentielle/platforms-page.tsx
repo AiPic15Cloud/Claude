@@ -7,7 +7,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { usePlatforms, useSyncPlatforms } from './hooks/use-platforms';
 import { EntityDrawer } from '@/features/knowledge-graph/components/entity-drawer';
 import { CreateEntityDialog } from '@/features/knowledge-graph/components/create-entity-dialog';
-import { CATEGORY_LABELS, type PlatformMetadata } from './platform-metadata';
+import {
+  CATEGORY_LABELS,
+  BUSINESS_MODEL_LABELS,
+  VERIFICATION_STATUS_LABELS,
+  VERIFICATION_STATUS_VARIANT,
+  type PlatformMetadata,
+} from './platform-metadata';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -62,7 +68,7 @@ export function PlatformsPage() {
                     <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <LineChart className="h-4 w-4" />
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
                       {meta.category && <Badge variant="outline">{CATEGORY_LABELS[meta.category] ?? meta.category}</Badge>}
                       {meta.isTerminated && <Badge variant="destructive">Fermée</Badge>}
                       {meta.atlasScore != null && (
@@ -73,10 +79,20 @@ export function PlatformsPage() {
                     </div>
                   </div>
                   <p className="text-sm font-medium">{platform.name}</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {meta.businessModel && (
+                      <Badge variant="secondary">{BUSINESS_MODEL_LABELS[meta.businessModel] ?? meta.businessModel}</Badge>
+                    )}
+                    {meta.verificationStatus && (
+                      <Badge variant={VERIFICATION_STATUS_VARIANT[meta.verificationStatus] ?? 'outline'}>
+                        {VERIFICATION_STATUS_LABELS[meta.verificationStatus] ?? meta.verificationStatus}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    {platform.city && (
+                    {(meta.country ?? platform.city) && (
                       <span className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {platform.city}
+                        <MapPin className="h-3 w-3" /> {meta.country ?? platform.city}
                       </span>
                     )}
                     {platform.website && (

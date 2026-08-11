@@ -1,5 +1,11 @@
 import { Badge } from '@/components/ui/badge';
-import { CATEGORY_LABELS, type PlatformMetadata } from '../platform-metadata';
+import {
+  CATEGORY_LABELS,
+  BUSINESS_MODEL_LABELS,
+  VERIFICATION_STATUS_LABELS,
+  VERIFICATION_STATUS_VARIANT,
+  type PlatformMetadata,
+} from '../platform-metadata';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -16,12 +22,36 @@ function scoreLabel(score: number): string {
 }
 
 export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | null | undefined }) {
-  if (!metadata?.source) {
+  if (!metadata) {
+    return <p className="text-xs text-muted-foreground">Aucune donnée pour cette plateforme.</p>;
+  }
+
+  const hasVeille = metadata.businessModel || metadata.verificationStatus || metadata.country || metadata.verificationNote;
+
+  if (!metadata.source) {
     return (
-      <p className="text-xs text-muted-foreground">
-        Aucune donnée du baromètre pour cette plateforme — clique sur « Actualiser (baromètre) » depuis la liste des
-        plateformes.
-      </p>
+      <div className="flex flex-col gap-3">
+        {hasVeille ? (
+          <>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {metadata.businessModel && (
+                <Badge variant="secondary">{BUSINESS_MODEL_LABELS[metadata.businessModel] ?? metadata.businessModel}</Badge>
+              )}
+              {metadata.verificationStatus && (
+                <Badge variant={VERIFICATION_STATUS_VARIANT[metadata.verificationStatus] ?? 'outline'}>
+                  {VERIFICATION_STATUS_LABELS[metadata.verificationStatus] ?? metadata.verificationStatus}
+                </Badge>
+              )}
+              {metadata.country && <Badge variant="outline">{metadata.country}</Badge>}
+            </div>
+            {metadata.verificationNote && <p className="text-xs text-muted-foreground">{metadata.verificationNote}</p>}
+          </>
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          Aucune donnée du baromètre pour cette plateforme — clique sur « Actualiser (baromètre) » depuis la liste des
+          plateformes.
+        </p>
+      </div>
     );
   }
 
@@ -43,8 +73,16 @@ export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | 
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         {metadata.category && <Badge variant="outline">{CATEGORY_LABELS[metadata.category] ?? metadata.category}</Badge>}
+        {metadata.businessModel && (
+          <Badge variant="secondary">{BUSINESS_MODEL_LABELS[metadata.businessModel] ?? metadata.businessModel}</Badge>
+        )}
+        {metadata.verificationStatus && (
+          <Badge variant={VERIFICATION_STATUS_VARIANT[metadata.verificationStatus] ?? 'outline'}>
+            {VERIFICATION_STATUS_LABELS[metadata.verificationStatus] ?? metadata.verificationStatus}
+          </Badge>
+        )}
         {metadata.isTerminated && <Badge variant="destructive">Plateforme fermée</Badge>}
         {metadata.atlasScore != null && (
           <Badge variant={scoreVariant(metadata.atlasScore)}>
@@ -52,6 +90,7 @@ export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | 
           </Badge>
         )}
       </div>
+      {metadata.verificationNote && <p className="text-xs text-muted-foreground">{metadata.verificationNote}</p>}
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border p-3 text-sm">
         {rows.map((row) => (

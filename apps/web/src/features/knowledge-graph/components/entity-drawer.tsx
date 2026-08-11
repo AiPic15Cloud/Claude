@@ -74,7 +74,9 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
               {entity.type === 'PLATEFORME' && (
                 <>
                   <div>
-                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Statistiques baromètre</h3>
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {(entity.metadata as PlatformMetadata | null)?.source ? 'Statistiques baromètre' : 'Veille concurrentielle'}
+                    </h3>
                     <PlatformStatsPanel metadata={entity.metadata as PlatformMetadata | null} />
                   </div>
                   <div>
