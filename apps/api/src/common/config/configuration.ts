@@ -37,6 +37,11 @@ export default () => ({
     // it the ticker just omits that item rather than erroring, same
     // degrade-gracefully pattern as the Anthropic key gate.
     twelveDataApiKey: process.env.TWELVE_DATA_API_KEY ?? '',
+    // Free-tier key from alphavantage.co — third-choice CAC 40 fallback,
+    // behind the keyless Yahoo Finance endpoint (see market-ticker.service.ts).
+    // Alpha Vantage's free tier is capped at 25 requests/day, so it's only
+    // ever called when Yahoo has already failed — never the primary path.
+    alphaVantageApiKey: process.env.ALPHA_VANTAGE_API_KEY ?? '',
   },
   storage: {
     driver: process.env.STORAGE_DRIVER ?? 'local',
