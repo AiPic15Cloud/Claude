@@ -37,6 +37,11 @@ export class PlatformsController {
     return this.syncService.syncFromBarometer(user.organizationId);
   }
 
+  @Post('watchlist')
+  applyWatchlist(@CurrentUser() user: AuthenticatedUser) {
+    return this.syncService.applyWatchlist(user.organizationId);
+  }
+
   @Get(':id')
   async profile(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     const entity = await this.graphService.getEntity(user.organizationId, id);

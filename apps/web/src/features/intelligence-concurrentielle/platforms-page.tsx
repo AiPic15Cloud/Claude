@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Globe, LineChart, MapPin, RefreshCw } from 'lucide-react';
+import { Globe, LineChart, ListChecks, MapPin, RefreshCw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { usePlatforms, useSyncPlatforms } from './hooks/use-platforms';
+import { usePlatforms, useSyncPlatforms, useApplyWatchlist } from './hooks/use-platforms';
 import { EntityDrawer } from '@/features/knowledge-graph/components/entity-drawer';
 import { CreateEntityDialog } from '@/features/knowledge-graph/components/create-entity-dialog';
 import {
@@ -22,6 +22,7 @@ export function PlatformsPage() {
   const { data: platforms = [], isLoading } = usePlatforms();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sync = useSyncPlatforms();
+  const watchlist = useApplyWatchlist();
 
   return (
     <div className="flex flex-col gap-5">
@@ -30,6 +31,10 @@ export function PlatformsPage() {
         description="Plateformes de crowdfunding immobilier et d'immobilier fractionné suivies par Atlas Capital."
         actions={
           <>
+            <Button size="sm" variant="outline" onClick={() => watchlist.mutate()} disabled={watchlist.isPending}>
+              <ListChecks className={cn('h-3.5 w-3.5', watchlist.isPending && 'animate-pulse')} />
+              Charger la liste de veille
+            </Button>
             <Button size="sm" variant="outline" onClick={() => sync.mutate()} disabled={sync.isPending}>
               <RefreshCw className={cn('h-3.5 w-3.5', sync.isPending && 'animate-spin')} />
               Actualiser (baromètre)
@@ -38,6 +43,12 @@ export function PlatformsPage() {
           </>
         }
       />
+
+      {watchlist.data && (
+        <p className="text-xs text-muted-foreground">
+          {watchlist.data.applied} plateforme(s) mise(s) à jour depuis la liste de veille concurrentielle recherchée.
+        </p>
+      )}
 
       {sync.data && (
         <p className="text-xs text-muted-foreground">

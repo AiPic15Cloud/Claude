@@ -24,6 +24,18 @@ export function useSyncPlatforms() {
   });
 }
 
+export interface ApplyWatchlistResult {
+  applied: number;
+}
+
+export function useApplyWatchlist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<ApplyWatchlistResult>('/platforms/watchlist'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['platforms'] }),
+  });
+}
+
 export function usePlatformProfile(id: string | null) {
   return useQuery({
     queryKey: ['platform', id],
