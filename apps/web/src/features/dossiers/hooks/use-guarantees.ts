@@ -6,6 +6,7 @@ export function useGuarantees(dealId: string) {
   return useQuery({
     queryKey: ['guarantees', dealId],
     queryFn: () => api.get<Guarantee[]>(`/deals/${dealId}/guarantees`),
+    enabled: Boolean(dealId),
   });
 }
 
@@ -15,6 +16,7 @@ export interface CreateGuaranteePayload {
   amount: number;
   rank?: number;
   status?: GuaranteeStatus;
+  endDate?: string;
 }
 
 export function useCreateGuarantee(dealId: string) {

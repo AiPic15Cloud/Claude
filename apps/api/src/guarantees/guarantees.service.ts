@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Guarantee } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { UpsertGuaranteeDto } from './dto/upsert-guarantee.dto';
+import { computeGuaranteeExpiry } from './guarantee-expiry.util';
+
+function attachExpiry<T extends Guarantee>(guarantee: T) {
+  return { ...guarantee, ...computeGuaranteeExpiry(guarantee.type, guarantee.endDate) };
+}
 
 @Injectable()
 export class GuaranteesService {
@@ -15,16 +21,16 @@ export class GuaranteesService {
     if (!deal) throw new NotFoundException('Opération introuvable');
   }
 
-  list(organizationId: string, dealId: string) {
-    return this.assertDeal(organizationId, dealId).then(() =>
-      this.prisma.guarantee.findMany({ where: { dealId }, orderBy: { rank: 'asc' } }),
-    );
+  async list(organizationId: string, dealId: string) {
+    await this.assertDeal(organizationId, dealId);
+    const guarantees = await this.prisma.guarantee.findMany({ where: { dealId }, orderBy: { rank: 'asc' } });
+    return guarantees.map(attachExpiry);
   }
 
   async create(organizationId: string, dealId: string, userId: string, dto: UpsertGuaranteeDto) {
     await this.assertDeal(organizationId, dealId);
     const guarantee = await this.prisma.guarantee.create({
-      data: { dealId, ...dto },
+      data: { dealId, ...dto, endDate: dto.endDate ? new Date(dto.endDate) : undefined },
     });
     await this.activities.log(
       dealId,
@@ -32,14 +38,18 @@ export class GuaranteesService {
       'GUARANTEE_ADDED',
       `Garantie ajoutée : ${guarantee.description} (${guarantee.type})`,
     );
-    return guarantee;
+    return attachExpiry(guarantee);
   }
 
   async update(organizationId: string, dealId: string, id: string, dto: Partial<UpsertGuaranteeDto>) {
     await this.assertDeal(organizationId, dealId);
     const guarantee = await this.prisma.guarantee.findFirst({ where: { id, dealId } });
     if (!guarantee) throw new NotFoundException('Garantie introuvable');
-    return this.prisma.guarantee.update({ where: { id }, data: dto });
+    const updated = await this.prisma.guarantee.update({
+      where: { id },
+      data: { ...dto, endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined },
+    });
+    return attachExpiry(updated);
   }
 
   async remove(organizationId: string, dealId: string, id: string) {

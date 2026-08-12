@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { DealType } from '@prisma/client';
+import { DealType, DealRecoveryStatus } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -119,10 +119,14 @@ export class CreateDealDto {
   @IsBoolean()
   repaid?: boolean;
 
-  @ApiProperty({ required: false, description: 'Signale un dossier en contentieux ou pré-contentieux' })
+  @ApiProperty({
+    enum: DealRecoveryStatus,
+    required: false,
+    description: 'Statut de recouvrement : Sain / En retard / Pré-contentieux / Procédure',
+  })
   @IsOptional()
-  @IsBoolean()
-  contentieux?: boolean;
+  @IsEnum(DealRecoveryStatus)
+  recoveryStatus?: DealRecoveryStatus;
 
   @ApiProperty({ required: false, description: 'Cadence cible (jours) entre deux newsletters', default: 45 })
   @IsOptional()

@@ -15,6 +15,15 @@ export type DealStage =
 
 export type DealStatus = 'ACTIVE' | 'ON_HOLD' | 'CLOSED' | 'ARCHIVED';
 
+export type DealRecoveryStatus = 'SAIN' | 'EN_RETARD' | 'PRE_CONTENTIEUX' | 'PROCEDURE';
+
+export const DEAL_RECOVERY_STATUS_LABELS: Record<DealRecoveryStatus, string> = {
+  SAIN: 'Sain',
+  EN_RETARD: 'En retard',
+  PRE_CONTENTIEUX: 'Pré-contentieux',
+  PROCEDURE: 'Procédure',
+};
+
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
@@ -130,7 +139,7 @@ export interface Deal {
   dateCible?: string | null;
   dateMax?: string | null;
   repaid: boolean;
-  contentieux: boolean;
+  recoveryStatus: DealRecoveryStatus;
   porteurNom?: string | null;
   porteurSociete?: string | null;
   porteurAdresse?: string | null;
@@ -322,11 +331,13 @@ export type LoginResult = AuthResponse | TwoFactorChallenge;
 
 // ── Dossiers: guarantees & financial model ──────────────────
 
-export type GuaranteeType = 'HYPOTHEQUE' | 'CAUTION' | 'GAGE' | 'NANTISSEMENT' | 'PRIVILEGE' | 'AUTRE';
+export type GuaranteeType = 'HYPOTHEQUE' | 'FIDUCIE' | 'CAUTION' | 'GAGE' | 'NANTISSEMENT' | 'PRIVILEGE' | 'AUTRE';
 export type GuaranteeStatus = 'ACTIVE' | 'RELEASED' | 'DEFAULTED';
+export type GuaranteeValidity = 'VALIDE' | 'NON_VALIDE';
 
 export const GUARANTEE_TYPE_LABELS: Record<GuaranteeType, string> = {
   HYPOTHEQUE: 'Hypothèque',
+  FIDUCIE: 'Fiducie',
   CAUTION: 'Caution',
   GAGE: 'Gage',
   NANTISSEMENT: 'Nantissement',
@@ -340,6 +351,10 @@ export const GUARANTEE_STATUS_LABELS: Record<GuaranteeStatus, string> = {
   DEFAULTED: 'En défaut',
 };
 
+// Types qui portent une date de fin (hypothèque, fiducie, caution) — pilote
+// l'affichage du champ date et le badge Valide/Non valide dans l'UI.
+export const EXPIRABLE_GUARANTEE_TYPES: GuaranteeType[] = ['HYPOTHEQUE', 'FIDUCIE', 'CAUTION'];
+
 export interface Guarantee {
   id: string;
   dealId: string;
@@ -348,6 +363,11 @@ export interface Guarantee {
   amount: string;
   rank: number;
   status: GuaranteeStatus;
+  endDate?: string | null;
+  // Calculés côté serveur à partir de endDate — jamais saisis directement.
+  validity: GuaranteeValidity;
+  expiringSoon: boolean;
+  daysToExpiry: number | null;
   createdAt: string;
 }
 

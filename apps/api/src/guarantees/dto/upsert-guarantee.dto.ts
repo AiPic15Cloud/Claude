@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { GuaranteeStatus, GuaranteeType } from '@prisma/client';
-import { IsEnum, IsInt, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
 
 export class UpsertGuaranteeDto {
   @ApiProperty({ enum: GuaranteeType })
@@ -26,4 +26,12 @@ export class UpsertGuaranteeDto {
   @IsOptional()
   @IsEnum(GuaranteeStatus)
   status?: GuaranteeStatus;
+
+  @ApiProperty({
+    required: false,
+    description: 'Date de fin — pertinent pour hypothèque, fiducie et caution (pilote le statut Valide/Non valide et l’alerte de renouvellement à 6 mois)',
+  })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 }

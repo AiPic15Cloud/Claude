@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Trash2, Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDeal, useDeleteDeal } from '@/features/portfolio/hooks/use-deals';
-import { StageBadge, TypeBadge, ScoreBadge, CheckpointHealthBadge } from '@/features/portfolio/components/deal-badges';
+import {
+  StageBadge,
+  TypeBadge,
+  ScoreBadge,
+  CheckpointHealthBadge,
+  RepaidBadge,
+  RecoveryStatusBadge,
+} from '@/features/portfolio/components/deal-badges';
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
+import { useGuarantees } from './hooks/use-guarantees';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
@@ -23,12 +31,14 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import type { FinancialExtraction } from '@/types';
+import { GUARANTEE_TYPE_LABELS, type FinancialExtraction } from '@/types';
 
 export function DossierPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: deal, isLoading } = useDeal(id ?? null);
+  const { data: guarantees = [] } = useGuarantees(id ?? '');
+  const guaranteeWarnings = guarantees.filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE');
   const deleteDeal = useDeleteDeal();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [activeTab, setActiveTab] = useState('score');
@@ -84,8 +94,25 @@ export function DossierPage() {
               <span>{deal.reference}</span>
               <TypeBadge type={deal.type} />
               <StageBadge stage={deal.stage} />
+              <RepaidBadge repaid={deal.repaid} />
+              <RecoveryStatusBadge status={deal.recoveryStatus} />
             </div>
-            <h1 className="font-display mt-1 text-xl font-semibold tracking-tight">{deal.name}</h1>
+            <h1 className="font-display mt-1 flex items-center gap-2 text-xl font-semibold tracking-tight">
+              {deal.name}
+              {guaranteeWarnings.length > 0 && (
+                <span
+                  title={guaranteeWarnings
+                    .map((g) =>
+                      g.validity === 'NON_VALIDE'
+                        ? `${GUARANTEE_TYPE_LABELS[g.type]} expirée — renouvellement requis`
+                        : `${GUARANTEE_TYPE_LABELS[g.type]} : renouvellement à prévoir (J-${g.daysToExpiry})`,
+                    )
+                    .join(' · ')}
+                >
+                  <TriangleAlert className="h-4 w-4 text-warning" />
+                </span>
+              )}
+            </h1>
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
               {deal.city && (
                 <span className="flex items-center gap-1">
