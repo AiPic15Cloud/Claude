@@ -87,11 +87,25 @@ enum ActivityType {
 
 enum GuaranteeType {
   HYPOTHEQUE
+  FIDUCIE
   CAUTION
   GAGE
   NANTISSEMENT
   PRIVILEGE
   AUTRE
+}
+
+// Sain → aucun signal ; En retard → échéance dépassée sans réaction du
+// porteur ; Pré-contentieux → mise en demeure envoyée mais pas encore de
+// procédure ; Procédure → action judiciaire engagée. Remplace l'ancien
+// booléen `contentieux` (trop grossier : il confondait pré-contentieux et
+// procédure) — renseigné manuellement, aucune règle ne peut fiablement
+// déduire ce jugement depuis les autres champs.
+enum DealRecoveryStatus {
+  SAIN
+  EN_RETARD
+  PRE_CONTENTIEUX
+  PROCEDURE
 }
 
 enum GuaranteeStatus {
@@ -299,10 +313,10 @@ model Deal {
 
   // repaid suppresses deadline-alert escalation entirely (a fully repaid
   // deal shouldn't keep raising "échéance dépassée" once it's settled).
-  // contentieux is an independent manual flag — a deal can be repaid or
+  // recoveryStatus is an independent manual field — a deal can be repaid or
   // active while also being flagged as in (pre-)litigation.
-  repaid      Boolean @default(false)
-  contentieux Boolean @default(false)
+  repaid         Boolean            @default(false)
+  recoveryStatus DealRecoveryStatus @default(SAIN)
 
   // Investor newsletter follow-up — lastNewsletterDate resets the countdown;
   // status (À jour / À relancer / Critique) is derived from the elapsed days
@@ -623,6 +637,12 @@ model Guarantee {
   amount      Decimal         @db.Decimal(14, 2)
   rank        Int             @default(1)
   status      GuaranteeStatus @default(ACTIVE)
+
+  // Applies to HYPOTHEQUE / FIDUCIE / CAUTION — other guarantee types don't
+  // carry a renewal deadline. Drives both the "Valide / Non valide" state
+  // (computed, not stored — see guarantee-expiry.util.ts) and the 6-month
+  // renewal warning/notification.
+  endDate DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

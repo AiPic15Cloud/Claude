@@ -12,11 +12,13 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
 import {
+  DEAL_RECOVERY_STATUS_LABELS,
   DEAL_STAGE_LABELS,
   DEAL_STAGES,
   DEAL_STATUS_LABELS,
   DEAL_TYPE_LABELS,
   type DealDetail,
+  type DealRecoveryStatus,
   type DealStage,
   type DealStatus,
   type DealType,
@@ -26,6 +28,7 @@ import { formatCurrency } from '@/lib/format';
 
 const DEAL_TYPES: DealType[] = ['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE'];
 const DEAL_STATUSES: DealStatus[] = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED'];
+const DEAL_RECOVERY_STATUSES: DealRecoveryStatus[] = ['SAIN', 'EN_RETARD', 'PRE_CONTENTIEUX', 'PROCEDURE'];
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
@@ -45,7 +48,7 @@ const schema = z.object({
   dateMax: z.string().optional(),
   description: z.string().optional(),
   repaid: z.boolean().optional(),
-  contentieux: z.boolean().optional(),
+  recoveryStatus: z.enum(DEAL_RECOVERY_STATUSES as [DealRecoveryStatus, ...DealRecoveryStatus[]]).optional(),
   porteurNom: z.string().optional(),
   porteurSociete: z.string().optional(),
   porteurAdresse: z.string().optional(),
@@ -86,7 +89,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       dateMax: toDateInput(deal.dateMax),
       description: deal.description ?? '',
       repaid: deal.repaid,
-      contentieux: deal.contentieux,
+      recoveryStatus: deal.recoveryStatus,
       porteurNom: deal.porteurNom ?? '',
       porteurSociete: deal.porteurSociete ?? '',
       porteurAdresse: deal.porteurAdresse ?? '',
@@ -276,18 +279,27 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
                 </div>
               )}
             />
-            <Controller
-              control={control}
-              name="contentieux"
-              render={({ field }) => (
-                <div className="flex items-center gap-2.5">
-                  <Switch checked={field.value} onCheckedChange={field.onChange} id="contentieux" />
-                  <Label htmlFor="contentieux" className="cursor-pointer font-normal">
-                    Contentieux / pré-contentieux
-                  </Label>
-                </div>
-              )}
-            />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="recoveryStatus">Statut de recouvrement</Label>
+              <Controller
+                control={control}
+                name="recoveryStatus"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="recoveryStatus">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEAL_RECOVERY_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {DEAL_RECOVERY_STATUS_LABELS[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

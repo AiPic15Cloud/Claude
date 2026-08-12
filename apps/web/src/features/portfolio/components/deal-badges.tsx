@@ -1,6 +1,14 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { DEAL_STAGE_LABELS, DEAL_TYPE_LABELS, type CheckpointHealth, type DealStage, type DealType } from '@/types';
+import {
+  DEAL_RECOVERY_STATUS_LABELS,
+  DEAL_STAGE_LABELS,
+  DEAL_TYPE_LABELS,
+  type CheckpointHealth,
+  type DealRecoveryStatus,
+  type DealStage,
+  type DealType,
+} from '@/types';
 
 const STAGE_VARIANT: Record<DealStage, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   SOURCING: 'outline',
@@ -20,6 +28,35 @@ export function StageBadge({ stage }: { stage: DealStage }) {
 
 export function TypeBadge({ type }: { type: DealType }) {
   return <Badge variant="outline">{DEAL_TYPE_LABELS[type]}</Badge>;
+}
+
+export function RepaidBadge({ repaid }: { repaid: boolean }) {
+  return <Badge variant={repaid ? 'success' : 'outline'}>{repaid ? 'Remboursé' : 'En cours'}</Badge>;
+}
+
+const RECOVERY_STATUS_VARIANT: Record<DealRecoveryStatus, 'success' | 'warning' | 'destructive'> = {
+  SAIN: 'success',
+  EN_RETARD: 'warning',
+  PRE_CONTENTIEUX: 'destructive',
+  PROCEDURE: 'destructive',
+};
+
+export function RecoveryStatusBadge({ status, compact }: { status: DealRecoveryStatus; compact?: boolean }) {
+  // Same "don't clutter a healthy card" convention as CheckpointHealthBadge.
+  if (compact && status === 'SAIN') return null;
+  if (compact) {
+    return (
+      <span
+        title={DEAL_RECOVERY_STATUS_LABELS[status]}
+        className={cn(
+          'inline-block h-2 w-2 shrink-0 rounded-full',
+          status === 'EN_RETARD' && 'bg-warning',
+          (status === 'PRE_CONTENTIEUX' || status === 'PROCEDURE') && 'bg-destructive',
+        )}
+      />
+    );
+  }
+  return <Badge variant={RECOVERY_STATUS_VARIANT[status]}>{DEAL_RECOVERY_STATUS_LABELS[status]}</Badge>;
 }
 
 const CHECKPOINT_HEALTH_LABEL: Record<'VERT' | 'ORANGE' | 'ROUGE', string> = {
