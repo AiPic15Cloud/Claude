@@ -80,7 +80,10 @@ async function main() {
     const data = {
       organizationId,
       name: d.name,
-      type: DealType.CROWDFUNDING,
+      // Source spreadsheet doesn't carry a typology column — provisional
+      // default, same placeholder used by the DealType migration for
+      // pre-existing deals with no equivalent in the new typology.
+      type: DealType.PROMOTION_IMMOBILIERE,
       stage: d.stage as DealStage,
       status: d.status as DealStatus,
       description: d.description ?? undefined,

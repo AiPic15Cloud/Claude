@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { DealsService } from '../deals/deals.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { computeDeadlineAlert } from '../deals/deadline.util';
+import { computeGuaranteeExpiry, isExpirableGuaranteeType } from '../guarantees/guarantee-expiry.util';
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -38,6 +39,7 @@ export class CockpitService {
       pipelineDeals,
       deadlineDeals,
       historyDeals,
+      guaranteesData,
     ] = await Promise.all([
       this.dealsService.kpis(organizationId),
       this.prisma.task.findMany({
@@ -80,6 +82,21 @@ export class CockpitService {
         where: { organizationId },
         select: { amountTarget: true, startDate: true, createdAt: true },
       }),
+      this.prisma.guarantee.findMany({
+        where: {
+          status: 'ACTIVE',
+          endDate: { not: null },
+          deal: { organizationId, repaid: false, stage: { not: 'DEFAUT' } },
+        },
+        select: {
+          id: true,
+          type: true,
+          description: true,
+          endDate: true,
+          dealId: true,
+          deal: { select: { name: true, reference: true } },
+        },
+      }),
     ]);
 
     const pipeline = this.buildPipeline(pipelineDeals);
@@ -88,6 +105,20 @@ export class CockpitService {
       .map((d) => ({ id: d.id, name: d.name, reference: d.reference, dateMax: d.dateMax, ...computeDeadlineAlert(d.dateMax) }))
       .filter((d) => d.level !== 'RAS')
       .sort((a, b) => a.daysToMax - b.daysToMax);
+    const guaranteesToRenew = guaranteesData
+      .filter((g) => isExpirableGuaranteeType(g.type))
+      .map((g) => ({
+        id: g.id,
+        dealId: g.dealId,
+        dealName: g.deal.name,
+        dealReference: g.deal.reference,
+        type: g.type,
+        description: g.description,
+        endDate: g.endDate,
+        ...computeGuaranteeExpiry(g.type, g.endDate),
+      }))
+      .filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE')
+      .sort((a, b) => (a.daysToExpiry ?? -Infinity) - (b.daysToExpiry ?? -Infinity));
 
     const summaryText = this.buildAutoSummary({
       kpis,
@@ -109,6 +140,7 @@ export class CockpitService {
       pipeline,
       aumHistory,
       deadlineAlerts,
+      guaranteesToRenew,
       autoSummary: summaryText,
     };
   }

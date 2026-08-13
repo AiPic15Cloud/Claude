@@ -17,6 +17,7 @@ import {
   DEAL_STAGES,
   DEAL_STATUS_LABELS,
   DEAL_TYPE_LABELS,
+  DEAL_TYPES,
   type DealDetail,
   type DealRecoveryStatus,
   type DealStage,
@@ -26,13 +27,12 @@ import {
 import { ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
 
-const DEAL_TYPES: DealType[] = ['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE'];
 const DEAL_STATUSES: DealStatus[] = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED'];
 const DEAL_RECOVERY_STATUSES: DealRecoveryStatus[] = ['SAIN', 'EN_RETARD', 'PRE_CONTENTIEUX', 'PROCEDURE'];
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
-  type: z.enum(['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE']),
+  type: z.enum(DEAL_TYPES as [DealType, ...DealType[]]),
   stage: z.enum(DEAL_STAGES as [DealStage, ...DealStage[]]),
   status: z.enum(['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED']),
   amountTarget: z.coerce.number().positive('Montant requis'),

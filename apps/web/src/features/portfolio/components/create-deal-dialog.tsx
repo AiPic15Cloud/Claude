@@ -10,10 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateDeal } from '../hooks/use-deals';
-import { DEAL_TYPE_LABELS, type DealType } from '@/types';
+import { DEAL_TYPE_LABELS, DEAL_TYPES, type DealType } from '@/types';
 import { ApiError } from '@/lib/api';
-
-const DEAL_TYPES: DealType[] = ['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE'];
 
 // register()-bound number inputs pass the raw string through, and an empty
 // field coerces to 0 (not undefined) — which then fails .positive()/.int()
@@ -23,7 +21,7 @@ const blankToUndefined = (v: unknown) => (v === '' ? undefined : v);
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
-  type: z.enum(['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE']),
+  type: z.enum(DEAL_TYPES as [DealType, ...DealType[]]),
   amountTarget: z.coerce.number().positive('Montant requis'),
   interestRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
@@ -48,7 +46,7 @@ export function CreateDealDialog() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'CROWDFUNDING' },
+    defaultValues: { type: 'PROMOTION_IMMOBILIERE' },
   });
 
   const onSubmit = (values: FormValues) => {
