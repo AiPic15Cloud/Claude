@@ -13,7 +13,7 @@ import { FeesChartCard } from './components/fees-chart-card';
 import { RepaymentsChartCard } from './components/repayments-chart-card';
 import { PipelineFunnelCard } from './components/pipeline-funnel-card';
 import { DealTypeDonutCard } from './components/deal-type-donut-card';
-import { MarketNewsCard } from './components/market-news-card';
+import { GuaranteesToRenewCard } from './components/guarantees-to-renew-card';
 import { MarketDigestCard } from '@/features/intelligence-marche/components/market-digest-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
@@ -108,7 +108,7 @@ export function CockpitPage() {
         <TaskListCard title="Priorités" tasks={data.priorities} emptyLabel="Aucune priorité en attente" showDueDate />
         <TaskListCard title="Agenda (7 jours)" tasks={data.agenda} emptyLabel="Aucune échéance à venir" showDueDate />
         <ActivityFeedCard activities={data.recentActivity} />
-        <MarketNewsCard />
+        <GuaranteesToRenewCard guarantees={data.guaranteesToRenew} />
       </div>
     </div>
   );

@@ -172,7 +172,7 @@ async function main() {
           description: `Opération de ${type.toLowerCase()} située à ${location.city}, actuellement en phase ${stage.toLowerCase()}.`,
           amountTarget,
           amountRaised,
-          interestRate: type === 'CROWDFUNDING' ? randomInt(80, 120) / 10 : null,
+          interestRate: randomInt(80, 120) / 10,
           durationMonths: randomFrom([12, 18, 24, 36]),
           address: `${randomInt(1, 150)} rue de la République`,
           city: location.city,
@@ -208,7 +208,7 @@ async function main() {
         data: {
           dealId: deal.id,
           authorId: createdBy.id,
-          content: `Première analyse : dossier ${type === 'PROMOTION' ? 'de promotion immobilière' : 'de financement'} suivi de près, prochaine étape à valider avec le comité.`,
+          content: `Première analyse : dossier ${type === 'PROMOTION_IMMOBILIERE' ? 'de promotion immobilière' : 'de financement'} suivi de près, prochaine étape à valider avec le comité.`,
         },
       });
 
@@ -356,7 +356,9 @@ async function main() {
     }
 
     // ── Dossiers: guarantees + financial model on the promotion/marchand-de-biens deals.
-    const financeable = createdDeals.filter((d) => ['PROMOTION', 'MARCHAND_DE_BIENS'].includes(d.type)).slice(0, 5);
+    const financeable = createdDeals
+      .filter((d) => ['PROMOTION_IMMOBILIERE', 'MARCHAND_DE_BIENS_AVEC_TRAVAUX', 'MARCHAND_DE_BIENS_SANS_TRAVAUX'].includes(d.type))
+      .slice(0, 5);
     for (const d of financeable) {
       await prisma.guarantee.create({
         data: {

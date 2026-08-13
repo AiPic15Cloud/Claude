@@ -10,12 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_TYPE_LABELS, type DealStage, type DealType } from '@/types';
+import { DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_TYPE_LABELS, DEAL_TYPES, type DealStage, type DealType } from '@/types';
 import { useTags } from '../hooks/use-tags';
 import { TagBadge } from './tag-badge';
 import type { DealsFilters } from '../hooks/use-deals';
-
-const DEAL_TYPES: DealType[] = ['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE'];
 
 interface FiltersBarProps {
   filters: DealsFilters;

@@ -1,6 +1,29 @@
 export type Role = 'ADMIN' | 'ANALYST' | 'VIEWER';
 
-export type DealType = 'CROWDFUNDING' | 'FRACTIONNE' | 'PROMOTION' | 'MARCHAND_DE_BIENS' | 'AUTRE';
+export type DealType =
+  | 'PROMOTION_IMMOBILIERE'
+  | 'DIVISION_PARCELLAIRE'
+  | 'DIVISION_FONCIERE'
+  | 'MISE_EN_COPROPRIETE'
+  | 'AMENAGEMENT_FONCIER'
+  | 'MARCHAND_DE_BIENS_AVEC_TRAVAUX'
+  | 'MARCHAND_DE_BIENS_SANS_TRAVAUX'
+  | 'REFINANCEMENT_FONDS_PROPRES'
+  | 'REFINANCEMENT_ACTIF'
+  | 'REFINANCEMENT_STOCK';
+
+export const DEAL_TYPES: DealType[] = [
+  'PROMOTION_IMMOBILIERE',
+  'DIVISION_PARCELLAIRE',
+  'DIVISION_FONCIERE',
+  'MISE_EN_COPROPRIETE',
+  'AMENAGEMENT_FONCIER',
+  'MARCHAND_DE_BIENS_AVEC_TRAVAUX',
+  'MARCHAND_DE_BIENS_SANS_TRAVAUX',
+  'REFINANCEMENT_FONDS_PROPRES',
+  'REFINANCEMENT_ACTIF',
+  'REFINANCEMENT_STOCK',
+];
 
 export type DealStage =
   | 'SOURCING'
@@ -60,11 +83,16 @@ export const DEAL_STATUS_LABELS: Record<DealStatus, string> = {
 };
 
 export const DEAL_TYPE_LABELS: Record<DealType, string> = {
-  CROWDFUNDING: 'Crowdfunding',
-  FRACTIONNE: 'Fractionné',
-  PROMOTION: 'Promotion',
-  MARCHAND_DE_BIENS: 'Marchand de biens',
-  AUTRE: 'Autre',
+  PROMOTION_IMMOBILIERE: 'Promotion immobilière',
+  DIVISION_PARCELLAIRE: 'Division parcellaire',
+  DIVISION_FONCIERE: 'Division foncière',
+  MISE_EN_COPROPRIETE: 'Mise en copropriété',
+  AMENAGEMENT_FONCIER: 'Aménagement foncier',
+  MARCHAND_DE_BIENS_AVEC_TRAVAUX: 'Marchand de biens avec travaux',
+  MARCHAND_DE_BIENS_SANS_TRAVAUX: 'Marchand de biens sans travaux',
+  REFINANCEMENT_FONDS_PROPRES: 'Refinancement des fonds propres',
+  REFINANCEMENT_ACTIF: "Refinancement d'actif",
+  REFINANCEMENT_STOCK: 'Refinancement de stock',
 };
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
@@ -265,6 +293,19 @@ export interface DealDeadlineAlert extends DeadlineAlert {
   dateMax: string | null;
 }
 
+export interface GuaranteeToRenew {
+  id: string;
+  dealId: string;
+  dealName: string;
+  dealReference: string;
+  type: GuaranteeType;
+  description: string;
+  endDate: string | null;
+  validity: GuaranteeValidity;
+  expiringSoon: boolean;
+  daysToExpiry: number | null;
+}
+
 export type CheckpointHealthLevel = 'VERT' | 'ORANGE' | 'ROUGE';
 
 export interface CheckpointHealth {
@@ -304,6 +345,7 @@ export interface CockpitSummary {
   pipeline: PipelineStage[];
   aumHistory: AumHistoryPoint[];
   deadlineAlerts: DealDeadlineAlert[];
+  guaranteesToRenew: GuaranteeToRenew[];
   autoSummary: string;
 }
 

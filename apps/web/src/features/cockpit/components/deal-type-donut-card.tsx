@@ -2,21 +2,19 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDealKpis } from '@/features/portfolio/hooks/use-deals';
-import { DEAL_TYPE_LABELS, type DealType } from '@/types';
+import { DEAL_TYPE_LABELS, DEAL_TYPES, type DealType } from '@/types';
 
-const TYPE_ORDER: DealType[] = ['MARCHAND_DE_BIENS', 'PROMOTION', 'CROWDFUNDING', 'FRACTIONNE', 'AUTRE'];
-const TYPE_COLOR: Record<DealType, string> = {
-  MARCHAND_DE_BIENS: 'hsl(var(--chart-accent))',
-  PROMOTION: 'hsl(var(--chart-2))',
-  CROWDFUNDING: 'hsl(var(--chart-3))',
-  FRACTIONNE: 'hsl(var(--chart-4))',
-  AUTRE: 'hsl(var(--chart-5))',
-};
+// Only 5 chart tokens exist — cycled by enum position rather than a
+// hand-written 10-entry map, since a typology this granular routinely has
+// more distinct values than the palette, and adjacent slices in the ring
+// are rarely the two that land on the same color anyway.
+const CHART_COLORS = ['hsl(var(--chart-accent))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+const typeColor = (type: DealType) => CHART_COLORS[DEAL_TYPES.indexOf(type) % CHART_COLORS.length];
 
 export function DealTypeDonutCard() {
   const { data, isLoading } = useDealKpis();
 
-  const rows = TYPE_ORDER.map((type) => ({ type, count: data?.byType?.[type] ?? 0 })).filter((r) => r.count > 0);
+  const rows = DEAL_TYPES.map((type) => ({ type, count: data?.byType?.[type] ?? 0 })).filter((r) => r.count > 0);
   const total = rows.reduce((sum, r) => sum + r.count, 0);
 
   return (
@@ -36,7 +34,7 @@ export function DealTypeDonutCard() {
                 <PieChart>
                   <Pie data={rows} dataKey="count" nameKey="type" innerRadius="65%" outerRadius="100%" paddingAngle={2} stroke="none">
                     {rows.map((r) => (
-                      <Cell key={r.type} fill={TYPE_COLOR[r.type]} />
+                      <Cell key={r.type} fill={typeColor(r.type)} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -49,7 +47,7 @@ export function DealTypeDonutCard() {
             <div className="flex flex-1 flex-col gap-2">
               {rows.map((r) => (
                 <div key={r.type} className="flex items-center gap-2 text-sm">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: TYPE_COLOR[r.type] }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: typeColor(r.type) }} />
                   <span className="flex-1 truncate">{DEAL_TYPE_LABELS[r.type]}</span>
                   <span className="font-mono tabular-nums text-muted-foreground">{Math.round((r.count / total) * 100)}%</span>
                 </div>

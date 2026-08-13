@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Trash2, Loader2, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, MapPin, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -97,22 +97,7 @@ export function DossierPage() {
               <RepaidBadge repaid={deal.repaid} />
               <RecoveryStatusBadge status={deal.recoveryStatus} />
             </div>
-            <h1 className="font-display mt-1 flex items-center gap-2 text-xl font-semibold tracking-tight">
-              {deal.name}
-              {guaranteeWarnings.length > 0 && (
-                <span
-                  title={guaranteeWarnings
-                    .map((g) =>
-                      g.validity === 'NON_VALIDE'
-                        ? `${GUARANTEE_TYPE_LABELS[g.type]} expirée — renouvellement requis`
-                        : `${GUARANTEE_TYPE_LABELS[g.type]} : renouvellement à prévoir (J-${g.daysToExpiry})`,
-                    )
-                    .join(' · ')}
-                >
-                  <TriangleAlert className="h-4 w-4 text-warning" />
-                </span>
-              )}
-            </h1>
+            <h1 className="font-display mt-1 text-xl font-semibold tracking-tight">{deal.name}</h1>
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
               {deal.city && (
                 <span className="flex items-center gap-1">
@@ -170,6 +155,37 @@ export function DossierPage() {
           <span className="flex-1">{deal.deadlineAlert.actionLabel}</span>
           <MiseEnDemeureDialog dealId={deal.id} />
           <ExtendDeadlineDialog dealId={deal.id} dealName={deal.name} currentDateMax={deal.dateMax ?? null} />
+        </div>
+      )}
+
+      {guaranteeWarnings.length > 0 && (
+        <div
+          className={cn(
+            'flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+            guaranteeWarnings.some((g) => g.validity === 'NON_VALIDE')
+              ? 'border-destructive/30 bg-destructive/10 text-destructive'
+              : 'border-warning/30 bg-warning/10 text-warning',
+          )}
+        >
+          <span
+            className={cn(
+              'h-2 w-2 shrink-0 rounded-full',
+              guaranteeWarnings.some((g) => g.validity === 'NON_VALIDE') ? 'bg-destructive' : 'bg-warning',
+            )}
+          />
+          <span className="font-medium">Garantie à renouveler —</span>
+          <span className="flex-1">
+            {guaranteeWarnings
+              .map((g) =>
+                g.validity === 'NON_VALIDE'
+                  ? `${GUARANTEE_TYPE_LABELS[g.type]} expirée`
+                  : `${GUARANTEE_TYPE_LABELS[g.type]} (J-${g.daysToExpiry})`,
+              )
+              .join(' · ')}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => setActiveTab('guarantees')}>
+            Voir les garanties
+          </Button>
         </div>
       )}
 

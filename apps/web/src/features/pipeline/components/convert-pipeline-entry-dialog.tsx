@@ -9,18 +9,22 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useConvertPipelineEntry } from '../hooks/use-pipeline';
-import { DEAL_TYPE_LABELS, type DealType, type PipelineEntry } from '@/types';
+import { DEAL_TYPE_LABELS, DEAL_TYPES, type DealType, type PipelineEntry } from '@/types';
 import { ApiError } from '@/lib/api';
-
-const DEAL_TYPES: DealType[] = ['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE'];
 
 /** Best-effort guess from the pipeline's free-text typology — always left editable before confirming. */
 function guessDealType(typology?: string | null): DealType {
   const t = (typology ?? '').toLowerCase();
-  if (t.includes('promotion')) return 'PROMOTION';
-  if (t.includes('marchand')) return 'MARCHAND_DE_BIENS';
-  if (t.includes('fraction')) return 'FRACTIONNE';
-  return 'AUTRE';
+  if (t.includes('copropri')) return 'MISE_EN_COPROPRIETE';
+  if (t.includes('division') && (t.includes('foncie') || t.includes('fonciè'))) return 'DIVISION_FONCIERE';
+  if (t.includes('division')) return 'DIVISION_PARCELLAIRE';
+  if (t.includes('aménagement') || t.includes('amenagement')) return 'AMENAGEMENT_FONCIER';
+  if (t.includes('marchand') && t.includes('sans')) return 'MARCHAND_DE_BIENS_SANS_TRAVAUX';
+  if (t.includes('marchand')) return 'MARCHAND_DE_BIENS_AVEC_TRAVAUX';
+  if (t.includes('refinancement') && t.includes('stock')) return 'REFINANCEMENT_STOCK';
+  if (t.includes('refinancement') && t.includes('fonds')) return 'REFINANCEMENT_FONDS_PROPRES';
+  if (t.includes('refinancement')) return 'REFINANCEMENT_ACTIF';
+  return 'PROMOTION_IMMOBILIERE';
 }
 
 // register()-bound number inputs pass the raw string through, and an empty
@@ -31,7 +35,7 @@ const blankToUndefined = (v: unknown) => (v === '' ? undefined : v);
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
-  type: z.enum(['CROWDFUNDING', 'FRACTIONNE', 'PROMOTION', 'MARCHAND_DE_BIENS', 'AUTRE']),
+  type: z.enum(DEAL_TYPES as [DealType, ...DealType[]]),
   amountTarget: z.coerce.number().positive('Montant requis'),
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   durationMonths: z.preprocess(blankToUndefined, z.coerce.number().int().positive().optional()),
