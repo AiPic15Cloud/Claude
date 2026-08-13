@@ -25,13 +25,19 @@ export function isExpirableGuaranteeType(type: GuaranteeType): boolean {
  * Derives validity + renewal warning from a guarantee's end date — nothing
  * here is persisted, it's recomputed on every read (same pattern as
  * computeDeadlineAlert / computeCheckpointHealth for deals).
+ *
+ * `suppressed` covers a repaid or defaulted (stage DEFAUT) deal: renewing a
+ * guarantee is a decision about a deal still being worked, so once the
+ * deal itself is closed out there's nothing left to prompt regardless of
+ * the calendar date — same closed-deal condition as isDealClosed().
  */
 export function computeGuaranteeExpiry(
   type: GuaranteeType,
   endDate: Date | null | undefined,
   now: Date = new Date(),
+  suppressed = false,
 ): GuaranteeExpiry {
-  if (!isExpirableGuaranteeType(type) || !endDate) {
+  if (suppressed || !isExpirableGuaranteeType(type) || !endDate) {
     return { validity: 'VALIDE', expiringSoon: false, daysToExpiry: null };
   }
 

@@ -27,8 +27,15 @@ export class GuaranteeExpiryAlertsService implements OnApplicationBootstrap {
   }
 
   private async checkAll() {
+    // A guarantee on a repaid or defaulted deal has nothing left to renew
+    // for — same closed-deal condition as isDealClosed(), applied directly
+    // in the query so those guarantees are never even fetched.
     const guarantees = await this.prisma.guarantee.findMany({
-      where: { status: 'ACTIVE', endDate: { not: null } },
+      where: {
+        status: 'ACTIVE',
+        endDate: { not: null },
+        deal: { repaid: false, stage: { not: 'DEFAUT' } },
+      },
       select: {
         id: true,
         type: true,
