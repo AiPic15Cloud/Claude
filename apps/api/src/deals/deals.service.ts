@@ -15,6 +15,7 @@ import { buildMiseEnDemeure } from './mise-en-demeure.util';
 import { computeCheckpointHealth } from './checkpoint-health.util';
 import { withNoteImageUrls } from '../notes/note-image.util';
 import { StorageService } from '../common/storage/storage.service';
+import { isDealClosed } from '../common/deal-lifecycle.util';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -66,7 +67,12 @@ export class DealsService {
       prixVenteReelADate: Prisma.Decimal | null;
       createdAt: Date;
     } | null,
+    suppressed = false,
   ) {
+    // Repaid or defaulted deals are closed out — a budget/price deviation
+    // signal has nothing left to act on, so it's dropped rather than kept
+    // showing a stale ORANGE/ROUGE dot.
+    if (suppressed) return { level: null, reasons: [], checkpointDate: checkpoint?.createdAt ?? null };
     return computeCheckpointHealth(
       checkpoint
         ? {
@@ -81,7 +87,7 @@ export class DealsService {
   }
 
   /** Batch equivalent of toCheckpointHealth() for list endpoints — one query for the latest checkpoint of every deal in the page, instead of N+1. */
-  private async attachCheckpointHealth<T extends { id: string }>(deals: T[]) {
+  private async attachCheckpointHealth<T extends { id: string; repaid: boolean; stage: string }>(deals: T[]) {
     if (deals.length === 0) return deals as (T & { checkpointHealth: ReturnType<typeof computeCheckpointHealth> })[];
     const checkpoints = await this.prisma.projectCheckpoint.findMany({
       where: { dealId: { in: deals.map((d) => d.id) } },
@@ -91,7 +97,10 @@ export class DealsService {
     for (const c of checkpoints) {
       if (!latestByDeal.has(c.dealId)) latestByDeal.set(c.dealId, c);
     }
-    return deals.map((d) => ({ ...d, checkpointHealth: this.toCheckpointHealth(latestByDeal.get(d.id) ?? null) }));
+    return deals.map((d) => ({
+      ...d,
+      checkpointHealth: this.toCheckpointHealth(latestByDeal.get(d.id) ?? null, isDealClosed(d)),
+    }));
   }
 
   private indexForSearch(deal: { id: string; organizationId: string; name: string; reference: string; type: string; stage: string; city: string | null }) {
@@ -190,7 +199,7 @@ export class DealsService {
 
     await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
     this.indexForSearch(deal!);
-    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), deal!.repaid) };
+    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), isDealClosed(deal!)) };
   }
 
   async findAll(organizationId: string, query: QueryDealsDto) {
@@ -203,7 +212,7 @@ export class DealsService {
       ...(query.stage?.length ? { stage: { in: query.stage } } : {}),
       ...(query.type?.length ? { type: { in: query.type } } : {}),
       ...(query.tagIds?.length ? { tags: { some: { tagId: { in: query.tagIds } } } } : {}),
-      ...(query.late ? { dateMax: { lt: new Date() }, repaid: false } : {}),
+      ...(query.late ? { dateMax: { lt: new Date() }, repaid: false, stage: { not: 'DEFAUT' } } : {}),
       ...(query.search
         ? {
             OR: [
@@ -229,7 +238,7 @@ export class DealsService {
     const withHealth = await this.attachCheckpointHealth(items);
 
     return {
-      items: withHealth.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), d.repaid) })),
+      items: withHealth.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), isDealClosed(d)) })),
       total,
       page,
       pageSize,
@@ -255,9 +264,9 @@ export class DealsService {
       },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
-    const checkpointHealth = this.toCheckpointHealth(deal.checkpoints[0] ?? null);
+    const checkpointHealth = this.toCheckpointHealth(deal.checkpoints[0] ?? null, isDealClosed(deal));
     const notes = await Promise.all(deal.notes.map((note) => withNoteImageUrls(note, this.storage)));
-    return { ...deal, notes, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid), checkpointHealth };
+    return { ...deal, notes, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal)), checkpointHealth };
   }
 
   async generateMiseEnDemeure(organizationId: string, id: string) {
@@ -345,7 +354,7 @@ export class DealsService {
 
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Opération mise à jour');
     this.indexForSearch(deal);
-    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), deal.repaid) };
+    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal)) };
   }
 
   async changeStage(organizationId: string, id: string, userId: string, stage: Prisma.DealUpdateInput['stage']) {
@@ -393,7 +402,7 @@ export class DealsService {
     for (const d of deals) byType[d.type] = (byType[d.type] ?? 0) + 1;
 
     const now = new Date();
-    const lateDeals = deals.filter((d) => !d.repaid && d.dateMax && d.dateMax < now).length;
+    const lateDeals = deals.filter((d) => !isDealClosed(d) && d.dateMax && d.dateMax < now).length;
 
     return {
       activeDeals: deals.length,
@@ -409,7 +418,7 @@ export class DealsService {
 
   async newsletterSummary(organizationId: string) {
     const deals = await this.prisma.deal.findMany({
-      where: { organizationId, status: 'ACTIVE' },
+      where: { organizationId, status: 'ACTIVE', repaid: false, stage: { not: 'DEFAUT' } },
       select: { id: true, name: true, reference: true, lastNewsletterDate: true, newsletterTargetDays: true },
     });
 
@@ -449,7 +458,7 @@ export class DealsService {
   @Cron(CronExpression.EVERY_DAY_AT_7AM)
   async createOverdueNewsletterTasks() {
     const deals = await this.prisma.deal.findMany({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', repaid: false, stage: { not: 'DEFAUT' } },
       select: {
         id: true,
         organizationId: true,

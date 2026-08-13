@@ -22,6 +22,9 @@ const DAY_MS = 86_400_000;
 export function computeDeadlineAlert(
   dateMax: Date | null | undefined,
   now: Date = new Date(),
+  // Named for its original, narrower use — now also passed true for a deal
+  // in DEFAUT stage (see isDealClosed()), since a defaulted deal has
+  // already escalated past this deadline process entirely.
   repaid = false,
 ): DeadlineAlert {
   if (repaid || !dateMax) {
