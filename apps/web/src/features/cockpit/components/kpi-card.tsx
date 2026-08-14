@@ -20,7 +20,7 @@ export function KpiCard({ label, value, icon: Icon, hint, trend, hero }: KpiCard
   return (
     <Card className={cn(hero && 'border-transparent bg-gradient-to-br from-primary to-chart-3 text-primary-foreground lg:col-span-2')}>
       <CardContent className={cn('flex items-start justify-between gap-3 p-4', hero && 'p-5')}>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <span className={cn('text-[10px] font-semibold uppercase tracking-wider', hero ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
             {label}
           </span>

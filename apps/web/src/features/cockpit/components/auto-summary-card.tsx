@@ -13,7 +13,7 @@ export function AutoSummaryCard({ summary, generatedAt }: AutoSummaryCardProps) 
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
           <Sparkles className="h-4 w-4" />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm text-foreground">{summary}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Résumé automatique généré à {new Date(generatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}

@@ -44,9 +44,9 @@ export function DealTypeDonutCard() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex flex-1 flex-col gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
               {rows.map((r) => (
-                <div key={r.type} className="flex items-center gap-2 text-sm">
+                <div key={r.type} className="flex min-w-0 items-center gap-2 text-sm">
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: typeColor(r.type) }} />
                   <span className="flex-1 truncate">{DEAL_TYPE_LABELS[r.type]}</span>
                   <span className="font-mono tabular-nums text-muted-foreground">{Math.round((r.count / total) * 100)}%</span>
