@@ -161,3 +161,25 @@ export function useAddNote() {
     },
   });
 }
+
+export function useUpdateNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dealId, noteId, content }: { dealId: string; noteId: string; content: string }) =>
+      api.patch(`/deals/${dealId}/notes/${noteId}`, { content }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', variables.dealId] });
+    },
+  });
+}
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dealId, noteId }: { dealId: string; noteId: string }) =>
+      api.delete(`/deals/${dealId}/notes/${noteId}`),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', variables.dealId] });
+    },
+  });
+}
