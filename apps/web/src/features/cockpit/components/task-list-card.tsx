@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToggleTask, useCreateTask, useUpdateTaskPriority } from '@/features/tasks/use-tasks';
 import { EditTaskDialog } from '@/features/tasks/edit-task-dialog';
+import { ExpandCardButton } from './expand-card-button';
 import { PRIORITY_LABELS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -73,11 +74,55 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
     );
   };
 
+  const renderTask = (task: Task, expanded: boolean) => (
+    <div key={task.id} className="flex flex-col gap-1 rounded-md px-1.5 py-1.5 hover:bg-accent">
+      <div className="flex items-start gap-2">
+        <button
+          onClick={() => toggleTask.mutate({ id: task.id, done: !task.done })}
+          className={cn(
+            'mt-0.5 h-4 w-4 shrink-0 rounded border transition-colors',
+            task.done ? 'border-primary bg-primary' : 'border-input bg-background hover:border-primary',
+          )}
+          aria-label={task.done ? 'Marquer comme non fait' : 'Marquer comme fait'}
+        />
+        <p
+          className={cn(
+            'min-w-0 flex-1 text-sm',
+            expanded ? 'whitespace-normal break-words' : 'truncate',
+            task.done && 'text-muted-foreground line-through',
+          )}
+        >
+          {task.title}
+        </p>
+        <PriorityPicker priority={task.priority} onChange={(p) => updatePriority.mutate({ id: task.id, priority: p })} />
+      </div>
+      <div className={cn('flex items-center gap-2 pl-6 text-xs text-muted-foreground', expanded && 'flex-wrap')}>
+        {task.deal && (
+          <Link
+            to={`/deals/${task.deal.id}`}
+            className={cn('min-w-0 flex-1 hover:text-primary hover:underline', expanded ? 'whitespace-normal break-words' : 'truncate')}
+          >
+            {task.deal.name}
+          </Link>
+        )}
+        {showDueDate && task.dueDate && (
+          <span className="shrink-0 whitespace-nowrap">
+            {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true, locale: fr })}
+          </span>
+        )}
+        <EditTaskDialog task={task} />
+      </div>
+    </div>
+  );
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>{title}</CardTitle>
-        <span className="text-xs text-muted-foreground">{tasks.length}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{tasks.length}</span>
+          {tasks.length > 0 && <ExpandCardButton title={title}>{tasks.map((task) => renderTask(task, true))}</ExpandCardButton>}
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         {quickAdd && (
@@ -112,35 +157,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
           </div>
         )}
         {tasks.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">{emptyLabel}</p>}
-        {tasks.map((task) => (
-          <div key={task.id} className="flex flex-col gap-1 rounded-md px-1.5 py-1.5 hover:bg-accent">
-            <div className="flex items-start gap-2">
-              <button
-                onClick={() => toggleTask.mutate({ id: task.id, done: !task.done })}
-                className={cn(
-                  'mt-0.5 h-4 w-4 shrink-0 rounded border transition-colors',
-                  task.done ? 'border-primary bg-primary' : 'border-input bg-background hover:border-primary',
-                )}
-                aria-label={task.done ? 'Marquer comme non fait' : 'Marquer comme fait'}
-              />
-              <p className={cn('min-w-0 flex-1 truncate text-sm', task.done && 'text-muted-foreground line-through')}>{task.title}</p>
-              <PriorityPicker priority={task.priority} onChange={(p) => updatePriority.mutate({ id: task.id, priority: p })} />
-            </div>
-            <div className="flex items-center gap-2 pl-6 text-xs text-muted-foreground">
-              {task.deal && (
-                <Link to={`/deals/${task.deal.id}`} className="min-w-0 flex-1 truncate hover:text-primary hover:underline">
-                  {task.deal.name}
-                </Link>
-              )}
-              {showDueDate && task.dueDate && (
-                <span className="shrink-0 whitespace-nowrap">
-                  {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true, locale: fr })}
-                </span>
-              )}
-              <EditTaskDialog task={task} />
-            </div>
-          </div>
-        ))}
+        {tasks.map((task) => renderTask(task, false))}
       </CardContent>
     </Card>
   );
