@@ -1,17 +1,18 @@
 import { NavLink } from 'react-router-dom';
-import { Building2, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
 import { useUiStore } from '@/store/ui.store';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { AtlasMark } from '@/components/atlas-mark';
 
 function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   return (
     <>
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Building2 className="h-4 w-4" />
+          <AtlasMark className="h-4 w-4" />
         </div>
         {!collapsed && (
           <div className="flex flex-col leading-none">
