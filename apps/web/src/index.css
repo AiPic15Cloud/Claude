@@ -76,6 +76,15 @@
     --chart-5: 325 70% 48%;
 
     --radius: 1rem;
+
+    /* Palette de marque — signe Atlas (claveau), fixe dans les deux thèmes
+       comme --sidebar* : bleu cyanotype, encre profonde, blanc calque,
+       trait estompé, rouge de repérage (voir la planche d'identité). */
+    --brand-cyanotype: 217 56% 16%;
+    --brand-ink: 214 60% 10%;
+    --brand-line: 212 7% 95%;
+    --brand-dim: 220 29% 63%;
+    --brand-accent: 12 79% 58%;
   }
 
   .dark {
@@ -123,6 +132,12 @@
     --sidebar-foreground: 220 25% 92%;
     --sidebar-border: 228 30% 22%;
     --sidebar-accent: 235 85% 70%;
+
+    --brand-cyanotype: 217 56% 16%;
+    --brand-ink: 214 60% 10%;
+    --brand-line: 212 7% 95%;
+    --brand-dim: 220 29% 63%;
+    --brand-accent: 12 79% 58%;
   }
 
   * {

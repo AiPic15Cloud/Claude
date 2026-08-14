@@ -74,6 +74,11 @@ export default {
         'chart-3': 'hsl(var(--chart-3))',
         'chart-4': 'hsl(var(--chart-4))',
         'chart-5': 'hsl(var(--chart-5))',
+        'brand-cyanotype': 'hsl(var(--brand-cyanotype))',
+        'brand-ink': 'hsl(var(--brand-ink))',
+        'brand-line': 'hsl(var(--brand-line))',
+        'brand-dim': 'hsl(var(--brand-dim))',
+        'brand-accent': 'hsl(var(--brand-accent))',
       },
       borderRadius: {
         lg: 'var(--radius)',
