@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { StorageService } from '../common/storage/storage.service';
 import { CreateNoteDto } from './dto/create-note.dto';
+import { UpdateNoteDto } from './dto/update-note.dto';
 import { withNoteImageUrls } from './note-image.util';
 
 const NOTE_INCLUDE = {
@@ -55,11 +56,34 @@ export class NotesService {
     return Promise.all(notes.map((note) => withNoteImageUrls(note, this.storage)));
   }
 
-  async remove(organizationId: string, dealId: string, noteId: string, userId: string) {
+  // A note authored by someone else (e.g. the system notes a migration
+  // leaves on a deal's original creator) still needs to be fixable by an
+  // admin reviewing the dossier, not just by whoever happens to be that
+  // authorId — the author-only rule alone would lock those out entirely.
+  private assertCanModify(note: { authorId: string }, userId: string, role: string) {
+    if (note.authorId !== userId && role !== 'ADMIN') {
+      throw new ForbiddenException('Vous ne pouvez modifier ou supprimer que vos notes');
+    }
+  }
+
+  async update(organizationId: string, dealId: string, noteId: string, userId: string, role: string, dto: UpdateNoteDto) {
+    await this.assertDealAccess(organizationId, dealId);
+    const note = await this.prisma.note.findFirst({ where: { id: noteId, dealId } });
+    if (!note) throw new NotFoundException('Note introuvable');
+    this.assertCanModify(note, userId, role);
+    const updated = await this.prisma.note.update({
+      where: { id: noteId },
+      data: { content: dto.content },
+      include: NOTE_INCLUDE,
+    });
+    return withNoteImageUrls(updated, this.storage);
+  }
+
+  async remove(organizationId: string, dealId: string, noteId: string, userId: string, role: string) {
     await this.assertDealAccess(organizationId, dealId);
     const note = await this.prisma.note.findFirst({ where: { id: noteId, dealId }, include: { images: true } });
     if (!note) throw new NotFoundException('Note introuvable');
-    if (note.authorId !== userId) throw new ForbiddenException("Vous ne pouvez supprimer que vos notes");
+    this.assertCanModify(note, userId, role);
     await Promise.all(note.images.map((image) => this.storage.delete(image.storageKey, image.storageDriver)));
     await this.prisma.note.delete({ where: { id: noteId } });
   }

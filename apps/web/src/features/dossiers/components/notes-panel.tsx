@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ImagePlus, Loader2, Send, X } from 'lucide-react';
+import { ImagePlus, Loader2, Pencil, Send, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { useAddNote } from '@/features/portfolio/hooks/use-deals';
+import { useAddNote, useUpdateNote, useDeleteNote } from '@/features/portfolio/hooks/use-deals';
 import { useAuthenticatedImage } from '@/lib/use-authenticated-image';
+import { useAuthStore } from '@/store/auth.store';
 import type { Note, NoteImage } from '@/types';
 
 const MAX_IMAGES = 6;
@@ -38,7 +39,83 @@ function Lightbox({ url, onClose }: { url: string | null; onClose: () => void })
   );
 }
 
+function NoteItem({ dealId, note, canModify, onOpenImage }: { dealId: string; note: Note; canModify: boolean; onOpenImage: (url: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(note.content);
+  const updateNote = useUpdateNote();
+  const deleteNote = useDeleteNote();
+
+  const startEdit = () => {
+    setDraft(note.content);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    if (!draft.trim()) return;
+    updateNote.mutate({ dealId, noteId: note.id, content: draft.trim() }, { onSuccess: () => setEditing(false) });
+  };
+
+  return (
+    <div className="flex gap-2.5">
+      <Avatar className="h-7 w-7">
+        <AvatarFallback className="text-[10px]">
+          {note.author ? `${note.author.firstName[0]}${note.author.lastName[0]}` : '?'}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 rounded-md bg-secondary/50 p-2.5">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium">{note.author ? `${note.author.firstName} ${note.author.lastName}` : 'Utilisateur'}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] text-muted-foreground">
+              {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true, locale: fr })}
+              {note.updatedAt !== note.createdAt && ' · modifiée'}
+            </p>
+            {canModify && !editing && (
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={startEdit} className="text-muted-foreground hover:text-foreground">
+                  <Pencil className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteNote.mutate({ dealId, noteId: note.id })}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        {editing ? (
+          <div className="mt-1 flex flex-col gap-2">
+            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} className="text-sm" />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                Annuler
+              </Button>
+              <Button size="sm" onClick={saveEdit} disabled={!draft.trim() || updateNote.isPending}>
+                {updateNote.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Enregistrer
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-1 whitespace-pre-wrap text-sm">{note.content}</p>
+        )}
+        {note.images.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {note.images.map((image) => (
+              <NoteThumbnail key={image.id} image={image} onClick={() => onOpenImage(image.url)} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function NotesPanel({ dealId, notes }: { dealId: string; notes: Note[] }) {
+  const currentUser = useAuthStore((s) => s.user);
   const addNote = useAddNote();
   const [content, setContent] = useState('');
   const [images, setImages] = useState<File[]>([]);
@@ -125,31 +202,13 @@ export function NotesPanel({ dealId, notes }: { dealId: string; notes: Note[] })
         <div className="flex flex-col gap-3">
           {notes.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">Aucune note pour l'instant</p>}
           {notes.map((note) => (
-            <div key={note.id} className="flex gap-2.5">
-              <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-[10px]">
-                  {note.author ? `${note.author.firstName[0]}${note.author.lastName[0]}` : '?'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 rounded-md bg-secondary/50 p-2.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium">
-                    {note.author ? `${note.author.firstName} ${note.author.lastName}` : 'Utilisateur'}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true, locale: fr })}
-                  </p>
-                </div>
-                <p className="mt-1 text-sm">{note.content}</p>
-                {note.images.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {note.images.map((image) => (
-                      <NoteThumbnail key={image.id} image={image} onClick={() => setLightbox(image.url)} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <NoteItem
+              key={note.id}
+              dealId={dealId}
+              note={note}
+              canModify={Boolean(currentUser && (currentUser.id === note.authorId || currentUser.role === 'ADMIN'))}
+              onOpenImage={setLightbox}
+            />
           ))}
         </div>
       </CardContent>
