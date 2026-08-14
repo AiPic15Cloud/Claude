@@ -22,6 +22,10 @@
    * --sidebar-accent carry one fixed dark-navy value in both blocks, so
    * the nav rail reads the same regardless of page theme (matches the
    * reference, which keeps a dark sidebar even on its light dashboard).
+   * --sidebar and --sidebar-accent now equal --brand-cyanotype and
+   * --brand-accent exactly (see below) — the always-dark nav rail is the
+   * one surface in the app where the Atlas keystone's brand palette can
+   * show up directly, without fighting the light/dark split.
    * Every pairing below was checked against the real sRGB relative-
    * luminance contrast formula, not eyeballed: light primary-foreground/
    * primary 12.6:1, dark primary-foreground/primary 5.65:1 — all AA or
@@ -64,10 +68,10 @@
     --input: 214 20% 88%;
     --ring: 230 55% 28%;
 
-    --sidebar: 228 45% 15%;
+    --sidebar: 217 56% 16%;
     --sidebar-foreground: 220 25% 92%;
-    --sidebar-border: 228 30% 22%;
-    --sidebar-accent: 235 85% 70%;
+    --sidebar-border: 217 30% 24%;
+    --sidebar-accent: 12 79% 58%;
 
     --chart-accent: 230 55% 45%;
     --chart-2: 28 85% 45%;
@@ -128,10 +132,10 @@
     --input: 240 15% 18%;
     --ring: 235 85% 70%;
 
-    --sidebar: 228 45% 15%;
+    --sidebar: 217 56% 16%;
     --sidebar-foreground: 220 25% 92%;
-    --sidebar-border: 228 30% 22%;
-    --sidebar-accent: 235 85% 70%;
+    --sidebar-border: 217 30% 24%;
+    --sidebar-accent: 12 79% 58%;
 
     --brand-cyanotype: 217 56% 16%;
     --brand-ink: 214 60% 10%;
