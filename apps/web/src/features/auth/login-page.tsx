@@ -3,13 +3,14 @@ import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
-import { Building2, Loader2, Lock, ShieldCheck } from 'lucide-react';
+import { Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { useLogin, useVerifyTwoFactor } from './use-auth';
 import { ApiError } from '@/lib/api';
+import { AtlasMark } from '@/components/atlas-mark';
 
 const schema = z.object({
   email: z.string().email("Email invalide"),
@@ -114,7 +115,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Building2 className="h-5 w-5" />
+            <AtlasMark className="h-5 w-5" />
           </div>
           <h1 className="font-display text-lg font-semibold tracking-tight">Atlas Capital</h1>
           <p className="text-xs text-muted-foreground">Real Estate Intelligence Operating System</p>
