@@ -27,6 +27,35 @@ CREATE TYPE "DealType_new" AS ENUM (
   'REFINANCEMENT_STOCK'
 );
 
+-- Leaves a visible trail on every deal whose typology couldn't be mapped
+-- with confidence, so "needs manual review" isn't silently lost the
+-- moment the old enum value is overwritten below — it shows up right in
+-- the deal's own Notes tab instead of depending on someone remembering
+-- this migration ran. authorId has no "system" option in the schema, so
+-- it's attributed to the deal's own creator, same as any other note.
+INSERT INTO "notes" (id, "dealId", "authorId", content, "createdAt", "updatedAt")
+SELECT
+  gen_random_uuid()::text,
+  id,
+  "createdById",
+  'Typologie migrée automatiquement vers « Promotion immobilière » (ancien type : ' || "type"::text ||
+    ') — aucun équivalent direct dans la nouvelle typologie, à corriger manuellement.',
+  now(),
+  now()
+FROM "deals"
+WHERE "type"::text IN ('CROWDFUNDING', 'FRACTIONNE', 'AUTRE');
+
+INSERT INTO "notes" (id, "dealId", "authorId", content, "createdAt", "updatedAt")
+SELECT
+  gen_random_uuid()::text,
+  id,
+  "createdById",
+  'Typologie migrée automatiquement vers « Marchand de biens sans travaux » (ancien type : Marchand de biens, sans distinction avec/sans travaux) — vérifier si « avec travaux » serait plus juste.',
+  now(),
+  now()
+FROM "deals"
+WHERE "type"::text = 'MARCHAND_DE_BIENS';
+
 ALTER TABLE "deals" ALTER COLUMN "type" TYPE "DealType_new" USING (
   CASE "type"::text
     WHEN 'PROMOTION' THEN 'PROMOTION_IMMOBILIERE'
