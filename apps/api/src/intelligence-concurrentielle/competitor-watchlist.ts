@@ -82,6 +82,14 @@ export const COMPETITOR_WATCHLIST: CompetitorWatchlistEntry[] = [
     verificationNote: 'Liquidation judiciaire annoncée juillet 2026, ~700 biens Detroit sous fiduciaire, procédure en cours.',
   },
   {
+    name: 'Reental',
+    category: 'FRACTIONNE',
+    country: 'Espagne',
+    verificationStatus: 'ACTIF',
+    verificationNote:
+      "Tokenisation immobilière, cas de référence pour le risque de fragilité sectorielle (note de cadrage Terranos, 2026) : le token est une créance sur véhicule, avec une liquidité secondaire assurée par la plateforme elle-même — risque de contrepartie confirmé en presse par sa propre COO. Rendement affiché ~13% contre un marché espagnol réel ~8,2%, promesses de rendement 10-30% et « liquidité garantie » jugées non qualifiées, chiffres de couverture incohérents selon les canaux, paliers de rendement perçus comme inéquitables entre investisseurs.",
+  },
+  {
     name: 'Stomea',
     category: 'FRACTIONNE',
     country: 'France',
