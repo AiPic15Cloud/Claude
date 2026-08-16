@@ -1,5 +1,6 @@
 @import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource/spectral/300.css';
 @import '@fontsource/spectral/400.css';
 @import '@fontsource/spectral/600.css';
 @import '@fontsource/spectral/700.css';
@@ -79,7 +80,11 @@
     --chart-4: 265 60% 50%;
     --chart-5: 325 70% 48%;
 
-    --radius: 1rem;
+    /* Sharper than the previous 1rem — a more architectural, less
+       "rounded-everything" corner, closer to the restraint of the
+       Cockpit premium direction (see the published concept) than to a
+       default soft dashboard look. */
+    --radius: 0.625rem;
 
     /* Palette de marque — signe Atlas (claveau), fixe dans les deux thèmes
        comme --sidebar* : bleu cyanotype, encre profonde, blanc calque,

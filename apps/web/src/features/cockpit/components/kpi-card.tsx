@@ -24,7 +24,7 @@ export function KpiCard({ label, value, icon: Icon, hint, trend, hero }: KpiCard
           <span className={cn('text-[10px] font-semibold uppercase tracking-wider', hero ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
             {label}
           </span>
-          <span className={cn('font-display font-semibold tracking-tight tabular-nums', hero ? 'text-4xl' : 'text-2xl')}>{value}</span>
+          <span className={cn('font-display tracking-tight tabular-nums', hero ? 'text-4xl font-light' : 'text-2xl font-semibold')}>{value}</span>
           {hint && (
             <span
               className={cn(

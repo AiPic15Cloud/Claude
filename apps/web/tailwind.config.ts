@@ -85,6 +85,18 @@ export default {
         md: 'calc(var(--radius) - 3px)',
         sm: 'calc(var(--radius) - 5px)',
       },
+      boxShadow: {
+        // Elevation as soft, diffuse shadow rather than a hard border —
+        // reads clearly on light surfaces; on dark surfaces the card/
+        // background lightness gap (plus the still-present hairline
+        // border) carries the separation, since dark-on-dark shadows
+        // barely register.
+        card: '0 20px 50px -28px rgb(0 0 0 / 0.35), 0 2px 8px -2px rgb(0 0 0 / 0.12)',
+        'card-hover': '0 28px 70px -24px rgb(0 0 0 / 0.45), 0 4px 14px -2px rgb(0 0 0 / 0.18)',
+      },
+      transitionTimingFunction: {
+        premium: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
       keyframes: {
         'accordion-down': {
           from: { height: '0' },
