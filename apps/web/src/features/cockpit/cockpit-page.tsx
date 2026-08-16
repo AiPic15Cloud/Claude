@@ -1,8 +1,6 @@
-import { Link } from 'react-router-dom';
-import { Wallet, TrendingUp, Percent, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useCockpitSummary } from './hooks/use-cockpit-summary';
-import { KpiCard } from './components/kpi-card';
+import { HeroMetric } from './components/hero-metric';
 import { TaskListCard } from './components/task-list-card';
 import { PipelineChart } from './components/pipeline-chart';
 import { AumHistoryChart } from './components/aum-history-chart';
@@ -34,10 +32,13 @@ export function CockpitPage() {
     return (
       <div className="flex flex-col gap-6">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
+          <Skeleton className="h-28 w-64" />
+          <div className="flex flex-col gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-6" />
+            ))}
+          </div>
         </div>
         <Skeleton className="h-80" />
       </div>
@@ -55,34 +56,21 @@ export function CockpitPage() {
 
       <MarketDigestCard />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
-        <KpiCard
-          label="Encours sous gestion"
-          value={formatCurrency(data.kpis.totalAum)}
-          icon={Wallet}
-          hint={`${formatCurrency(data.kpis.totalRaised)} collectés`}
-          trend="neutral"
-          hero
-        />
-        <KpiCard
-          label="Avancement de collecte"
-          value={`${data.kpis.fundingProgress}%`}
-          icon={TrendingUp}
-          hint={`${data.kpis.activeDeals} opérations actives`}
-          trend={data.kpis.fundingProgress >= 50 ? 'up' : 'neutral'}
-          hero
-        />
-        <KpiCard label="Taux moyen" value={`${data.kpis.averageInterestRate}%`} icon={Percent} />
-        <Link to="/portfolio?late=true">
-          <KpiCard
-            label="En retard"
-            value={String(data.kpis.lateDeals)}
-            icon={AlertTriangle}
-            hint={data.kpis.lateDeals > 0 ? 'échéance dépassée' : 'RAS'}
-            trend={data.kpis.lateDeals > 0 ? 'down' : 'neutral'}
-          />
-        </Link>
-      </div>
+      <HeroMetric
+        label="Encours sous gestion"
+        value={formatCurrency(data.kpis.totalAum)}
+        context={`${formatCurrency(data.kpis.totalRaised)} collectés à ce jour`}
+        stats={[
+          { label: 'Avancement de collecte', value: `${data.kpis.fundingProgress}%` },
+          { label: 'Taux moyen', value: `${data.kpis.averageInterestRate}%` },
+          {
+            label: 'En retard',
+            value: String(data.kpis.lateDeals),
+            href: '/portfolio?late=true',
+            tone: data.kpis.lateDeals > 0 ? 'down' : 'default',
+          },
+        ]}
+      />
 
       <AumHistoryChart history={data.aumHistory} />
 
