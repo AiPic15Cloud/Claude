@@ -100,7 +100,7 @@ export function Sidebar() {
       </aside>
 
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <SheetContent side="left" className="flex w-60 flex-col bg-sidebar p-0">
+        <SheetContent side="left" className="flex w-60 flex-col bg-sidebar/85 p-0 backdrop-blur-xl">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
         </SheetContent>
