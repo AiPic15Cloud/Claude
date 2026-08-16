@@ -66,7 +66,7 @@ export function CommandPalette() {
       onClick={() => setCommandPaletteOpen(false)}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-popover shadow-2xl animate-in fade-in-0 zoom-in-95"
+        className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/30 bg-popover/85 shadow-2xl backdrop-blur-xl before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-b before:from-white/20 before:to-transparent before:opacity-70 before:content-[''] animate-in fade-in-0 zoom-in-95 dark:border-white/10 dark:before:from-white/5"
         onClick={(e) => e.stopPropagation()}
       >
         <Command shouldFilter={false} className="flex flex-col">
