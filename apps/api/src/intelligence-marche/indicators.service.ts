@@ -179,18 +179,20 @@ export class MarketIndicatorsService {
 
   /**
    * The real dimension codebook for sts_cobp_m, read directly from Eurostat
-   * (via logDimensionMetadata's diagnostic dump, not guessed): indic_bt is
-   * BPRM_DW (permits — number of housing units) or BPRM_SQM (permits —
-   * useful floor area), and cpa2_1 uses "CPA_F..." prefixed codes, e.g.
-   * CPA_F41001 for residential buildings — nothing like the "PERM"/"F_CC1"
-   * codes from earlier guesses, which were never valid for this dataset.
+   * (via logDimensionMetadata's diagnostic dump in the production logs, not
+   * guessed): indic_bt is BPRM_DW (permits — number of housing units) or
+   * BPRM_SQM (permits — useful floor area), cpa2_1 uses "CPA_F..." prefixed
+   * codes, e.g. CPA_F41001 for residential buildings, and — the actual bug
+   * that kept every attempt failing — s_adj only has two valid values, NSA
+   * (raw) and SCA (seasonally + calendar adjusted); the earlier guess of
+   * 'CA' doesn't exist in this dataset at all.
    */
   private async fetchBuildingPermits(): Promise<EurostatIndicator> {
     const attempts: Record<string, string>[] = [
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_SQM', cpa2_1: 'CPA_F41001', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001_41002', s_adj: 'CA', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I15', sinceTimePeriod: '2024-01' },
       { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_SQM', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I15', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001_41002', s_adj: 'SCA', unit: 'I15', sinceTimePeriod: '2024-01' },
     ];
 
     for (const params of attempts) {
@@ -264,16 +266,12 @@ export class MarketIndicatorsService {
   }
 
   private async fetchHousePriceChangeYoy(): Promise<EurostatIndicator> {
-    // First deploy resolved the index level with unit=I15_Q and, from a
-    // sibling dataset's dimension dump (sts_cobp_m) logged in that same run,
-    // confirmed Eurostat's "% change vs same period last year" convention is
-    // PCH_SM — not RCH_A4/RT4/PCH_SM4, which were the first (wrong) guesses.
-    const attempts: Record<string, string>[] = [
-      { geo: 'FR', purchase: 'TOTAL', unit: 'PCH_SM', sinceTimePeriod: '2023-01' },
-      { geo: 'FR', purchase: 'TOTAL', unit: 'RCH_A4', sinceTimePeriod: '2023-01' },
-      { geo: 'FR', purchase: 'TOTAL', unit: 'RT4', sinceTimePeriod: '2023-01' },
-      { geo: 'FR', purchase: 'TOTAL', unit: 'PCH_SM4', sinceTimePeriod: '2023-01' },
-    ];
+    // prc_hpi_q's real "unit" codebook (from logDimensionMetadata's dump in
+    // the production logs): I15_Q/I25_Q are index levels, and the only two
+    // rate-of-change codes are RCH_Q (quarter-on-quarter) and RCH_A
+    // (year-on-year, which is what this method wants) — PCH_SM/RCH_A4/RT4/
+    // PCH_SM4 (the earlier guesses) were never valid values for this dataset.
+    const attempts: Record<string, string>[] = [{ geo: 'FR', purchase: 'TOTAL', unit: 'RCH_A', sinceTimePeriod: '2023-01' }];
     for (const params of attempts) {
       const result = await this.fetchEurostat('prc_hpi_q', params);
       if (result.value !== null) {
@@ -281,9 +279,6 @@ export class MarketIndicatorsService {
         return result;
       }
     }
-    // fetchHousePriceIndex resolved on its 2nd attempt and never triggered
-    // its own dump, so the real prc_hpi_q codebook was never actually
-    // logged — do it here if every guess above still fails.
     await this.logDimensionMetadata('prc_hpi_q', 'House price change (y/y)');
     return { value: null, previousValue: null, period: null };
   }
