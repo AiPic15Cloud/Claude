@@ -11,7 +11,7 @@ const buttonVariants = cva(
   // The sheen sits at a negative z-index so it layers between the button's
   // own background (always painted first) and its text/icon content,
   // never washing out the label.
-  'relative inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full text-sm font-medium backdrop-blur-md transition-all duration-300 before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-b before:from-white/35 before:to-transparent before:opacity-80 before:content-[""] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 dark:before:from-white/10',
+  'relative inline-flex items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full text-sm font-medium backdrop-blur-md transition-all duration-300 before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-b before:from-white/35 before:to-transparent before:opacity-80 before:content-[""] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] [&_svg]:size-4 [&_svg]:shrink-0 dark:before:from-white/10',
   {
     variants: {
       variant: {
