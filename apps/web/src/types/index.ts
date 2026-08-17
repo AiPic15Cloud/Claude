@@ -346,7 +346,17 @@ export interface CockpitSummary {
   aumHistory: AumHistoryPoint[];
   deadlineAlerts: DealDeadlineAlert[];
   guaranteesToRenew: GuaranteeToRenew[];
-  autoSummary: string;
+  autoSummary: AutoSummary;
+}
+
+export interface AutoSummaryItem {
+  label: string;
+  severity: 'critical' | 'warning' | 'info';
+}
+
+export interface AutoSummary {
+  headline: string;
+  items: AutoSummaryItem[];
 }
 
 export interface PaginatedResult<T> {
