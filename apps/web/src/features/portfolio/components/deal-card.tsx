@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { MapPin } from 'lucide-react';
+import { MapPin, TrendingUp, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { TagBadge } from './tag-badge';
@@ -42,6 +42,23 @@ export function DealCard({ deal, onClick }: DealCardProps) {
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3" /> {deal.city}
           </p>
+        )}
+
+        {(deal.interestRate || deal.durationMonths) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {deal.interestRate && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                <span className="text-foreground">{Number(deal.interestRate).toFixed(2)}%</span>/an
+              </span>
+            )}
+            {deal.durationMonths && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span className="text-foreground">{deal.durationMonths}</span>mois
+              </span>
+            )}
+          </div>
         )}
 
         <div className="flex flex-col gap-1">
