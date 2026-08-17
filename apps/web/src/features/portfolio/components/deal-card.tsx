@@ -27,7 +27,10 @@ export function DealCard({ deal, onClick }: DealCardProps) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={cn('cursor-pointer touch-none select-none hover:border-primary/40', isDragging && 'z-10 opacity-50 shadow-lg')}
+      className={cn(
+        'cursor-pointer touch-none select-none transition-transform duration-300 ease-premium hover:-translate-y-0.5 hover:border-primary/40',
+        isDragging && 'z-10 opacity-50 shadow-lg',
+      )}
     >
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-start justify-between gap-2">
