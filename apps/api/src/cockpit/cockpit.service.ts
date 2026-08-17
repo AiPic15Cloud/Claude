@@ -120,7 +120,7 @@ export class CockpitService {
       .filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE')
       .sort((a, b) => (a.daysToExpiry ?? -Infinity) - (b.daysToExpiry ?? -Infinity));
 
-    const summaryText = this.buildAutoSummary({
+    const autoSummary = this.buildAutoSummary({
       kpis,
       todayTasksCount: todayTasks.length,
       urgentCount: priorityTasks.filter((t) => t.priority === 'URGENT').length,
@@ -141,7 +141,7 @@ export class CockpitService {
       aumHistory,
       deadlineAlerts,
       guaranteesToRenew,
-      autoSummary: summaryText,
+      autoSummary,
     };
   }
 
@@ -192,6 +192,13 @@ export class CockpitService {
    * The conversational "Résumé IA" from the product spec (module 9 — Agents IA)
    * is a separate, not-yet-built capability; this generator is intentionally
    * transparent and non-LLM so it never overstates what's implemented.
+   *
+   * Returns a neutral headline (context, nothing to act on) plus a list of
+   * items to action, each tagged with a severity so the UI can color-code by
+   * urgency instead of burying everything in one flat sentence — 'critical'
+   * for things with real consequences if missed (unread critical alerts,
+   * vote deadlines about to lapse), 'warning' for urgent-but-not-yet-critical
+   * work (HIGH/URGENT priority tasks), 'info' for routine same-day load.
    */
   private buildAutoSummary(input: {
     kpis: Awaited<ReturnType<DealsService['kpis']>>;
@@ -199,36 +206,43 @@ export class CockpitService {
     urgentCount: number;
     criticalAlertsCount: number;
     deadlineUrgentCount: number;
-  }): string {
+  }): { headline: string; items: { label: string; severity: 'critical' | 'warning' | 'info' }[] } {
     const { kpis, todayTasksCount, urgentCount, criticalAlertsCount, deadlineUrgentCount } = input;
-    const parts: string[] = [];
 
-    parts.push(
+    const headline =
       `${kpis.activeDeals} opération${kpis.activeDeals > 1 ? 's' : ''} active${kpis.activeDeals > 1 ? 's' : ''}` +
-        ` pour ${this.formatAmount(kpis.totalAum)} sous gestion, collecte à ${kpis.fundingProgress}%.`,
-    );
+      ` pour ${this.formatAmount(kpis.totalAum)} sous gestion, collecte à ${kpis.fundingProgress}%.`;
 
-    if (todayTasksCount > 0) {
-      parts.push(`${todayTasksCount} tâche${todayTasksCount > 1 ? 's' : ''} à traiter aujourd'hui.`);
-    } else {
-      parts.push(`Aucune tâche planifiée aujourd'hui.`);
-    }
-
-    if (urgentCount > 0) {
-      parts.push(`${urgentCount} priorité${urgentCount > 1 ? 's' : ''} urgente${urgentCount > 1 ? 's' : ''} en attente.`);
-    }
+    const items: { label: string; severity: 'critical' | 'warning' | 'info' }[] = [];
 
     if (criticalAlertsCount > 0) {
-      parts.push(`${criticalAlertsCount} alerte${criticalAlertsCount > 1 ? 's' : ''} critique${criticalAlertsCount > 1 ? 's' : ''} à examiner.`);
+      items.push({
+        label: `${criticalAlertsCount} alerte${criticalAlertsCount > 1 ? 's' : ''} critique${criticalAlertsCount > 1 ? 's' : ''} à examiner`,
+        severity: 'critical',
+      });
     }
 
     if (deadlineUrgentCount > 0) {
-      parts.push(
-        `${deadlineUrgentCount} échéance${deadlineUrgentCount > 1 ? 's' : ''} de vote urgente${deadlineUrgentCount > 1 ? 's' : ''} à traiter.`,
-      );
+      items.push({
+        label: `${deadlineUrgentCount} échéance${deadlineUrgentCount > 1 ? 's' : ''} de vote urgente${deadlineUrgentCount > 1 ? 's' : ''} à traiter`,
+        severity: 'critical',
+      });
     }
 
-    return parts.join(' ');
+    if (urgentCount > 0) {
+      items.push({
+        label: `${urgentCount} priorité${urgentCount > 1 ? 's' : ''} urgente${urgentCount > 1 ? 's' : ''} en attente`,
+        severity: 'warning',
+      });
+    }
+
+    if (todayTasksCount > 0) {
+      items.push({ label: `${todayTasksCount} tâche${todayTasksCount > 1 ? 's' : ''} à traiter aujourd'hui`, severity: 'info' });
+    } else {
+      items.push({ label: `Aucune tâche planifiée aujourd'hui`, severity: 'info' });
+    }
+
+    return { headline, items };
   }
 
   private formatAmount(amount: number): string {
