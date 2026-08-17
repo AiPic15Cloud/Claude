@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
+import { MobileTabBar } from './mobile-tab-bar';
 import { CommandPalette } from './command-palette';
 import { useUiStore } from '@/store/ui.store';
 import { cn } from '@/lib/utils';
@@ -15,10 +16,11 @@ export function AppShell() {
       <Sidebar />
       <div className={cn('flex min-h-screen flex-col transition-[margin] duration-200', sidebarCollapsed ? 'md:ml-16' : 'md:ml-60')}>
         <Topbar />
-        <main className="flex-1 px-5 py-6 md:px-8 md:py-8 lg:px-10">
+        <main className="flex-1 px-5 pb-24 pt-6 md:px-8 md:py-8 lg:px-10">
           <Outlet />
         </main>
       </div>
+      <MobileTabBar />
       <CommandPalette />
     </div>
   );
