@@ -3,6 +3,7 @@ import { BellRing, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { isPushSupported, getCurrentSubscription, subscribeToPush, unsubscribeFromPush } from '@/lib/push';
+import { api } from '@/lib/api';
 
 export function PushNotificationsCard() {
   const [supported, setSupported] = useState(true);
@@ -10,6 +11,7 @@ export function PushNotificationsCard() {
   const [checking, setChecking] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testSent, setTestSent] = useState(false);
 
   useEffect(() => {
     if (!isPushSupported()) {
@@ -25,6 +27,7 @@ export function PushNotificationsCard() {
   const handleToggle = async () => {
     setPending(true);
     setError(null);
+    setTestSent(false);
     try {
       if (subscribed) {
         await unsubscribeFromPush();
@@ -33,6 +36,20 @@ export function PushNotificationsCard() {
         await subscribeToPush();
         setSubscribed(true);
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Une erreur est survenue.');
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setPending(true);
+    setError(null);
+    setTestSent(false);
+    try {
+      await api.post('/push/test');
+      setTestSent(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Une erreur est survenue.');
     } finally {
@@ -59,12 +76,18 @@ export function PushNotificationsCard() {
           </p>
         ) : (
           <>
-            <div>
+            <div className="flex items-center gap-2">
               <Button size="sm" variant={subscribed ? 'outline' : 'default'} onClick={handleToggle} disabled={checking || pending}>
                 {(checking || pending) && <Loader2 className="h-4 w-4 animate-spin" />}
                 {subscribed ? 'Désactiver sur cet appareil' : 'Activer sur cet appareil'}
               </Button>
+              {subscribed && (
+                <Button size="sm" variant="outline" onClick={handleTest} disabled={pending}>
+                  Envoyer un test
+                </Button>
+              )}
             </div>
+            {testSent && <p className="text-xs text-success">Notification de test envoyée — elle devrait arriver dans quelques secondes.</p>}
             {error && <p className="text-xs text-destructive">{error}</p>}
             <p className="text-[11px] text-muted-foreground">
               Sur iPhone/iPad, ça ne fonctionne que si Atlas est ouvert depuis l'icône ajoutée à l'écran d'accueil (pas depuis

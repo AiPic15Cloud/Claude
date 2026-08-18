@@ -33,4 +33,15 @@ export class PushController {
   unsubscribe(@CurrentUser() user: AuthenticatedUser, @Body('endpoint') endpoint: string) {
     return this.push.unsubscribe(user.id, endpoint);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('test')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  sendTest(@CurrentUser() user: AuthenticatedUser) {
+    return this.push.sendToUser(user.id, {
+      title: 'Atlas Capital',
+      body: 'Notification de test — si tu vois ceci, tout fonctionne.',
+    });
+  }
 }
