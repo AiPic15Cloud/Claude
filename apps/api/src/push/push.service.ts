@@ -70,6 +70,21 @@ export class PushService {
     const subscriptions = await this.prisma.pushSubscription.findMany({
       where: { user: { organizationId } },
     });
+    await this.sendToSubscriptions(subscriptions, payload);
+  }
+
+  /** Sends only to the given user's own devices — used by the "send a test" button so verifying delivery doesn't page the whole team. */
+  async sendToUser(userId: string, payload: PushPayload) {
+    if (!this.configured) return;
+
+    const subscriptions = await this.prisma.pushSubscription.findMany({ where: { userId } });
+    await this.sendToSubscriptions(subscriptions, payload);
+  }
+
+  private async sendToSubscriptions(
+    subscriptions: { id: string; endpoint: string; p256dh: string; auth: string }[],
+    payload: PushPayload,
+  ) {
     if (subscriptions.length === 0) return;
 
     await Promise.all(
