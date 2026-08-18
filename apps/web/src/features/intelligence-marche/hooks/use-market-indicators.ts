@@ -14,6 +14,7 @@ interface MarketIndicators {
   buildingPermitsIndex: Indicator;
   housePriceIndex: Indicator;
   housePriceChangeYoy: Indicator;
+  mortgageRate: Indicator;
 }
 
 export function useMarketIndicators() {

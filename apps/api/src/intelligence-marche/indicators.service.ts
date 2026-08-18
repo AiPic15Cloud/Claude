@@ -22,7 +22,10 @@ interface EurostatJsonStat {
 export class MarketIndicatorsService {
   private readonly logger = new Logger(MarketIndicatorsService.name);
   private cache: { fetchedAt: number; data: Record<string, EurostatIndicator> } | null = null;
-  private rateHistoryCache: { fetchedAt: number; data: { oat10y: { period: string; value: number }[]; ecbPolicyRate: { period: string; value: number }[] } } | null = null;
+  private rateHistoryCache: {
+    fetchedAt: number;
+    data: { oat10y: { period: string; value: number }[]; ecbPolicyRate: { period: string; value: number }[]; mortgageRate: { period: string; value: number }[] };
+  } | null = null;
   private readonly CACHE_TTL_MS = 60 * 60_000;
 
   private async fetchEurostat(dataset: string, params: Record<string, string>): Promise<EurostatIndicator> {
@@ -103,22 +106,22 @@ export class MarketIndicatorsService {
   }
 
   /**
-   * ECB's official main refinancing rate ("taux directeur") — the rate
-   * French financial press actually means by that term, distinct from the
-   * Euribor-based market rate already shown elsewhere on this page. Source:
-   * ECB Data Portal (data-api.ecb.europa.eu, free, no key), dataflow FM,
-   * series D.U2.EUR.4F.KR.MRR_FR.LEV — published daily since it's a step
-   * function that only moves on Governing Council decisions, so daily
-   * observations are collapsed to one point per month (last value of the
-   * month) to line up with Eurostat's monthly cadence for OAT 10Y.
+   * Shared fetcher for ECB Data Portal series (data-api.ecb.europa.eu, free,
+   * no key) — used for both the ECB policy rate and the French mortgage
+   * rate below, which are the same SDMX-JSON shape on two different
+   * dataflows/keys. Observations are collapsed to one point per month (last
+   * value of the month) so a daily series (the policy rate, a step function
+   * that only moves on Governing Council decisions) lines up with an
+   * already-monthly one (the mortgage rate) on the same chart — a no-op for
+   * series that are monthly to begin with.
    *
    * This sandbox has no outbound network access to verify the exact SDMX-JSON
    * shape against the live API — if the assumed structure is wrong, a raw
    * response dump is logged so the real shape is recoverable from Railway's
    * logs, same defensive pattern as logDimensionMetadata() below.
    */
-  private async fetchEcbPolicyRateHistory(sinceIso: string): Promise<{ period: string; value: number }[]> {
-    const url = `https://data-api.ecb.europa.eu/service/data/FM/D.U2.EUR.4F.KR.MRR_FR.LEV?format=jsondata&startPeriod=${sinceIso}&detail=dataonly`;
+  private async fetchEcbSeries(flowRef: string, key: string, sinceIso: string, label: string): Promise<{ period: string; value: number }[]> {
+    const url = `https://data-api.ecb.europa.eu/service/data/${flowRef}/${key}?format=jsondata&startPeriod=${sinceIso}&detail=dataonly`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) {
@@ -146,15 +149,43 @@ export class MarketIndicatorsService {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([period, value]) => ({ period, value }));
     } catch (error) {
-      this.logger.warn(`ECB policy rate history fetch failed: ${(error as Error).message}`);
+      this.logger.warn(`${label} fetch failed: ${(error as Error).message}`);
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        this.logger.warn(`ECB policy rate raw response (first 500 chars): ${(await res.text()).slice(0, 500)}`);
+        this.logger.warn(`${label} raw response (first 500 chars): ${(await res.text()).slice(0, 500)}`);
       } catch {
         /* best-effort diagnostic only */
       }
       return [];
     }
+  }
+
+  /** ECB's official main refinancing rate ("taux directeur") — the rate French financial press actually means by that term. */
+  private fetchEcbPolicyRateHistory(sinceIso: string) {
+    return this.fetchEcbSeries('FM', 'D.U2.EUR.4F.KR.MRR_FR.LEV', sinceIso, 'ECB policy rate history');
+  }
+
+  /**
+   * Average annualised agreed rate on new house-purchase loans to French
+   * households, all maturities — the actual "taux moyen des prêts
+   * immobiliers" headline figure. ECB Data Portal, dataflow MIR (MFI
+   * interest rate statistics), key M.FR.B.A2C.A.R.A.2250.EUR.N: monthly,
+   * France, new business, loans for house purchase, all maturities,
+   * annualised agreed rate, not seasonally adjusted.
+   */
+  private fetchFrenchMortgageRateHistory(sinceIso: string) {
+    return this.fetchEcbSeries('MIR', 'M.FR.B.A2C.A.R.A.2250.EUR.N', sinceIso, 'French mortgage rate history');
+  }
+
+  /** Latest-two-points snapshot of the mortgage rate history, for the indicator tile — same series as fetchFrenchMortgageRateHistory. */
+  private async fetchFrenchMortgageRate(): Promise<EurostatIndicator> {
+    const since = new Date();
+    since.setMonth(since.getMonth() - 6);
+    const points = await this.fetchFrenchMortgageRateHistory(since.toISOString().slice(0, 10));
+    if (points.length === 0) return { value: null, previousValue: null, period: null };
+    const latest = points[points.length - 1];
+    const previous = points[points.length - 2];
+    return { value: latest.value, previousValue: previous?.value ?? null, period: latest.period };
   }
 
   async rateHistory() {
@@ -167,12 +198,13 @@ export class MarketIndicatorsService {
     const sinceMonth = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}`;
     const sinceIso = since.toISOString().slice(0, 10);
 
-    const [oat10y, ecbPolicyRate] = await Promise.all([
+    const [oat10y, ecbPolicyRate, mortgageRate] = await Promise.all([
       this.fetchEurostatSeries('irt_lt_mcby_m', { geo: 'FR', sinceTimePeriod: sinceMonth }),
       this.fetchEcbPolicyRateHistory(sinceIso),
+      this.fetchFrenchMortgageRateHistory(sinceIso),
     ]);
 
-    const data = { oat10y, ecbPolicyRate };
+    const data = { oat10y, ecbPolicyRate, mortgageRate };
     this.rateHistoryCache = { fetchedAt: Date.now(), data };
     return data;
   }
@@ -288,7 +320,7 @@ export class MarketIndicatorsService {
       return this.cache.data;
     }
 
-    const [hicpFrance, longTermRateFrance, shortTermRateEuroArea, buildingPermitsFrance, housePriceIndex, housePriceChangeYoy] =
+    const [hicpFrance, longTermRateFrance, shortTermRateEuroArea, buildingPermitsFrance, housePriceIndex, housePriceChangeYoy, mortgageRate] =
       await Promise.all([
         // HICP, annual rate of change, all-items, France.
         this.fetchEurostat('prc_hicp_manr', { geo: 'FR', coicop: 'CP00', sinceTimePeriod: '2024-01' }),
@@ -303,6 +335,8 @@ export class MarketIndicatorsService {
         this.fetchHousePriceIndex(),
         // Same dataset, year-on-year % change — the more directly readable of the two.
         this.fetchHousePriceChangeYoy(),
+        // Average rate on new home loans to households, France — the actual "taux moyen des prêts immobiliers".
+        this.fetchFrenchMortgageRate(),
       ]);
 
     const data = {
@@ -312,6 +346,7 @@ export class MarketIndicatorsService {
       buildingPermitsIndex: buildingPermitsFrance,
       housePriceIndex,
       housePriceChangeYoy,
+      mortgageRate,
     };
     this.cache = { fetchedAt: Date.now(), data };
     return data;

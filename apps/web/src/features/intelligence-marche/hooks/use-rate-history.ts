@@ -9,6 +9,7 @@ interface RatePoint {
 interface RateHistory {
   oat10y: RatePoint[];
   ecbPolicyRate: RatePoint[];
+  mortgageRate: RatePoint[];
 }
 
 export function useRateHistory() {
