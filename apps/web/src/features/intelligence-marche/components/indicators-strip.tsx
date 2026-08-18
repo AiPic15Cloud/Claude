@@ -80,10 +80,10 @@ export function IndicatorsStrip() {
         <IndicatorTile label="Taux court terme (zone euro)" value={data.euribor3m.value} previousValue={data.euribor3m.previousValue} period={data.euribor3m.period} />
         <IndicatorTile label="Inflation HICP — France (a/a)" value={data.inflationHicp.value} previousValue={data.inflationHicp.previousValue} period={data.inflationHicp.period} />
         <IndicatorTile
-          label="Permis de construire — indice, France"
-          value={data.buildingPermitsIndex.value}
-          previousValue={data.buildingPermitsIndex.previousValue}
-          period={data.buildingPermitsIndex.period}
+          label="Logements autorisés — France (année)"
+          value={data.buildingPermitsCount.value}
+          previousValue={data.buildingPermitsCount.previousValue}
+          period={data.buildingPermitsCount.period}
           suffix=""
         />
         <IndicatorTile
@@ -118,9 +118,11 @@ export function IndicatorsStrip() {
 
       <p className="text-[11px] text-muted-foreground">
         Sources : Eurostat (données officielles, mises à jour ~mensuellement/trimestriellement) · ECB Data Portal (taux des prêts immobiliers,
-        nouveaux crédits aux ménages, France) · INSEE (BT01, base 100 2010). L'indice permis de construire et l'indice des prix immobiliers
-        sont en base 100 (2015), pas des valeurs brutes. Le tertiaire (bureaux, commerces, logistique) n'a pas d'équivalent en données
-        ouvertes fiables — cette page continue à le couvrir via la veille éditoriale ci-dessous.
+        nouveaux crédits aux ménages, France) · INSEE (BT01, base 100 2010) · SDES/Sitadel2 (logements autorisés, valeur réelle annuelle).
+        L'indice des prix immobiliers est en base 100 (2015), pas une valeur brute — l'INSEE ne publie pas de série nationale en €/m² en
+        open data ; le seul vrai €/m² disponible ici vient des transactions réelles (recherche DVF ci-dessous), ville par ville. Le tertiaire
+        (bureaux, commerces, logistique) n'a pas d'équivalent en données ouvertes fiables — cette page continue à le couvrir via la veille
+        éditoriale plus bas.
       </p>
     </div>
   );
