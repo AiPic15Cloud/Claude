@@ -233,12 +233,30 @@ model User {
   competitorProjectsLogged   CompetitorProject[]
   projectCheckpointsRecorded ProjectCheckpoint[]
   agentMessages              AgentMessage[]
+  pushSubscriptions          PushSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@map("users")
+}
+
+/// One row per browser/device that opted into push notifications — a user
+/// can have several (phone, laptop). Deleted on unsubscribe, or pruned by
+/// PushService when the push endpoint reports it's gone (410/404).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model RefreshToken {

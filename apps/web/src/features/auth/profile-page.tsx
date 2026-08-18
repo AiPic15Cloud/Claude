@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUpdateProfile, useChangePassword } from './use-auth';
 import { TwoFactorCard } from './two-factor-card';
+import { PushNotificationsCard } from './push-notifications-card';
 import { useAuthStore } from '@/store/auth.store';
 import { ApiError } from '@/lib/api';
 import { PageHeader } from '@/components/ui/page-header';
@@ -144,6 +145,8 @@ export function ProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      <PushNotificationsCard />
 
       <TwoFactorCard />
     </div>

@@ -32,6 +32,7 @@ import { MarketTickerModule } from './market-ticker/market-ticker.module';
 import { FeesModule } from './fees/fees.module';
 import { RepaymentsModule } from './repayments/repayments.module';
 import { PipelineModule } from './pipeline/pipeline.module';
+import { PushModule } from './push/push.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -68,6 +69,7 @@ import { HealthController } from './health/health.controller';
     FeesModule,
     RepaymentsModule,
     PipelineModule,
+    PushModule,
   ],
   controllers: [HealthController],
   providers: [
