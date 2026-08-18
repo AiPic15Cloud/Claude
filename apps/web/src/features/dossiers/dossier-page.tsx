@@ -95,8 +95,8 @@ export function DossierPage() {
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{deal.reference}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="shrink-0 whitespace-nowrap">{deal.reference}</span>
               <TypeBadge type={deal.type} />
               <StageBadge stage={deal.stage} />
               <RepaidBadge repaid={deal.repaid} />

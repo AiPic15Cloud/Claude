@@ -11,7 +11,11 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'flex h-9 max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground no-scrollbar',
+      // Le dégradé aux deux bords signale qu'il y a plus d'onglets à faire
+      // défiler horizontalement — sans lui, une liste trop longue pour
+      // l'écran (10 onglets sur la fiche dossier, par ex.) se coupe net à
+      // droite sans aucun indice qu'elle est scrollable.
+      'flex h-9 max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground no-scrollbar [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
       className,
     )}
     {...props}
