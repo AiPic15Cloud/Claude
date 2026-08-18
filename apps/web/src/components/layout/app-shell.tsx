@@ -22,7 +22,7 @@ export function AppShell() {
         <div className="print:hidden">
           <Topbar />
         </div>
-        <main className="flex-1 px-5 pb-24 pt-6 md:px-8 md:py-8 lg:px-10 print:p-0">
+        <main className="flex-1 px-5 pb-28 pt-6 md:px-8 md:py-8 lg:px-10 print:p-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
