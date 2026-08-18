@@ -1,6 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { Task } from '@/types';
+
+/** Tâches d'un dossier — pour le calibrage de la charge par projet (onglet Tâches de la fiche dossier). */
+export function useDealTasks(dealId: string) {
+  return useQuery({
+    queryKey: ['tasks', 'deal', dealId],
+    queryFn: () => api.get<Task[]>(`/deals/${dealId}/tasks`),
+    enabled: !!dealId,
+  });
+}
 
 export function useToggleTask() {
   const queryClient = useQueryClient();
@@ -16,7 +25,8 @@ export function useToggleTask() {
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; dueDate?: string; priority?: Task['priority'] }) => api.post<Task>('/tasks', data),
+    mutationFn: (data: { title: string; dueDate?: string; priority?: Task['priority']; dealId?: string }) =>
+      api.post<Task>('/tasks', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cockpit'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
