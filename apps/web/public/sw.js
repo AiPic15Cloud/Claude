@@ -24,6 +24,12 @@ self.addEventListener('push', (event) => {
       body: payload.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
+      // Explicit even though these match the spec defaults: some iOS/Safari
+      // builds have been reported to treat a notification with unset sound/
+      // vibrate fields as silent rather than falling back to the default.
+      // Costs nothing to be explicit.
+      silent: false,
+      vibrate: [200, 100, 200],
       data: { url: payload.url || '/cockpit' },
     }),
   );
