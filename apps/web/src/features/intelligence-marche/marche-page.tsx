@@ -16,6 +16,8 @@ import { CreateArticleDialog } from './components/create-article-dialog';
 import { IndicatorsStrip } from './components/indicators-strip';
 import { RateHistoryChart } from './components/rate-history-chart';
 import { BuildingPermitsChart } from './components/building-permits-chart';
+import { HousePriceIndexChart } from './components/house-price-index-chart';
+import { PortfolioRateBenchmarkCard } from './components/portfolio-rate-benchmark-card';
 import { MarketDigestCard } from './components/market-digest-card';
 import { SourcesPanel } from './components/sources-panel';
 import { useArticles, useCollectAll } from './hooks/use-market-intelligence';
@@ -55,9 +57,12 @@ export function MarchePage() {
 
       <IndicatorsStrip />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <PortfolioRateBenchmarkCard />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <RateHistoryChart />
         <BuildingPermitsChart />
+        <HousePriceIndexChart />
       </div>
 
       <MarketDigestCard />

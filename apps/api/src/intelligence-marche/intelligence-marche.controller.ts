@@ -35,6 +35,11 @@ export class IntelligenceMarcheController {
     return this.indicators.buildingPermitsHistory();
   }
 
+  @Get('house-price-index-history')
+  getHousePriceIndexHistory() {
+    return this.indicators.housePriceIndexHistory();
+  }
+
   @Get('digest')
   getDigest(@CurrentUser() user: AuthenticatedUser) {
     return this.digest.getDigest(user.organizationId);
