@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Download } from 'lucide-react';
 import { KpiBar } from './components/kpi-bar';
 import { FiltersBar } from './components/filters-bar';
 import { ViewSwitcher, type PortfolioView } from './components/view-switcher';
@@ -12,6 +13,10 @@ import { MapView } from './views/map-view';
 import { useDeals, type DealsFilters } from './hooks/use-deals';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
+import { Button } from '@/components/ui/button';
+import { exportToExcel } from '@/lib/export-xlsx';
+import { formatDate } from '@/lib/format';
+import { DEAL_TYPE_LABELS, DEAL_STAGE_LABELS, DEAL_STATUS_LABELS } from '@/types';
 
 export function PortfolioPage() {
   const [view, setView] = useState<PortfolioView>('kanban');
@@ -41,12 +46,40 @@ export function PortfolioPage() {
     }));
   };
 
+  const handleExport = () => {
+    const rows = deals.map((d) => ({
+      Référence: d.reference,
+      Nom: d.name,
+      Type: DEAL_TYPE_LABELS[d.type],
+      Étape: DEAL_STAGE_LABELS[d.stage],
+      Statut: DEAL_STATUS_LABELS[d.status],
+      Ville: d.city ?? '',
+      'Montant cible': Number(d.amountTarget),
+      Collecté: Number(d.amountRaised),
+      'Taux (%)': d.interestRate ? Number(d.interestRate) : null,
+      'Fees (%)': d.feesRate ? Number(d.feesRate) : null,
+      'Durée (mois)': d.durationMonths ?? null,
+      'Date début': d.startDate ? formatDate(d.startDate) : '',
+      'Date échéance': d.endDate ? formatDate(d.endDate) : '',
+      'Score ATLAS': d.atlasScore ?? null,
+      Remboursé: d.repaid ? 'Oui' : 'Non',
+    }));
+    exportToExcel(`atlas-portefeuille-${new Date().toISOString().slice(0, 10)}.xlsx`, 'Portefeuille', rows);
+  };
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Portefeuille"
         description="Toutes les opérations de votre organisation."
-        actions={<CreateDealDialog />}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={deals.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Exporter
+            </Button>
+            <CreateDealDialog />
+          </>
+        }
       />
 
       <KpiBar />

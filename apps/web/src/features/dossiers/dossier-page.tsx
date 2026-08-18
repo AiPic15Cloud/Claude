@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Trash2, Loader2, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,7 @@ import { CheckpointsPanel } from './components/checkpoints-panel';
 import { DocumentsPanel } from './components/documents-panel';
 import { EntitiesPanel } from './components/entities-panel';
 import { DealAssistantPanel } from './components/deal-assistant-panel';
+import { DealPrintSheet } from './components/deal-print-sheet';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
@@ -81,7 +82,8 @@ export function DossierPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <>
+    <div className="flex flex-col gap-5 print:hidden">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2">
           <Link to="/portfolio">
@@ -110,7 +112,10 @@ export function DossierPage() {
               <CheckpointHealthBadge health={deal.checkpointHealth} />
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print:hidden">
+            <Button size="sm" variant="outline" onClick={() => window.print()}>
+              <Printer className="h-3.5 w-3.5" /> Exporter en PDF
+            </Button>
             <EditDealDialog deal={deal} />
             {confirmingDelete && (
               <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)}>
@@ -262,5 +267,7 @@ export function DossierPage() {
         </TabsContent>
       </Tabs>
     </div>
+    <DealPrintSheet deal={deal} guarantees={guarantees} />
+    </>
   );
 }
