@@ -90,9 +90,18 @@ export class PushService {
     await Promise.all(
       subscriptions.map(async (sub) => {
         try {
+          // Without an explicit urgency, Apple's push gateway (what actually
+          // delivers these on iOS Safari/PWA) tends to treat the message as
+          // background-priority — landing silently in Notification Centre
+          // instead of interrupting with a banner + sound, confirmed on a
+          // real device. 'high' is what Web Push's RFC 8030 Urgency header
+          // is for, and every notification this service sends (critical
+          // alerts, the manual test) is exactly the "worth interrupting for"
+          // case it exists for.
           await webPush.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             JSON.stringify(payload),
+            { urgency: 'high' },
           );
         } catch (error) {
           const statusCode = (error as { statusCode?: number }).statusCode;
