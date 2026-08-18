@@ -17,7 +17,7 @@ export function MobileTabBar() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around gap-1 overflow-hidden rounded-t-3xl border-t border-white/30 bg-card/85 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl backdrop-blur-xl before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-b before:from-white/20 before:to-transparent before:opacity-70 before:content-[''] md:hidden dark:border-white/10 dark:before:from-white/5"
+      className="fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around gap-1 rounded-t-3xl border-t border-border bg-card/85 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl backdrop-blur-xl md:hidden"
     >
       {TABS.map((tab) => {
         const Icon = tab.icon;
