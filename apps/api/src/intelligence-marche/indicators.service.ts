@@ -28,6 +28,7 @@ export class MarketIndicatorsService {
   } | null = null;
   private buildingPermitsHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
   private housePriceIndexHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
+  private constructionCostIndexHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
   private readonly CACHE_TTL_MS = 60 * 60_000;
 
   private async fetchEurostat(dataset: string, params: Record<string, string>): Promise<EurostatIndicator> {
@@ -165,6 +166,82 @@ export class MarketIndicatorsService {
   /** ECB's official main refinancing rate ("taux directeur") — the rate French financial press actually means by that term. */
   private fetchEcbPolicyRateHistory(sinceIso: string) {
     return this.fetchEcbSeries('FM', 'D.U2.EUR.4F.KR.MRR_FR.LEV', sinceIso, 'ECB policy rate history');
+  }
+
+  /**
+   * INSEE's free BDM (Banque de Données Macroéconomiques) series API —
+   * SDMX-JSON like the ECB Data Portal, so the same parsing shape applies,
+   * just a different URL scheme (idBank instead of flowRef+key). Publicly
+   * documented as accessible without an API key for basic series lookups,
+   * unlike the Banque de France Webstat portal (ruled out earlier — that one
+   * does require a registered account).
+   *
+   * This sandbox has no outbound network access to verify this against the
+   * live API — if INSEE's endpoint actually does require auth (their newer
+   * portail-api.insee.fr has been moving other services that way), the raw
+   * response is logged so that's recoverable from Railway's logs rather than
+   * failing silently.
+   */
+  private async fetchInseeSeries(idBank: string, sinceIso: string, label: string): Promise<{ period: string; value: number }[]> {
+    const url = `https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/${idBank}?startPeriod=${sinceIso}`;
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) {
+        const preview = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
+      }
+      const json = (await res.json()) as {
+        dataSets?: { series?: Record<string, { observations?: Record<string, number[]> }> }[];
+        structure?: { dimensions?: { observation?: { values?: { id: string }[] }[] } };
+      };
+      const seriesMap = json.dataSets?.[0]?.series;
+      const firstKey = seriesMap ? Object.keys(seriesMap)[0] : undefined;
+      const observations = firstKey ? seriesMap![firstKey].observations : undefined;
+      const timeValues = json.structure?.dimensions?.observation?.[0]?.values;
+      if (!observations || !timeValues) throw new Error('unexpected SDMX-JSON shape');
+
+      const points: { period: string; value: number }[] = [];
+      for (const [idx, obs] of Object.entries(observations)) {
+        const period = timeValues[Number(idx)]?.id;
+        const value = obs?.[0];
+        if (!period || value === undefined) continue;
+        points.push({ period, value });
+      }
+      return points.sort((a, b) => a.period.localeCompare(b.period));
+    } catch (error) {
+      this.logger.warn(`${label} fetch failed: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * BT01 — indice national du Bâtiment tous corps d'état (INSEE, base 2010),
+   * utilisé pour les clauses de révision de prix des marchés de travaux.
+   * idBank 001710986, identifié via insee.fr/fr/statistiques/serie/001710986.
+   */
+  private fetchBt01History(sinceIso: string) {
+    return this.fetchInseeSeries('001710986', sinceIso, 'BT01 (indice construction) history');
+  }
+
+  private async fetchBt01(): Promise<EurostatIndicator> {
+    const since = new Date();
+    since.setMonth(since.getMonth() - 6);
+    const points = await this.fetchBt01History(since.toISOString().slice(0, 10));
+    if (points.length === 0) return { value: null, previousValue: null, period: null };
+    const latest = points[points.length - 1];
+    const previous = points[points.length - 2];
+    return { value: latest.value, previousValue: previous?.value ?? null, period: latest.period };
+  }
+
+  async constructionCostIndexHistory(): Promise<{ period: string; value: number }[]> {
+    if (this.constructionCostIndexHistoryCache && Date.now() - this.constructionCostIndexHistoryCache.fetchedAt < this.CACHE_TTL_MS) {
+      return this.constructionCostIndexHistoryCache.data;
+    }
+    const since = new Date();
+    since.setFullYear(since.getFullYear() - 5);
+    const points = await this.fetchBt01History(since.toISOString().slice(0, 10));
+    this.constructionCostIndexHistoryCache = { fetchedAt: Date.now(), data: points };
+    return points;
   }
 
   /**
@@ -378,8 +455,16 @@ export class MarketIndicatorsService {
       return this.cache.data;
     }
 
-    const [hicpFrance, longTermRateFrance, shortTermRateEuroArea, buildingPermitsFrance, housePriceIndex, housePriceChangeYoy, mortgageRate] =
-      await Promise.all([
+    const [
+      hicpFrance,
+      longTermRateFrance,
+      shortTermRateEuroArea,
+      buildingPermitsFrance,
+      housePriceIndex,
+      housePriceChangeYoy,
+      mortgageRate,
+      constructionCostIndex,
+    ] = await Promise.all([
         // HICP, annual rate of change, all-items, France.
         this.fetchEurostat('prc_hicp_manr', { geo: 'FR', coicop: 'CP00', sinceTimePeriod: '2024-01' }),
         // Long-term government bond yield (10y proxy), monthly, France.
@@ -395,6 +480,8 @@ export class MarketIndicatorsService {
         this.fetchHousePriceChangeYoy(),
         // Average rate on new home loans to households, France — the actual "taux moyen des prêts immobiliers".
         this.fetchFrenchMortgageRate(),
+        // BT01 — indice national du Bâtiment (INSEE), pour les clauses de révision de prix des marchés de travaux.
+        this.fetchBt01(),
       ]);
 
     const data = {
@@ -405,6 +492,7 @@ export class MarketIndicatorsService {
       housePriceIndex,
       housePriceChangeYoy,
       mortgageRate,
+      constructionCostIndex,
     };
     this.cache = { fetchedAt: Date.now(), data };
     return data;

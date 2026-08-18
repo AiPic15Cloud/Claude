@@ -53,8 +53,8 @@ export function IndicatorsStrip() {
   if (isLoading || !data) {
     return (
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
@@ -69,7 +69,7 @@ export function IndicatorsStrip() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <IndicatorTile
           label="Taux moyen des prêts immobiliers — France"
           value={data.mortgageRate.value}
@@ -84,6 +84,13 @@ export function IndicatorsStrip() {
           value={data.buildingPermitsIndex.value}
           previousValue={data.buildingPermitsIndex.previousValue}
           period={data.buildingPermitsIndex.period}
+          suffix=""
+        />
+        <IndicatorTile
+          label="BT01 — coût de la construction"
+          value={data.constructionCostIndex.value}
+          previousValue={data.constructionCostIndex.previousValue}
+          period={data.constructionCostIndex.period}
           suffix=""
         />
       </div>
@@ -111,9 +118,9 @@ export function IndicatorsStrip() {
 
       <p className="text-[11px] text-muted-foreground">
         Sources : Eurostat (données officielles, mises à jour ~mensuellement/trimestriellement) · ECB Data Portal (taux des prêts immobiliers,
-        nouveaux crédits aux ménages, France). L'indice permis de construire et l'indice des prix immobiliers sont en base 100 (2015), pas des
-        valeurs brutes. Le tertiaire (bureaux, commerces, logistique) n'a pas d'équivalent en données ouvertes fiables — cette page continue à
-        le couvrir via la veille éditoriale ci-dessous.
+        nouveaux crédits aux ménages, France) · INSEE (BT01, base 100 2010). L'indice permis de construire et l'indice des prix immobiliers
+        sont en base 100 (2015), pas des valeurs brutes. Le tertiaire (bureaux, commerces, logistique) n'a pas d'équivalent en données
+        ouvertes fiables — cette page continue à le couvrir via la veille éditoriale ci-dessous.
       </p>
     </div>
   );
