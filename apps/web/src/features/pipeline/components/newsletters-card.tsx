@@ -45,7 +45,7 @@ export function NewslettersCard() {
               <TableBody>
                 {entries.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Link to={`/deals/${e.id}`} className="font-medium hover:text-primary hover:underline">
                         {e.name}
                       </Link>

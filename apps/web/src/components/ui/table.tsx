@@ -3,7 +3,10 @@ import { cn } from '@/lib/utils';
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+    // Même fondu aux bords que TabsList (voir tabs.tsx) — signale qu'il y a
+    // des colonnes cachées à faire défiler, sans quoi un tableau trop large
+    // pour l'écran se coupe net sans aucun indice qu'il est scrollable.
+    <div className="relative w-full overflow-auto [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]">
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),
