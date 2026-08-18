@@ -30,6 +30,11 @@ export class IntelligenceMarcheController {
     return this.indicators.rateHistory();
   }
 
+  @Get('building-permits-history')
+  getBuildingPermitsHistory() {
+    return this.indicators.buildingPermitsHistory();
+  }
+
   @Get('digest')
   getDigest(@CurrentUser() user: AuthenticatedUser) {
     return this.digest.getDigest(user.organizationId);

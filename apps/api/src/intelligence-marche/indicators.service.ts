@@ -26,6 +26,7 @@ export class MarketIndicatorsService {
     fetchedAt: number;
     data: { oat10y: { period: string; value: number }[]; ecbPolicyRate: { period: string; value: number }[]; mortgageRate: { period: string; value: number }[] };
   } | null = null;
+  private buildingPermitsHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
   private readonly CACHE_TTL_MS = 60 * 60_000;
 
   private async fetchEurostat(dataset: string, params: Record<string, string>): Promise<EurostatIndicator> {
@@ -219,25 +220,27 @@ export class MarketIndicatorsService {
    * (raw) and SCA (seasonally + calendar adjusted); the earlier guess of
    * 'CA' doesn't exist in this dataset at all.
    */
-  private async fetchBuildingPermits(): Promise<EurostatIndicator> {
-    const attempts: Record<string, string>[] = [
-      // I15 (2015=100) has never returned a single data point since 2024
-      // across every valid indic_bt/cpa2_1/s_adj combo — the dimension is
-      // real but the base year looks discontinued for recent periods.
-      // Eurostat's STS indices get periodically rebased; I21 (2021=100,
-      // also a confirmed-real unit code in this dataset) is the newer base
-      // and tried first here for that reason, with I15 kept as a fallback
-      // in case that guess is wrong too.
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I21', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I21', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001_41002', s_adj: 'SCA', unit: 'I21', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_SQM', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I21', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I15', sinceTimePeriod: '2024-01' },
-    ];
+  // I15 (2015=100) never returned a single data point since 2024 across
+  // every valid indic_bt/cpa2_1/s_adj combo — the dimension is real but the
+  // base year looks discontinued for recent periods. Eurostat's STS indices
+  // get periodically rebased; I21 (2021=100, also a confirmed-real unit
+  // code in this dataset — and the one that actually resolved in
+  // production) is tried first for that reason, I15 kept as a fallback.
+  // Shared between the latest-value snapshot and the multi-year history —
+  // sinceTimePeriod is added per call site since the two want different
+  // windows.
+  private readonly BUILDING_PERMITS_ATTEMPTS: Record<string, string>[] = [
+    { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I21' },
+    { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I21' },
+    { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001_41002', s_adj: 'SCA', unit: 'I21' },
+    { geo: 'FR', indic_bt: 'BPRM_SQM', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I21' },
+    { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I15' },
+    { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I15' },
+  ];
 
-    for (const params of attempts) {
-      const result = await this.fetchEurostat('sts_cobp_m', params);
+  private async fetchBuildingPermits(): Promise<EurostatIndicator> {
+    for (const params of this.BUILDING_PERMITS_ATTEMPTS) {
+      const result = await this.fetchEurostat('sts_cobp_m', { ...params, sinceTimePeriod: '2024-01' });
       if (result.value !== null) {
         this.logger.log(`Building permits resolved with params: ${new URLSearchParams(params).toString()}`);
         return result;
@@ -245,6 +248,26 @@ export class MarketIndicatorsService {
     }
     await this.logDimensionMetadata('sts_cobp_m', 'Building permits');
     return { value: null, previousValue: null, period: null };
+  }
+
+  /** Multi-year monthly history for the trend chart — same resolution strategy as fetchBuildingPermits(), just over a longer window. */
+  async buildingPermitsHistory(): Promise<{ period: string; value: number }[]> {
+    if (this.buildingPermitsHistoryCache && Date.now() - this.buildingPermitsHistoryCache.fetchedAt < this.CACHE_TTL_MS) {
+      return this.buildingPermitsHistoryCache.data;
+    }
+
+    const since = new Date();
+    since.setFullYear(since.getFullYear() - 5);
+    const sinceMonth = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, '0')}`;
+
+    let points: { period: string; value: number }[] = [];
+    for (const params of this.BUILDING_PERMITS_ATTEMPTS) {
+      points = await this.fetchEurostatSeries('sts_cobp_m', { ...params, sinceTimePeriod: sinceMonth });
+      if (points.length > 0) break;
+    }
+
+    this.buildingPermitsHistoryCache = { fetchedAt: Date.now(), data: points };
+    return points;
   }
 
   /**

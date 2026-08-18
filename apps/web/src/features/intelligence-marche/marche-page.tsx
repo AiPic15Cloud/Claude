@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { CreateArticleDialog } from './components/create-article-dialog';
 import { IndicatorsStrip } from './components/indicators-strip';
 import { RateHistoryChart } from './components/rate-history-chart';
+import { BuildingPermitsChart } from './components/building-permits-chart';
 import { MarketDigestCard } from './components/market-digest-card';
 import { SourcesPanel } from './components/sources-panel';
 import { useArticles, useCollectAll } from './hooks/use-market-intelligence';
@@ -54,7 +55,10 @@ export function MarchePage() {
 
       <IndicatorsStrip />
 
-      <RateHistoryChart />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RateHistoryChart />
+        <BuildingPermitsChart />
+      </div>
 
       <MarketDigestCard />
 
