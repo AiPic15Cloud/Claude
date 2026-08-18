@@ -15,6 +15,8 @@ import {
 } from '@/features/portfolio/components/deal-badges';
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { useGuarantees } from './hooks/use-guarantees';
+import { useDealTasks } from '@/features/tasks/use-tasks';
+import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
@@ -39,6 +41,7 @@ export function DossierPage() {
   const navigate = useNavigate();
   const { data: deal, isLoading } = useDeal(id ?? null);
   const { data: guarantees = [] } = useGuarantees(id ?? '');
+  const { data: dealTasks = [] } = useDealTasks(id ?? '');
   const guaranteeWarnings = guarantees.filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE');
   const deleteDeal = useDeleteDeal();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -225,6 +228,7 @@ export function DossierPage() {
         <TabsList>
           <TabsTrigger value="score">Score ATLAS</TabsTrigger>
           <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
+          <TabsTrigger value="tasks">Tâches ({dealTasks.filter((t) => !t.done).length})</TabsTrigger>
           <TabsTrigger value="documents">Documents ({deal.documents.length})</TabsTrigger>
           <TabsTrigger value="guarantees">Garanties</TabsTrigger>
           <TabsTrigger value="repayments">Remboursements</TabsTrigger>
@@ -239,6 +243,16 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="notes">
           <NotesPanel dealId={deal.id} notes={deal.notes} />
+        </TabsContent>
+        <TabsContent value="tasks">
+          <TaskListCard
+            title="Tâches"
+            tasks={dealTasks}
+            emptyLabel="Aucune tâche sur ce dossier"
+            showDueDate
+            quickAdd
+            dealId={deal.id}
+          />
         </TabsContent>
         <TabsContent value="documents">
           <DocumentsPanel dealId={deal.id} onApplyToFinancialModel={handleApplyExtraction} />

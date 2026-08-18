@@ -55,9 +55,11 @@ interface TaskListCardProps {
   showDueDate?: boolean;
   /** Shows an inline "add task" form above the list. */
   quickAdd?: boolean;
+  /** Rattache les tâches créées ici à ce dossier — masque aussi le lien vers le dossier, déjà évident depuis son propre onglet. */
+  dealId?: string;
 }
 
-export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }: TaskListCardProps) {
+export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd, dealId }: TaskListCardProps) {
   const toggleTask = useToggleTask();
   const createTask = useCreateTask();
   const updatePriority = useUpdateTaskPriority();
@@ -69,7 +71,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
     const title = newTitle.trim();
     if (!title) return;
     createTask.mutate(
-      { title, dueDate: newDueDate || undefined, priority: newPriority },
+      { title, dueDate: newDueDate || undefined, priority: newPriority, dealId },
       { onSuccess: () => setNewTitle('') },
     );
   };
@@ -97,7 +99,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd }
         <PriorityPicker priority={task.priority} onChange={(p) => updatePriority.mutate({ id: task.id, priority: p })} />
       </div>
       <div className={cn('flex items-center gap-2 pl-6 text-xs text-muted-foreground', expanded && 'flex-wrap')}>
-        {task.deal && (
+        {task.deal && task.deal.id !== dealId && (
           <Link
             to={`/deals/${task.deal.id}`}
             className={cn('min-w-0 flex-1 hover:text-primary hover:underline', expanded ? 'whitespace-normal break-words' : 'truncate')}
