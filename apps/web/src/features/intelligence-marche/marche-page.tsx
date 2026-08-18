@@ -18,6 +18,7 @@ import { RateHistoryChart } from './components/rate-history-chart';
 import { BuildingPermitsChart } from './components/building-permits-chart';
 import { HousePriceIndexChart } from './components/house-price-index-chart';
 import { PortfolioRateBenchmarkCard } from './components/portfolio-rate-benchmark-card';
+import { DvfSearchCard } from './components/dvf-search-card';
 import { MarketDigestCard } from './components/market-digest-card';
 import { SourcesPanel } from './components/sources-panel';
 import { useArticles, useCollectAll } from './hooks/use-market-intelligence';
@@ -64,6 +65,8 @@ export function MarchePage() {
         <BuildingPermitsChart />
         <HousePriceIndexChart />
       </div>
+
+      <DvfSearchCard />
 
       <MarketDigestCard />
 

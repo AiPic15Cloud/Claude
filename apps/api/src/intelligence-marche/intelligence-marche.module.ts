@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { IntelligenceMarcheService } from './intelligence-marche.service';
 import { MarketIndicatorsService } from './indicators.service';
 import { MarketDigestService } from './market-digest.service';
+import { DvfSearchService } from './dvf-search.service';
 import { IntelligenceMarcheController } from './intelligence-marche.controller';
 import { ConnectorRegistryService } from './connectors/connector-registry.service';
 import { DataGouvConnector } from './connectors/data-gouv.connector';
@@ -18,6 +19,7 @@ import { SearchModule } from '../search/search.module';
     IntelligenceMarcheService,
     MarketIndicatorsService,
     MarketDigestService,
+    DvfSearchService,
     ConnectorRegistryService,
     DataGouvConnector,
     DvfConnector,
