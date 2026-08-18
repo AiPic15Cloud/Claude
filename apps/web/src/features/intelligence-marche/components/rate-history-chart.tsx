@@ -17,24 +17,29 @@ export function RateHistoryChart() {
     return <Skeleton className="h-72 w-full" />;
   }
 
-  // Merge the two series (Eurostat monthly / ECB daily-collapsed-to-monthly)
-  // on their shared "YYYY-MM" period key so a month missing on one side
-  // still renders — recharts simply leaves a gap in that line.
-  const periods = Array.from(new Set([...data.oat10y.map((p) => p.period), ...data.ecbPolicyRate.map((p) => p.period)])).sort();
+  // Merge the three series (Eurostat monthly / ECB daily-or-monthly-
+  // collapsed-to-monthly) on their shared "YYYY-MM" period key so a month
+  // missing on one side still renders — recharts simply leaves a gap in
+  // that line.
+  const periods = Array.from(
+    new Set([...data.oat10y.map((p) => p.period), ...data.ecbPolicyRate.map((p) => p.period), ...data.mortgageRate.map((p) => p.period)]),
+  ).sort();
   const oat10yByPeriod = new Map(data.oat10y.map((p) => [p.period, p.value]));
   const ecbByPeriod = new Map(data.ecbPolicyRate.map((p) => [p.period, p.value]));
+  const mortgageByPeriod = new Map(data.mortgageRate.map((p) => [p.period, p.value]));
   const chartData = periods.map((period) => ({
     period,
     label: monthLabel(period),
     oat10y: oat10yByPeriod.get(period) ?? null,
     ecbPolicyRate: ecbByPeriod.get(period) ?? null,
+    mortgageRate: mortgageByPeriod.get(period) ?? null,
   }));
 
   if (chartData.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Taux directeur BCE & OAT 10Y — 24 mois</CardTitle>
+          <CardTitle>Taux directeur BCE, OAT 10Y & prêts immobiliers — 24 mois</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">Historique indisponible pour le moment.</p>
@@ -46,7 +51,7 @@ export function RateHistoryChart() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Taux directeur BCE & OAT 10Y — 24 mois</CardTitle>
+        <CardTitle>Taux directeur BCE, OAT 10Y & prêts immobiliers — 24 mois</CardTitle>
       </CardHeader>
       <CardContent className="h-72 pl-0">
         <ResponsiveContainer width="100%" height="100%">
@@ -72,6 +77,15 @@ export function RateHistoryChart() {
             />
             <Line
               type="monotone"
+              dataKey="mortgageRate"
+              name="Prêts immobiliers (France)"
+              stroke="hsl(var(--chart-2))"
+              strokeWidth={2}
+              dot={false}
+              connectNulls
+            />
+            <Line
+              type="monotone"
               dataKey="oat10y"
               name="OAT 10Y (France)"
               stroke="hsl(var(--chart-accent))"
@@ -91,7 +105,10 @@ export function RateHistoryChart() {
             <Legend wrapperStyle={{ fontSize: 11 }} />
           </LineChart>
         </ResponsiveContainer>
-        <p className="mt-2 text-[11px] text-muted-foreground">Sources : Eurostat (OAT 10Y, France) · ECB Data Portal (taux de refinancement principal).</p>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Sources : Eurostat (OAT 10Y, France) · ECB Data Portal (taux de refinancement principal · taux des prêts immobiliers, nouveaux
+          crédits aux ménages, France).
+        </p>
       </CardContent>
     </Card>
   );

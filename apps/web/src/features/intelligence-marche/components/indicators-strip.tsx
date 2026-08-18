@@ -53,8 +53,8 @@ export function IndicatorsStrip() {
   if (isLoading || !data) {
     return (
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
@@ -69,7 +69,13 @@ export function IndicatorsStrip() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+        <IndicatorTile
+          label="Taux moyen des prêts immobiliers — France"
+          value={data.mortgageRate.value}
+          previousValue={data.mortgageRate.previousValue}
+          period={data.mortgageRate.period}
+        />
         <IndicatorTile label="Taux long terme (OAT 10Y) — France" value={data.oat10y.value} previousValue={data.oat10y.previousValue} period={data.oat10y.period} />
         <IndicatorTile label="Taux court terme (zone euro)" value={data.euribor3m.value} previousValue={data.euribor3m.previousValue} period={data.euribor3m.period} />
         <IndicatorTile label="Inflation HICP — France (a/a)" value={data.inflationHicp.value} previousValue={data.inflationHicp.previousValue} period={data.inflationHicp.period} />
@@ -104,9 +110,10 @@ export function IndicatorsStrip() {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Source : Eurostat (données officielles, mises à jour ~mensuellement/trimestriellement). L'indice permis de construire et l'indice des
-        prix immobiliers sont en base 100 (2015), pas des valeurs brutes. Le tertiaire (bureaux, commerces, logistique) n'a pas d'équivalent en
-        données ouvertes fiables — cette page continue à le couvrir via la veille éditoriale ci-dessous.
+        Sources : Eurostat (données officielles, mises à jour ~mensuellement/trimestriellement) · ECB Data Portal (taux des prêts immobiliers,
+        nouveaux crédits aux ménages, France). L'indice permis de construire et l'indice des prix immobiliers sont en base 100 (2015), pas des
+        valeurs brutes. Le tertiaire (bureaux, commerces, logistique) n'a pas d'équivalent en données ouvertes fiables — cette page continue à
+        le couvrir via la veille éditoriale ci-dessous.
       </p>
     </div>
   );
