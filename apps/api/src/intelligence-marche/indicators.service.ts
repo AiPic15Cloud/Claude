@@ -27,6 +27,7 @@ export class MarketIndicatorsService {
     data: { oat10y: { period: string; value: number }[]; ecbPolicyRate: { period: string; value: number }[]; mortgageRate: { period: string; value: number }[] };
   } | null = null;
   private buildingPermitsHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
+  private housePriceIndexHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
   private readonly CACHE_TTL_MS = 60 * 60_000;
 
   private async fetchEurostat(dataset: string, params: Record<string, string>): Promise<EurostatIndicator> {
@@ -312,14 +313,19 @@ export class MarketIndicatorsService {
    * API, so a discovery dump is logged if every attempt fails, the same
    * pattern already used for building permits (see fetchBuildingPermits).
    */
+  // I15_Q (index level, 2015=100) is the confirmed-working unit — discovered
+  // via logDimensionMetadata's production dump, same as building permits'
+  // I21/I15 split. INX_Q/INX kept as earlier guesses ahead of it in case
+  // Eurostat ever rebases the series (mirrors the building-permits pattern).
+  private readonly HOUSE_PRICE_INDEX_ATTEMPTS: Record<string, string>[] = [
+    { geo: 'FR', purchase: 'TOTAL', unit: 'INX_Q' },
+    { geo: 'FR', purchase: 'TOTAL', unit: 'I15_Q' },
+    { geo: 'FR', purchase: 'TOTAL', unit: 'INX' },
+  ];
+
   private async fetchHousePriceIndex(): Promise<EurostatIndicator> {
-    const attempts: Record<string, string>[] = [
-      { geo: 'FR', purchase: 'TOTAL', unit: 'INX_Q', sinceTimePeriod: '2023-01' },
-      { geo: 'FR', purchase: 'TOTAL', unit: 'I15_Q', sinceTimePeriod: '2023-01' },
-      { geo: 'FR', purchase: 'TOTAL', unit: 'INX', sinceTimePeriod: '2023-01' },
-    ];
-    for (const params of attempts) {
-      const result = await this.fetchEurostat('prc_hpi_q', params);
+    for (const params of this.HOUSE_PRICE_INDEX_ATTEMPTS) {
+      const result = await this.fetchEurostat('prc_hpi_q', { ...params, sinceTimePeriod: '2023-01' });
       if (result.value !== null) {
         this.logger.log(`House price index resolved with params: ${new URLSearchParams(params).toString()}`);
         return result;
@@ -327,6 +333,26 @@ export class MarketIndicatorsService {
     }
     await this.logDimensionMetadata('prc_hpi_q', 'House price index');
     return { value: null, previousValue: null, period: null };
+  }
+
+  /** Multi-year quarterly history for the trend chart — same resolution strategy as fetchHousePriceIndex(), just over a longer window. */
+  async housePriceIndexHistory(): Promise<{ period: string; value: number }[]> {
+    if (this.housePriceIndexHistoryCache && Date.now() - this.housePriceIndexHistoryCache.fetchedAt < this.CACHE_TTL_MS) {
+      return this.housePriceIndexHistoryCache.data;
+    }
+
+    const since = new Date();
+    since.setFullYear(since.getFullYear() - 8);
+    const sinceQuarter = `${since.getFullYear()}-Q${Math.floor(since.getMonth() / 3) + 1}`;
+
+    let points: { period: string; value: number }[] = [];
+    for (const params of this.HOUSE_PRICE_INDEX_ATTEMPTS) {
+      points = await this.fetchEurostatSeries('prc_hpi_q', { ...params, sinceTimePeriod: sinceQuarter });
+      if (points.length > 0) break;
+    }
+
+    this.housePriceIndexHistoryCache = { fetchedAt: Date.now(), data: points };
+    return points;
   }
 
   private async fetchHousePriceChangeYoy(): Promise<EurostatIndicator> {
