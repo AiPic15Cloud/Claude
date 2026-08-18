@@ -5,6 +5,7 @@ import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-use
 import { IntelligenceMarcheService } from './intelligence-marche.service';
 import { MarketIndicatorsService } from './indicators.service';
 import { MarketDigestService } from './market-digest.service';
+import { DvfSearchService } from './dvf-search.service';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { QueryArticlesDto } from './dto/query-articles.dto';
@@ -18,6 +19,7 @@ export class IntelligenceMarcheController {
     private readonly service: IntelligenceMarcheService,
     private readonly indicators: MarketIndicatorsService,
     private readonly digest: MarketDigestService,
+    private readonly dvfSearch: DvfSearchService,
   ) {}
 
   @Get('indicators')
@@ -38,6 +40,12 @@ export class IntelligenceMarcheController {
   @Get('house-price-index-history')
   getHousePriceIndexHistory() {
     return this.indicators.housePriceIndexHistory();
+  }
+
+  @Get('dvf-search')
+  searchDvf(@Query('q') q: string) {
+    if (!q || !q.trim()) return { query: '', commune: null, transactions: [], averagePricePerSqm: null, medianPricePerSqm: null, sampleSize: 0 };
+    return this.dvfSearch.search(q.trim());
   }
 
   @Get('digest')
