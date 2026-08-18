@@ -32,6 +32,13 @@ export default () => ({
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
     anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5',
   },
+  push: {
+    // Web Push (VAPID) — degrades the same way as the Anthropic key: no
+    // key configured means push sends are silently skipped, not an error.
+    vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? '',
+    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? '',
+    vapidSubject: process.env.VAPID_SUBJECT ?? '',
+  },
   marketData: {
     // Free-tier key from twelvedata.com — powers the CAC 40 ticker. Without
     // it the ticker just omits that item rather than erroring, same

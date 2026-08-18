@@ -1,0 +1,15 @@
+{
+  "name": "Atlas Capital — Real Estate Intelligence Operating System",
+  "short_name": "Atlas Capital",
+  "description": "Le système d'exploitation de l'intelligence pour le financement et l'investissement immobilier.",
+  "start_url": "/cockpit",
+  "display": "standalone",
+  "background_color": "#0a1728",
+  "theme_color": "#0a1728",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
