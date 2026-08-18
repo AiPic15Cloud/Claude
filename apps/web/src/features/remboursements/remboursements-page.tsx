@@ -9,8 +9,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useRepaymentsSummary } from '@/features/cockpit/hooks/use-repayments-summary';
 import { useRepaymentsList } from './hooks/use-repayments-list';
+import { HeroMetric } from '@/features/cockpit/components/hero-metric';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { cn } from '@/lib/utils';
 import type { RepaymentWithDeal } from '@/types';
 
 const MONTH_LABELS = [
@@ -28,26 +28,6 @@ const MONTH_LABELS = [
   'Décembre',
 ];
 const MONTH_LABELS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-
-function KpiTile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'success' | 'warning' }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p
-          className={cn(
-            'mt-1 font-mono text-2xl font-semibold tabular-nums',
-            tone === 'success' && 'text-success',
-            tone === 'warning' && 'text-warning',
-          )}
-        >
-          {value}
-        </p>
-        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
-  );
-}
 
 export function RemboursementsPage() {
   const currentYear = new Date().getFullYear();
@@ -91,18 +71,24 @@ export function RemboursementsPage() {
       />
 
       {isLoadingSummary || !summary ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
+          <Skeleton className="h-28 w-64" />
+          <div className="flex flex-col gap-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-6" />
+            ))}
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiTile label={`Réalisé ${year}`} value={formatCurrency(summary.totalActual)} tone="success" />
-          <KpiTile label={`Projeté ${year}`} value={formatCurrency(summary.totalProjected)} tone="warning" />
-          <KpiTile label="Remboursements" value={String(repayments?.length ?? 0)} hint={`sur ${year}`} />
-          <KpiTile label="Dossiers concernés" value={String(dealsConcerned)} hint={`sur ${year}`} />
-        </div>
+        <HeroMetric
+          label={`Réalisé ${year}`}
+          value={formatCurrency(summary.totalActual)}
+          context={`${formatCurrency(summary.totalProjected)} projetés sur l'année`}
+          stats={[
+            { label: 'Remboursements', value: String(repayments?.length ?? 0) },
+            { label: 'Dossiers concernés', value: String(dealsConcerned) },
+          ]}
+        />
       )}
 
       <Card>
