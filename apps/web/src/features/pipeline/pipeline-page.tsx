@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePipelineEntries, usePipelineSummary } from './hooks/use-pipeline';
 import { useFeesProjection } from '@/features/cockpit/hooks/use-fees';
+import { HeroMetric } from '@/features/cockpit/components/hero-metric';
 import { CreatePipelineEntryDialog } from './components/create-pipeline-entry-dialog';
 import { EditPipelineEntryDialog } from './components/edit-pipeline-entry-dialog';
 import { ConvertPipelineEntryDialog } from './components/convert-pipeline-entry-dialog';
@@ -31,18 +32,6 @@ const COMMITTEE_VARIANT: Record<CommitteeStatus, 'secondary' | 'success' | 'warn
   REFUSE: 'destructive',
 };
 
-function KpiTile({ label, value, hint, hero }: { label: string; value: string; hint?: string; hero?: boolean }) {
-  return (
-    <Card className={cn(hero && 'border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card lg:col-span-2')}>
-      <CardContent className={cn('p-4', hero && 'p-5')}>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className={cn('mt-1 font-mono font-semibold tabular-nums', hero ? 'text-4xl' : 'text-2xl')}>{value}</p>
-        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
 export function PipelinePage() {
   const [committee, setCommittee] = useState<CommitteeStatus | undefined>(undefined);
   const { data: summary, isLoading: summaryLoading } = usePipelineSummary();
@@ -55,33 +44,37 @@ export function PipelinePage() {
       <PageHeader
         eyebrow="Pipeline"
         title="Dossiers reçus & décisions comité"
-        description={summary ? `${summary.received} dossiers analysés · pipeline cumulé de ${formatCurrency(summary.totalAmount)}.` : '…'}
+        description="Sourcing, décisions de comité et sources d'apport des dossiers reçus."
         actions={<CreatePipelineEntryDialog />}
       />
 
       {summaryLoading || !summary ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-7">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.4fr_1fr] lg:gap-16">
+          <Skeleton className="h-28 w-64" />
+          <div className="flex flex-col gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-6" />
+            ))}
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-7">
-          <KpiTile label="Volume analysé" value={formatCurrency(summary.totalAmount)} hero />
-          <KpiTile label="Dossiers reçus" value={String(summary.received)} hint="cumulé" />
-          <KpiTile label="Validés comité" value={String(summary.validatedCount)} hint={`${summary.validatedRate}% conversion`} />
-          <KpiTile label="À approfondir" value={String(summary.toReviewCount)} />
-          <KpiTile label="Refusés" value={String(summary.rejectedCount)} />
-          <KpiTile
-            label="Projection CA (fees)"
-            value={projectionLoading || !projection ? '…' : formatCurrency(projection.projectedFees)}
-            hint={
-              projection
-                ? `taux moyen ${projection.avgFeesRate}% · conversion ${projection.conversionRate}%${projection.conversionRateIsDefault ? ' (estimation)' : ''}`
-                : undefined
-            }
-          />
-        </div>
+        <HeroMetric
+          label="Volume analysé"
+          value={formatCurrency(summary.totalAmount)}
+          context={`${summary.received} dossiers reçus`}
+          stats={[
+            { label: 'Validés comité', value: `${summary.validatedCount} (${summary.validatedRate}%)` },
+            { label: 'À approfondir', value: String(summary.toReviewCount) },
+            { label: 'Refusés', value: String(summary.rejectedCount) },
+            {
+              label: 'Projection CA (fees)',
+              value:
+                projectionLoading || !projection
+                  ? '…'
+                  : `${formatCurrency(projection.projectedFees)}${projection.conversionRateIsDefault ? ' (estimation)' : ''}`,
+            },
+          ]}
+        />
       )}
 
       {summary && (

@@ -221,10 +221,19 @@ export class MarketIndicatorsService {
    */
   private async fetchBuildingPermits(): Promise<EurostatIndicator> {
     const attempts: Record<string, string>[] = [
+      // I15 (2015=100) has never returned a single data point since 2024
+      // across every valid indic_bt/cpa2_1/s_adj combo — the dimension is
+      // real but the base year looks discontinued for recent periods.
+      // Eurostat's STS indices get periodically rebased; I21 (2021=100,
+      // also a confirmed-real unit code in this dataset) is the newer base
+      // and tried first here for that reason, with I15 kept as a fallback
+      // in case that guess is wrong too.
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I21', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I21', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001_41002', s_adj: 'SCA', unit: 'I21', sinceTimePeriod: '2024-01' },
+      { geo: 'FR', indic_bt: 'BPRM_SQM', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I21', sinceTimePeriod: '2024-01' },
       { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I15', sinceTimePeriod: '2024-01' },
       { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001', s_adj: 'NSA', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_SQM', cpa2_1: 'CPA_F41001', s_adj: 'SCA', unit: 'I15', sinceTimePeriod: '2024-01' },
-      { geo: 'FR', indic_bt: 'BPRM_DW', cpa2_1: 'CPA_F41001_41002', s_adj: 'SCA', unit: 'I15', sinceTimePeriod: '2024-01' },
     ];
 
     for (const params of attempts) {
