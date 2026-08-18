@@ -17,6 +17,7 @@ import { IndicatorsStrip } from './components/indicators-strip';
 import { RateHistoryChart } from './components/rate-history-chart';
 import { BuildingPermitsChart } from './components/building-permits-chart';
 import { HousePriceIndexChart } from './components/house-price-index-chart';
+import { ConstructionCostIndexChart } from './components/construction-cost-index-chart';
 import { PortfolioRateBenchmarkCard } from './components/portfolio-rate-benchmark-card';
 import { DvfSearchCard } from './components/dvf-search-card';
 import { MarketDigestCard } from './components/market-digest-card';
@@ -60,10 +61,11 @@ export function MarchePage() {
 
       <PortfolioRateBenchmarkCard />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RateHistoryChart />
         <BuildingPermitsChart />
         <HousePriceIndexChart />
+        <ConstructionCostIndexChart />
       </div>
 
       <DvfSearchCard />
