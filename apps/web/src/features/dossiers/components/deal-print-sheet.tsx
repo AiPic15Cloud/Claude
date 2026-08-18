@@ -10,8 +10,8 @@ import { formatCurrency, formatDate } from '@/lib/format';
  */
 export function DealPrintSheet({ deal, guarantees }: { deal: Deal; guarantees: Guarantee[] }) {
   return (
-    <div className="hidden print:block print:bg-white print:p-8 print:text-black">
-      <header className="mb-6 flex items-start justify-between border-b border-black pb-3">
+    <div className="hidden print:block print:bg-white print:p-6 print:text-black">
+      <header className="mb-4 flex items-start justify-between border-b border-black pb-2">
         <div>
           <p className="text-xs uppercase tracking-wide text-black/60">{deal.reference} · {DEAL_TYPE_LABELS[deal.type]}</p>
           <h1 className="text-2xl font-semibold">{deal.name}</h1>
@@ -23,7 +23,7 @@ export function DealPrintSheet({ deal, guarantees }: { deal: Deal; guarantees: G
         </div>
       </header>
 
-      <section className="mb-6 grid grid-cols-4 gap-4">
+      <section className="mb-4 grid grid-cols-4 gap-4">
         <div>
           <p className="text-xs text-black/60">Montant cible</p>
           <p className="text-lg font-semibold">{formatCurrency(deal.amountTarget)}</p>
@@ -42,7 +42,7 @@ export function DealPrintSheet({ deal, guarantees }: { deal: Deal; guarantees: G
         </div>
       </section>
 
-      <section className="mb-6 grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+      <section className="mb-4 grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
         <div className="flex justify-between border-b border-black/10 py-1">
           <span className="text-black/60">Durée</span>
           <span>{deal.durationMonths ? `${deal.durationMonths} mois` : '—'}</span>
@@ -70,7 +70,7 @@ export function DealPrintSheet({ deal, guarantees }: { deal: Deal; guarantees: G
       </section>
 
       {deal.description && (
-        <section className="mb-6">
+        <section className="mb-4">
           <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-black/60">Description</h2>
           <p className="text-sm">{deal.description}</p>
         </section>
@@ -108,7 +108,7 @@ export function DealPrintSheet({ deal, guarantees }: { deal: Deal; guarantees: G
         )}
       </section>
 
-      <footer className="mt-8 text-[10px] text-black/40">Atlas Capital — document interne, non contractuel.</footer>
+      <footer className="mt-4 text-[10px] text-black/40">Atlas Capital — document interne, non contractuel.</footer>
     </div>
   );
 }

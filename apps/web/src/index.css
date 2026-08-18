@@ -182,11 +182,19 @@
 
   /* Fiche dossier PDF (DealPrintSheet) : la page doit rester blanche même
      quand l'app tourne en thème sombre — sinon le --background sombre du
-     body ressort sous le texte forcé en noir. */
+     body ressort sous le texte forcé en noir. Marge de page resserrée pour
+     laisser de la place à l'en-tête/pied de page que Chrome ajoute par-dessus
+     (titre, URL, date) quand l'utilisateur laisse cette option cochée dans
+     le dialogue d'impression — sans ça le contenu déborde sur une 2e page
+     quasi vide. */
   @media print {
     html,
     body {
       background: white !important;
+    }
+    @page {
+      size: A4;
+      margin: 10mm;
     }
   }
 }
