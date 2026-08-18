@@ -10,13 +10,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PeriodStepper } from '@/components/ui/period-stepper';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { useFeesSummary, useFeesProjection } from '@/features/cockpit/hooks/use-fees';
 import { EditFeesTargetDialog } from '@/features/cockpit/components/edit-fees-target-dialog';
 import { HeroMetric } from '@/features/cockpit/components/hero-metric';
 import { formatCurrency } from '@/lib/format';
+import { exportToExcel } from '@/lib/export-xlsx';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -46,6 +49,22 @@ export function ObjectifsPage() {
   const bestMonth = monthly.reduce((best, m) => (m.Réalisé > (best?.Réalisé ?? -1) ? m : best), monthly[0]);
   const ecart = data ? data.annualActual - (data.annualTarget ?? 0) * (new Date().getMonth() + 1) / 12 : 0;
 
+  const handleExport = () => {
+    const rows = monthly.map((m, i) => {
+      const isFuture = year === currentYear && i > new Date().getMonth();
+      const pct = m.Objectif > 0 ? Math.round((m.Réalisé / m.Objectif) * 100) : 0;
+      return {
+        Mois: m.month,
+        Objectif: Math.round(m.Objectif),
+        Réalisé: isFuture ? null : m.Réalisé,
+        'Cumul objectif': m.cumObjectif,
+        'Cumul réalisé': isFuture ? null : m.cumRéalisé,
+        '% atteinte': isFuture ? null : pct,
+      };
+    });
+    exportToExcel(`atlas-objectifs-${year}.xlsx`, `Objectifs ${year}`, rows);
+  };
+
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -60,6 +79,9 @@ export function ObjectifsPage() {
               onNext={() => setYear((y) => y + 1)}
               nextDisabled={year >= currentYear}
             />
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={monthly.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Exporter
+            </Button>
             <EditFeesTargetDialog year={year} currentTarget={data?.annualTarget ?? null} />
           </>
         }

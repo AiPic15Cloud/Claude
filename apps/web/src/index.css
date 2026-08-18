@@ -179,6 +179,16 @@
   ::-webkit-scrollbar-thumb {
     @apply bg-border rounded-full;
   }
+
+  /* Fiche dossier PDF (DealPrintSheet) : la page doit rester blanche même
+     quand l'app tourne en thème sombre — sinon le --background sombre du
+     body ressort sous le texte forcé en noir. */
+  @media print {
+    html,
+    body {
+      background: white !important;
+    }
+  }
 }
 
 @layer utilities {
