@@ -262,7 +262,7 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="guarantees" className="flex flex-col gap-4">
           <GuaranteesPanel dealId={deal.id} />
-          <RiskDataCard dealId={deal.id} hasCoords={Boolean(deal.lat && deal.lng)} />
+          <RiskDataCard dealId={deal.id} hasCoords={Boolean(deal.lat && deal.lng)} hasPostcode={Boolean(deal.postcode)} />
         </TabsContent>
         <TabsContent value="repayments">
           <RepaymentsPanel dealId={deal.id} />

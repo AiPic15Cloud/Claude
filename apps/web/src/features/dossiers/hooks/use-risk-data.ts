@@ -18,3 +18,20 @@ export function useRiskData(dealId: string, hasCoords: boolean) {
     retry: false,
   });
 }
+
+export interface DpeResult {
+  label: string | null;
+  ghgLabel: string | null;
+  date: string | null;
+  matchedAddress: string | null;
+}
+
+export function useDpe(dealId: string, hasPostcode: boolean) {
+  return useQuery({
+    queryKey: ['dpe', dealId],
+    queryFn: () => api.get<DpeResult>(`/deals/${dealId}/dpe`),
+    enabled: Boolean(dealId) && hasPostcode,
+    staleTime: 60 * 60_000,
+    retry: false,
+  });
+}
