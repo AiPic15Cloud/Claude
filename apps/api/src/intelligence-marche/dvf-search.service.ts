@@ -135,7 +135,7 @@ export class DvfSearchService {
     return this.fetchFromCquest(codeInsee);
   }
 
-  /** Fichiers CSV.gz officiels Etalab/DGFiP — un par commune et par année, pas d'API à interroger. */
+  /** Fichiers CSV officiels Etalab/DGFiP — un par commune et par année, pas d'API à interroger. */
   private async fetchFromGeoDvf(codeInsee: string): Promise<DvfTransaction[]> {
     const department = codeInsee.startsWith('97') ? codeInsee.slice(0, 3) : codeInsee.slice(0, 2);
     const currentYear = new Date().getFullYear();
@@ -161,16 +161,33 @@ export class DvfSearchService {
         const iNumero = col('adresse_numero');
         const iVoie = col('adresse_nom_voie');
         const iPieces = col('nombre_pieces_principales');
+        const iIdMutation = col('id_mutation');
+        const iNature = col('nature_mutation');
 
         if (iValeur === -1 || iSurface === -1 || iDate === -1) {
           this.logger.warn(`geo-dvf CSV for commune ${codeInsee} has unexpected headers: ${lines[0].slice(0, 300)}`);
           continue;
         }
 
+        // Une mutation peut apparaître sur plusieurs lignes (maison + garage
+        // sur des parcelles distinctes) en répétant le même valeur_fonciere
+        // total — sans dédup, ces lignes gonflent artificiellement la moyenne.
+        // On garde uniquement les ventes de logements (Maison/Appartement) et
+        // une seule ligne par id_mutation.
+        const seenMutations = new Set<string>();
         const transactions = lines
           .slice(1)
-          .map((line) => {
-            const cols = parseCsvLine(line);
+          .map((line) => parseCsvLine(line))
+          .filter((cols) => (iNature === -1 ? true : cols[iNature] === 'Vente'))
+          .filter((cols) => (iType === -1 ? true : cols[iType] === 'Maison' || cols[iType] === 'Appartement'))
+          .filter((cols) => {
+            if (iIdMutation === -1) return true;
+            const id = cols[iIdMutation];
+            if (!id || seenMutations.has(id)) return false;
+            seenMutations.add(id);
+            return true;
+          })
+          .map((cols) => {
             const price = toNumber(cols[iValeur]);
             const surface = toNumber(cols[iSurface]);
             return {
