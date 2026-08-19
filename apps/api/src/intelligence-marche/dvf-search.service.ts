@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { gunzipSync } from 'node:zlib';
 
 interface AddressSearchFeature {
   properties: {
@@ -51,25 +52,36 @@ export interface DvfSearchResult {
 /**
  * Recherche de transactions immobilières comparables — pour éviter d'aller
  * chercher un prix au m² sur SeLoger/MeilleursAgents pour chaque dossier.
- * Deux services publics gratuits, sans clé, enchaînés :
  *
  * 1. api-adresse.data.gouv.fr (Base Adresse Nationale, service officiel de
  *    l'État) — résout une ville/adresse saisie en texte libre vers un code
  *    INSEE commune. Confirmé fonctionnel en production.
- * 2. apidf-preprod.cerema.fr/dvf_opendata (API officielle du Cerema, gratuite,
- *    sans clé pour le flux open-data) — essayée en premier. En repli,
- *    api.cquest.org/dvf (API communautaire) — son propre auteur la décrit
- *    comme un "proof of concept" sans garantie de disponibilité, ce qui a été
- *    confirmé en pratique (0 résultat sur Lyon/Bordeaux, deux villes qui ont
- *    pourtant des milliers de mutations DVF).
+ * 2. Trois sources DVF essayées dans l'ordre, la première qui répond avec des
+ *    transactions gagne :
+ *    a. files.data.gouv.fr/geo-dvf (Etalab/DGFiP, fichiers CSV.gz officiels,
+ *       un par commune et par année — pas une API interrogeable mais des
+ *       exports statiques republiés régulièrement, source la plus fiable
+ *       car sans dépendance à une API tierce qui peut tomber). Essayée en
+ *       premier.
+ *    b. apidf-preprod.cerema.fr/dvf_opendata (API du Cerema) — répond bien
+ *       (JSON DRF paginé valide) mais renvoie count:0 pour Lyon en test réel :
+ *       son environnement "preprod" semble sans données exploitables plutôt
+ *       qu'un vrai problème de nom de champ. Gardée en repli au cas où
+ *       d'autres communes y sont peuplées.
+ *    c. api.cquest.org/dvf (API communautaire) — son propre auteur la décrit
+ *       comme un "proof of concept" sans garantie de disponibilité ; confirmé
+ *       en pratique (502 observé en production).
  *
- * Aucune des deux formes exactes de réponse n'a pu être vérifiée en direct
- * depuis ce sandbox (accès réseau sortant bloqué) — le detail exact des champs
- * Cerema est une best-effort à partir de leur documentation publique, avec un
- * dump de la réponse brute en log si la forme ne correspond pas, pour corriger
- * précisément au lieu de deviner à nouveau. Dégradation isolée comme tous les
- * autres connecteurs du module : un échec renvoie une liste vide, jamais une
- * erreur qui casse la page.
+ * Aucune des trois formes exactes de réponse n'a pu être vérifiée en direct
+ * depuis ce sandbox (accès réseau sortant bloqué, y compris pour les tests
+ * curl manuels) — la structure de colonnes geo-dvf vient de sa documentation
+ * publique connue (id_mutation, date_mutation, valeur_fonciere,
+ * surface_reelle_bati, type_local, adresse_numero, adresse_nom_voie,
+ * nombre_pieces_principales...), lue par nom de colonne (pas par position)
+ * pour rester robuste à un réordonnancement, avec dump de l'en-tête réel en
+ * log si aucune colonne connue n'est trouvée. Dégradation isolée comme tous
+ * les autres connecteurs du module : un échec renvoie une liste vide, jamais
+ * une erreur qui casse la page.
  */
 @Injectable()
 export class DvfSearchService {
@@ -116,9 +128,71 @@ export class DvfSearchService {
   }
 
   private async fetchTransactions(codeInsee: string): Promise<DvfTransaction[]> {
+    const fromGeoDvf = await this.fetchFromGeoDvf(codeInsee);
+    if (fromGeoDvf.length > 0) return fromGeoDvf;
     const fromCerema = await this.fetchFromCerema(codeInsee);
     if (fromCerema.length > 0) return fromCerema;
     return this.fetchFromCquest(codeInsee);
+  }
+
+  /** Fichiers CSV.gz officiels Etalab/DGFiP — un par commune et par année, pas d'API à interroger. */
+  private async fetchFromGeoDvf(codeInsee: string): Promise<DvfTransaction[]> {
+    const department = codeInsee.startsWith('97') ? codeInsee.slice(0, 3) : codeInsee.slice(0, 2);
+    const currentYear = new Date().getFullYear();
+
+    for (const year of [currentYear, currentYear - 1, currentYear - 2, currentYear - 3]) {
+      try {
+        const url = `https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/communes/${department}/${codeInsee}.csv.gz`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+        if (!res.ok) {
+          if (res.status !== 404) this.logger.warn(`geo-dvf responded ${res.status} for commune ${codeInsee}, year ${year}`);
+          continue;
+        }
+        const gzipped = Buffer.from(await res.arrayBuffer());
+        const csv = gunzipSync(gzipped).toString('utf-8');
+        const lines = csv.split('\n').filter((l) => l.trim().length > 0);
+        if (lines.length < 2) continue;
+
+        const headers = parseCsvLine(lines[0]);
+        const col = (name: string) => headers.indexOf(name);
+        const iValeur = col('valeur_fonciere');
+        const iSurface = col('surface_reelle_bati');
+        const iDate = col('date_mutation');
+        const iType = col('type_local');
+        const iNumero = col('adresse_numero');
+        const iVoie = col('adresse_nom_voie');
+        const iPieces = col('nombre_pieces_principales');
+
+        if (iValeur === -1 || iSurface === -1 || iDate === -1) {
+          this.logger.warn(`geo-dvf CSV for commune ${codeInsee} has unexpected headers: ${lines[0].slice(0, 300)}`);
+          continue;
+        }
+
+        const transactions = lines
+          .slice(1)
+          .map((line) => {
+            const cols = parseCsvLine(line);
+            const price = toNumber(cols[iValeur]);
+            const surface = toNumber(cols[iSurface]);
+            return {
+              date: cols[iDate] || null,
+              address: [cols[iNumero], cols[iVoie]].filter(Boolean).join(' ') || null,
+              type: iType !== -1 ? cols[iType] || null : null,
+              surface,
+              rooms: iPieces !== -1 ? toNumber(cols[iPieces]) : null,
+              price,
+              pricePerSqm: price !== null && surface !== null && surface > 0 ? Math.round(price / surface) : null,
+            };
+          })
+          .filter((t) => t.date !== null);
+
+        this.logger.log(`geo-dvf resolved ${transactions.length} transaction(s) for commune ${codeInsee}, year ${year}`);
+        return transactions.sort((a, b) => (a.date! < b.date! ? 1 : -1));
+      } catch (error) {
+        this.logger.warn(`geo-dvf fetch failed for commune ${codeInsee}, year ${year}: ${(error as Error).message}`);
+      }
+    }
+    return [];
   }
 
   private async fetchFromCerema(codeInsee: string): Promise<DvfTransaction[]> {
@@ -207,6 +281,35 @@ export class DvfSearchService {
       return [];
     }
   }
+}
+
+/** Simple RFC4180-ish CSV line splitter (comma-separated, double-quote escaping). */
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      fields.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
 }
 
 function firstNumber(record: CeremaRecord, keys: string[]): number | null {
