@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 
 export interface RiskProfile {
   catnat: { count: number; recent: { libelle: string | null; dateDebut: string | null; dateFin: string | null }[] } | null;
-  floodZone: { count: number } | null;
-  seismicZone: { zone: string | null } | null;
+  floodZone: { present: boolean; niveau: string | null } | null;
+  seismicZone: { present: boolean; niveau: string | null } | null;
   zonage: { type: string | null; libelle: string | null }[] | null;
   nearby: { schools: number; healthcare: number; shops: number; transitStops: number } | null;
 }
@@ -16,6 +16,18 @@ interface CatnatRow {
 interface CatnatResponse {
   data?: CatnatRow[];
   total?: number;
+}
+
+interface RisqueDetail {
+  present?: boolean;
+  libelleStatutCommune?: string | null;
+  libelleStatutAdresse?: string | null;
+}
+interface RapportRisqueResponse {
+  risquesNaturels?: {
+    inondation?: RisqueDetail;
+    seisme?: RisqueDetail;
+  };
 }
 
 interface GpuZoneFeature {
@@ -46,15 +58,18 @@ const CACHE_TTL_MS = 24 * 60 * 60_000;
  * évite d'aller vérifier à la main si un projet est en zone inondable, en
  * zone sismique, ou constructible avant de financer.
  *
- * Historique de correction (premier passage en prod, via logs Railway) :
- * CatNat marchait déjà (mauvais paramètre page_size retiré) ; AZI et
- * zonage_sismique renvoyaient 404/500 (chemins inventés) et sont remplacés
- * par le rapport de risque officiel unique resultats_rapport_risque, dont
- * l'extraction n'est pas encore câblée (forme réelle inconnue, réponse brute
- * loguée pour la câbler au prochain passage) ; Overpass renvoyait 406 par
- * absence de header Accept/User-Agent, corrigé ; le zonage PLU (IGN)
- * fonctionnait déjà du premier coup. Dégradation isolée comme tous les
- * autres connecteurs du module.
+ * Historique de correction (via logs Railway) : AZI et zonage_sismique
+ * renvoyaient 404/500 (chemins inventés), remplacés par le rapport de risque
+ * officiel unique resultats_rapport_risque — sa forme réelle (risquesNaturels
+ * .inondation/.seisme, chacun avec present/libelleStatutCommune/
+ * libelleStatutAdresse) a été confirmée par la réponse brute loguée sur une
+ * dizaine de communes réelles avant d'y brancher l'extraction. Overpass
+ * renvoyait 406 par absence de header Accept/User-Agent, corrigé. Le zonage
+ * PLU (IGN) fonctionnait déjà du premier coup. CatNat renvoie encore 500 en
+ * production malgré le retrait de page_size — cause encore inconnue, corps
+ * de la réponse d'erreur maintenant capturé en log pour diagnostiquer sans
+ * deviner un nouveau paramètre. Dégradation isolée comme tous les autres
+ * connecteurs du module.
  */
 @Injectable()
 export class RiskDataService {
@@ -91,7 +106,8 @@ export class RiskDataService {
       const url = `https://georisques.gouv.fr/api/v1/gaspar/catnat?latitude=${lat}&longitude=${lng}&rayon=2000`;
       const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
       if (!res.ok) {
-        this.logger.warn(`Géorisques CatNat responded ${res.status} for ${lat},${lng}`);
+        const preview = await res.text().catch(() => '');
+        this.logger.warn(`Géorisques CatNat responded ${res.status} for ${lat},${lng}: ${preview.slice(0, 500)}`);
         return null;
       }
       const json = (await res.json()) as CatnatResponse;
@@ -115,17 +131,11 @@ export class RiskDataService {
 
   /**
    * Inondation + sismicité, via le rapport de risque officiel Géorisques
-   * (georisques.gouv.fr/api/v1/resultats_rapport_risque?latlon=lng,lat —
-   * même famille que rapport_pdf, dont un exemple public confirme le
-   * paramètre "latlon" en longitude,latitude). Les deux anciens essais
-   * séparés (/azi, /zonage_sismique) renvoyaient 404/500 en production —
-   * remplacés par ce seul endpoint documenté, qui couvre officiellement
-   * inondation/argiles/sismicité/radon/Seveso/pollution des sols en un
-   * appel. La forme exacte du JSON n'a pas pu être vérifiée en direct
-   * (aucun accès réseau sortant depuis ce sandbox) : extraction défensive
-   * sur plusieurs noms de clé plausibles, avec un dump généreux (2000
-   * caractères) de la réponse brute en log si rien ne correspond, pour
-   * corriger précisément au prochain passage plutôt que redeviner.
+   * (georisques.gouv.fr/api/v1/resultats_rapport_risque?latlon=lng,lat).
+   * risquesNaturels.inondation et .seisme, chacun avec present (booléen) et
+   * libelleStatutCommune/libelleStatutAdresse (ex. "Risque Existant - modéré")
+   * — confirmé par la réponse brute loguée en production sur une dizaine de
+   * communes réelles avant d'écrire cette extraction.
    */
   private async fetchRiskReport(lat: number, lng: number): Promise<{ flood: RiskProfile['floodZone']; seismic: RiskProfile['seismicZone'] }> {
     const empty = { flood: null, seismic: null };
@@ -137,16 +147,21 @@ export class RiskDataService {
         this.logger.warn(`Géorisques rapport de risque responded ${res.status} for ${lat},${lng}: ${preview.slice(0, 500)}`);
         return empty;
       }
-      const json = (await res.json()) as Record<string, unknown>;
+      const json = (await res.json()) as RapportRisqueResponse;
+      const inondation = json.risquesNaturels?.inondation;
+      const seisme = json.risquesNaturels?.seisme;
+      if (!inondation && !seisme) {
+        this.logger.warn(`Géorisques rapport de risque unexpected shape for ${lat},${lng}: ${JSON.stringify(json).slice(0, 500)}`);
+        return empty;
+      }
 
-      // La structure exacte du rapport n'est pas connue avec assez de
-      // certitude pour en extraire un signal fiable sans risquer un faux
-      // négatif ou (pire) un faux positif sur un outil d'aide à la décision
-      // de financement — mieux vaut "indisponible" qu'une réponse devinée.
-      // On logue la réponse brute pour câbler l'extraction précisément au
-      // prochain passage, une fois la vraie forme connue.
-      this.logger.warn(`Géorisques rapport de risque raw response for ${lat},${lng} (extraction pas encore câblée): ${JSON.stringify(json).slice(0, 2000)}`);
-      return empty;
+      const flood = inondation
+        ? { present: inondation.present === true, niveau: inondation.libelleStatutCommune ?? inondation.libelleStatutAdresse ?? null }
+        : null;
+      const seismic = seisme
+        ? { present: seisme.present === true, niveau: seisme.libelleStatutCommune ?? seisme.libelleStatutAdresse ?? null }
+        : null;
+      return { flood, seismic };
     } catch (error) {
       this.logger.warn(`Géorisques rapport de risque fetch failed for ${lat},${lng}: ${(error as Error).message}`);
       return empty;

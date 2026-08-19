@@ -3,8 +3,8 @@ import { api } from '@/lib/api';
 
 export interface RiskProfile {
   catnat: { count: number; recent: { libelle: string | null; dateDebut: string | null; dateFin: string | null }[] } | null;
-  floodZone: { count: number } | null;
-  seismicZone: { zone: string | null } | null;
+  floodZone: { present: boolean; niveau: string | null } | null;
+  seismicZone: { present: boolean; niveau: string | null } | null;
   zonage: { type: string | null; libelle: string | null }[] | null;
   nearby: { schools: number; healthcare: number; shops: number; transitStops: number } | null;
 }

@@ -1,4 +1,4 @@
-import { TriangleAlert, Waves, Landmark, MapPinned, Zap } from 'lucide-react';
+import { TriangleAlert, Waves, Landmark, MapPinned, Zap, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,6 +21,15 @@ const DPE_VARIANT: Record<string, 'success' | 'warning' | 'destructive'> = {
   F: 'destructive',
   G: 'destructive',
 };
+
+/** Niveaux observés en production : "faible", "modéré", "moyen", "fort", "important". */
+function niveauVariant(niveau: string | null): 'outline' | 'warning' | 'destructive' {
+  if (!niveau) return 'outline';
+  const lower = niveau.toLowerCase();
+  if (lower.includes('fort') || lower.includes('important')) return 'destructive';
+  if (lower.includes('modéré') || lower.includes('moyen')) return 'warning';
+  return 'outline';
+}
 
 export function RiskDataCard({ dealId, hasCoords, hasPostcode }: { dealId: string; hasCoords: boolean; hasPostcode: boolean }) {
   const { data, isLoading, isError } = useRiskData(dealId, hasCoords);
@@ -72,13 +81,27 @@ export function RiskDataCard({ dealId, hasCoords, hasPostcode }: { dealId: strin
             <div className="flex items-start gap-3 rounded-md border border-border p-3">
               <Waves className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="flex-1">
-                <p className="text-sm font-medium">Zone inondable (Atlas des zones inondables)</p>
+                <p className="text-sm font-medium">Risque inondation</p>
                 {data.floodZone === null ? (
                   <p className="text-xs text-muted-foreground">Indisponible</p>
-                ) : data.floodZone.count > 0 ? (
-                  <Badge variant="warning">Zone à risque identifiée à proximité</Badge>
+                ) : !data.floodZone.present ? (
+                  <p className="text-xs text-muted-foreground">Aucun risque d'inondation identifié sur la commune</p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Aucune zone inondable cartographiée à proximité</p>
+                  <Badge variant={niveauVariant(data.floodZone.niveau)}>{data.floodZone.niveau ?? 'Risque existant'}</Badge>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border border-border p-3">
+              <Activity className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Risque sismique</p>
+                {data.seismicZone === null ? (
+                  <p className="text-xs text-muted-foreground">Indisponible</p>
+                ) : !data.seismicZone.present ? (
+                  <p className="text-xs text-muted-foreground">Aucun risque sismique identifié sur la commune</p>
+                ) : (
+                  <Badge variant={niveauVariant(data.seismicZone.niveau)}>{data.seismicZone.niveau ?? 'Risque existant'}</Badge>
                 )}
               </div>
             </div>
