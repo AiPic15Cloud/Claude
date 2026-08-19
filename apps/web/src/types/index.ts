@@ -351,6 +351,21 @@ export interface CockpitSummary {
   deadlineAlerts: DealDeadlineAlert[];
   guaranteesToRenew: GuaranteeToRenew[];
   autoSummary: AutoSummary;
+  decisions: DecisionRow[];
+}
+
+export interface DecisionRow {
+  dealId: string;
+  dealName: string;
+  dealReference: string;
+  tier: 'WATCH' | 'HIGH';
+  score: number;
+  previousScore: number | null;
+  signalLabel: string;
+  signalExplanation: string;
+  exposition: number;
+  daysToMax: number | null;
+  deadlineActionLabel: string | null;
 }
 
 export interface AutoSummaryItem {

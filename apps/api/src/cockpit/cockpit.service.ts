@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { DealsService } from '../deals/deals.service';
 import { ActivitiesService } from '../activities/activities.service';
+import { RiskEngineService } from '../risk-engine/risk-engine.service';
+import { riskTier } from '../risk-engine/risk-tier.util';
 import { computeDeadlineAlert } from '../deals/deadline.util';
 import { computeGuaranteeExpiry, isExpirableGuaranteeType } from '../guarantees/guarantee-expiry.util';
 
@@ -23,6 +25,7 @@ export class CockpitService {
     private readonly prisma: PrismaService,
     private readonly dealsService: DealsService,
     private readonly activitiesService: ActivitiesService,
+    private readonly riskEngine: RiskEngineService,
   ) {}
 
   async summary(organizationId: string, userId: string) {
@@ -40,6 +43,7 @@ export class CockpitService {
       deadlineDeals,
       historyDeals,
       guaranteesData,
+      riskDeals,
     ] = await Promise.all([
       this.dealsService.kpis(organizationId),
       this.prisma.task.findMany({
@@ -97,8 +101,13 @@ export class CockpitService {
           deal: { select: { name: true, reference: true } },
         },
       }),
+      this.prisma.deal.findMany({
+        where: { organizationId, status: 'ACTIVE', repaid: false, stage: { not: 'DEFAUT' }, riskScore: { not: null } },
+        select: { id: true, name: true, reference: true, amountRaised: true, riskScore: true, riskScorePrevious: true, dateMax: true },
+      }),
     ]);
 
+    const decisions = await this.buildDecisions(organizationId, riskDeals);
     const pipeline = this.buildPipeline(pipelineDeals);
     const aumHistory = this.buildAumHistory(historyDeals);
     const deadlineAlerts = deadlineDeals
@@ -142,7 +151,50 @@ export class CockpitService {
       deadlineAlerts,
       guaranteesToRenew,
       autoSummary,
+      decisions,
     };
+  }
+
+  /**
+   * Centre de décision : les dossiers en zone WATCH/HIGH du Risk Engine,
+   * triés par score puis exposition, avec le facteur qui contribue le plus
+   * au score comme "Signal" — aucune nouvelle règle métier, uniquement une
+   * agrégation du score déjà calculé (source unique de vérité sur "qu'est-ce
+   * qui ne va pas sur ce dossier", plutôt que de mélanger Alerts/Tasks bruts
+   * qui représentent déjà les mêmes événements séparément ailleurs dans ce
+   * même écran).
+   */
+  private async buildDecisions(
+    organizationId: string,
+    riskDeals: { id: string; name: string; reference: string; amountRaised: any; riskScore: number | null; riskScorePrevious: number | null; dateMax: Date | null }[],
+  ) {
+    const candidates = riskDeals
+      .filter((d) => d.riskScore !== null && riskTier(d.riskScore) !== 'SAFE')
+      .sort((a, b) => (b.riskScore! - a.riskScore!) || (Number(b.amountRaised) - Number(a.amountRaised)))
+      .slice(0, 10);
+
+    const breakdowns = await Promise.all(
+      candidates.map((d) => this.riskEngine.computeDealRisk(organizationId, d.id, false)),
+    );
+
+    return candidates.map((d, i) => {
+      const breakdown = breakdowns[i];
+      const topFactor = [...breakdown.factors].sort((a, b) => b.contribution - a.contribution)[0];
+      const deadline = computeDeadlineAlert(d.dateMax, new Date(), false);
+      return {
+        dealId: d.id,
+        dealName: d.name,
+        dealReference: d.reference,
+        tier: riskTier(d.riskScore!) as 'WATCH' | 'HIGH',
+        score: d.riskScore!,
+        previousScore: d.riskScorePrevious,
+        signalLabel: topFactor?.label ?? 'Risque global',
+        signalExplanation: topFactor?.explanation ?? '',
+        exposition: Number(d.amountRaised),
+        daysToMax: deadline.stage ? deadline.daysToMax : null,
+        deadlineActionLabel: deadline.actionLabel,
+      };
+    });
   }
 
   /**
