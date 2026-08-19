@@ -1,9 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 
 type MonitoringStatus = 'actif' | 'procedure_collective' | 'fermee';
+
+interface MonitoredDeal {
+  id: string;
+  organizationId: string;
+  name: string;
+  reference: string;
+  porteurSiren: string | null;
+  porteurSociete: string | null;
+  porteurMonitoringStatus: string | null;
+}
 
 interface SearchResult {
   siren?: string;
@@ -58,38 +68,58 @@ export class CompanyMonitoringService {
 
     let alerted = 0;
     for (const deal of deals) {
-      if (!deal.porteurSiren) continue;
-      try {
-        const status = await this.fetchStatus(deal.porteurSiren);
-        if (!status) continue;
-
-        if (status !== deal.porteurMonitoringStatus) {
-          if (status === 'procedure_collective' || status === 'fermee') {
-            const label = status === 'procedure_collective' ? 'Procédure collective détectée' : 'Société fermée/radiée';
-            await this.alerts.create(deal.organizationId, {
-              title: `${label} — ${deal.reference}`,
-              message: `${deal.porteurSociete ?? deal.name} (SIREN ${deal.porteurSiren}) : ${label.toLowerCase()}. Vérification recommandée avant tout nouveau décaissement.`,
-              severity: 'CRITICAL',
-              dealId: deal.id,
-            });
-            alerted += 1;
-          } else if (deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') {
-            // Retour à un statut sain après une alerte précédente — vaut la peine d'être noté, sans réveiller le téléphone.
-            await this.alerts.create(deal.organizationId, {
-              title: `Statut redevenu actif — ${deal.reference}`,
-              message: `${deal.porteurSociete ?? deal.name} (SIREN ${deal.porteurSiren}) : statut administratif redevenu actif.`,
-              severity: 'WARNING',
-              dealId: deal.id,
-            });
-          }
-
-          await this.prisma.deal.update({ where: { id: deal.id }, data: { porteurMonitoringStatus: status } });
-        }
-      } catch (error) {
-        this.logger.error(`Échec de la surveillance du SIREN ${deal.porteurSiren} (deal ${deal.id})`, error instanceof Error ? error.stack : error);
-      }
+      const result = await this.checkDeal(deal);
+      if (result.alerted) alerted += 1;
     }
     if (alerted > 0) this.logger.log(`${alerted} alerte(s) de surveillance société créée(s).`);
+  }
+
+  /** Déclenchement manuel (bouton "Vérifier maintenant") — même logique que le job quotidien, sur un seul dossier. */
+  async checkOne(organizationId: string, dealId: string): Promise<{ status: MonitoringStatus | null; changed: boolean }> {
+    const deal = await this.prisma.deal.findFirst({
+      where: { id: dealId, organizationId },
+      select: { id: true, organizationId: true, name: true, reference: true, porteurSiren: true, porteurSociete: true, porteurMonitoringStatus: true },
+    });
+    if (!deal) throw new NotFoundException('Dossier introuvable');
+    if (!deal.porteurSiren) throw new NotFoundException('Aucun SIREN renseigné pour ce dossier');
+
+    const result = await this.checkDeal(deal);
+    return { status: result.status, changed: result.alerted };
+  }
+
+  private async checkDeal(deal: MonitoredDeal): Promise<{ status: MonitoringStatus | null; alerted: boolean }> {
+    if (!deal.porteurSiren) return { status: null, alerted: false };
+    try {
+      const status = await this.fetchStatus(deal.porteurSiren);
+      if (!status || status === deal.porteurMonitoringStatus) return { status, alerted: false };
+
+      let alerted = false;
+      if (status === 'procedure_collective' || status === 'fermee') {
+        const label = status === 'procedure_collective' ? 'Procédure collective détectée' : 'Société fermée/radiée';
+        await this.alerts.create(deal.organizationId, {
+          title: `${label} — ${deal.reference}`,
+          message: `${deal.porteurSociete ?? deal.name} (SIREN ${deal.porteurSiren}) : ${label.toLowerCase()}. Vérification recommandée avant tout nouveau décaissement.`,
+          severity: 'CRITICAL',
+          dealId: deal.id,
+        });
+        alerted = true;
+      } else if (deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') {
+        // Retour à un statut sain après une alerte précédente — vaut la peine d'être noté, sans réveiller le téléphone.
+        await this.alerts.create(deal.organizationId, {
+          title: `Statut redevenu actif — ${deal.reference}`,
+          message: `${deal.porteurSociete ?? deal.name} (SIREN ${deal.porteurSiren}) : statut administratif redevenu actif.`,
+          severity: 'WARNING',
+          dealId: deal.id,
+        });
+        alerted = true;
+      }
+
+      await this.prisma.deal.update({ where: { id: deal.id }, data: { porteurMonitoringStatus: status } });
+      return { status, alerted };
+    } catch (error) {
+      this.logger.error(`Échec de la surveillance du SIREN ${deal.porteurSiren} (deal ${deal.id})`, error instanceof Error ? error.stack : error);
+      return { status: null, alerted: false };
+    }
   }
 
   private async fetchStatus(siren: string): Promise<MonitoringStatus | null> {

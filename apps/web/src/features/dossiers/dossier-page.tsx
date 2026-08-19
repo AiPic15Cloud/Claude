@@ -24,6 +24,7 @@ import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
 import { RiskDataCard } from './components/risk-data-card';
+import { CompanyMonitoringCard } from './components/company-monitoring-card';
 import { RepaymentsPanel } from './components/repayments-panel';
 import { NotesPanel } from './components/notes-panel';
 import { FinancialModelPanel, type FinancialModelFormValues } from './components/financial-model-panel';
@@ -262,6 +263,14 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="guarantees" className="flex flex-col gap-4">
           <GuaranteesPanel dealId={deal.id} />
+          {deal.porteurSiren && (
+            <CompanyMonitoringCard
+              dealId={deal.id}
+              siren={deal.porteurSiren}
+              societe={deal.porteurSociete}
+              status={deal.porteurMonitoringStatus}
+            />
+          )}
           <RiskDataCard dealId={deal.id} hasCoords={Boolean(deal.lat && deal.lng)} hasPostcode={Boolean(deal.postcode)} />
         </TabsContent>
         <TabsContent value="repayments">

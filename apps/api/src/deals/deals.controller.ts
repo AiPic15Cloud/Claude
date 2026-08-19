@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
 import { RiskDataService } from './risk-data.service';
+import { CompanyMonitoringService } from './company-monitoring.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
@@ -18,6 +19,7 @@ export class DealsController {
   constructor(
     private readonly dealsService: DealsService,
     private readonly riskData: RiskDataService,
+    private readonly companyMonitoring: CompanyMonitoringService,
   ) {}
 
   @Get()
@@ -61,6 +63,11 @@ export class DealsController {
       throw new NotFoundException("Ce dossier n'a pas de code postal — impossible de rechercher un DPE.");
     }
     return this.riskData.getDpe(deal.address, deal.postcode);
+  }
+
+  @Post(':id/check-company')
+  checkCompany(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.companyMonitoring.checkOne(user.organizationId, id);
   }
 
   @Post()
