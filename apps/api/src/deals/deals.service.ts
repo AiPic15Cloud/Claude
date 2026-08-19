@@ -16,7 +16,8 @@ import { computeCheckpointHealth } from './checkpoint-health.util';
 import { withNoteImageUrls } from '../notes/note-image.util';
 import { StorageService } from '../common/storage/storage.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
-import { RiskEngineService } from '../risk-engine/risk-engine.service';
+import { RiskEngineService, RECOVERY_LABEL, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
+import { riskTier } from '../risk-engine/risk-tier.util';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -268,7 +269,64 @@ export class DealsService {
     if (!deal) throw new NotFoundException('Opération introuvable');
     const checkpointHealth = this.toCheckpointHealth(deal.checkpoints[0] ?? null, isDealClosed(deal));
     const notes = await Promise.all(deal.notes.map((note) => withNoteImageUrls(note, this.storage)));
-    return { ...deal, notes, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal)), checkpointHealth };
+    const deadlineAlert = computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal));
+    const riskBreakdown = await this.riskEngine.computeDealRisk(organizationId, id, false);
+    const narrative = this.buildNarrative(deal, riskBreakdown, deadlineAlert);
+    return { ...deal, notes, deadlineAlert, checkpointHealth, narrative };
+  }
+
+  /**
+   * Synthèse "Atlas Intelligence" en haut de la page Dossier — chaque phrase
+   * reprend directement une valeur déjà calculée ailleurs (facteurs du Risk
+   * Engine, échéance, recouvrement, surveillance société), jamais un appel
+   * LLM présenté comme fait. Même patron que CockpitService.buildAutoSummary().
+   */
+  private buildNarrative(
+    deal: { recoveryStatus: string; porteurMonitoringStatus: string | null },
+    riskBreakdown: Awaited<ReturnType<RiskEngineService['computeDealRisk']>>,
+    deadlineAlert: ReturnType<typeof computeDeadlineAlert>,
+  ): { headline: string; items: { label: string; severity: 'critical' | 'warning' | 'info' }[] } {
+    if (riskBreakdown.suppressed || riskBreakdown.score === null) {
+      return { headline: 'Dossier clos.', items: [] };
+    }
+
+    const tier = riskTier(riskBreakdown.score);
+    const tierLabel = tier === 'HIGH' ? 'Situation critique' : tier === 'WATCH' ? 'Vigilance requise' : 'Situation saine';
+    const headline = `${tierLabel} — score de risque ${riskBreakdown.score}/100.`;
+
+    const items: { label: string; severity: 'critical' | 'warning' | 'info' }[] = [];
+
+    // Les facteurs à plus forte contribution sont déjà les explications les
+    // plus précises pour leur propre sujet (échéance/recouvrement/porteur) —
+    // les blocs "toujours vérifier" ci-dessous ne doivent ajouter du texte
+    // que pour les sujets qui n'ont PAS déjà été couverts par un facteur en
+    // tête de liste, sinon la même phrase apparaît deux fois.
+    const topFactorKeys = new Set<string>();
+    if (tier !== 'SAFE') {
+      const topFactors = [...riskBreakdown.factors].sort((a, b) => b.contribution - a.contribution).slice(0, 2);
+      for (const factor of topFactors) {
+        topFactorKeys.add(factor.key);
+        items.push({ label: factor.explanation, severity: tier === 'HIGH' ? 'critical' : 'warning' });
+      }
+    }
+
+    if (deadlineAlert.level !== 'RAS' && deadlineAlert.actionLabel && !topFactorKeys.has('echeance')) {
+      items.push({ label: deadlineAlert.actionLabel, severity: deadlineAlert.level === 'URGENT' ? 'critical' : 'warning' });
+    }
+
+    if (deal.recoveryStatus !== 'SAIN' && !topFactorKeys.has('recouvrement')) {
+      items.push({ label: RECOVERY_LABEL[deal.recoveryStatus] ?? 'Statut de recouvrement inconnu.', severity: 'warning' });
+    }
+
+    if ((deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') && !topFactorKeys.has('porteur')) {
+      items.push({ label: PORTEUR_LABEL[deal.porteurMonitoringStatus], severity: 'critical' });
+    }
+
+    if (items.length === 0) {
+      items.push({ label: 'Aucun signal particulier à ce jour.', severity: 'info' });
+    }
+
+    return { headline, items };
   }
 
   async generateMiseEnDemeure(organizationId: string, id: string) {
@@ -336,6 +394,14 @@ export class DealsService {
 
     if (stage && current && current.stage !== stage) {
       await this.activities.log(id, userId, 'STAGE_CHANGED', `Étape modifiée : ${current.stage} → ${stage}`);
+    }
+    if (rest.recoveryStatus && current && current.recoveryStatus !== rest.recoveryStatus) {
+      await this.activities.log(
+        id,
+        userId,
+        'RECOVERY_STATUS_CHANGED',
+        `Statut de recouvrement modifié : ${current.recoveryStatus} → ${rest.recoveryStatus}`,
+      );
     }
     if (dateMax && current?.dateMax && new Date(dateMax).getTime() !== current.dateMax.getTime()) {
       await this.activities.log(

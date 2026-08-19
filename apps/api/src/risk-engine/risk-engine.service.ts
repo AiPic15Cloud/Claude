@@ -38,14 +38,17 @@ const DISCLAIMER =
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60_000;
 
-const RECOVERY_LABEL: Record<string, string> = {
+// Exportés pour réutilisation par DealsService.buildNarrative() — même
+// texte que les explications de facteur du Risk Engine, pas de nouvelle
+// rédaction pour la synthèse narrative d'Opération 360°.
+export const RECOVERY_LABEL: Record<string, string> = {
   SAIN: 'Recouvrement sain, aucun signal.',
   EN_RETARD: 'Échéance dépassée sans réaction du porteur.',
   PRE_CONTENTIEUX: 'Mise en demeure envoyée, pas encore de procédure.',
   PROCEDURE: 'Action judiciaire engagée.',
 };
 
-const PORTEUR_LABEL: Record<string, string> = {
+export const PORTEUR_LABEL: Record<string, string> = {
   actif: 'Statut administratif actif.',
   fermee: 'Société fermée/radiée.',
   procedure_collective: 'Procédure collective en cours.',
