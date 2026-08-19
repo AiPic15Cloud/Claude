@@ -46,8 +46,8 @@ export function DvfSearchCard() {
 
         {result?.commune && result.sampleSize === 0 && (
           <p className="text-sm text-muted-foreground">
-            Aucune transaction exploitable trouvée pour {result.commune.name}. La base DVF communautaire peut être temporairement
-            indisponible ou ne pas couvrir cette commune.
+            Aucune transaction exploitable trouvée pour {result.commune.name}. Le fichier DVF peut ne pas encore être publié pour
+            cette commune/année, ou être temporairement indisponible.
           </p>
         )}
 
@@ -109,9 +109,8 @@ export function DvfSearchCard() {
         )}
 
         <p className="text-[11px] text-muted-foreground">
-          Source : DVF (Demandes de valeurs foncières), data.gouv.fr — transactions réelles déclarées, via une API communautaire
-          (api.cquest.org), meilleur effort sans garantie de disponibilité. Géolocalisation par la Base Adresse Nationale
-          (api-adresse.data.gouv.fr).
+          Source : DVF (Demandes de valeurs foncières), data.gouv.fr — transactions réelles déclarées, via les fichiers officiels
+          geo-dvf (Etalab/DGFiP). Géolocalisation par la Base Adresse Nationale (api-adresse.data.gouv.fr).
         </p>
       </CardContent>
     </Card>

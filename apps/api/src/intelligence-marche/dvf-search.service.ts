@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { gunzipSync } from 'node:zlib';
 
 interface AddressSearchFeature {
   properties: {
@@ -58,11 +57,12 @@ export interface DvfSearchResult {
  *    INSEE commune. Confirmé fonctionnel en production.
  * 2. Trois sources DVF essayées dans l'ordre, la première qui répond avec des
  *    transactions gagne :
- *    a. files.data.gouv.fr/geo-dvf (Etalab/DGFiP, fichiers CSV.gz officiels,
- *       un par commune et par année — pas une API interrogeable mais des
- *       exports statiques republiés régulièrement, source la plus fiable
- *       car sans dépendance à une API tierce qui peut tomber). Essayée en
- *       premier.
+ *    a. files.data.gouv.fr/geo-dvf (Etalab/DGFiP, fichiers CSV officiels non
+ *       compressés, un par commune et par année — pas une API interrogeable
+ *       mais des exports statiques republiés régulièrement, source la plus
+ *       fiable car sans dépendance à une API tierce qui peut tomber). Essayée
+ *       en premier. URL confirmée par recherche (ex. .../2025/communes/56/56001.csv) —
+ *       une première version avait à tort supposé un .csv.gz.
  *    b. apidf-preprod.cerema.fr/dvf_opendata (API du Cerema) — répond bien
  *       (JSON DRF paginé valide) mais renvoie count:0 pour Lyon en test réel :
  *       son environnement "preprod" semble sans données exploitables plutôt
@@ -142,14 +142,13 @@ export class DvfSearchService {
 
     for (const year of [currentYear, currentYear - 1, currentYear - 2, currentYear - 3]) {
       try {
-        const url = `https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/communes/${department}/${codeInsee}.csv.gz`;
+        const url = `https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/communes/${department}/${codeInsee}.csv`;
         const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
         if (!res.ok) {
           if (res.status !== 404) this.logger.warn(`geo-dvf responded ${res.status} for commune ${codeInsee}, year ${year}`);
           continue;
         }
-        const gzipped = Buffer.from(await res.arrayBuffer());
-        const csv = gunzipSync(gzipped).toString('utf-8');
+        const csv = await res.text();
         const lines = csv.split('\n').filter((l) => l.trim().length > 0);
         if (lines.length < 2) continue;
 
