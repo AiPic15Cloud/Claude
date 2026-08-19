@@ -6,6 +6,7 @@ export interface RiskProfile {
   floodZone: { count: number } | null;
   seismicZone: { zone: string | null } | null;
   zonage: { type: string | null; libelle: string | null }[] | null;
+  nearby: { schools: number; healthcare: number; shops: number; transitStops: number } | null;
 }
 
 export function useRiskData(dealId: string, hasCoords: boolean) {

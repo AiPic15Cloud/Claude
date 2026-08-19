@@ -1,4 +1,4 @@
-import { TriangleAlert, Waves, Landmark } from 'lucide-react';
+import { TriangleAlert, Waves, Landmark, MapPinned } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -91,9 +91,27 @@ export function RiskDataCard({ dealId, hasCoords }: { dealId: string; hasCoords:
               </div>
             </div>
 
+            <div className="flex items-start gap-3 rounded-md border border-border p-3">
+              <MapPinned className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Équipements à proximité</p>
+                {data.nearby === null ? (
+                  <p className="text-xs text-muted-foreground">Indisponible</p>
+                ) : (
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    <Badge variant="outline">{data.nearby.schools} école(s)/1km</Badge>
+                    <Badge variant="outline">{data.nearby.healthcare} santé/1km</Badge>
+                    <Badge variant="outline">{data.nearby.shops} commerce(s)/500m</Badge>
+                    <Badge variant="outline">{data.nearby.transitStops} arrêt(s) transport</Badge>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <p className="text-[11px] text-muted-foreground">
-              Sources : Géorisques (gouv.fr) — catastrophes naturelles, zones inondables · API Carto GPU (IGN) — zonage PLU. Données
-              indicatives, à confirmer par un professionnel avant toute décision d'investissement.
+              Sources : Géorisques (gouv.fr) — catastrophes naturelles, zones inondables · API Carto GPU (IGN) — zonage PLU ·
+              OpenStreetMap (Overpass) — équipements à proximité. Données indicatives, à confirmer par un professionnel avant toute
+              décision d'investissement.
             </p>
           </>
         )}
