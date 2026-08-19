@@ -93,7 +93,8 @@ async function main() {
       durationMonths: monthsBetween(startDate, endDate) ?? undefined,
       city: d.city ?? undefined,
       country: 'FR',
-      riskScore: d.riskScore,
+      // riskScore n'est plus écrit ici : c'est désormais un champ dérivé,
+      // recalculé automatiquement par le Risk Engine (voir risk-engine/).
       atlasScore: Math.max(0, 100 - d.riskScore),
       startDate: startDate ?? undefined,
       endDate: endDate ?? undefined,

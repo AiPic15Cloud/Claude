@@ -23,6 +23,8 @@ import { GuaranteesModule } from './guarantees/guarantees.module';
 import { FinancialModelModule } from './financial-model/financial-model.module';
 import { ProjectCheckpointsModule } from './project-checkpoints/project-checkpoints.module';
 import { ScoringModule } from './scoring/scoring.module';
+import { RiskEngineModule } from './risk-engine/risk-engine.module';
+import { RiskDataModule } from './risk-data/risk-data.module';
 import { GraphModule } from './graph/graph.module';
 import { IntelligenceConcurrentielleModule } from './intelligence-concurrentielle/intelligence-concurrentielle.module';
 import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
@@ -60,6 +62,8 @@ import { HealthController } from './health/health.controller';
     FinancialModelModule,
     ProjectCheckpointsModule,
     ScoringModule,
+    RiskEngineModule,
+    RiskDataModule,
     GraphModule,
     IntelligenceConcurrentielleModule,
     IntelligenceMarcheModule,

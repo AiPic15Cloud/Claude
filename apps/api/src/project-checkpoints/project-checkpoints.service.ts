@@ -1,15 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { FinancialModelService } from '../financial-model/financial-model.service';
+import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
 
 @Injectable()
 export class ProjectCheckpointsService {
+  private readonly logger = new Logger(ProjectCheckpointsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly activities: ActivitiesService,
     private readonly financialModel: FinancialModelService,
+    private readonly riskEngine: RiskEngineService,
   ) {}
 
   async list(organizationId: string, dealId: string) {
@@ -55,6 +59,9 @@ export class ProjectCheckpointsService {
     });
 
     await this.activities.log(dealId, userId, 'CHECKPOINT_CREATED', 'Point à durée cible enregistré');
+    await this.riskEngine
+      .recomputeAndPersist(organizationId, dealId)
+      .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${dealId}`, err instanceof Error ? err.stack : err));
     return this.withDeltas(checkpoint);
   }
 

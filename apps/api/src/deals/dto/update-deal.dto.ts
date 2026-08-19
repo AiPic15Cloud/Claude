@@ -20,11 +20,4 @@ export class UpdateDealDto extends PartialType(CreateDealDto) {
   @Min(0)
   @Max(100)
   atlasScore?: number;
-
-  @ApiProperty({ required: false, minimum: 0, maximum: 100 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  riskScore?: number;
 }

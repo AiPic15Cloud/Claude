@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
-import { RiskDataService } from './risk-data.service';
+import { RiskDataService } from '../risk-data/risk-data.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';

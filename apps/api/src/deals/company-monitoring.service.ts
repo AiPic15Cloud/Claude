@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { RiskEngineService } from '../risk-engine/risk-engine.service';
 
 type MonitoringStatus = 'actif' | 'procedure_collective' | 'fermee';
 
@@ -57,6 +58,7 @@ export class CompanyMonitoringService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alerts: AlertsService,
+    private readonly riskEngine: RiskEngineService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -123,6 +125,9 @@ export class CompanyMonitoringService {
       }
 
       await this.prisma.deal.update({ where: { id: deal.id }, data: { porteurMonitoringStatus: status } });
+      await this.riskEngine
+        .recomputeAndPersist(deal.organizationId, deal.id)
+        .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${deal.id}`, err instanceof Error ? err.stack : err));
       return { status, alerted };
     } catch (error) {
       this.logger.error(`Échec de la surveillance du SIREN ${deal.porteurSiren} (deal ${deal.id})`, error instanceof Error ? error.stack : error);
