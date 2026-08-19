@@ -5,6 +5,7 @@ export interface RiskProfile {
   floodZone: { count: number } | null;
   seismicZone: { zone: string | null } | null;
   zonage: { type: string | null; libelle: string | null }[] | null;
+  nearby: { schools: number; healthcare: number; shops: number; transitStops: number } | null;
 }
 
 interface CatnatRow {
@@ -61,14 +62,15 @@ export class RiskDataService {
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached.data;
 
-    const [catnat, floodZone, seismicZone, zonage] = await Promise.all([
+    const [catnat, floodZone, seismicZone, zonage, nearby] = await Promise.all([
       this.fetchCatnat(lat, lng),
       this.fetchFloodZone(lat, lng),
       this.fetchSeismicZone(lat, lng),
       this.fetchZonage(lat, lng),
+      this.fetchNearby(lat, lng),
     ]);
 
-    const data: RiskProfile = { catnat, floodZone, seismicZone, zonage };
+    const data: RiskProfile = { catnat, floodZone, seismicZone, zonage, nearby };
     this.cache.set(key, { fetchedAt: Date.now(), data });
     return data;
   }
@@ -178,6 +180,58 @@ export class RiskDataService {
       }));
     } catch (error) {
       this.logger.warn(`API Carto GPU fetch failed for ${lat},${lng}: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Équipements à proximité (écoles, santé, commerces, arrêts de transport)
+   * via Overpass API (OpenStreetMap) — syntaxe Overpass QL standard et
+   * stable, instance publique overpass-api.de. Le seul des cinq connecteurs
+   * de ce fichier dont la syntaxe est réellement bien établie (documentation
+   * OSM inchangée depuis des années), même si toujours non testé en direct
+   * faute de réseau sortant depuis ce sandbox.
+   */
+  private async fetchNearby(lat: number, lng: number): Promise<RiskProfile['nearby']> {
+    const query = `[out:json][timeout:15];(
+      node["amenity"~"^(school|college|university)$"](around:1000,${lat},${lng});
+      node["amenity"~"^(pharmacy|hospital|clinic|doctors)$"](around:1000,${lat},${lng});
+      node["shop"](around:500,${lat},${lng});
+      node["highway"="bus_stop"](around:400,${lat},${lng});
+      node["railway"~"^(station|halt|tram_stop)$"](around:1200,${lat},${lng});
+    );out tags;`;
+    try {
+      const res = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: query,
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) {
+        this.logger.warn(`Overpass responded ${res.status} for ${lat},${lng}`);
+        return null;
+      }
+      const json = (await res.json()) as { elements?: { type?: string; tags?: Record<string, string> }[] };
+      const elements = json.elements ?? [];
+      if (elements.length === 0 && !Array.isArray(json.elements)) {
+        this.logger.warn(`Overpass unexpected shape for ${lat},${lng}: ${JSON.stringify(json).slice(0, 300)}`);
+        return null;
+      }
+
+      let schools = 0;
+      let healthcare = 0;
+      let shops = 0;
+      let transitStops = 0;
+      for (const el of elements) {
+        const tags = el.tags ?? {};
+        if (/^(school|college|university)$/.test(tags.amenity ?? '')) schools += 1;
+        else if (/^(pharmacy|hospital|clinic|doctors)$/.test(tags.amenity ?? '')) healthcare += 1;
+        else if (tags.shop) shops += 1;
+        else if (tags.highway === 'bus_stop' || /^(station|halt|tram_stop)$/.test(tags.railway ?? '')) transitStops += 1;
+      }
+      return { schools, healthcare, shops, transitStops };
+    } catch (error) {
+      this.logger.warn(`Overpass fetch failed for ${lat},${lng}: ${(error as Error).message}`);
       return null;
     }
   }
