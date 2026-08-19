@@ -69,7 +69,10 @@ export function BuildingPermitsChart() {
           </AreaChart>
         </ResponsiveContainer>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Source : Eurostat (sts_cobp_m) — indice mensuel des permis de bâtir, France, base 2021 = 100.
+          Source : Eurostat (sts_cobp_m) — indice mensuel des permis de bâtir, France, base 2021 = 100. Un indice, pas un décompte :
+          une valeur de 110 signifie 10&nbsp;% d'activité en plus qu'en 2021 (l'année de référence), pas 110 permis délivrés. Utile
+          pour repérer une tendance (accélération ou ralentissement du marché de la construction), pas pour un nombre absolu de
+          logements autorisés.
         </p>
       </CardContent>
     </Card>

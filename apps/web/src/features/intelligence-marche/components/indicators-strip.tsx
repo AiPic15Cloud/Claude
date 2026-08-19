@@ -53,8 +53,8 @@ export function IndicatorsStrip() {
   if (isLoading || !data) {
     return (
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
@@ -69,7 +69,7 @@ export function IndicatorsStrip() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <IndicatorTile
           label="Taux moyen des prêts immobiliers — France"
           value={data.mortgageRate.value}
@@ -79,13 +79,6 @@ export function IndicatorsStrip() {
         <IndicatorTile label="Taux long terme (OAT 10Y) — France" value={data.oat10y.value} previousValue={data.oat10y.previousValue} period={data.oat10y.period} />
         <IndicatorTile label="Taux court terme (zone euro)" value={data.euribor3m.value} previousValue={data.euribor3m.previousValue} period={data.euribor3m.period} />
         <IndicatorTile label="Inflation HICP — France (a/a)" value={data.inflationHicp.value} previousValue={data.inflationHicp.previousValue} period={data.inflationHicp.period} />
-        <IndicatorTile
-          label="Logements autorisés — France (année)"
-          value={data.buildingPermitsCount.value}
-          previousValue={data.buildingPermitsCount.previousValue}
-          period={data.buildingPermitsCount.period}
-          suffix=""
-        />
       </div>
 
       <div>
@@ -111,11 +104,11 @@ export function IndicatorsStrip() {
 
       <p className="text-[11px] text-muted-foreground">
         Sources : Eurostat (données officielles, mises à jour ~mensuellement/trimestriellement) · ECB Data Portal (taux des prêts immobiliers,
-        nouveaux crédits aux ménages, France) · SDES/Sitadel2 (logements autorisés, valeur réelle annuelle).
-        L'indice des prix immobiliers est en base 100 (2015), pas une valeur brute — l'INSEE ne publie pas de série nationale en €/m² en
-        open data ; le seul vrai €/m² disponible ici vient des transactions réelles (recherche DVF ci-dessous), ville par ville. Le tertiaire
-        (bureaux, commerces, logistique) n'a pas d'équivalent en données ouvertes fiables — cette page continue à le couvrir via la veille
-        éditoriale plus bas.
+        nouveaux crédits aux ménages, France). L'indice des prix immobiliers est en base 100 (2015), pas une valeur brute — l'INSEE ne
+        publie pas de série nationale en €/m² en open data ; le seul vrai €/m² disponible ici vient des transactions réelles (recherche
+        DVF ci-dessous), ville par ville. Les permis de construire sont couverts par un indice mensuel (graphique ci-dessus) plutôt qu'un
+        décompte — aucune API fiable et gratuite du nombre réel de logements autorisés n'a été trouvée. Le tertiaire (bureaux, commerces,
+        logistique) n'a pas d'équivalent en données ouvertes fiables — cette page continue à le couvrir via la veille éditoriale plus bas.
       </p>
     </div>
   );

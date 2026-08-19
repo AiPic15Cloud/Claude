@@ -12,7 +12,6 @@ interface MarketIndicators {
   oat10y: Indicator;
   euribor3m: Indicator;
   buildingPermitsIndex: Indicator;
-  buildingPermitsCount: Indicator;
   housePriceIndex: Indicator;
   housePriceChangeYoy: Indicator;
   mortgageRate: Indicator;
