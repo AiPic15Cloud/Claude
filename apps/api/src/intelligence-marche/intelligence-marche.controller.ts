@@ -42,11 +42,6 @@ export class IntelligenceMarcheController {
     return this.indicators.housePriceIndexHistory();
   }
 
-  @Get('construction-cost-index-history')
-  getConstructionCostIndexHistory() {
-    return this.indicators.constructionCostIndexHistory();
-  }
-
   @Get('dvf-search')
   searchDvf(@Query('q') q: string) {
     if (!q || !q.trim()) return { query: '', commune: null, transactions: [], averagePricePerSqm: null, medianPricePerSqm: null, sampleSize: 0 };

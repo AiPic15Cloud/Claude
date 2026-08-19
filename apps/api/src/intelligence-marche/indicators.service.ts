@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 interface EurostatIndicator {
   value: number | null;
@@ -29,11 +28,7 @@ export class MarketIndicatorsService {
   } | null = null;
   private buildingPermitsHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
   private housePriceIndexHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
-  private constructionCostIndexHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
-  private inseeTokenCache: { token: string; expiresAt: number } | null = null;
   private readonly CACHE_TTL_MS = 60 * 60_000;
-
-  constructor(private readonly config: ConfigService) {}
 
   private async fetchEurostat(dataset: string, params: Record<string, string>): Promise<EurostatIndicator> {
     const search = new URLSearchParams({ format: 'JSON', lang: 'FR', ...params });
@@ -170,127 +165,6 @@ export class MarketIndicatorsService {
   /** ECB's official main refinancing rate ("taux directeur") — the rate French financial press actually means by that term. */
   private fetchEcbPolicyRateHistory(sinceIso: string) {
     return this.fetchEcbSeries('FM', 'D.U2.EUR.4F.KR.MRR_FR.LEV', sinceIso, 'ECB policy rate history');
-  }
-
-  /**
-   * OAuth2 client-credentials token, Keycloak-based (confirmed via INSEE's
-   * own OIDC discovery document at
-   * auth.insee.net/auth/realms/insee/.well-known/openid-configuration —
-   * realm "insee" on auth.insee.net, not portail-api.insee.fr as first
-   * guessed, which returned an HTML 404 rather than JSON). The data endpoint
-   * itself (api.insee.fr/series/BDM/...) is confirmed unchanged (checked
-   * directly against the user's portal account). Standard Keycloak path
-   * below; if it still fails, the exact status + body is logged.
-   */
-  private async getInseeToken(): Promise<string | null> {
-    const appKey = this.config.get<string>('insee.appKey');
-    const appSecret = this.config.get<string>('insee.appSecret');
-    if (!appKey || !appSecret) return null;
-
-    if (this.inseeTokenCache && Date.now() < this.inseeTokenCache.expiresAt) {
-      return this.inseeTokenCache.token;
-    }
-
-    try {
-      const basic = Buffer.from(`${appKey}:${appSecret}`).toString('base64');
-      const res = await fetch('https://auth.insee.net/auth/realms/insee/protocol/openid-connect/token', {
-        method: 'POST',
-        headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'grant_type=client_credentials',
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) {
-        const preview = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
-      }
-      const json = (await res.json()) as { access_token?: string; expires_in?: number };
-      if (!json.access_token) throw new Error(`unexpected token response shape: ${JSON.stringify(json).slice(0, 300)}`);
-      this.inseeTokenCache = {
-        token: json.access_token,
-        expiresAt: Date.now() + (json.expires_in ? json.expires_in * 1000 - 30_000 : 5 * 60_000),
-      };
-      return this.inseeTokenCache.token;
-    } catch (error) {
-      this.logger.warn(`INSEE OAuth token fetch failed: ${(error as Error).message}`);
-      return null;
-    }
-  }
-
-  /**
-   * INSEE's BDM (Banque de Données Macroéconomiques) series API —
-   * SDMX-JSON like the ECB Data Portal, so the same parsing shape applies,
-   * just a different URL scheme (idBank instead of flowRef+key). Requires
-   * the OAuth2 bearer token above — see getInseeToken() for the auth caveat.
-   */
-  private async fetchInseeSeries(idBank: string, sinceIso: string, label: string): Promise<{ period: string; value: number }[]> {
-    const token = await this.getInseeToken();
-    if (!token) {
-      this.logger.warn(`${label}: no INSEE token available (credentials not configured, or token fetch failed above)`);
-      return [];
-    }
-
-    const url = `https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/${idBank}?startPeriod=${sinceIso}`;
-    try {
-      const res = await fetch(url, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) {
-        const preview = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
-      }
-      const json = (await res.json()) as {
-        dataSets?: { series?: Record<string, { observations?: Record<string, number[]> }> }[];
-        structure?: { dimensions?: { observation?: { values?: { id: string }[] }[] } };
-      };
-      const seriesMap = json.dataSets?.[0]?.series;
-      const firstKey = seriesMap ? Object.keys(seriesMap)[0] : undefined;
-      const observations = firstKey ? seriesMap![firstKey].observations : undefined;
-      const timeValues = json.structure?.dimensions?.observation?.[0]?.values;
-      if (!observations || !timeValues) throw new Error('unexpected SDMX-JSON shape');
-
-      const points: { period: string; value: number }[] = [];
-      for (const [idx, obs] of Object.entries(observations)) {
-        const period = timeValues[Number(idx)]?.id;
-        const value = obs?.[0];
-        if (!period || value === undefined) continue;
-        points.push({ period, value });
-      }
-      return points.sort((a, b) => a.period.localeCompare(b.period));
-    } catch (error) {
-      this.logger.warn(`${label} fetch failed: ${(error as Error).message}`);
-      return [];
-    }
-  }
-
-  /**
-   * BT01 — indice national du Bâtiment tous corps d'état (INSEE, base 2010),
-   * utilisé pour les clauses de révision de prix des marchés de travaux.
-   * idBank 001710986, identifié via insee.fr/fr/statistiques/serie/001710986.
-   */
-  private fetchBt01History(sinceIso: string) {
-    return this.fetchInseeSeries('001710986', sinceIso, 'BT01 (indice construction) history');
-  }
-
-  private async fetchBt01(): Promise<EurostatIndicator> {
-    const since = new Date();
-    since.setMonth(since.getMonth() - 6);
-    const points = await this.fetchBt01History(since.toISOString().slice(0, 10));
-    if (points.length === 0) return { value: null, previousValue: null, period: null };
-    const latest = points[points.length - 1];
-    const previous = points[points.length - 2];
-    return { value: latest.value, previousValue: previous?.value ?? null, period: latest.period };
-  }
-
-  async constructionCostIndexHistory(): Promise<{ period: string; value: number }[]> {
-    if (this.constructionCostIndexHistoryCache && Date.now() - this.constructionCostIndexHistoryCache.fetchedAt < this.CACHE_TTL_MS) {
-      return this.constructionCostIndexHistoryCache.data;
-    }
-    const since = new Date();
-    since.setFullYear(since.getFullYear() - 5);
-    const points = await this.fetchBt01History(since.toISOString().slice(0, 10));
-    this.constructionCostIndexHistoryCache = { fetchedAt: Date.now(), data: points };
-    return points;
   }
 
   /**
@@ -578,7 +452,6 @@ export class MarketIndicatorsService {
       housePriceIndex,
       housePriceChangeYoy,
       mortgageRate,
-      constructionCostIndex,
       buildingPermitsCount,
     ] = await Promise.all([
         // HICP, annual rate of change, all-items, France.
@@ -596,8 +469,6 @@ export class MarketIndicatorsService {
         this.fetchHousePriceChangeYoy(),
         // Average rate on new home loans to households, France — the actual "taux moyen des prêts immobiliers".
         this.fetchFrenchMortgageRate(),
-        // BT01 — indice national du Bâtiment (INSEE), pour les clauses de révision de prix des marchés de travaux.
-        this.fetchBt01(),
         // Nombre réel de logements autorisés (pas un indice) — SDES Sitadel2, via Opendatasoft.
         this.fetchBuildingPermitsCount(),
       ]);
@@ -611,7 +482,6 @@ export class MarketIndicatorsService {
       housePriceIndex,
       housePriceChangeYoy,
       mortgageRate,
-      constructionCostIndex,
     };
     this.cache = { fetchedAt: Date.now(), data };
     return data;
