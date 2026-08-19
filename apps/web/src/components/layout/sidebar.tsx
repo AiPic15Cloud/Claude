@@ -32,8 +32,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
             const linkContent = (
               <NavLink
                 key={item.path}
-                to={item.available ? item.path : '/roadmap'}
-                state={!item.available ? { module: item.label } : undefined}
+                to={item.path}
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
@@ -41,17 +40,11 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
                     isActive
                       ? 'bg-sidebar-foreground/10 text-sidebar-foreground [&_svg]:text-sidebar-accent'
                       : 'text-sidebar-foreground/70 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
-                    !item.available && 'opacity-60',
                   )
                 }
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-                {!collapsed && !item.available && (
-                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    Bientôt
-                  </span>
-                )}
               </NavLink>
             );
 

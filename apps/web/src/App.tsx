@@ -15,7 +15,6 @@ import { GraphPage } from '@/features/knowledge-graph/graph-page';
 import { RepertoirePage } from '@/features/repertoire/repertoire-page';
 import { MarchePage } from '@/features/intelligence-marche/marche-page';
 import { AgentsPage } from '@/features/agents/agents-page';
-import { RoadmapPage } from '@/features/roadmap/roadmap-page';
 import { ProfilePage } from '@/features/auth/profile-page';
 
 export default function App() {
@@ -41,7 +40,6 @@ export default function App() {
           <Route path="/repertoire" element={<RepertoirePage />} />
           <Route path="/market" element={<MarchePage />} />
           <Route path="/ai" element={<AgentsPage />} />
-          <Route path="/roadmap" element={<RoadmapPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Route>
