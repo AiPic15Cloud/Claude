@@ -167,15 +167,25 @@ export class CompanyMonitoringService {
    */
   private async logFetchBodaccDiagnostic(siren: string): Promise<void> {
     try {
-      const url = `https://bodacc-datadila.opendatasoft.com/api/records/1.0/search/?dataset=annonces-commerciales&q=registre:${encodeURIComponent(siren)}`;
+      const url = `https://bodacc-datadila.opendatasoft.com/api/records/1.0/search/?dataset=annonces-commerciales&q=registre:${encodeURIComponent(siren)}&rows=20`;
       const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
       if (!res.ok) {
         const preview = await res.text().catch(() => '');
         this.logger.warn(`[diag BODACC] responded ${res.status} for SIREN ${siren}: ${preview.slice(0, 500)}`);
         return;
       }
-      const text = await res.text();
-      this.logger.warn(`[diag BODACC] raw response for SIREN ${siren}: ${text.slice(0, 2500)}`);
+      const json = (await res.json()) as {
+        nhits?: number;
+        records?: { fields?: { dateparution?: string; familleavis?: string; familleavis_lib?: string; typeavis_lib?: string; commercant?: string } }[];
+      };
+      const summary = (json.records ?? []).map((r) => ({
+        date: r.fields?.dateparution,
+        familleavis: r.fields?.familleavis,
+        familleavis_lib: r.fields?.familleavis_lib,
+        typeavis_lib: r.fields?.typeavis_lib,
+        commercant: r.fields?.commercant,
+      }));
+      this.logger.warn(`[diag BODACC] nhits=${json.nhits} for SIREN ${siren}: ${JSON.stringify(summary)}`);
     } catch (error) {
       this.logger.warn(`[diag BODACC] fetch failed for SIREN ${siren}: ${(error as Error).message}`);
     }
