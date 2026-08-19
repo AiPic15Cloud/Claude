@@ -256,8 +256,9 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
               <Input id="porteurSiren" placeholder="123456789" maxLength={9} {...register('porteurSiren')} />
               {errors.porteurSiren && <p className="text-xs text-destructive">{errors.porteurSiren.message}</p>}
               <p className="text-[11px] text-muted-foreground">
-                Si renseigné, Atlas vérifie quotidiennement (API Recherche d'Entreprises) qu'aucune procédure collective ou
-                radiation n'a été déclarée pour cette société, et crée une alerte critique le cas échéant.
+                Si renseigné, Atlas vérifie quotidiennement (API Recherche d'Entreprises) que la société n'a pas été radiée, et
+                crée une alerte critique le cas échéant. La détection des procédures collectives (redressement, liquidation) est
+                en cours de fiabilisation et n'est pas encore active.
               </p>
             </div>
           </div>

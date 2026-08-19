@@ -19,7 +19,6 @@ interface SearchResult {
   siren?: string;
   nom_complet?: string;
   etat_administratif?: string;
-  complements?: { procedure_collective?: boolean };
 }
 
 interface SearchResponse {
@@ -28,19 +27,22 @@ interface SearchResponse {
 
 /**
  * Surveille le SIREN de la société de projet (porteur) de chaque dossier
- * actif via l'API Recherche d'Entreprises (recherche-entreprises.api.gouv.fr
- * — gratuite, sans clé, agrège SIRENE/BODACC/Infogreffe, confirmée par
- * recherche mais jamais testée en direct depuis ce sandbox, sans accès
- * réseau sortant). N'alerte qu'au changement de statut (comparé à
+ * actif. N'alerte qu'au changement de statut (comparé à
  * porteurMonitoringStatus stocké sur le deal), pas à chaque exécution —
  * sinon une procédure collective détectée une fois créerait une alerte par
  * jour indéfiniment.
  *
- * etat_administratif et complements.procedure_collective sont les noms de
- * champs documentés pour l'API Entreprise (qui partage sa structure) ; non
- * vérifiés en direct contre recherche-entreprises.api.gouv.fr. La réponse
- * brute est loguée si la forme ne correspond pas, pour corriger précisément
- * plutôt que deviner à nouveau.
+ * fetchStatus() interroge recherche-entreprises.api.gouv.fr pour
+ * etat_administratif — confirmé en production (logs réels sur ~10 SIREN) :
+ * "fermee" quand ≠ 'A' est fiable. En revanche cette API n'expose PAS de
+ * champ procedure_collective (vérifié sur un cas réel en procédure
+ * collective, complements ne contient que des indicateurs sans rapport —
+ * qualité, RGE, ESS, etc.) : une hypothèse initiale incorrecte, corrigée
+ * après confirmation par log plutôt que devinée deux fois. La détection de
+ * procédure collective proprement dite nécessite BODACC (bulletin officiel),
+ * une source différente — logFetchBodaccDiagnostic() sonde un candidat
+ * d'URL en mode diagnostic pur (log de la réponse brute, n'influence pas le
+ * statut retourné) en attendant une confirmation en production.
  */
 @Injectable()
 export class CompanyMonitoringService {
@@ -138,20 +140,10 @@ export class CompanyMonitoringService {
         return null;
       }
 
-      // Diagnostic temporaire : le SIREN 882115942 (INVESTIBIEN) est en procédure
-      // collective confirmée (source tierce), mais complements.procedure_collective
-      // n'a pas déclenché le statut attendu — dump complet (en 2 morceaux, la
-      // réponse dépasse 2000 caractères) pour identifier le vrai champ plutôt que
-      // deviner une seconde fois. À retirer une fois corrigé.
-      const rawResult = JSON.stringify(result);
-      this.logger.warn(`Recherche d'entreprises raw result [1/2] for SIREN ${siren}: ${rawResult.slice(0, 2000)}`);
-      if (rawResult.length > 2000) {
-        this.logger.warn(`Recherche d'entreprises raw result [2/2] for SIREN ${siren}: ${rawResult.slice(2000, 4500)}`);
-      }
+      void this.logFetchBodaccDiagnostic(siren);
 
-      if (result.complements?.procedure_collective === true) return 'procedure_collective';
       if (result.etat_administratif !== undefined && result.etat_administratif !== 'A') return 'fermee';
-      if (result.etat_administratif === undefined && result.complements === undefined) {
+      if (result.etat_administratif === undefined) {
         this.logger.warn(`Recherche d'entreprises result for SIREN ${siren} has unexpected shape: ${JSON.stringify(result).slice(0, 300)}`);
         return null;
       }
@@ -159,6 +151,33 @@ export class CompanyMonitoringService {
     } catch (error) {
       this.logger.warn(`Recherche d'entreprises fetch failed for SIREN ${siren}: ${(error as Error).message}`);
       return null;
+    }
+  }
+
+  /**
+   * Diagnostic pur : ne retourne rien et n'influence jamais fetchStatus.
+   * BODACC (bulletin officiel des annonces civiles et commerciales) publie les
+   * procédures collectives en open data, mais l'URL exacte du jeu de données
+   * (bodacc-datadila.opendatasoft.com, dataset "annonces-commerciales") n'a
+   * jamais été confirmée en direct depuis ce sandbox (aucun accès réseau
+   * sortant). Log de la réponse brute pour un SIREN connu en procédure
+   * collective (882115942, confirmé par source tierce) afin de vérifier si
+   * cette URL est correcte et quelle forme a la réponse, avant d'y brancher
+   * une véritable extraction. À retirer une fois le vrai champ confirmé.
+   */
+  private async logFetchBodaccDiagnostic(siren: string): Promise<void> {
+    try {
+      const url = `https://bodacc-datadila.opendatasoft.com/api/records/1.0/search/?dataset=annonces-commerciales&q=registre:${encodeURIComponent(siren)}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) {
+        const preview = await res.text().catch(() => '');
+        this.logger.warn(`[diag BODACC] responded ${res.status} for SIREN ${siren}: ${preview.slice(0, 500)}`);
+        return;
+      }
+      const text = await res.text();
+      this.logger.warn(`[diag BODACC] raw response for SIREN ${siren}: ${text.slice(0, 2500)}`);
+    } catch (error) {
+      this.logger.warn(`[diag BODACC] fetch failed for SIREN ${siren}: ${(error as Error).message}`);
     }
   }
 }
