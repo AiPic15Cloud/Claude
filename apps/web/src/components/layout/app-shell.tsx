@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './sidebar';
@@ -6,10 +7,18 @@ import { MobileTabBar } from './mobile-tab-bar';
 import { CommandPalette } from './command-palette';
 import { useUiStore } from '@/store/ui.store';
 import { cn } from '@/lib/utils';
+import { ensurePushSubscription } from '@/lib/push';
 
 export function AppShell() {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const location = useLocation();
+
+  // iOS silently drops the push subscription over time — repair it in the
+  // background on every app open rather than making the user notice and
+  // re-toggle it manually. See lib/push.ts for the full explanation.
+  useEffect(() => {
+    void ensurePushSubscription();
+  }, []);
 
   return (
     <div className="relative min-h-screen">
