@@ -84,7 +84,7 @@ export function CommandPalette() {
             <Command.Empty className="py-6 text-center text-sm text-muted-foreground">Aucun résultat</Command.Empty>
 
             <Command.Group heading="Navigation" className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-              {NAV_ITEMS.filter((i) => i.available).map((item) => {
+              {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Command.Item
