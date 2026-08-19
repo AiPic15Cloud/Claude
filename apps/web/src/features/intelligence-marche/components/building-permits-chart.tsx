@@ -37,7 +37,8 @@ export function BuildingPermitsChart() {
       <CardHeader>
         <CardTitle>Permis de construire — France, 5 ans</CardTitle>
       </CardHeader>
-      <CardContent className="h-72 pl-0">
+      <CardContent className="pl-0">
+        <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <defs>
@@ -68,6 +69,7 @@ export function BuildingPermitsChart() {
             <Area type="monotone" dataKey="value" stroke="hsl(var(--chart-4))" strokeWidth={2} fill="url(#buildingPermitsGradient)" />
           </AreaChart>
         </ResponsiveContainer>
+        </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
           Source : Eurostat (sts_cobp_m) — indice mensuel des permis de bâtir, France, base 2021 = 100. Un indice, pas un décompte :
           une valeur de 110 signifie 10&nbsp;% d'activité en plus qu'en 2021 (l'année de référence), pas 110 permis délivrés. Utile
