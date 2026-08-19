@@ -173,18 +173,14 @@ export class MarketIndicatorsService {
   }
 
   /**
-   * OAuth2 client-credentials token for portail-api.insee.fr. INSEE migrated
-   * their whole developer portal there in 2026 — the old keyless api.insee.fr
-   * access no longer works. The data endpoint itself
-   * (api.insee.fr/series/BDM/...) is confirmed unchanged (checked directly
-   * against the user's portal account), but the token endpoint below
-   * (https://portail-api.insee.fr/token) is a best-effort guess: it's what
-   * the deprecation notice on the old api.insee.fr/token pointed to, and
-   * INSEE's own infrastructure is Keycloak-based, but the account's own
-   * "OAuth2 Integration" page (Client ID/Client secret) didn't surface an
-   * explicit token URL to confirm it. If this 401s/404s, the exact status +
-   * body is logged so it's a one-shot fix from Railway's logs instead of
-   * another blind guess.
+   * OAuth2 client-credentials token, Keycloak-based (confirmed via INSEE's
+   * own OIDC discovery document at
+   * auth.insee.net/auth/realms/insee/.well-known/openid-configuration —
+   * realm "insee" on auth.insee.net, not portail-api.insee.fr as first
+   * guessed, which returned an HTML 404 rather than JSON). The data endpoint
+   * itself (api.insee.fr/series/BDM/...) is confirmed unchanged (checked
+   * directly against the user's portal account). Standard Keycloak path
+   * below; if it still fails, the exact status + body is logged.
    */
   private async getInseeToken(): Promise<string | null> {
     const appKey = this.config.get<string>('insee.appKey');
@@ -197,7 +193,7 @@ export class MarketIndicatorsService {
 
     try {
       const basic = Buffer.from(`${appKey}:${appSecret}`).toString('base64');
-      const res = await fetch('https://portail-api.insee.fr/token', {
+      const res = await fetch('https://auth.insee.net/auth/realms/insee/protocol/openid-connect/token', {
         method: 'POST',
         headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'grant_type=client_credentials',
@@ -416,14 +412,24 @@ export class MarketIndicatorsService {
         });
         const url = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/${dataset}/records?${params.toString()}`;
         const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
-        if (!res.ok) continue;
+        if (!res.ok) {
+          const preview = await res.text().catch(() => '');
+          this.logger.warn(`Building permits count attempt (${countField}/${yearField}) responded ${res.status}: ${preview.slice(0, 300)}`);
+          continue;
+        }
         const json = (await res.json()) as { results?: Record<string, unknown>[] };
         const rows = json.results;
-        if (!Array.isArray(rows) || rows.length === 0) continue;
+        if (!Array.isArray(rows) || rows.length === 0) {
+          this.logger.warn(`Building permits count attempt (${countField}/${yearField}) returned no rows: ${JSON.stringify(json).slice(0, 300)}`);
+          continue;
+        }
         const latest = rows[0];
         const previous = rows[1];
         const latestTotal = latest.total;
-        if (typeof latestTotal !== 'number') continue;
+        if (typeof latestTotal !== 'number') {
+          this.logger.warn(`Building permits count attempt (${countField}/${yearField}) row shape unexpected: ${JSON.stringify(latest).slice(0, 300)}`);
+          continue;
+        }
         this.logger.log(`Building permits count resolved with fields: ${countField}/${yearField}`);
         return {
           value: Math.round(latestTotal),
