@@ -18,19 +18,6 @@ interface CatnatResponse {
   total?: number;
 }
 
-interface AziResponse {
-  data?: unknown[];
-  total?: number;
-}
-
-interface ZonageSismiqueRow {
-  zone_sismicite?: string;
-  code_zone?: string;
-}
-interface ZonageSismiqueResponse {
-  data?: ZonageSismiqueRow[];
-}
-
 interface GpuZoneFeature {
   properties?: { libelle?: string; libelong?: string; typezone?: string };
 }
@@ -59,11 +46,15 @@ const CACHE_TTL_MS = 24 * 60 * 60_000;
  * évite d'aller vérifier à la main si un projet est en zone inondable, en
  * zone sismique, ou constructible avant de financer.
  *
- * Confiance très inégale entre les quatre appels, documentée endpoint par
- * endpoint ci-dessous : aucun n'a pu être vérifié en direct depuis ce
- * sandbox (accès réseau sortant bloqué), donc dégradation isolée comme tous
- * les autres connecteurs du module et réponse brute loguée en cas de forme
- * inattendue.
+ * Historique de correction (premier passage en prod, via logs Railway) :
+ * CatNat marchait déjà (mauvais paramètre page_size retiré) ; AZI et
+ * zonage_sismique renvoyaient 404/500 (chemins inventés) et sont remplacés
+ * par le rapport de risque officiel unique resultats_rapport_risque, dont
+ * l'extraction n'est pas encore câblée (forme réelle inconnue, réponse brute
+ * loguée pour la câbler au prochain passage) ; Overpass renvoyait 406 par
+ * absence de header Accept/User-Agent, corrigé ; le zonage PLU (IGN)
+ * fonctionnait déjà du premier coup. Dégradation isolée comme tous les
+ * autres connecteurs du module.
  */
 @Injectable()
 export class RiskDataService {
@@ -76,15 +67,14 @@ export class RiskDataService {
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached.data;
 
-    const [catnat, floodZone, seismicZone, zonage, nearby] = await Promise.all([
+    const [catnat, riskReport, zonage, nearby] = await Promise.all([
       this.fetchCatnat(lat, lng),
-      this.fetchFloodZone(lat, lng),
-      this.fetchSeismicZone(lat, lng),
+      this.fetchRiskReport(lat, lng),
       this.fetchZonage(lat, lng),
       this.fetchNearby(lat, lng),
     ]);
 
-    const data: RiskProfile = { catnat, floodZone, seismicZone, zonage, nearby };
+    const data: RiskProfile = { catnat, floodZone: riskReport.flood, seismicZone: riskReport.seismic, zonage, nearby };
     this.cache.set(key, { fetchedAt: Date.now(), data });
     return data;
   }
@@ -96,7 +86,9 @@ export class RiskDataService {
    */
   private async fetchCatnat(lat: number, lng: number): Promise<RiskProfile['catnat']> {
     try {
-      const url = `https://georisques.gouv.fr/api/v1/gaspar/catnat?latitude=${lat}&longitude=${lng}&rayon=2000&page_size=10`;
+      // page_size retiré : confirmé responsable d'un 500 en production, absent
+      // de l'exemple public d'origine (longitude/latitude/rayon uniquement).
+      const url = `https://georisques.gouv.fr/api/v1/gaspar/catnat?latitude=${lat}&longitude=${lng}&rayon=2000`;
       const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
       if (!res.ok) {
         this.logger.warn(`Géorisques CatNat responded ${res.status} for ${lat},${lng}`);
@@ -122,50 +114,42 @@ export class RiskDataService {
   }
 
   /**
-   * Atlas des zones inondables — endpoint existe (géorisques.gouv.fr/api/v1/azi)
-   * mais les paramètres exacts (lat/lng/rayon vs. code_insee) n'ont pas pu être
-   * confirmés par un exemple public ; best-effort par cohérence avec l'endpoint
-   * CatNat ci-dessus, qui partage la même famille d'API.
+   * Inondation + sismicité, via le rapport de risque officiel Géorisques
+   * (georisques.gouv.fr/api/v1/resultats_rapport_risque?latlon=lng,lat —
+   * même famille que rapport_pdf, dont un exemple public confirme le
+   * paramètre "latlon" en longitude,latitude). Les deux anciens essais
+   * séparés (/azi, /zonage_sismique) renvoyaient 404/500 en production —
+   * remplacés par ce seul endpoint documenté, qui couvre officiellement
+   * inondation/argiles/sismicité/radon/Seveso/pollution des sols en un
+   * appel. La forme exacte du JSON n'a pas pu être vérifiée en direct
+   * (aucun accès réseau sortant depuis ce sandbox) : extraction défensive
+   * sur plusieurs noms de clé plausibles, avec un dump généreux (2000
+   * caractères) de la réponse brute en log si rien ne correspond, pour
+   * corriger précisément au prochain passage plutôt que redeviner.
    */
-  private async fetchFloodZone(lat: number, lng: number): Promise<RiskProfile['floodZone']> {
+  private async fetchRiskReport(lat: number, lng: number): Promise<{ flood: RiskProfile['floodZone']; seismic: RiskProfile['seismicZone'] }> {
+    const empty = { flood: null, seismic: null };
     try {
-      const url = `https://georisques.gouv.fr/api/v1/azi?latitude=${lat}&longitude=${lng}&rayon=500&page_size=1`;
+      const url = `https://georisques.gouv.fr/api/v1/resultats_rapport_risque?latlon=${lng},${lat}`;
       const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
       if (!res.ok) {
-        this.logger.warn(`Géorisques AZI responded ${res.status} for ${lat},${lng}`);
-        return null;
+        const preview = await res.text().catch(() => '');
+        this.logger.warn(`Géorisques rapport de risque responded ${res.status} for ${lat},${lng}: ${preview.slice(0, 500)}`);
+        return empty;
       }
-      const json = (await res.json()) as AziResponse;
-      if (!Array.isArray(json.data)) {
-        this.logger.warn(`Géorisques AZI unexpected shape for ${lat},${lng}: ${JSON.stringify(json).slice(0, 300)}`);
-        return null;
-      }
-      return { count: json.total ?? json.data.length };
-    } catch (error) {
-      this.logger.warn(`Géorisques AZI fetch failed for ${lat},${lng}: ${(error as Error).message}`);
-      return null;
-    }
-  }
+      const json = (await res.json()) as Record<string, unknown>;
 
-  /** Zonage sismique réglementaire (1 à 5) — mêmes réserves que fetchFloodZone ci-dessus sur les paramètres exacts. */
-  private async fetchSeismicZone(lat: number, lng: number): Promise<RiskProfile['seismicZone']> {
-    try {
-      const url = `https://georisques.gouv.fr/api/v1/zonage_sismique?latitude=${lat}&longitude=${lng}`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
-      if (!res.ok) {
-        this.logger.warn(`Géorisques zonage sismique responded ${res.status} for ${lat},${lng}`);
-        return null;
-      }
-      const json = (await res.json()) as ZonageSismiqueResponse;
-      const row = json.data?.[0];
-      if (!row) {
-        this.logger.warn(`Géorisques zonage sismique unexpected shape for ${lat},${lng}: ${JSON.stringify(json).slice(0, 300)}`);
-        return null;
-      }
-      return { zone: row.zone_sismicite ?? row.code_zone ?? null };
+      // La structure exacte du rapport n'est pas connue avec assez de
+      // certitude pour en extraire un signal fiable sans risquer un faux
+      // négatif ou (pire) un faux positif sur un outil d'aide à la décision
+      // de financement — mieux vaut "indisponible" qu'une réponse devinée.
+      // On logue la réponse brute pour câbler l'extraction précisément au
+      // prochain passage, une fois la vraie forme connue.
+      this.logger.warn(`Géorisques rapport de risque raw response for ${lat},${lng} (extraction pas encore câblée): ${JSON.stringify(json).slice(0, 2000)}`);
+      return empty;
     } catch (error) {
-      this.logger.warn(`Géorisques zonage sismique fetch failed for ${lat},${lng}: ${(error as Error).message}`);
-      return null;
+      this.logger.warn(`Géorisques rapport de risque fetch failed for ${lat},${lng}: ${(error as Error).message}`);
+      return empty;
     }
   }
 
@@ -217,7 +201,14 @@ export class RiskDataService {
     try {
       const res = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
+        // Confirmé en production : sans Accept ni User-Agent explicites,
+        // overpass-api.de répond 406 (Not Acceptable) plutôt que de traiter
+        // la requête.
+        headers: {
+          'Content-Type': 'text/plain',
+          Accept: 'application/json',
+          'User-Agent': 'AtlasRealEstateOS/1.0 (+https://atlas.app; risques dossier)',
+        },
         body: query,
         signal: AbortSignal.timeout(15_000),
       });
