@@ -6,6 +6,7 @@ import { PipelineChart } from './components/pipeline-chart';
 import { AumHistoryChart } from './components/aum-history-chart';
 import { ActivityFeedCard } from './components/activity-feed-card';
 import { AutoSummaryCard } from './components/auto-summary-card';
+import { DecisionCenterCard } from './components/decision-center-card';
 import { DeadlineAlertsCard } from './components/deadline-alerts-card';
 import { FeesChartCard } from './components/fees-chart-card';
 import { RepaymentsChartCard } from './components/repayments-chart-card';
@@ -51,6 +52,8 @@ export function CockpitPage() {
         title={`${greeting}, ${user?.firstName}`}
         description={`Voici l'état de votre activité au ${new Date(data.generatedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`}
       />
+
+      <DecisionCenterCard decisions={data.decisions} />
 
       <AutoSummaryCard summary={data.autoSummary} generatedAt={data.generatedAt} />
 
