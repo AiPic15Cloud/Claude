@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { StageBadge, TypeBadge, ScoreBadge } from './deal-badges';
+import { StageBadge, TypeBadge, ScoreBadge, RiskScoreBadge } from './deal-badges';
 import { TagBadge } from './tag-badge';
 import { RepaymentsPanel } from '@/features/dossiers/components/repayments-panel';
 import { useDeal, useAddNote } from '../hooks/use-deals';
@@ -60,6 +60,7 @@ export function DealDrawer({ dealId, onClose }: DealDrawerProps) {
               <div className="flex items-center gap-2">
                 <StageBadge stage={deal.stage} />
                 <ScoreBadge score={deal.atlasScore} />
+                <RiskScoreBadge score={deal.riskScore} previousScore={deal.riskScorePrevious} />
                 {deal.city && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <MapPin className="h-3 w-3" /> {deal.city}

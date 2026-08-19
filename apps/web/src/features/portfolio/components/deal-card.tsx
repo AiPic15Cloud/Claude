@@ -4,7 +4,7 @@ import { MapPin, TrendingUp, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { TagBadge } from './tag-badge';
-import { ScoreBadge, CheckpointHealthBadge } from './deal-badges';
+import { ScoreBadge, RiskScoreBadge, CheckpointHealthBadge } from './deal-badges';
 import { formatCurrency } from '@/lib/format';
 import type { Deal } from '@/types';
 import { cn } from '@/lib/utils';
@@ -38,6 +38,7 @@ export function DealCard({ deal, onClick }: DealCardProps) {
           <div className="flex shrink-0 items-center gap-1.5">
             <CheckpointHealthBadge health={deal.checkpointHealth} compact />
             <ScoreBadge score={deal.atlasScore} />
+            <RiskScoreBadge score={deal.riskScore} previousScore={deal.riskScorePrevious} />
           </div>
         </div>
 
