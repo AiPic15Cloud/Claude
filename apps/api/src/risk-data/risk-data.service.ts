@@ -95,6 +95,20 @@ export class RiskDataService {
   }
 
   /**
+   * Lecture pure du cache, sans jamais déclencher d'appel réseau — utilisée
+   * par le Risk Engine, dont le recalcul est déclenché de façon synchrone à
+   * chaque sauvegarde de checkpoint/garantie et ne doit donc jamais attendre
+   * un appel Géorisques/Overpass (jusqu'à ~15s). Retourne null tant que
+   * l'onglet "Risques" du dossier n'a pas été ouvert au moins une fois
+   * depuis le dernier redémarrage serveur — limite assumée, pas un bug.
+   */
+  peekCached(lat: number, lng: number): RiskProfile | null {
+    const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    const cached = this.cache.get(key);
+    return cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS ? cached.data : null;
+  }
+
+  /**
    * Catastrophes naturelles reconnues (arrêtés CatNat) dans un rayon de 2km
    * — endpoint et forme de paramètres confirmés par un exemple public
    * (géorisques.gouv.fr/api/v1/gaspar/catnat?longitude=...&latitude=...&rayon=...).

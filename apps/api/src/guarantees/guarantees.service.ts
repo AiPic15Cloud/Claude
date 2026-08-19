@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Guarantee } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
+import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import { UpsertGuaranteeDto } from './dto/upsert-guarantee.dto';
 import { computeGuaranteeExpiry } from './guarantee-expiry.util';
 
@@ -12,10 +13,19 @@ function attachExpiry<T extends Guarantee>(guarantee: T, dealClosed: boolean) {
 
 @Injectable()
 export class GuaranteesService {
+  private readonly logger = new Logger(GuaranteesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly activities: ActivitiesService,
+    private readonly riskEngine: RiskEngineService,
   ) {}
+
+  private recomputeRisk(organizationId: string, dealId: string) {
+    return this.riskEngine
+      .recomputeAndPersist(organizationId, dealId)
+      .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${dealId}`, err instanceof Error ? err.stack : err));
+  }
 
   private async assertDeal(organizationId: string, dealId: string) {
     const deal = await this.prisma.deal.findFirst({
@@ -43,6 +53,7 @@ export class GuaranteesService {
       'GUARANTEE_ADDED',
       `Garantie ajoutée : ${guarantee.description} (${guarantee.type})`,
     );
+    await this.recomputeRisk(organizationId, dealId);
     return attachExpiry(guarantee, isDealClosed(deal));
   }
 
@@ -54,6 +65,7 @@ export class GuaranteesService {
       where: { id },
       data: { ...dto, endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined },
     });
+    await this.recomputeRisk(organizationId, dealId);
     return attachExpiry(updated, isDealClosed(deal));
   }
 
@@ -62,5 +74,6 @@ export class GuaranteesService {
     const guarantee = await this.prisma.guarantee.findFirst({ where: { id, dealId } });
     if (!guarantee) throw new NotFoundException('Garantie introuvable');
     await this.prisma.guarantee.delete({ where: { id } });
+    await this.recomputeRisk(organizationId, dealId);
   }
 }

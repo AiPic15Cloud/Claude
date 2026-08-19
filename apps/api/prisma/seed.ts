@@ -180,7 +180,6 @@ async function main() {
           lat: location.lat + (Math.random() - 0.5) * 0.05,
           lng: location.lng + (Math.random() - 0.5) * 0.05,
           atlasScore: randomInt(35, 95),
-          riskScore: randomInt(5, 70),
           startDate: new Date(Date.now() - randomInt(0, 200) * 86_400_000),
           endDate: new Date(Date.now() + randomInt(60, 700) * 86_400_000),
           createdById: createdBy.id,
@@ -237,17 +236,14 @@ async function main() {
         });
       }
 
-      if (deal.riskScore! > 55 || stage === 'DEFAUT') {
+      if (stage === 'DEFAUT') {
         await prisma.alert.create({
           data: {
             organizationId: organization.id,
             dealId: deal.id,
-            severity: stage === 'DEFAUT' ? AlertSeverity.CRITICAL : AlertSeverity.WARNING,
-            title: stage === 'DEFAUT' ? 'Défaut détecté' : 'Score de risque élevé',
-            message:
-              stage === 'DEFAUT'
-                ? `${deal.name} est en situation de défaut — action immédiate requise.`
-                : `${deal.name} affiche un score de risque de ${deal.riskScore}/100.`,
+            severity: AlertSeverity.CRITICAL,
+            title: 'Défaut détecté',
+            message: `${deal.name} est en situation de défaut — action immédiate requise.`,
           },
         });
       }

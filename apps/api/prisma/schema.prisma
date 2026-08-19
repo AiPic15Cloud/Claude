@@ -322,7 +322,19 @@ model Deal {
 
   // Scoring
   atlasScore Int? @default(0)
-  riskScore  Int? @default(0)
+
+  // Risk Engine — score de risque dynamique (0 = aucun risque, 100 = risque
+  // maximal), recalculé à chaque événement pertinent (checkpoint, garantie,
+  // recouvrement, échéance, surveillance société) plutôt que sur un simple
+  // timer. riskScorePrevious ne garde que la valeur d'avant le dernier
+  // recalcul (pas un historique complet) — suffisant pour la flèche de
+  // tendance par dossier, mais ne peut pas honnêtement porter un delta
+  // "cette semaine" au niveau portefeuille une fois les recalculs
+  // événementiels multiples par jour ; une vraie table de snapshots
+  // horodatés serait nécessaire pour ça, en suivi séparé si besoin.
+  riskScore          Int?
+  riskScorePrevious  Int?
+  riskScoreUpdatedAt DateTime?
 
   startDate DateTime?
   endDate   DateTime?

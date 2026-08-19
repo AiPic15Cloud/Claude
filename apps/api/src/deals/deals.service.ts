@@ -16,6 +16,7 @@ import { computeCheckpointHealth } from './checkpoint-health.util';
 import { withNoteImageUrls } from '../notes/note-image.util';
 import { StorageService } from '../common/storage/storage.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
+import { RiskEngineService } from '../risk-engine/risk-engine.service';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -45,6 +46,7 @@ export class DealsService {
     private readonly geocoding: GeocodingService,
     private readonly tasks: TasksService,
     private readonly storage: StorageService,
+    private readonly riskEngine: RiskEngineService,
   ) {}
 
   /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
@@ -311,6 +313,8 @@ export class DealsService {
         lat: true,
         lng: true,
         porteurSiren: true,
+        recoveryStatus: true,
+        repaid: true,
       },
     });
 
@@ -374,6 +378,21 @@ export class DealsService {
 
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Opération mise à jour');
     this.indexForSearch(deal);
+
+    // Ces quatre champs sont les entrées du Risk Engine qui ne passent pas
+    // déjà par un déclencheur dédié (checkpoint, garantie, surveillance
+    // société) — recalculer seulement quand l'un d'eux a réellement changé
+    // évite un aller-retour Prisma superflu sur chaque édition de dossier.
+    const recoveryStatusChanged = rest.recoveryStatus !== undefined && rest.recoveryStatus !== current?.recoveryStatus;
+    const repaidChanged = rest.repaid !== undefined && rest.repaid !== current?.repaid;
+    const stageChanged = stage !== undefined && stage !== current?.stage;
+    const dateMaxChanged = dateMax !== undefined && (dateMax ? new Date(dateMax).getTime() : null) !== (current?.dateMax?.getTime() ?? null);
+    if (recoveryStatusChanged || repaidChanged || stageChanged || dateMaxChanged) {
+      await this.riskEngine
+        .recomputeAndPersist(organizationId, id)
+        .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${id}`, err instanceof Error ? err.stack : err));
+    }
+
     return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal)) };
   }
 
