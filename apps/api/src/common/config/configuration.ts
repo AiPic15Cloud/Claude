@@ -50,6 +50,13 @@ export default () => ({
     // ever called when Yahoo has already failed — never the primary path.
     alphaVantageApiKey: process.env.ALPHA_VANTAGE_API_KEY ?? '',
   },
+  insee: {
+    // Portail-api.insee.fr (OAuth2 client credentials) — sans ça, BT01 se
+    // dégrade comme les autres connecteurs optionnels : indisponible plutôt
+    // qu'une erreur qui casse la page.
+    appKey: process.env.INSEE_APP_KEY ?? '',
+    appSecret: process.env.INSEE_APP_SECRET ?? '',
+  },
   storage: {
     driver: process.env.STORAGE_DRIVER ?? 'local',
     localPath: process.env.STORAGE_LOCAL_PATH ?? './uploads',

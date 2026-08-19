@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 interface EurostatIndicator {
   value: number | null;
@@ -29,7 +30,10 @@ export class MarketIndicatorsService {
   private buildingPermitsHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
   private housePriceIndexHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
   private constructionCostIndexHistoryCache: { fetchedAt: number; data: { period: string; value: number }[] } | null = null;
+  private inseeTokenCache: { token: string; expiresAt: number } | null = null;
   private readonly CACHE_TTL_MS = 60 * 60_000;
+
+  constructor(private readonly config: ConfigService) {}
 
   private async fetchEurostat(dataset: string, params: Record<string, string>): Promise<EurostatIndicator> {
     const search = new URLSearchParams({ format: 'JSON', lang: 'FR', ...params });
@@ -169,23 +173,72 @@ export class MarketIndicatorsService {
   }
 
   /**
-   * INSEE's free BDM (Banque de Données Macroéconomiques) series API —
+   * OAuth2 client-credentials token for portail-api.insee.fr. INSEE migrated
+   * their whole developer portal there in 2026 — the old keyless api.insee.fr
+   * access no longer works. The data endpoint itself
+   * (api.insee.fr/series/BDM/...) is confirmed unchanged (checked directly
+   * against the user's portal account), but the token endpoint below
+   * (https://portail-api.insee.fr/token) is a best-effort guess: it's what
+   * the deprecation notice on the old api.insee.fr/token pointed to, and
+   * INSEE's own infrastructure is Keycloak-based, but the account's own
+   * "OAuth2 Integration" page (Client ID/Client secret) didn't surface an
+   * explicit token URL to confirm it. If this 401s/404s, the exact status +
+   * body is logged so it's a one-shot fix from Railway's logs instead of
+   * another blind guess.
+   */
+  private async getInseeToken(): Promise<string | null> {
+    const appKey = this.config.get<string>('insee.appKey');
+    const appSecret = this.config.get<string>('insee.appSecret');
+    if (!appKey || !appSecret) return null;
+
+    if (this.inseeTokenCache && Date.now() < this.inseeTokenCache.expiresAt) {
+      return this.inseeTokenCache.token;
+    }
+
+    try {
+      const basic = Buffer.from(`${appKey}:${appSecret}`).toString('base64');
+      const res = await fetch('https://portail-api.insee.fr/token', {
+        method: 'POST',
+        headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=client_credentials',
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) {
+        const preview = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
+      }
+      const json = (await res.json()) as { access_token?: string; expires_in?: number };
+      if (!json.access_token) throw new Error(`unexpected token response shape: ${JSON.stringify(json).slice(0, 300)}`);
+      this.inseeTokenCache = {
+        token: json.access_token,
+        expiresAt: Date.now() + (json.expires_in ? json.expires_in * 1000 - 30_000 : 5 * 60_000),
+      };
+      return this.inseeTokenCache.token;
+    } catch (error) {
+      this.logger.warn(`INSEE OAuth token fetch failed: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * INSEE's BDM (Banque de Données Macroéconomiques) series API —
    * SDMX-JSON like the ECB Data Portal, so the same parsing shape applies,
-   * just a different URL scheme (idBank instead of flowRef+key). Publicly
-   * documented as accessible without an API key for basic series lookups,
-   * unlike the Banque de France Webstat portal (ruled out earlier — that one
-   * does require a registered account).
-   *
-   * This sandbox has no outbound network access to verify this against the
-   * live API — if INSEE's endpoint actually does require auth (their newer
-   * portail-api.insee.fr has been moving other services that way), the raw
-   * response is logged so that's recoverable from Railway's logs rather than
-   * failing silently.
+   * just a different URL scheme (idBank instead of flowRef+key). Requires
+   * the OAuth2 bearer token above — see getInseeToken() for the auth caveat.
    */
   private async fetchInseeSeries(idBank: string, sinceIso: string, label: string): Promise<{ period: string; value: number }[]> {
+    const token = await this.getInseeToken();
+    if (!token) {
+      this.logger.warn(`${label}: no INSEE token available (credentials not configured, or token fetch failed above)`);
+      return [];
+    }
+
     const url = `https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/${idBank}?startPeriod=${sinceIso}`;
     try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(8000),
+      });
       if (!res.ok) {
         const preview = await res.text().catch(() => '');
         throw new Error(`HTTP ${res.status} — ${preview.slice(0, 300)}`);
