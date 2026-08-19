@@ -251,72 +251,6 @@ export class MarketIndicatorsService {
     return { value: null, previousValue: null, period: null };
   }
 
-  /**
-   * Real count of authorized dwellings (not an index) — SDES Sitadel2,
-   * "logements autorisés", hosted on Opendatasoft (public.opendatasoft.com),
-   * dataset buildingref-france-sitadel-logement-autorise-type-commune-millesime.
-   * Yearly vintage ("millésimé"), so period is a year, not a month — the
-   * indicator tile's delta then reads as "vs previous year" here, unlike the
-   * monthly deltas on the other tiles.
-   *
-   * Field names (nb_log/annee_reelle below) are a best-effort guess from the
-   * dataset's public description — this sandbox has no outbound network
-   * access to inspect the real response shape, and this session no longer
-   * has Railway log access either, so if every attempt below 400s the tile
-   * just shows unavailable rather than a wrong number. A browser Network-tab
-   * screenshot of the failing request is the fastest way to get this fixed
-   * for real on the next pass.
-   */
-  private readonly BUILDING_PERMITS_COUNT_FIELD_ATTEMPTS: { countField: string; yearField: string }[] = [
-    { countField: 'nb_log', yearField: 'annee_reelle' },
-    { countField: 'nb_logements', yearField: 'annee_reelle' },
-    { countField: 'nb_log', yearField: 'date_reelle_autorisation' },
-    { countField: 'nb_log_autorises', yearField: 'annee_reelle' },
-  ];
-
-  async fetchBuildingPermitsCount(): Promise<EurostatIndicator> {
-    const dataset = 'buildingref-france-sitadel-logement-autorise-type-commune-millesime';
-    for (const { countField, yearField } of this.BUILDING_PERMITS_COUNT_FIELD_ATTEMPTS) {
-      try {
-        const params = new URLSearchParams({
-          select: `sum(${countField}) as total`,
-          group_by: yearField,
-          order_by: `${yearField} desc`,
-          limit: '2',
-        });
-        const url = `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/${dataset}/records?${params.toString()}`;
-        const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
-        if (!res.ok) {
-          const preview = await res.text().catch(() => '');
-          this.logger.warn(`Building permits count attempt (${countField}/${yearField}) responded ${res.status}: ${preview.slice(0, 300)}`);
-          continue;
-        }
-        const json = (await res.json()) as { results?: Record<string, unknown>[] };
-        const rows = json.results;
-        if (!Array.isArray(rows) || rows.length === 0) {
-          this.logger.warn(`Building permits count attempt (${countField}/${yearField}) returned no rows: ${JSON.stringify(json).slice(0, 300)}`);
-          continue;
-        }
-        const latest = rows[0];
-        const previous = rows[1];
-        const latestTotal = latest.total;
-        if (typeof latestTotal !== 'number') {
-          this.logger.warn(`Building permits count attempt (${countField}/${yearField}) row shape unexpected: ${JSON.stringify(latest).slice(0, 300)}`);
-          continue;
-        }
-        this.logger.log(`Building permits count resolved with fields: ${countField}/${yearField}`);
-        return {
-          value: Math.round(latestTotal),
-          previousValue: typeof previous?.total === 'number' ? Math.round(previous.total) : null,
-          period: String(latest[yearField] ?? ''),
-        };
-      } catch (error) {
-        this.logger.warn(`Building permits count attempt (${countField}/${yearField}) failed: ${(error as Error).message}`);
-      }
-    }
-    return { value: null, previousValue: null, period: null };
-  }
-
   /** Multi-year monthly history for the trend chart — same resolution strategy as fetchBuildingPermits(), just over a longer window. */
   async buildingPermitsHistory(): Promise<{ period: string; value: number }[]> {
     if (this.buildingPermitsHistoryCache && Date.now() - this.buildingPermitsHistoryCache.fetchedAt < this.CACHE_TTL_MS) {
@@ -452,7 +386,6 @@ export class MarketIndicatorsService {
       housePriceIndex,
       housePriceChangeYoy,
       mortgageRate,
-      buildingPermitsCount,
     ] = await Promise.all([
         // HICP, annual rate of change, all-items, France.
         this.fetchEurostat('prc_hicp_manr', { geo: 'FR', coicop: 'CP00', sinceTimePeriod: '2024-01' }),
@@ -460,8 +393,10 @@ export class MarketIndicatorsService {
         this.fetchEurostat('irt_lt_mcby_m', { geo: 'FR', sinceTimePeriod: '2024-01' }),
         // Short-term (money market / Euribor-based) interest rate, monthly, euro area.
         this.fetchEurostat('irt_st_m', { geo: 'EA', int_rt: 'IRT_M3', sinceTimePeriod: '2024-01' }),
-        // Building permits, production index (2015=100), construction, France —
-        // an activity index, not the raw permit count SDES publishes.
+        // Building permits, production index (2015=100), construction, France — an
+        // activity index, not a raw permit count (SDES publishes counts but no
+        // reliable free API for them was found — see building-permits-chart.tsx
+        // for the interpretation note shown next to this data).
         this.fetchBuildingPermits(),
         // Residential house price index (all dwellings, 2015=100), France — quarterly, INSEE-sourced via Eurostat.
         this.fetchHousePriceIndex(),
@@ -469,8 +404,6 @@ export class MarketIndicatorsService {
         this.fetchHousePriceChangeYoy(),
         // Average rate on new home loans to households, France — the actual "taux moyen des prêts immobiliers".
         this.fetchFrenchMortgageRate(),
-        // Nombre réel de logements autorisés (pas un indice) — SDES Sitadel2, via Opendatasoft.
-        this.fetchBuildingPermitsCount(),
       ]);
 
     const data = {
@@ -478,7 +411,6 @@ export class MarketIndicatorsService {
       oat10y: longTermRateFrance,
       euribor3m: shortTermRateEuroArea,
       buildingPermitsIndex: buildingPermitsFrance,
-      buildingPermitsCount,
       housePriceIndex,
       housePriceChangeYoy,
       mortgageRate,
