@@ -53,7 +53,8 @@ export function RateHistoryChart() {
       <CardHeader>
         <CardTitle>Taux directeur BCE, OAT 10Y & prêts immobiliers — 24 mois</CardTitle>
       </CardHeader>
-      <CardContent className="h-72 pl-0">
+      <CardContent className="pl-0">
+        <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
@@ -105,6 +106,7 @@ export function RateHistoryChart() {
             <Legend wrapperStyle={{ fontSize: 11 }} />
           </LineChart>
         </ResponsiveContainer>
+        </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
           Sources : Eurostat (OAT 10Y, France) · ECB Data Portal (taux de refinancement principal · taux des prêts immobiliers, nouveaux
           crédits aux ménages, France).

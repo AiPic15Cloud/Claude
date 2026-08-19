@@ -37,7 +37,8 @@ export function HousePriceIndexChart() {
       <CardHeader>
         <CardTitle>Prix immobilier — France, 8 ans</CardTitle>
       </CardHeader>
-      <CardContent className="h-72 pl-0">
+      <CardContent className="pl-0">
+        <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <defs>
@@ -68,6 +69,7 @@ export function HousePriceIndexChart() {
             <Area type="monotone" dataKey="value" stroke="hsl(var(--chart-5))" strokeWidth={2} fill="url(#housePriceIndexGradient)" />
           </AreaChart>
         </ResponsiveContainer>
+        </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
           Source : Eurostat (prc_hpi_q) — indice trimestriel des prix des logements, France, base 2015 = 100.
         </p>
