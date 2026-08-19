@@ -6,6 +6,10 @@ import { z } from 'zod/v4';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { DocumentsService } from '../documents/documents.service';
+import { RiskEngineService, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
+import { RiskDataService } from '../risk-data/risk-data.service';
+import { ActivitiesService } from '../activities/activities.service';
+import { GraphService } from '../graph/graph.service';
 import { AGENT_REGISTRY, findAgent, marginBand } from './agent-registry';
 import { ChatDto } from './dto/chat.dto';
 import { buildDocumentContentBlock } from './document-content.util';
@@ -62,6 +66,10 @@ export class AgentsService {
     private readonly prisma: PrismaService,
     private readonly scoring: ScoringService,
     private readonly documents: DocumentsService,
+    private readonly riskEngine: RiskEngineService,
+    private readonly riskData: RiskDataService,
+    private readonly activities: ActivitiesService,
+    private readonly graph: GraphService,
   ) {
     const apiKey = this.config.get<string>('ai.anthropicApiKey');
     if (apiKey) this.client = new Anthropic({ apiKey });
@@ -243,12 +251,32 @@ export class AgentsService {
     // content, so this is the real history the Cohérence agent (and any
     // other agent reasoning about the dossier's track record) has to work
     // with. Oldest-first so the model reads it as a timeline.
-    const [checkpoints, notes] = await Promise.all([
+    const [checkpoints, notes, riskBreakdown, recentActivities, entityLinks, articles] = await Promise.all([
       this.prisma.projectCheckpoint.findMany({ where: { dealId }, orderBy: { createdAt: 'asc' } }),
       this.prisma.note.findMany({ where: { dealId }, orderBy: { createdAt: 'desc' }, take: 5 }),
+      this.riskEngine.computeDealRisk(organizationId, dealId, false),
+      this.activities.listForDeal(organizationId, dealId),
+      this.graph.listDealLinks(organizationId, dealId),
+      this.prisma.article.findMany({
+        where: { organizationId },
+        orderBy: [{ priority: 'desc' }, { publishedAt: 'desc' }],
+        take: 10,
+        include: { source: { select: { name: true } } },
+      }),
     ]);
 
     const score = await this.scoring.computeDealScore(organizationId, dealId, false);
+
+    // Environnement : lecture cache-seule (RiskDataService.peekCached), jamais d'appel réseau
+    // synchrone dans un chemin de chat — omis silencieusement si le cache est vide (cas normal
+    // tant que l'onglet Risques du dossier n'a pas été ouvert au moins une fois).
+    const envProfile =
+      deal.lat !== null && deal.lng !== null ? this.riskData.peekCached(Number(deal.lat), Number(deal.lng)) : null;
+    const envLabels = envProfile
+      ? [envProfile.floodZone?.present ? `inondation (${envProfile.floodZone.niveau ?? 'niveau inconnu'})` : null, envProfile.seismicZone?.present ? `sismique (${envProfile.seismicZone.niveau ?? 'niveau inconnu'})` : null].filter(
+          (l): l is string => l !== null,
+        )
+      : [];
 
     const lines = [
       `Nom : ${deal.name} (${deal.reference})`,
@@ -257,6 +285,17 @@ export class AgentsService {
       deal.interestRate ? `Taux : ${deal.interestRate}%` : null,
       deal.city ? `Localisation : ${deal.city}` : null,
       `Score ATLAS : ${score.score}/100 (${score.factors.map((f) => `${f.label}: ${f.value}`).join(', ')})`,
+      riskBreakdown.suppressed || riskBreakdown.score === null
+        ? 'Risque (Risk Engine) : dossier clos, non noté.'
+        : `Risque (Risk Engine) : ${riskBreakdown.score}/100, niveau ${riskBreakdown.tier}, tendance ${riskBreakdown.trend} — facteurs principaux : ${[...riskBreakdown.factors]
+            .sort((a, b) => b.contribution - a.contribution)
+            .slice(0, 3)
+            .map((f) => f.explanation)
+            .join(' ')}`,
+      deal.porteurSiren
+        ? `Surveillance du porteur (SIREN ${deal.porteurSiren}) : ${PORTEUR_LABEL[deal.porteurMonitoringStatus ?? ''] ?? 'statut inconnu.'}`
+        : null,
+      envLabels.length ? `Risques environnementaux identifiés : ${envLabels.join(', ')}.` : null,
       deal.guarantees.length
         ? `Garanties : ${deal.guarantees.map((g) => `${g.type} — ${g.description} (${g.amount} €)`).join('; ')}`
         : 'Garanties : aucune enregistrée',
@@ -287,6 +326,20 @@ export class AgentsService {
       notes.length
         ? `Notes récentes (les plus récentes en premier) :\n${notes
             .map((n) => `  [${n.createdAt.toISOString().slice(0, 10)}] ${n.content}`)
+            .join('\n')}`
+        : null,
+      recentActivities.length
+        ? `Journal de décisions (les 15 plus récentes, ordre antéchronologique) :\n${recentActivities
+            .slice(0, 15)
+            .map((a) => `  [${a.createdAt.toISOString().slice(0, 10)}] ${a.message}`)
+            .join('\n')}`
+        : 'Journal de décisions : aucune activité enregistrée.',
+      entityLinks.length
+        ? `Entités liées (Knowledge Graph) : ${entityLinks.map((l) => `${l.entity.name} (${l.entity.type}, rôle : ${l.role})`).join('; ')}`
+        : null,
+      articles.length
+        ? `Actualité marché récente (Intelligence Marché, la plus prioritaire en premier) :\n${articles
+            .map((a) => `  [${a.publishedAt.toISOString().slice(0, 10)}] [${a.category}] ${a.title}${a.summary ? ` — ${a.summary}` : ''} (source : ${a.source?.name ?? 'inconnue'})`)
             .join('\n')}`
         : null,
     ].filter(Boolean);
