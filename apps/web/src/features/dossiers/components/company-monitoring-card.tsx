@@ -74,8 +74,9 @@ export function CompanyMonitoringCard({
         )}
 
         <p className="text-[11px] text-muted-foreground">
-          Source : API Recherche d'Entreprises (data.gouv.fr, agrège SIRENE/BODACC/Infogreffe). Vérification automatique quotidienne
-          à 8h, alerte créée uniquement en cas de changement de statut.
+          Source : API Recherche d'Entreprises (data.gouv.fr) — statut administratif SIRENE (actif/radié) uniquement pour le
+          moment. La détection des procédures collectives (redressement, liquidation via BODACC) est en cours de fiabilisation.
+          Vérification automatique quotidienne à 8h, alerte créée uniquement en cas de changement de statut.
         </p>
       </CardContent>
     </Card>
