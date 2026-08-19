@@ -21,6 +21,9 @@ import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { RiskBreakdownCard } from './components/risk-breakdown-card';
+import { DealNarrativeCard } from './components/deal-narrative-card';
+import { DealStageTimeline } from './components/deal-stage-timeline';
+import { ActivityLogPanel } from './components/activity-log-panel';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
@@ -231,6 +234,9 @@ export function DossierPage() {
         </Card>
       </div>
 
+      <DealNarrativeCard narrative={deal.narrative} />
+      <DealStageTimeline dealId={deal.id} currentStage={deal.stage} />
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="score">Score ATLAS</TabsTrigger>
@@ -243,6 +249,7 @@ export function DossierPage() {
           <TabsTrigger value="financial">Modèle financier</TabsTrigger>
           <TabsTrigger value="checkpoints">Suivi cible</TabsTrigger>
           <TabsTrigger value="entities">Intervenants</TabsTrigger>
+          <TabsTrigger value="activity">Décisions</TabsTrigger>
           <TabsTrigger value="assistant">Assistant IA</TabsTrigger>
         </TabsList>
 
@@ -295,6 +302,9 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="entities">
           <EntitiesPanel dealId={deal.id} />
+        </TabsContent>
+        <TabsContent value="activity">
+          <ActivityLogPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="assistant" className="h-[32rem]">
           <DealAssistantPanel dealId={deal.id} />

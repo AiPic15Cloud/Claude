@@ -177,6 +177,7 @@ export interface Deal {
   porteurMonitoringStatus?: string | null;
   deadlineAlert?: DeadlineAlert;
   checkpointHealth?: CheckpointHealth;
+  narrative?: AutoSummary;
   createdById: string;
   createdBy?: UserSummary;
   assignedToId?: string | null;
