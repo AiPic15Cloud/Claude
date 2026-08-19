@@ -32,17 +32,23 @@ interface SearchResponse {
  * sinon une procédure collective détectée une fois créerait une alerte par
  * jour indéfiniment.
  *
- * fetchStatus() interroge recherche-entreprises.api.gouv.fr pour
- * etat_administratif — confirmé en production (logs réels sur ~10 SIREN) :
- * "fermee" quand ≠ 'A' est fiable. En revanche cette API n'expose PAS de
- * champ procedure_collective (vérifié sur un cas réel en procédure
- * collective, complements ne contient que des indicateurs sans rapport —
- * qualité, RGE, ESS, etc.) : une hypothèse initiale incorrecte, corrigée
- * après confirmation par log plutôt que devinée deux fois. La détection de
- * procédure collective proprement dite nécessite BODACC (bulletin officiel),
- * une source différente — logFetchBodaccDiagnostic() sonde un candidat
- * d'URL en mode diagnostic pur (log de la réponse brute, n'influence pas le
- * statut retourné) en attendant une confirmation en production.
+ * Deux sources, confirmées en production sur ~10 SIREN dont un cas réel de
+ * procédure collective (SIREN 882115942, INVESTIBIEN) :
+ * - fetchAdminStatus() interroge recherche-entreprises.api.gouv.fr pour
+ *   etat_administratif : "fermee" quand ≠ 'A' est fiable. Cette API n'expose
+ *   PAS de champ procedure_collective (une hypothèse initiale incorrecte,
+ *   corrigée après confirmation par log plutôt que devinée deux fois —
+ *   complements ne contient que des indicateurs sans rapport : qualité, RGE,
+ *   ESS, etc.).
+ * - fetchHasProcedureCollective() interroge BODACC (bulletin officiel des
+ *   annonces civiles et commerciales, open data via
+ *   bodacc-datadila.opendatasoft.com, dataset "annonces-commerciales") et
+ *   cherche familleavis === "collective" — confirmé par log réel sur
+ *   INVESTIBIEN (2 annonces "Procédures collectives", avril et juillet
+ *   2026). Ne détecte pas la clôture d'une procédure (pas d'avis de clôture
+ *   observé sur le cas test) : un statut 'procedure_collective' peut donc
+ *   rester affiché après résolution, jusqu'à confirmation d'un cas réel de
+ *   clôture.
  */
 @Injectable()
 export class CompanyMonitoringService {
@@ -125,6 +131,16 @@ export class CompanyMonitoringService {
   }
 
   private async fetchStatus(siren: string): Promise<MonitoringStatus | null> {
+    const [adminStatus, hasProcedureCollective] = await Promise.all([
+      this.fetchAdminStatus(siren),
+      this.fetchHasProcedureCollective(siren),
+    ]);
+
+    if (hasProcedureCollective) return 'procedure_collective';
+    return adminStatus;
+  }
+
+  private async fetchAdminStatus(siren: string): Promise<'actif' | 'fermee' | null> {
     try {
       const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(siren)}&per_page=1`;
       const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
@@ -140,8 +156,6 @@ export class CompanyMonitoringService {
         return null;
       }
 
-      void this.logFetchBodaccDiagnostic(siren);
-
       if (result.etat_administratif !== undefined && result.etat_administratif !== 'A') return 'fermee';
       if (result.etat_administratif === undefined) {
         this.logger.warn(`Recherche d'entreprises result for SIREN ${siren} has unexpected shape: ${JSON.stringify(result).slice(0, 300)}`);
@@ -154,40 +168,25 @@ export class CompanyMonitoringService {
     }
   }
 
-  /**
-   * Diagnostic pur : ne retourne rien et n'influence jamais fetchStatus.
-   * BODACC (bulletin officiel des annonces civiles et commerciales) publie les
-   * procédures collectives en open data, mais l'URL exacte du jeu de données
-   * (bodacc-datadila.opendatasoft.com, dataset "annonces-commerciales") n'a
-   * jamais été confirmée en direct depuis ce sandbox (aucun accès réseau
-   * sortant). Log de la réponse brute pour un SIREN connu en procédure
-   * collective (882115942, confirmé par source tierce) afin de vérifier si
-   * cette URL est correcte et quelle forme a la réponse, avant d'y brancher
-   * une véritable extraction. À retirer une fois le vrai champ confirmé.
-   */
-  private async logFetchBodaccDiagnostic(siren: string): Promise<void> {
+  /** BODACC — voir le commentaire de classe. familleavis === "collective" est confirmé par log réel. */
+  private async fetchHasProcedureCollective(siren: string): Promise<boolean> {
     try {
       const url = `https://bodacc-datadila.opendatasoft.com/api/records/1.0/search/?dataset=annonces-commerciales&q=registre:${encodeURIComponent(siren)}&rows=20`;
       const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
       if (!res.ok) {
         const preview = await res.text().catch(() => '');
-        this.logger.warn(`[diag BODACC] responded ${res.status} for SIREN ${siren}: ${preview.slice(0, 500)}`);
-        return;
+        this.logger.warn(`BODACC responded ${res.status} for SIREN ${siren}: ${preview.slice(0, 300)}`);
+        return false;
       }
-      const json = (await res.json()) as {
-        nhits?: number;
-        records?: { fields?: { dateparution?: string; familleavis?: string; familleavis_lib?: string; typeavis_lib?: string; commercant?: string } }[];
-      };
-      const summary = (json.records ?? []).map((r) => ({
-        date: r.fields?.dateparution,
-        familleavis: r.fields?.familleavis,
-        familleavis_lib: r.fields?.familleavis_lib,
-        typeavis_lib: r.fields?.typeavis_lib,
-        commercant: r.fields?.commercant,
-      }));
-      this.logger.warn(`[diag BODACC] nhits=${json.nhits} for SIREN ${siren}: ${JSON.stringify(summary)}`);
+      const json = (await res.json()) as { records?: { fields?: { familleavis?: string } }[] };
+      if (!Array.isArray(json.records)) {
+        this.logger.warn(`BODACC unexpected shape for SIREN ${siren}: ${JSON.stringify(json).slice(0, 300)}`);
+        return false;
+      }
+      return json.records.some((r) => r.fields?.familleavis === 'collective');
     } catch (error) {
-      this.logger.warn(`[diag BODACC] fetch failed for SIREN ${siren}: ${(error as Error).message}`);
+      this.logger.warn(`BODACC fetch failed for SIREN ${siren}: ${(error as Error).message}`);
+      return false;
     }
   }
 }
