@@ -1,7 +1,7 @@
 import { MapPin } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { StageBadge, TypeBadge, ScoreBadge, CheckpointHealthBadge, RecoveryStatusBadge } from '../components/deal-badges';
+import { StageBadge, TypeBadge, ScoreBadge, RiskScoreBadge, CheckpointHealthBadge, RecoveryStatusBadge } from '../components/deal-badges';
 import { TagBadge } from '../components/tag-badge';
 import { formatCurrency } from '@/lib/format';
 import type { Deal } from '@/types';
@@ -29,6 +29,7 @@ export function ListView({ deals, onSelectDeal }: ListViewProps) {
           >
             <div className="flex items-center gap-4 p-3.5">
               <ScoreBadge score={deal.atlasScore} />
+              <RiskScoreBadge score={deal.riskScore} previousScore={deal.riskScorePrevious} />
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

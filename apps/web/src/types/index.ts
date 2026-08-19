@@ -161,6 +161,8 @@ export interface Deal {
   lng?: string | null;
   atlasScore?: number | null;
   riskScore?: number | null;
+  riskScorePrevious?: number | null;
+  riskScoreUpdatedAt?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   dateMin?: string | null;
@@ -567,6 +569,29 @@ export interface ScoreBreakdown {
   score: number;
   factors: ScoreFactor[];
   computedAt: string;
+  disclaimer: string;
+}
+
+// ── Risk Engine ──────────────────────────────────────────────
+
+export interface RiskFactor {
+  key: string;
+  label: string;
+  value: number;
+  weight: number;
+  contribution: number;
+  explanation: string;
+}
+
+export interface RiskBreakdown {
+  dealId: string;
+  score: number | null;
+  previousScore: number | null;
+  tier: 'SAFE' | 'WATCH' | 'HIGH' | null;
+  trend: 'UP' | 'DOWN' | 'FLAT' | null;
+  factors: RiskFactor[];
+  computedAt: string;
+  suppressed: boolean;
   disclaimer: string;
 }
 

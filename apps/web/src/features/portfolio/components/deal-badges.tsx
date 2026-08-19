@@ -1,3 +1,4 @@
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -127,6 +128,26 @@ export function ScoreBadge({ score }: { score?: number | null }) {
       )}
     >
       {score}
+    </span>
+  );
+}
+
+/** Risk Engine — sémantique inversée de ScoreBadge (haut = mauvais), même seuils 40/70. */
+export function RiskScoreBadge({ score, previousScore }: { score?: number | null; previousScore?: number | null }) {
+  if (score === null || score === undefined) return <span className="text-xs text-muted-foreground">—</span>;
+  const TrendIcon = previousScore === null || previousScore === undefined || previousScore === score ? Minus : previousScore < score ? TrendingUp : TrendingDown;
+  return (
+    <span
+      title="Score de risque ATLAS (Risk Engine)"
+      className={cn(
+        'inline-flex h-6 min-w-6 items-center justify-center gap-0.5 rounded-md px-1.5 text-xs font-semibold tabular-nums',
+        score >= 70 && 'bg-destructive/10 text-destructive',
+        score >= 40 && score < 70 && 'bg-warning/10 text-warning',
+        score < 40 && 'bg-success/10 text-success',
+      )}
+    >
+      {score}
+      <TrendIcon className="h-3 w-3" />
     </span>
   );
 }

@@ -9,6 +9,7 @@ import {
   StageBadge,
   TypeBadge,
   ScoreBadge,
+  RiskScoreBadge,
   CheckpointHealthBadge,
   RepaidBadge,
   RecoveryStatusBadge,
@@ -19,6 +20,7 @@ import { useGuarantees } from './hooks/use-guarantees';
 import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
+import { RiskBreakdownCard } from './components/risk-breakdown-card';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
@@ -140,6 +142,7 @@ export function DossierPage() {
               {confirmingDelete ? 'Confirmer la suppression' : 'Supprimer'}
             </Button>
             <ScoreBadge score={deal.atlasScore} />
+            <RiskScoreBadge score={deal.riskScore} previousScore={deal.riskScorePrevious} />
           </div>
         </div>
         {deleteDeal.isError && (
@@ -231,6 +234,7 @@ export function DossierPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="score">Score ATLAS</TabsTrigger>
+          <TabsTrigger value="risk">Risque</TabsTrigger>
           <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
           <TabsTrigger value="tasks">Tâches ({dealTasks.filter((t) => !t.done).length})</TabsTrigger>
           <TabsTrigger value="documents">Documents ({deal.documents.length})</TabsTrigger>
@@ -244,6 +248,9 @@ export function DossierPage() {
 
         <TabsContent value="score">
           <ScoreBreakdownCard dealId={deal.id} />
+        </TabsContent>
+        <TabsContent value="risk">
+          <RiskBreakdownCard dealId={deal.id} />
         </TabsContent>
         <TabsContent value="notes">
           <NotesPanel dealId={deal.id} notes={deal.notes} />
