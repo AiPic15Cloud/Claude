@@ -59,6 +59,13 @@ export function RecoveryStatusBadge({ status, compact }: { status: DealRecoveryS
   return <Badge variant={RECOVERY_STATUS_VARIANT[status]}>{DEAL_RECOVERY_STATUS_LABELS[status]}</Badge>;
 }
 
+/** Surveillance quotidienne du SIREN du porteur (voir CompanyMonitoringService) — silencieux tant que tout va bien. */
+export function PorteurMonitoringBadge({ status }: { status?: string | null }) {
+  if (status === 'procedure_collective') return <Badge variant="destructive">Procédure collective</Badge>;
+  if (status === 'fermee') return <Badge variant="destructive">Société fermée</Badge>;
+  return null;
+}
+
 const CHECKPOINT_HEALTH_LABEL: Record<'VERT' | 'ORANGE' | 'ROUGE', string> = {
   VERT: 'Suivi cible : conforme',
   ORANGE: 'Suivi cible : vigilance',

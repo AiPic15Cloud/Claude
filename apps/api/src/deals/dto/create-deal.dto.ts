@@ -12,8 +12,10 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  Matches,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateDealDto {
@@ -151,6 +153,19 @@ export class CreateDealDto {
   @IsString()
   @MaxLength(300)
   porteurAdresse?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'SIREN (9 chiffres) de la société de projet du porteur, pour la surveillance automatique (procédure collective, radiation)',
+  })
+  @IsOptional()
+  // ValidateIf plutôt que IsOptional seul : un champ vidé depuis le formulaire
+  // envoie '' (pas undefined) — IsOptional ne l'ignore pas, donc @Matches le
+  // rejetterait sur un simple enregistrement sans SIREN renseigné.
+  @ValidateIf((_, value) => value !== '' && value !== undefined)
+  @IsString()
+  @Matches(/^\d{9}$/, { message: 'Le SIREN doit contenir exactement 9 chiffres.' })
+  porteurSiren?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

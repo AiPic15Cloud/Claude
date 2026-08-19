@@ -294,12 +294,30 @@ export class DealsService {
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateDealDto) {
     await this.assertExists(organizationId, id);
-    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, stage, lat, lng, ...rest } = dto;
+    const { tagIds, startDate, endDate, dateMin, dateCible, dateMax, lastNewsletterDate, feesRate, amountRaised, stage, lat, lng, porteurSiren, ...rest } = dto;
+    const normalizedPorteurSiren = porteurSiren === '' ? null : porteurSiren;
 
     const current = await this.prisma.deal.findUnique({
       where: { id },
-      select: { stage: true, name: true, feesRate: true, amountRaised: true, dateMax: true, address: true, city: true, postcode: true, lat: true, lng: true },
+      select: {
+        stage: true,
+        name: true,
+        feesRate: true,
+        amountRaised: true,
+        dateMax: true,
+        address: true,
+        city: true,
+        postcode: true,
+        lat: true,
+        lng: true,
+        porteurSiren: true,
+      },
     });
+
+    // Changer le SIREN suivi doit repartir d'un statut vierge — comparer le
+    // statut de la nouvelle société à celui mémorisé pour l'ancienne aurait
+    // pu masquer une première alerte légitime.
+    const sirenChanged = normalizedPorteurSiren !== undefined && normalizedPorteurSiren !== current?.porteurSiren;
 
     let coords: { lat?: number; lng?: number } = { lat, lng };
     const addressChanged = rest.address !== undefined || rest.city !== undefined || rest.postcode !== undefined;
@@ -332,6 +350,8 @@ export class DealsService {
       data: {
         ...rest,
         ...coords,
+        porteurSiren: normalizedPorteurSiren,
+        porteurMonitoringStatus: sirenChanged ? null : undefined,
         amountRaised,
         feesRate,
         feesAmount: computeFeesAmount(nextFeesRate, nextAmountRaised),

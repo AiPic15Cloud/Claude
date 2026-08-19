@@ -52,6 +52,10 @@ const schema = z.object({
   porteurNom: z.string().optional(),
   porteurSociete: z.string().optional(),
   porteurAdresse: z.string().optional(),
+  porteurSiren: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^\d{9}$/.test(v), 'Le SIREN doit contenir exactement 9 chiffres.'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -93,6 +97,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       porteurNom: deal.porteurNom ?? '',
       porteurSociete: deal.porteurSociete ?? '',
       porteurAdresse: deal.porteurAdresse ?? '',
+      porteurSiren: deal.porteurSiren ?? '',
     },
   });
 
@@ -245,6 +250,15 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="porteurAdresse">Adresse postale</Label>
               <Textarea id="porteurAdresse" rows={2} {...register('porteurAdresse')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="porteurSiren">SIREN (surveillance automatique)</Label>
+              <Input id="porteurSiren" placeholder="123456789" maxLength={9} {...register('porteurSiren')} />
+              {errors.porteurSiren && <p className="text-xs text-destructive">{errors.porteurSiren.message}</p>}
+              <p className="text-[11px] text-muted-foreground">
+                Si renseigné, Atlas vérifie quotidiennement (API Recherche d'Entreprises) qu'aucune procédure collective ou
+                radiation n'a été déclarée pour cette société, et crée une alerte critique le cas échéant.
+              </p>
             </div>
           </div>
 
