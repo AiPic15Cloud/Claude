@@ -354,6 +354,15 @@ model Deal {
   porteurSociete String?
   porteurAdresse String?
 
+  // Surveillance de la société de projet — SIREN suivi quotidiennement via
+  // l'API Recherche d'Entreprises (data.gouv.fr) pour détecter une procédure
+  // collective ou une cessation d'activité. porteurMonitoringStatus est le
+  // dernier statut connu ('actif' / 'procedure_collective' / 'fermee'),
+  // comparé à chaque vérification pour n'alerter que sur un vrai changement
+  // plutôt qu'à chaque exécution du job.
+  porteurSiren            String?
+  porteurMonitoringStatus String?
+
   createdById  String
   createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
   assignedToId String?

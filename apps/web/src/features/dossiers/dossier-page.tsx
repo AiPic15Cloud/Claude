@@ -12,6 +12,7 @@ import {
   CheckpointHealthBadge,
   RepaidBadge,
   RecoveryStatusBadge,
+  PorteurMonitoringBadge,
 } from '@/features/portfolio/components/deal-badges';
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { useGuarantees } from './hooks/use-guarantees';
@@ -101,6 +102,7 @@ export function DossierPage() {
               <StageBadge stage={deal.stage} />
               <RepaidBadge repaid={deal.repaid} />
               <RecoveryStatusBadge status={deal.recoveryStatus} />
+              <PorteurMonitoringBadge status={deal.porteurMonitoringStatus} />
             </div>
             <h1 className="font-display mt-1 text-xl font-semibold tracking-tight">{deal.name}</h1>
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">

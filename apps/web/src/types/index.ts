@@ -171,6 +171,8 @@ export interface Deal {
   porteurNom?: string | null;
   porteurSociete?: string | null;
   porteurAdresse?: string | null;
+  porteurSiren?: string | null;
+  porteurMonitoringStatus?: string | null;
   deadlineAlert?: DeadlineAlert;
   checkpointHealth?: CheckpointHealth;
   createdById: string;
