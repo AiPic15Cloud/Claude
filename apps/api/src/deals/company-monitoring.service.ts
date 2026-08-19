@@ -138,6 +138,12 @@ export class CompanyMonitoringService {
         return null;
       }
 
+      // Diagnostic temporaire : le SIREN 882115942 (INVESTIBIEN) est en procédure
+      // collective confirmée (source tierce), mais complements.procedure_collective
+      // n'a pas déclenché le statut attendu — dump complet pour identifier le vrai
+      // champ plutôt que deviner une seconde fois. À retirer une fois corrigé.
+      this.logger.warn(`Recherche d'entreprises raw result for SIREN ${siren}: ${JSON.stringify(result).slice(0, 2000)}`);
+
       if (result.complements?.procedure_collective === true) return 'procedure_collective';
       if (result.etat_administratif !== undefined && result.etat_administratif !== 'A') return 'fermee';
       if (result.etat_administratif === undefined && result.complements === undefined) {
