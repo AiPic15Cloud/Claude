@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
+import { RiskDataService } from './risk-data.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
@@ -14,7 +15,10 @@ import { SetTagsDto } from './dto/set-tags.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('deals')
 export class DealsController {
-  constructor(private readonly dealsService: DealsService) {}
+  constructor(
+    private readonly dealsService: DealsService,
+    private readonly riskData: RiskDataService,
+  ) {}
 
   @Get()
   findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryDealsDto) {
@@ -39,6 +43,15 @@ export class DealsController {
   @Get(':id/mise-en-demeure')
   generateMiseEnDemeure(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.generateMiseEnDemeure(user.organizationId, id);
+  }
+
+  @Get(':id/risk-data')
+  async getRiskData(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    const deal = await this.dealsService.findOne(user.organizationId, id);
+    if (deal.lat === null || deal.lng === null) {
+      throw new NotFoundException("Ce dossier n'a pas de coordonnées géographiques — impossible de vérifier les risques.");
+    }
+    return this.riskData.getRiskProfile(Number(deal.lat), Number(deal.lng));
   }
 
   @Post()

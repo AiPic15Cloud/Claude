@@ -23,6 +23,7 @@ import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
+import { RiskDataCard } from './components/risk-data-card';
 import { RepaymentsPanel } from './components/repayments-panel';
 import { NotesPanel } from './components/notes-panel';
 import { FinancialModelPanel, type FinancialModelFormValues } from './components/financial-model-panel';
@@ -259,8 +260,9 @@ export function DossierPage() {
         <TabsContent value="documents">
           <DocumentsPanel dealId={deal.id} onApplyToFinancialModel={handleApplyExtraction} />
         </TabsContent>
-        <TabsContent value="guarantees">
+        <TabsContent value="guarantees" className="flex flex-col gap-4">
           <GuaranteesPanel dealId={deal.id} />
+          <RiskDataCard dealId={deal.id} hasCoords={Boolean(deal.lat && deal.lng)} />
         </TabsContent>
         <TabsContent value="repayments">
           <RepaymentsPanel dealId={deal.id} />
