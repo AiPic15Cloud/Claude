@@ -54,6 +54,15 @@ export class DealsController {
     return this.riskData.getRiskProfile(Number(deal.lat), Number(deal.lng));
   }
 
+  @Get(':id/dpe')
+  async getDpe(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    const deal = await this.dealsService.findOne(user.organizationId, id);
+    if (!deal.postcode) {
+      throw new NotFoundException("Ce dossier n'a pas de code postal — impossible de rechercher un DPE.");
+    }
+    return this.riskData.getDpe(deal.address, deal.postcode);
+  }
+
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateDealDto) {
     return this.dealsService.create(user.organizationId, user.id, dto);

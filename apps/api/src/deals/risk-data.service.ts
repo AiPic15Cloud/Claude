@@ -38,6 +38,19 @@ interface GpuZoneResponse {
   features?: GpuZoneFeature[];
 }
 
+export interface DpeResult {
+  label: string | null;
+  ghgLabel: string | null;
+  date: string | null;
+  matchedAddress: string | null;
+}
+
+type DpeRow = Record<string, unknown>;
+interface DpeResponse {
+  results?: DpeRow[];
+  total?: number;
+}
+
 const CACHE_TTL_MS = 24 * 60 * 60_000;
 
 /**
@@ -56,6 +69,7 @@ const CACHE_TTL_MS = 24 * 60 * 60_000;
 export class RiskDataService {
   private readonly logger = new Logger(RiskDataService.name);
   private cache = new Map<string, { fetchedAt: number; data: RiskProfile }>();
+  private dpeCache = new Map<string, { fetchedAt: number; data: DpeResult }>();
 
   async getRiskProfile(lat: number, lng: number): Promise<RiskProfile> {
     const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
@@ -232,6 +246,87 @@ export class RiskDataService {
       return { schools, healthcare, shops, transitStops };
     } catch (error) {
       this.logger.warn(`Overpass fetch failed for ${lat},${lng}: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * DPE (diagnostic de performance énergétique) le plus proche de l'adresse
+   * donnée — ADEME, plateforme data-fair (data.ademe.fr). Le jeu de données
+   * initialement visé ("dpe-v2-logements-existants") est marqué "Supprimé"
+   * sur le portail ADEME au moment de la recherche ; "dpe03existant" en est
+   * apparemment le successeur actif, mais ni son URL exacte ni les noms de
+   * colonnes n'ont pu être vérifiés en direct (aucun accès réseau sortant
+   * depuis ce sandbox). Recherche par code postal (qs) puis correspondance
+   * du numéro+nom de voie en local parmi les résultats — best-effort
+   * assumé, avec dump de la réponse brute en log si rien ne correspond à
+   * ce qui est attendu, pour corriger précisément plutôt que redeviner.
+   */
+  async getDpe(address: string | null, postcode: string | null): Promise<DpeResult | null> {
+    if (!postcode) return null;
+    const cacheKey = `dpe:${postcode}:${address ?? ''}`;
+    const cached = this.dpeCache.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) return cached.data;
+
+    try {
+      const params = new URLSearchParams({
+        qs: `Code_postal_(BAN):"${postcode}"`,
+        size: '100',
+        select: 'Etiquette_DPE,Etiquette_GES,Date_établissement_DPE,Adresse_(BAN)',
+      });
+      const url = `https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines?${params.toString()}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) {
+        const preview = await res.text().catch(() => '');
+        this.logger.warn(`ADEME DPE responded ${res.status} for code postal ${postcode}: ${preview.slice(0, 300)}`);
+        return null;
+      }
+      const json = (await res.json()) as DpeResponse;
+      if (!Array.isArray(json.results)) {
+        this.logger.warn(`ADEME DPE unexpected shape for code postal ${postcode}: ${JSON.stringify(json).slice(0, 300)}`);
+        return null;
+      }
+      if (json.results.length === 0) return null;
+
+      const normalize = (s: string) =>
+        s
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+
+      const targetTokens = address ? normalize(address).split(' ').filter((t) => t.length > 2) : [];
+      let best: DpeRow | undefined;
+      if (targetTokens.length > 0) {
+        best = json.results.find((row) => {
+          const rowAddr = row['Adresse_(BAN)'];
+          if (typeof rowAddr !== 'string') return false;
+          const normalizedRow = normalize(rowAddr);
+          return targetTokens.every((t) => normalizedRow.includes(t));
+        });
+      }
+      if (!best) best = json.results[0];
+
+      const label = best['Etiquette_DPE'];
+      const ghgLabel = best['Etiquette_GES'];
+      const date = best['Date_établissement_DPE'];
+      const matchedAddress = best['Adresse_(BAN)'];
+      if (typeof label !== 'string' && typeof ghgLabel !== 'string') {
+        this.logger.warn(`ADEME DPE row shape unexpected for code postal ${postcode}: ${JSON.stringify(best).slice(0, 300)}`);
+        return null;
+      }
+
+      const data: DpeResult = {
+        label: typeof label === 'string' ? label : null,
+        ghgLabel: typeof ghgLabel === 'string' ? ghgLabel : null,
+        date: typeof date === 'string' ? date : null,
+        matchedAddress: typeof matchedAddress === 'string' ? matchedAddress : null,
+      };
+      this.dpeCache.set(cacheKey, { fetchedAt: Date.now(), data });
+      return data;
+    } catch (error) {
+      this.logger.warn(`ADEME DPE fetch failed for code postal ${postcode}: ${(error as Error).message}`);
       return null;
     }
   }
