@@ -867,7 +867,11 @@ model SaleLot {
   label      String
   surfaceSqm Decimal @db.Decimal(10, 2)
   salePrice  Decimal @db.Decimal(14, 2)
-  sold       Boolean @default(false)
+  // Statut de commercialisation du lot — string libre (pas un enum Prisma)
+  // pour rester cohérent avec CostLineItem.category : validé côté DTO
+  // (@IsIn), pas de migration nécessaire si un statut s'ajoute plus tard.
+  // Valeurs : OFFRE | PROMESSE_COMPROMIS | RESERVATION | VENDU
+  status     String  @default("OFFRE")
   sortOrder  Int     @default(0)
 
   createdAt DateTime @default(now())

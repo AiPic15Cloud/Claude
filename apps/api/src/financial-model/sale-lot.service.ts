@@ -27,7 +27,7 @@ export class SaleLotService {
         label: dto.label,
         surfaceSqm: dto.surfaceSqm,
         salePrice: dto.salePrice,
-        sold: dto.sold ?? false,
+        status: dto.status ?? 'OFFRE',
         sortOrder: dto.sortOrder ?? 0,
       },
     });
@@ -44,12 +44,12 @@ export class SaleLotService {
 
     const lot = await this.prisma.saleLot.update({
       where: { id: lotId },
-      data: { label: dto.label, surfaceSqm: dto.surfaceSqm, salePrice: dto.salePrice, sold: dto.sold, sortOrder: dto.sortOrder },
+      data: { label: dto.label, surfaceSqm: dto.surfaceSqm, salePrice: dto.salePrice, status: dto.status, sortOrder: dto.sortOrder },
     });
 
     await this.fieldChanges.recordDiff(organizationId, dealId, 'SaleLot', userId, [
       { key: `${lot.id}:salePrice`, label: `Lot "${lot.label}" — prix de vente`, oldValue: current.salePrice, newValue: lot.salePrice },
-      { key: `${lot.id}:sold`, label: `Lot "${lot.label}" — statut`, oldValue: current.sold, newValue: lot.sold },
+      { key: `${lot.id}:status`, label: `Lot "${lot.label}" — statut`, oldValue: current.status, newValue: lot.status },
     ]);
     return lot;
   }

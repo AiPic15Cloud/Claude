@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
+
+// Statut de commercialisation du lot — string libre (pas un enum Prisma),
+// même convention que CostLineItem.category : validé ici, pas de migration
+// nécessaire si un statut s'ajoute plus tard.
+export const SALE_LOT_STATUSES = ['OFFRE', 'PROMESSE_COMPROMIS', 'RESERVATION', 'VENDU'] as const;
 
 export class CreateSaleLotDto {
   @ApiProperty()
@@ -17,10 +22,10 @@ export class CreateSaleLotDto {
   @IsPositive()
   salePrice!: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, enum: SALE_LOT_STATUSES })
   @IsOptional()
-  @IsBoolean()
-  sold?: boolean;
+  @IsIn(SALE_LOT_STATUSES)
+  status?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -47,10 +52,10 @@ export class UpdateSaleLotDto {
   @IsPositive()
   salePrice?: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, enum: SALE_LOT_STATUSES })
   @IsOptional()
-  @IsBoolean()
-  sold?: boolean;
+  @IsIn(SALE_LOT_STATUSES)
+  status?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
