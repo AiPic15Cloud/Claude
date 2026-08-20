@@ -10,12 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFinancialModel, useSaveFinancialModel } from '../hooks/use-financial-model';
+import { useFinancialModel, useSaveFinancialModel, useBpComparison } from '../hooks/use-financial-model';
 import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
 import { ValidationBadge } from './validation-badge';
 import { CostLineItemsEditor } from './cost-line-items-editor';
 import { SaleLotsEditor } from './sale-lots-editor';
 import { FinancialSynthesisCard } from './financial-synthesis-card';
+import { BpComparisonCard } from './bp-comparison-card';
 import { formatCurrency } from '@/lib/format';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,7 @@ interface FinancialModelPanelProps {
 
 export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMonths, prefill, onPrefillApplied }: FinancialModelPanelProps) {
   const { data, isLoading } = useFinancialModel(dealId);
+  const { data: bpComparison } = useBpComparison(dealId);
   const save = useSaveFinancialModel(dealId);
   const [prefillNotice, setPrefillNotice] = useState(false);
   const [sourceDocumentId, setSourceDocumentId] = useState<string | undefined>();
@@ -399,6 +401,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
 
       <div className="flex flex-col gap-4">
         {data?.synthesis && <FinancialSynthesisCard synthesis={data.synthesis} />}
+        {bpComparison && <BpComparisonCard comparison={bpComparison} />}
 
         <Card>
           <CardHeader>

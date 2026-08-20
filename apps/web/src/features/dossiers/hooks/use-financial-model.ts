@@ -1,11 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { FinancialModel } from '@/types';
+import type { BpComparison, FinancialModel } from '@/types';
 
 export function useFinancialModel(dealId: string) {
   return useQuery({
     queryKey: ['financial-model', dealId],
     queryFn: () => api.get<FinancialModel>(`/deals/${dealId}/financial-model`),
+  });
+}
+
+export function useBpComparison(dealId: string) {
+  return useQuery({
+    queryKey: ['financial-model', dealId, 'bp-comparison'],
+    queryFn: () => api.get<BpComparison>(`/deals/${dealId}/financial-model/bp-comparison`),
   });
 }
 

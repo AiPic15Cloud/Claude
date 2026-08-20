@@ -17,6 +17,11 @@ export class FinancialModelController {
     return this.financialModelService.get(user.organizationId, dealId);
   }
 
+  @Get('bp-comparison')
+  getBpComparison(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string) {
+    return this.financialModelService.getBpComparison(user.organizationId, dealId);
+  }
+
   @Put()
   upsert(
     @CurrentUser() user: AuthenticatedUser,
