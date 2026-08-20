@@ -568,6 +568,7 @@ export interface FinancialAssumption {
   lpbTvaRatePct: number | null;
   lpbDurationMinMonths: number | null;
   lpbDurationMaxMonths: number | null;
+  latePenaltyApplied: boolean;
   bankName: string | null;
   bankLoanAcquisition: number | null;
   bankLoanAccompagnement: number | null;
@@ -612,6 +613,8 @@ export interface FinancialSynthesis {
   lpb: {
     collecte: number;
     tauxPct: number;
+    tauxPctEffectif: number;
+    latePenaltyApplied: boolean;
     dureeCibleMonths: number;
     interestOnDurationCible: number;
     feesHT: number;
