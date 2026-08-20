@@ -18,6 +18,7 @@ import { StorageService } from '../common/storage/storage.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
 import { RiskEngineService, RECOVERY_LABEL, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
 import { riskTier } from '../risk-engine/risk-tier.util';
+import { FieldChangeService } from '../field-changes/field-change.service';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -48,6 +49,7 @@ export class DealsService {
     private readonly tasks: TasksService,
     private readonly storage: StorageService,
     private readonly riskEngine: RiskEngineService,
+    private readonly fieldChanges: FieldChangeService,
   ) {}
 
   /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
@@ -364,6 +366,11 @@ export class DealsService {
         name: true,
         feesRate: true,
         amountRaised: true,
+        amountTarget: true,
+        interestRate: true,
+        durationMonths: true,
+        dateMin: true,
+        dateCible: true,
         dateMax: true,
         address: true,
         city: true,
@@ -371,6 +378,9 @@ export class DealsService {
         lat: true,
         lng: true,
         porteurSiren: true,
+        porteurNom: true,
+        porteurSociete: true,
+        porteurAdresse: true,
         recoveryStatus: true,
         repaid: true,
       },
@@ -444,6 +454,28 @@ export class DealsService {
 
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Opération mise à jour');
     this.indexForSearch(deal);
+
+    // Registre d'audit structuré par champ — distinct de l'Activity ci-dessus
+    // (fil narratif) : ici, chaque champ à fort enjeu réellement modifié par
+    // ce PATCH devient une ligne comparable (ancienne/nouvelle valeur, qui,
+    // quand), pour la gouvernance de la donnée plutôt que la lecture humaine.
+    if (current) {
+      await this.fieldChanges.recordDiff(organizationId, id, 'Deal', userId, [
+        { key: 'name', label: 'Nom', oldValue: current.name, newValue: deal.name },
+        { key: 'interestRate', label: "Taux d'intérêt", oldValue: current.interestRate, newValue: deal.interestRate },
+        { key: 'amountTarget', label: 'Montant cible', oldValue: current.amountTarget, newValue: deal.amountTarget },
+        { key: 'durationMonths', label: 'Durée (mois)', oldValue: current.durationMonths, newValue: deal.durationMonths },
+        { key: 'dateMin', label: 'Échéance min', oldValue: current.dateMin, newValue: deal.dateMin },
+        { key: 'dateCible', label: 'Échéance cible', oldValue: current.dateCible, newValue: deal.dateCible },
+        { key: 'dateMax', label: 'Échéance max', oldValue: current.dateMax, newValue: deal.dateMax },
+        { key: 'porteurNom', label: 'Porteur — nom', oldValue: current.porteurNom, newValue: deal.porteurNom },
+        { key: 'porteurSociete', label: 'Porteur — société', oldValue: current.porteurSociete, newValue: deal.porteurSociete },
+        { key: 'porteurAdresse', label: 'Porteur — adresse', oldValue: current.porteurAdresse, newValue: deal.porteurAdresse },
+        { key: 'address', label: 'Adresse', oldValue: current.address, newValue: deal.address },
+        { key: 'city', label: 'Ville', oldValue: current.city, newValue: deal.city },
+        { key: 'postcode', label: 'Code postal', oldValue: current.postcode, newValue: deal.postcode },
+      ]);
+    }
 
     // Ces quatre champs sont les entrées du Risk Engine qui ne passent pas
     // déjà par un déclencheur dédié (checkpoint, garantie, surveillance

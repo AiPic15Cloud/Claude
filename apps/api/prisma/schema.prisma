@@ -185,6 +185,7 @@ model Organization {
   pipelineEntries    PipelineEntry[]
   competitorProjects CompetitorProject[]
   tasks              Task[]
+  fieldChanges       FieldChange[]
 
   @@map("organizations")
 }
@@ -235,6 +236,7 @@ model User {
   projectCheckpointsRecorded ProjectCheckpoint[]
   agentMessages              AgentMessage[]
   pushSubscriptions          PushSubscription[]
+  fieldChanges               FieldChange[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -394,6 +396,7 @@ model Deal {
   convertedFromPipelineEntry PipelineEntry?       @relation("PipelineConvertedDeal")
   checkpoints                ProjectCheckpoint[]
   agentMessages              AgentMessage[]
+  fieldChanges               FieldChange[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -594,10 +597,46 @@ model Document {
   uploadedById String
   uploadedBy   User   @relation(fields: [uploadedById], references: [id])
 
+  fieldChanges FieldChange[]
+
   createdAt DateTime @default(now())
 
   @@index([dealId])
   @@map("documents")
+}
+
+// Journal d'audit générique par champ — distinct d'Activity (fil narratif
+// lisible) : ici, chaque ligne est une valeur structurée avant/après,
+// interrogeable par champ, pour la gouvernance de la donnée (qui a changé
+// quoi, quand, et avec quel document à l'appui). entityType est une chaîne
+// libre plutôt qu'un enum pour ne pas exiger de migration à chaque nouvelle
+// surface auditée (aujourd'hui : 'Deal', 'FinancialAssumption').
+model FieldChange {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  entityType String
+  fieldKey   String
+  fieldLabel String
+
+  /// Stringifié pour affichage ; null = première valeur jamais renseignée.
+  oldValue String?
+  newValue String?
+
+  changedById String?
+  changedBy   User?   @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  sourceDocumentId String?
+  sourceDocument   Document? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+
+  changedAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([dealId, entityType])
+  @@map("field_changes")
 }
 
 model Task {

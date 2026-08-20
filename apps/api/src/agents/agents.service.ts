@@ -236,7 +236,7 @@ export class AgentsService {
       throw new ServiceUnavailableException("L'extraction n'a pas pu être interprétée — réessayez ou vérifiez le document.");
     }
 
-    return { ...parsed, marginBand: marginBand(parsed.margePct), sourceDocument: name };
+    return { ...parsed, marginBand: marginBand(parsed.margePct), sourceDocument: name, documentId };
   }
 
   private async buildDealContext(organizationId: string, dealId: string): Promise<string> {

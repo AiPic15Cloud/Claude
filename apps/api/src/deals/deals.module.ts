@@ -12,9 +12,10 @@ import { TasksModule } from '../tasks/tasks.module';
 import { StorageModule } from '../common/storage/storage.module';
 import { RiskDataModule } from '../risk-data/risk-data.module';
 import { RiskEngineModule } from '../risk-engine/risk-engine.module';
+import { FieldChangeModule } from '../field-changes/field-change.module';
 
 @Module({
-  imports: [ActivitiesModule, SearchModule, AlertsModule, TasksModule, StorageModule, RiskDataModule, RiskEngineModule],
+  imports: [ActivitiesModule, SearchModule, AlertsModule, TasksModule, StorageModule, RiskDataModule, RiskEngineModule, FieldChangeModule],
   providers: [DealsService, GeocodingService, GeocodingBackfillService, DeadlineAlertsService, CompanyMonitoringService],
   controllers: [DealsController],
   exports: [DealsService],

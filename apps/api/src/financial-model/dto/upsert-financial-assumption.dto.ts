@@ -32,4 +32,9 @@ export class UpsertFinancialAssumptionDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({ required: false, description: "Document du dossier qui justifie ces valeurs (ex. un business plan analysé par l'IA)" })
+  @IsOptional()
+  @IsString()
+  sourceDocumentId?: string;
 }
