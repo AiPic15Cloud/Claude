@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFinancialModel, useSaveFinancialModel } from '../hooks/use-financial-model';
+import { ValidationBadge } from './validation-badge';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -83,8 +84,9 @@ export function FinancialModelPanel({ dealId, prefill, onPrefillApplied }: Finan
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Hypothèses</CardTitle>
+          {data?.assumption && <ValidationBadge dealId={dealId} entityType="FinancialAssumption" />}
         </CardHeader>
         <CardContent>
           {prefillNotice && (

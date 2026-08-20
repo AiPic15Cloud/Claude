@@ -105,6 +105,8 @@ export function useUpdateDeal(dealId: string) {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['cockpit'] });
       queryClient.invalidateQueries({ queryKey: ['market-ticker'] });
+      queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
     },
   });
 }

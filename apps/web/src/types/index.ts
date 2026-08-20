@@ -624,6 +624,51 @@ export interface RiskBreakdown {
   disclaimer: string;
 }
 
+export interface RiskFactorDefinition {
+  key: string;
+  label: string;
+  weight: number;
+  rationale: string;
+}
+
+export interface RiskMethodology {
+  factors: RiskFactorDefinition[];
+  calibrationDisclaimer: string;
+  disclaimer: string;
+  tiers: { SAFE: string; WATCH: string; HIGH: string };
+}
+
+export interface RiskValidationGroup {
+  count: number;
+  averageScore: number | null;
+  medianScore: number | null;
+  tierDistribution: { SAFE: number; WATCH: number; HIGH: number };
+}
+
+export interface RiskValidationCase {
+  dealId: string;
+  reference: string;
+  name: string;
+  outcome: 'REMBOURSE' | 'DEFAUT';
+  scoreAtClosure: number;
+  closureDate: string;
+}
+
+export interface RiskModelValidation {
+  totalCount: number;
+  sampleTooSmall: boolean;
+  outcomes: { REMBOURSE: RiskValidationGroup; DEFAUT: RiskValidationGroup };
+  cases: RiskValidationCase[];
+}
+
+export interface DataValidation {
+  id: string;
+  dealId: string;
+  entityType: string;
+  validatedAt: string;
+  validatedBy: { id: string; firstName: string; lastName: string };
+}
+
 // ── Knowledge Graph ──────────────────────────────────────────
 
 export type GraphEntityType =
