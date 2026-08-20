@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, Sparkles, X } from 'lucide-react';
+import { Loader2, Sparkles, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFinancialModel, useSaveFinancialModel, useBpComparison } from '../hooks/use-financial-model';
+import { useFinancialModel, useSaveFinancialModel, useDeleteFinancialModel, useBpComparison } from '../hooks/use-financial-model';
 import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
 import { ValidationBadge } from './validation-badge';
 import { CostLineItemsEditor } from './cost-line-items-editor';
@@ -115,6 +115,16 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
     updateDeal.mutate({ durationMonths: Math.round(value) });
   };
 
+  const deleteFinancialModel = useDeleteFinancialModel(dealId);
+  const [confirmingDeleteModel, setConfirmingDeleteModel] = useState(false);
+  const handleDeleteModel = () => {
+    if (!confirmingDeleteModel) {
+      setConfirmingDeleteModel(true);
+      return;
+    }
+    deleteFinancialModel.mutate(undefined, { onSuccess: () => setConfirmingDeleteModel(false) });
+  };
+
   useEffect(() => {
     if (data?.assumption) {
       reset({
@@ -184,7 +194,31 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Hypothèses</CardTitle>
-          {data?.assumption && <ValidationBadge dealId={dealId} entityType="FinancialAssumption" />}
+          <div className="flex items-center gap-2">
+            {data?.assumption && <ValidationBadge dealId={dealId} entityType="FinancialAssumption" />}
+            {data?.assumption && confirmingDeleteModel && (
+              <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmingDeleteModel(false)}>
+                Annuler
+              </Button>
+            )}
+            {data?.assumption && (
+              <Button
+                type="button"
+                size="sm"
+                variant={confirmingDeleteModel ? 'destructive' : 'ghost'}
+                className={confirmingDeleteModel ? '' : 'text-destructive hover:text-destructive'}
+                onClick={handleDeleteModel}
+                disabled={deleteFinancialModel.isPending}
+              >
+                {deleteFinancialModel.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                {confirmingDeleteModel ? 'Confirmer la suppression' : ''}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isDirty && (

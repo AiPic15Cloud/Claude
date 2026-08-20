@@ -57,3 +57,15 @@ export function useSaveFinancialModel(dealId: string) {
     },
   });
 }
+
+export function useDeleteFinancialModel(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.delete(`/deals/${dealId}/financial-model`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial-model', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
+    },
+  });
+}

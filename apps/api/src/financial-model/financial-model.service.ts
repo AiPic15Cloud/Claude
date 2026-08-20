@@ -105,6 +105,72 @@ export class FinancialModelService {
     return this.buildResponse(organizationId, dealId, deal, assumption);
   }
 
+  /**
+   * Supprime le modèle financier du dossier — l'hypothèse ET les postes libres
+   * qui en dépendent (Travaux, Honoraires techniques, grille de lots), pour ne
+   * pas laisser de données orphelines qui réapparaîtraient si un nouveau
+   * modèle est ressaisi plus tard. L'historique des valeurs (FieldChange)
+   * n'est jamais effacé — seule la donnée vivante l'est, la traçabilité reste
+   * consultable dans l'onglet Décisions.
+   */
+  async remove(organizationId: string, dealId: string, userId: string) {
+    await this.assertDeal(organizationId, dealId);
+    const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
+    if (!assumption) return;
+
+    const [travauxItems, honorairesTechniquesItems, saleLots] = await Promise.all([
+      this.prisma.costLineItem.findMany({ where: { dealId, category: 'TRAVAUX' } }),
+      this.prisma.costLineItem.findMany({ where: { dealId, category: 'HONORAIRES_TECHNIQUES' } }),
+      this.prisma.saleLot.findMany({ where: { dealId } }),
+    ]);
+
+    await this.prisma.$transaction([
+      this.prisma.costLineItem.deleteMany({ where: { dealId } }),
+      this.prisma.saleLot.deleteMany({ where: { dealId } }),
+      this.prisma.financialAssumption.delete({ where: { dealId } }),
+    ]);
+
+    await this.activities.log(dealId, userId, 'FINANCIAL_MODEL_UPDATED', 'Modèle financier supprimé');
+
+    const num = FinancialModelService.num;
+    await this.fieldChanges.recordDiff(
+      organizationId,
+      dealId,
+      'FinancialAssumption',
+      userId,
+      Object.keys(FINANCIAL_FIELD_LABELS).map((key) => ({
+        key,
+        label: FINANCIAL_FIELD_LABELS[key],
+        oldValue: (assumption as unknown as Record<string, unknown>)[key],
+        newValue: null,
+      })),
+    );
+    await this.fieldChanges.recordDiff(
+      organizationId,
+      dealId,
+      'CostLineItem',
+      userId,
+      [...travauxItems, ...honorairesTechniquesItems].map((item) => ({
+        key: item.id,
+        label: `Poste "${item.label}" (supprimé — modèle financier réinitialisé)`,
+        oldValue: num(item.amount),
+        newValue: null,
+      })),
+    );
+    await this.fieldChanges.recordDiff(
+      organizationId,
+      dealId,
+      'SaleLot',
+      userId,
+      saleLots.map((lot) => ({
+        key: `${lot.id}:salePrice`,
+        label: `Lot "${lot.label}" — prix de vente (supprimé — modèle financier réinitialisé)`,
+        oldValue: num(lot.salePrice),
+        newValue: null,
+      })),
+    );
+  }
+
   private static num(v: Prisma.Decimal | number | null | undefined): number {
     return v === null || v === undefined ? 0 : Number(v);
   }
@@ -260,7 +326,7 @@ export class FinancialModelService {
       saleLotsSummary: usesSaleLots
         ? {
             count: saleLots.length,
-            soldCount: saleLots.filter((lot) => lot.sold).length,
+            soldCount: saleLots.filter((lot) => lot.status === 'VENDU').length,
             totalSurfaceSqm: saleLotsSurface,
             totalSalePrice: Math.round(saleLotsTotal),
             avgPricePerSqm: saleLotsSurface > 0 ? Math.round(saleLotsTotal / saleLotsSurface) : null,
@@ -332,7 +398,7 @@ export class FinancialModelService {
         label: lot.label,
         surfaceSqm: Number(lot.surfaceSqm),
         salePrice: Number(lot.salePrice),
-        sold: lot.sold,
+        status: lot.status,
         sortOrder: lot.sortOrder,
       })),
       valuation: base,

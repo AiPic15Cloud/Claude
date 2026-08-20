@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -29,5 +29,11 @@ export class FinancialModelController {
     @Body() dto: UpsertFinancialAssumptionDto,
   ) {
     return this.financialModelService.upsert(user.organizationId, dealId, user.id, dto);
+  }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete()
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string) {
+    return this.financialModelService.remove(user.organizationId, dealId, user.id);
   }
 }
