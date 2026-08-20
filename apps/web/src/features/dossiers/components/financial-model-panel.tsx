@@ -139,32 +139,43 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
 
   useEffect(() => {
     if (data?.assumption) {
+      // Champs texte/nombre optionnels non renseignés : reset() à '' plutôt qu'undefined.
+      // RHF calcule isDirty en comparant les valeurs par défaut à ce que contient
+      // réellement le DOM des <input> non contrôlés (register()) — un input HTML vide
+      // vaut toujours '', jamais undefined. Reset à undefined crée donc un écart
+      // ('' côté DOM vs undefined côté défaut) qui laisse isDirty bloqué à true en
+      // permanence dès qu'un champ optionnel est vide, même juste après un enregistrement
+      // réussi (bannière "Modifications non enregistrées" qui ne se referme jamais).
+      // Le preprocess zod du schéma traite déjà '' comme "non renseigné" à la soumission.
       reset({
         ...data.assumption,
-        targetMarginPct: data.assumption.targetMarginPct ?? undefined,
-        notes: data.assumption.notes ?? undefined,
-        landPrice: data.assumption.landPrice ?? undefined,
-        notaryFees: data.assumption.notaryFees ?? undefined,
-        diagnosticsCost: data.assumption.diagnosticsCost ?? undefined,
-        insuranceCost: data.assumption.insuranceCost ?? undefined,
-        propertyTaxCost: data.assumption.propertyTaxCost ?? undefined,
-        surveyStudiesCost: data.assumption.surveyStudiesCost ?? undefined,
-        agencyFees: data.assumption.agencyFees ?? undefined,
-        referralFees: data.assumption.referralFees ?? undefined,
-        bankMiscFees: data.assumption.bankMiscFees ?? undefined,
-        lpbFeesPctHT: data.assumption.lpbFeesPctHT ?? undefined,
+        targetMarginPct: data.assumption.targetMarginPct ?? '',
+        notes: data.assumption.notes ?? '',
+        landPrice: data.assumption.landPrice ?? '',
+        notaryFees: data.assumption.notaryFees ?? '',
+        diagnosticsCost: data.assumption.diagnosticsCost ?? '',
+        insuranceCost: data.assumption.insuranceCost ?? '',
+        propertyTaxCost: data.assumption.propertyTaxCost ?? '',
+        surveyStudiesCost: data.assumption.surveyStudiesCost ?? '',
+        agencyFees: data.assumption.agencyFees ?? '',
+        referralFees: data.assumption.referralFees ?? '',
+        bankMiscFees: data.assumption.bankMiscFees ?? '',
+        lpbFeesPctHT: data.assumption.lpbFeesPctHT ?? '',
         lpbTvaApplicable: data.assumption.lpbTvaApplicable,
-        lpbTvaRatePct: data.assumption.lpbTvaRatePct ?? undefined,
-        lpbDurationMinMonths: data.assumption.lpbDurationMinMonths ?? undefined,
-        lpbDurationMaxMonths: data.assumption.lpbDurationMaxMonths ?? undefined,
+        lpbTvaRatePct: data.assumption.lpbTvaRatePct ?? '',
+        lpbDurationMinMonths: data.assumption.lpbDurationMinMonths ?? '',
+        lpbDurationMaxMonths: data.assumption.lpbDurationMaxMonths ?? '',
         latePenaltyApplied: data.assumption.latePenaltyApplied,
-        bankName: data.assumption.bankName ?? undefined,
-        bankLoanAcquisition: data.assumption.bankLoanAcquisition ?? undefined,
-        bankLoanAccompagnement: data.assumption.bankLoanAccompagnement ?? undefined,
-        bankInterestRatePct: data.assumption.bankInterestRatePct ?? undefined,
-        bankFileFees: data.assumption.bankFileFees ?? undefined,
-        bankGuaranteeFees: data.assumption.bankGuaranteeFees ?? undefined,
-      });
+        bankName: data.assumption.bankName ?? '',
+        bankLoanAcquisition: data.assumption.bankLoanAcquisition ?? '',
+        bankLoanAccompagnement: data.assumption.bankLoanAccompagnement ?? '',
+        bankInterestRatePct: data.assumption.bankInterestRatePct ?? '',
+        bankFileFees: data.assumption.bankFileFees ?? '',
+        bankGuaranteeFees: data.assumption.bankGuaranteeFees ?? '',
+        // '' n'est pas assignable au type number|undefined résolu par zod (FormValues est le
+        // type de SORTIE, après coercition) — mais c'est bien la forme attendue par register()
+        // avant soumission, et le preprocess du schéma la retraite normalement au submit suivant.
+      } as FormValues);
     }
   }, [data, reset]);
 
@@ -409,7 +420,19 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
                 render={({ field }) => (
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2.5">
-                      <Switch checked={field.value ?? false} onCheckedChange={field.onChange} id="latePenaltyApplied" />
+                      <Switch
+                        checked={field.value ?? false}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          // Enregistre immédiatement — sinon la Synthèse, le BP actualisé et la
+                          // Sensibilité (calculés côté serveur depuis les données déjà enregistrées)
+                          // continuent d'afficher l'ancien taux tant que l'utilisateur n'a pas cliqué
+                          // sur "Enregistrer" séparément, ce qui donne l'impression que la case n'a
+                          // aucun effet.
+                          void handleSubmit(onSubmit)();
+                        }}
+                        id="latePenaltyApplied"
+                      />
                       <Label htmlFor="latePenaltyApplied" className="cursor-pointer font-normal">
                         Simuler la pénalité de retard (+5 pts sur le taux)
                       </Label>
