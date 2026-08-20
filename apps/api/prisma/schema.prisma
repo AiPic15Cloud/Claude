@@ -799,8 +799,11 @@ model FinancialAssumption {
   propertyTaxCost   Decimal? @db.Decimal(14, 2)
   surveyStudiesCost Decimal? @db.Decimal(14, 2)
 
-  // Autres frais — les frais LPB (garantie/intérêts/fees) sont calculés, jamais saisis ici
+  // Autres frais — les frais LPB (garantie/intérêts/fees) sont calculés, jamais saisis ici.
+  // agencyFees et referralFees sont deux commissions distinctes (agence immobilière vs
+  // apporteur d'affaires) — toutes deux à 0 par défaut si aucun frais.
   agencyFees   Decimal? @db.Decimal(14, 2)
+  referralFees Decimal? @db.Decimal(14, 2)
   bankMiscFees Decimal? @db.Decimal(14, 2)
 
   // Financement LPB — la collecte/le taux/la durée cible réutilisent
