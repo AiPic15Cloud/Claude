@@ -335,7 +335,9 @@ export class FinancialModelService {
     // marché — la grille rend ce risque visible). Fallback sur le prix moyen tant qu'aucun
     // lot n'est saisi (rétrocompatible avec les dossiers en Phase 1).
     const saleLotsTotal = saleLots.reduce((sum, lot) => sum + num(lot.salePrice), 0);
-    const saleLotsSurface = saleLots.reduce((sum, lot) => sum + num(lot.surfaceSqm), 0);
+    // Arrondi à 2 décimales — sommer des Decimal convertis en Number peut produire une
+    // imprécision flottante (ex. 137.29999999999998) sinon affichée telle quelle.
+    const saleLotsSurface = Math.round(saleLots.reduce((sum, lot) => sum + num(lot.surfaceSqm), 0) * 100) / 100;
     const usesSaleLots = saleLots.length > 0;
     const prixDeVente = usesSaleLots ? saleLotsTotal : sellingPricePerSqm * surface;
     const marge = prixDeVente - coutDeRevient;
@@ -400,13 +402,17 @@ export class FinancialModelService {
       },
     };
 
-    const compute = (label: string, price: number, cost: number): Scenario => {
-      const revenue = price * surface;
+    // Le scénario Base — et donc toute la sensibilité — doit partir du vrai
+    // prixDeVente (somme des lots si la grille est utilisée), pas toujours de
+    // sellingPricePerSqm × surface : sinon la sensibilité reste figée dès
+    // qu'un prix de lot change, alors que le "Prix de vente" réel du dossier
+    // a bien bougé (constaté sur le comparatif BP initial vs actualisé).
+    const compute = (label: string, revenue: number, cost: number): Scenario => {
       const totalCost = cost;
       const margin = revenue - totalCost;
       return {
         label,
-        sellingPricePerSqm: Math.round(price),
+        sellingPricePerSqm: surface > 0 ? Math.round(revenue / surface) : 0,
         constructionCostPerSqm: surface > 0 ? Math.round(cost / surface) : 0,
         revenue: Math.round(revenue),
         totalCost: Math.round(totalCost),
@@ -415,8 +421,8 @@ export class FinancialModelService {
       };
     };
 
-    const base = compute('Base', sellingPricePerSqm, coutDeRevient);
-    const sensitivity: Scenario[] = [compute('Pessimiste', sellingPricePerSqm * 0.9, coutDeRevient * 1.1), base, compute('Optimiste', sellingPricePerSqm * 1.1, coutDeRevient * 0.9)];
+    const base = compute('Base', prixDeVente, coutDeRevient);
+    const sensitivity: Scenario[] = [compute('Pessimiste', prixDeVente * 0.9, coutDeRevient * 1.1), base, compute('Optimiste', prixDeVente * 1.1, coutDeRevient * 0.9)];
 
     return {
       assumption: {
