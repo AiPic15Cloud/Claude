@@ -372,11 +372,21 @@ async function main() {
         data: {
           dealId: d.id,
           surfaceSqm: surface,
-          constructionCostPerSqm: constructionCost,
           sellingPricePerSqm: sellingPrice,
-          otherCosts: randomInt(50, 300) * 1000,
+          landPrice: randomInt(200, 600) * 1000,
+          notaryFees: randomInt(10, 40) * 1000,
+          diagnosticsCost: randomInt(2, 8) * 1000,
+          insuranceCost: randomInt(3, 10) * 1000,
+          propertyTaxCost: randomInt(1, 5) * 1000,
+          surveyStudiesCost: randomInt(3, 12) * 1000,
+          agencyFees: randomInt(10, 50) * 1000,
+          bankMiscFees: randomInt(2, 15) * 1000,
+          lpbFeesPctHT: 8,
           targetMarginPct: 15,
         },
+      });
+      await prisma.costLineItem.create({
+        data: { dealId: d.id, category: 'TRAVAUX', label: 'Gros œuvre / second œuvre', amount: constructionCost * surface, sortOrder: 0 },
       });
     }
 

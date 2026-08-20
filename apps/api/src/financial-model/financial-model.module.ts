@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
 import { FinancialModelService } from './financial-model.service';
 import { FinancialModelController } from './financial-model.controller';
+import { CostLineItemService } from './cost-line-item.service';
+import { CostLineItemController } from './cost-line-item.controller';
 import { ActivitiesModule } from '../activities/activities.module';
 import { FieldChangeModule } from '../field-changes/field-change.module';
 
 @Module({
   imports: [ActivitiesModule, FieldChangeModule],
-  providers: [FinancialModelService],
-  controllers: [FinancialModelController],
-  exports: [FinancialModelService],
+  providers: [FinancialModelService, CostLineItemService],
+  controllers: [FinancialModelController, CostLineItemController],
+  exports: [FinancialModelService, CostLineItemService],
 })
 export class FinancialModelModule {}

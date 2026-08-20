@@ -401,6 +401,7 @@ model Deal {
   activities                 Activity[]
   alerts                     Alert[]
   guarantees                 Guarantee[]
+  costLineItems              CostLineItem[]
   financialAssumption        FinancialAssumption?
   entityLinks                DealEntityLink[]
   repayments                 Repayment[]
@@ -773,22 +774,76 @@ model Guarantee {
 /// Inputs for the deal's financial model. Sensitivity scenarios (± on
 /// selling price and construction cost) are computed on the fly from these
 /// assumptions rather than stored, so they always reflect the latest input.
+// Modèle financier v2 (Phase 1) — reconstruit à partir du classeur d'audit
+// réel de l'utilisateur (Foncier / Travaux / Honoraires techniques / Autres
+// frais / Financement LPB / Financement bancaire), plutôt que le triptyque
+// surface×coût/m²×prix/m² d'origine. Les postes "Travaux" sont libres (voir
+// CostLineItem) — confirmé par l'utilisateur, pas des champs fixes.
 model FinancialAssumption {
   id     String @id @default(cuid())
   dealId String @unique
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
-  surfaceSqm             Decimal  @db.Decimal(10, 2)
-  constructionCostPerSqm Decimal  @db.Decimal(10, 2)
-  sellingPricePerSqm     Decimal  @db.Decimal(10, 2)
-  otherCosts             Decimal  @default(0) @db.Decimal(14, 2)
-  targetMarginPct        Decimal? @db.Decimal(5, 2)
-  notes                  String?
+  surfaceSqm         Decimal  @db.Decimal(10, 2)
+  sellingPricePerSqm Decimal  @db.Decimal(10, 2)
+  targetMarginPct    Decimal? @db.Decimal(5, 2)
+  notes              String?
+
+  // Foncier
+  landPrice  Decimal? @db.Decimal(14, 2)
+  notaryFees Decimal? @db.Decimal(14, 2)
+
+  // Honoraires techniques — structure fixe (confirmée telle quelle dans le classeur d'audit)
+  diagnosticsCost   Decimal? @db.Decimal(14, 2)
+  insuranceCost     Decimal? @db.Decimal(14, 2)
+  propertyTaxCost   Decimal? @db.Decimal(14, 2)
+  surveyStudiesCost Decimal? @db.Decimal(14, 2)
+
+  // Autres frais — les frais LPB (garantie/intérêts/fees) sont calculés, jamais saisis ici
+  agencyFees   Decimal? @db.Decimal(14, 2)
+  bankMiscFees Decimal? @db.Decimal(14, 2)
+
+  // Financement LPB — la collecte/le taux/la durée cible réutilisent
+  // Deal.amountTarget/interestRate/durationMonths, pas de doublon de saisie.
+  lpbFeesPctHT         Decimal? @db.Decimal(5, 2)
+  lpbTvaApplicable     Boolean  @default(false)
+  lpbTvaRatePct        Decimal? @db.Decimal(5, 2)
+  lpbDurationMinMonths Int?
+  lpbDurationMaxMonths Int?
+
+  // Financement bancaire (optionnel, distinct de LPB) — activé dès qu'un nom de banque est renseigné
+  bankName               String?
+  bankLoanAcquisition    Decimal? @db.Decimal(14, 2)
+  bankLoanAccompagnement Decimal? @db.Decimal(14, 2)
+  bankInterestRatePct    Decimal? @db.Decimal(5, 2)
+  bankFileFees           Decimal? @db.Decimal(14, 2)
+  bankGuaranteeFees      Decimal? @db.Decimal(14, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("financial_assumptions")
+}
+
+// Postes de coût libres — aujourd'hui uniquement les "Travaux" (l'utilisateur
+// les saisit ligne par ligne dans son classeur réel, pas via des champs
+// fixes). `category` prévoit l'extension à d'autres postes plus tard, non
+// exploitée pour l'instant.
+model CostLineItem {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  category  String
+  label     String
+  amount    Decimal @db.Decimal(14, 2)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId, category])
+  @@map("cost_line_items")
 }
 
 // ── Knowledge Graph ────────────────────────────────────────
