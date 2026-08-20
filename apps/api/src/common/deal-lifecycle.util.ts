@@ -5,5 +5,5 @@
 // once it lands in either state. Shared by the deals and guarantees
 // modules so the definition of "closed" can't drift between them.
 export function isDealClosed(deal: { repaid: boolean; stage: string }): boolean {
-  return deal.repaid || deal.stage === 'DEFAUT';
+  return deal.repaid || deal.stage === 'DEFAUT' || deal.stage === 'REMBOURSE';
 }

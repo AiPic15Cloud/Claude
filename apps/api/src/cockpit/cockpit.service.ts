@@ -79,7 +79,7 @@ export class CockpitService {
         select: { id: true, name: true, reference: true, stage: true, amountTarget: true, amountRaised: true },
       }),
       this.prisma.deal.findMany({
-        where: { organizationId, status: 'ACTIVE', dateMax: { not: null }, repaid: false, stage: { not: 'DEFAUT' } },
+        where: { organizationId, status: 'ACTIVE', dateMax: { not: null }, repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] } },
         select: { id: true, name: true, reference: true, dateMax: true },
       }),
       this.prisma.deal.findMany({
@@ -90,7 +90,7 @@ export class CockpitService {
         where: {
           status: 'ACTIVE',
           endDate: { not: null },
-          deal: { organizationId, repaid: false, stage: { not: 'DEFAUT' } },
+          deal: { organizationId, repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] } },
         },
         select: {
           id: true,
@@ -102,7 +102,7 @@ export class CockpitService {
         },
       }),
       this.prisma.deal.findMany({
-        where: { organizationId, status: 'ACTIVE', repaid: false, stage: { not: 'DEFAUT' }, riskScore: { not: null } },
+        where: { organizationId, status: 'ACTIVE', repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] }, riskScore: { not: null } },
         select: { id: true, name: true, reference: true, amountRaised: true, riskScore: true, riskScorePrevious: true, dateMax: true },
       }),
     ]);

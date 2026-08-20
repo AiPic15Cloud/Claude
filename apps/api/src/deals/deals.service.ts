@@ -406,6 +406,29 @@ export class DealsService {
     // pu masquer une première alerte légitime.
     const sirenChanged = normalizedPorteurSiren !== undefined && normalizedPorteurSiren !== current?.porteurSiren;
 
+    // Étape REMBOURSE et booléen repaid sont deux représentations de "ce
+    // dossier est terminé" qui peuvent diverger si un seul des deux est
+    // modifié (ex. faire passer l'étape à REMBOURSE sans cocher le
+    // toggle "Remboursé") — toutes les requêtes qui filtrent sur
+    // repaid:false (alertes d'échéance, Risk Engine, agrégats Cockpit)
+    // continueraient alors de suivre un dossier en réalité clos, et les
+    // badges affichent une incohérence ("Remboursé" + "En cours"). On
+    // aligne automatiquement l'autre champ quand un seul des deux vient
+    // de changer.
+    let normalizedStage = stage;
+    let normalizedRepaid = rest.repaid;
+    if (current) {
+      // "Non touché" veut dire soit absent du payload, soit renvoyé identique à la
+      // valeur actuelle (un formulaire qui resoumet l'état complet à chaque fois).
+      const repaidUntouched = normalizedRepaid === undefined || normalizedRepaid === current.repaid;
+      const stageUntouched = normalizedStage === undefined || normalizedStage === current.stage;
+      if (normalizedStage === 'REMBOURSE' && current.stage !== 'REMBOURSE' && repaidUntouched) {
+        normalizedRepaid = true;
+      } else if (normalizedRepaid === true && current.repaid !== true && stageUntouched) {
+        normalizedStage = 'REMBOURSE';
+      }
+    }
+
     let coords: { lat?: number; lng?: number } = { lat, lng };
     const addressChanged = rest.address !== undefined || rest.city !== undefined || rest.postcode !== undefined;
     const missingCoords = current ? current.lat === null && current.lng === null : false;
@@ -417,8 +440,8 @@ export class DealsService {
       });
     }
 
-    if (stage && current && current.stage !== stage) {
-      await this.activities.log(id, userId, 'STAGE_CHANGED', `Étape modifiée : ${current.stage} → ${stage}`);
+    if (normalizedStage && current && current.stage !== normalizedStage) {
+      await this.activities.log(id, userId, 'STAGE_CHANGED', `Étape modifiée : ${current.stage} → ${normalizedStage}`);
     }
     if (rest.recoveryStatus && current && current.recoveryStatus !== rest.recoveryStatus) {
       await this.activities.log(
@@ -450,7 +473,8 @@ export class DealsService {
         amountRaised,
         feesRate,
         feesAmount: computeFeesAmount(nextFeesRate, nextAmountRaised),
-        stage,
+        stage: normalizedStage,
+        repaid: normalizedRepaid,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
         dateMin: dateMin ? new Date(dateMin) : undefined,
