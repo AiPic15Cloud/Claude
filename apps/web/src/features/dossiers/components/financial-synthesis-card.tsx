@@ -40,7 +40,17 @@ export function FinancialSynthesisCard({ synthesis }: { synthesis: FinancialSynt
         </div>
 
         <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-          <Row label="Prix de Vente" value={formatCurrency(synthesis.prixDeVente)} />
+          <Row
+            label={synthesis.prixDeVenteSource === 'LOTS' ? `Prix de Vente (grille — ${synthesis.saleLotsSummary?.count} lots)` : 'Prix de Vente (estimation moyenne)'}
+            value={formatCurrency(synthesis.prixDeVente)}
+            hint={synthesis.prixDeVenteSource === 'LOTS' ? "Somme réelle de la grille de commercialisation" : "€/m² × surface — sera remplacé par la grille dès qu'un lot sera saisi"}
+          />
+          {synthesis.saleLotsSummary && (
+            <Row
+              label="dont vendus"
+              value={`${synthesis.saleLotsSummary.soldCount}/${synthesis.saleLotsSummary.count}`}
+            />
+          )}
           <Row label="Marge avant impôts" value={`${formatCurrency(synthesis.marge)} (${synthesis.margePct}%)`} bold />
         </div>
 
