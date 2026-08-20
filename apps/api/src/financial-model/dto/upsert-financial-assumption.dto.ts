@@ -67,6 +67,12 @@ export class UpsertFinancialAssumptionDto {
   @Min(0)
   agencyFees?: number;
 
+  @ApiProperty({ required: false, description: "Commission d'apporteur d'affaires — distincte des honoraires d'agence" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  referralFees?: number;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()

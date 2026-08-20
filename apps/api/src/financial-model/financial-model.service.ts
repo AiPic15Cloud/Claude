@@ -17,6 +17,7 @@ const FINANCIAL_FIELD_LABELS: Record<string, string> = {
   propertyTaxCost: 'Honoraires techniques — taxe foncière',
   surveyStudiesCost: 'Honoraires techniques — géomètre/études',
   agencyFees: 'Autres frais — honoraires d’agence',
+  referralFees: 'Autres frais — apport d’affaires',
   bankMiscFees: 'Autres frais — frais bancaires divers',
   lpbFeesPctHT: 'Financement LPB — % fees HT',
   lpbTvaApplicable: 'Financement LPB — TVA applicable',
@@ -60,7 +61,7 @@ export class FinancialModelService {
   async get(organizationId: string, dealId: string) {
     const deal = await this.assertDeal(organizationId, dealId);
     const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
-    if (!assumption) return { assumption: null, valuation: null, sensitivity: null, synthesis: null };
+    if (!assumption) return { assumption: null, travauxItems: null, honorairesTechniquesItems: null, valuation: null, sensitivity: null, synthesis: null };
     return this.buildResponse(organizationId, dealId, deal, assumption);
   }
 
@@ -106,8 +107,9 @@ export class FinancialModelService {
     deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null },
     assumption: AssumptionRow,
   ) {
-    const [travauxItems, hasActiveHypotheque] = await Promise.all([
+    const [travauxItems, honorairesTechniquesItems, hasActiveHypotheque] = await Promise.all([
       this.prisma.costLineItem.findMany({ where: { dealId, category: 'TRAVAUX' }, orderBy: { sortOrder: 'asc' } }),
+      this.prisma.costLineItem.findMany({ where: { dealId, category: 'HONORAIRES_TECHNIQUES' }, orderBy: { sortOrder: 'asc' } }),
       this.prisma.guarantee.findFirst({ where: { dealId, type: 'HYPOTHEQUE', status: 'ACTIVE' } }).then(Boolean),
     ]);
 
@@ -118,8 +120,13 @@ export class FinancialModelService {
 
     const foncierTotal = num(assumption.landPrice) + num(assumption.notaryFees);
     const travauxTotal = travauxItems.reduce((sum, item) => sum + num(item.amount), 0);
+    const honorairesTechniquesItemsTotal = honorairesTechniquesItems.reduce((sum, item) => sum + num(item.amount), 0);
     const honorairesTechniquesTotal =
-      num(assumption.diagnosticsCost) + num(assumption.insuranceCost) + num(assumption.propertyTaxCost) + num(assumption.surveyStudiesCost);
+      num(assumption.diagnosticsCost) +
+      num(assumption.insuranceCost) +
+      num(assumption.propertyTaxCost) +
+      num(assumption.surveyStudiesCost) +
+      honorairesTechniquesItemsTotal;
 
     const collecte = num(deal.amountTarget);
     const tauxLpb = num(deal.interestRate) / 100;
@@ -137,7 +144,7 @@ export class FinancialModelService {
     const bankInterestOnDurationCible = bankEnabled ? (bankLoanTotal * (num(assumption.bankInterestRatePct) / 100) * dureeCibleLpb) / 12 : 0;
     const bankTotalFees = bankEnabled ? bankInterestOnDurationCible + num(assumption.bankGuaranteeFees) + num(assumption.bankFileFees) * 1.2 : 0;
 
-    const autresFraisTotal = num(assumption.agencyFees) + num(assumption.bankMiscFees) + lpbTotalFees;
+    const autresFraisTotal = num(assumption.agencyFees) + num(assumption.referralFees) + num(assumption.bankMiscFees) + lpbTotalFees;
 
     const coutDeRevient = foncierTotal + travauxTotal + honorairesTechniquesTotal + autresFraisTotal;
     const prixDeVente = sellingPricePerSqm * surface;
@@ -153,6 +160,7 @@ export class FinancialModelService {
       travauxTotal: Math.round(travauxTotal),
       honorairesTechniquesTotal: Math.round(honorairesTechniquesTotal),
       agencyFees: num(assumption.agencyFees),
+      referralFees: num(assumption.referralFees),
       bankMiscFees: num(assumption.bankMiscFees),
       lpb: {
         collecte: Math.round(collecte),
@@ -221,6 +229,7 @@ export class FinancialModelService {
         propertyTaxCost: assumption.propertyTaxCost !== null ? Number(assumption.propertyTaxCost) : null,
         surveyStudiesCost: assumption.surveyStudiesCost !== null ? Number(assumption.surveyStudiesCost) : null,
         agencyFees: assumption.agencyFees !== null ? Number(assumption.agencyFees) : null,
+        referralFees: assumption.referralFees !== null ? Number(assumption.referralFees) : null,
         bankMiscFees: assumption.bankMiscFees !== null ? Number(assumption.bankMiscFees) : null,
         lpbFeesPctHT: assumption.lpbFeesPctHT !== null ? Number(assumption.lpbFeesPctHT) : null,
         lpbTvaApplicable: assumption.lpbTvaApplicable,
@@ -235,6 +244,7 @@ export class FinancialModelService {
         bankGuaranteeFees: assumption.bankGuaranteeFees !== null ? Number(assumption.bankGuaranteeFees) : null,
       },
       travauxItems: travauxItems.map((item) => ({ id: item.id, label: item.label, amount: Number(item.amount), sortOrder: item.sortOrder })),
+      honorairesTechniquesItems: honorairesTechniquesItems.map((item) => ({ id: item.id, label: item.label, amount: Number(item.amount), sortOrder: item.sortOrder })),
       valuation: base,
       sensitivity,
       synthesis,
