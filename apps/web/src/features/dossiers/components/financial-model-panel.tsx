@@ -17,6 +17,25 @@ import { FinancialSynthesisCard } from './financial-synthesis-card';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
+/**
+ * Mêmes seuils que MARGIN_SCALE (apps/api/src/agents/agent-registry.ts) —
+ * la grille de couleur que les agents IA appliquent déjà en texte (🟢🟡🟠🔴).
+ * Garder ces deux définitions synchronisées si les seuils changent.
+ */
+function marginTier(marginPct: number): 'vert' | 'jaune' | 'orange' | 'rouge' {
+  if (marginPct > 30) return 'vert';
+  if (marginPct >= 20) return 'jaune';
+  if (marginPct >= 10) return 'orange';
+  return 'rouge';
+}
+
+const MARGIN_TIER_STYLES: Record<ReturnType<typeof marginTier>, { dot: string; text: string; border: string; bg: string }> = {
+  vert: { dot: '🟢', text: 'text-success', border: 'border-success/40', bg: 'bg-success/5' },
+  jaune: { dot: '🟡', text: 'text-yellow-600 dark:text-yellow-400', border: 'border-yellow-500/40', bg: 'bg-yellow-500/5' },
+  orange: { dot: '🟠', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-500/40', bg: 'bg-orange-500/5' },
+  rouge: { dot: '🔴', text: 'text-destructive', border: 'border-destructive/40', bg: 'bg-destructive/5' },
+};
+
 const schema = z.object({
   surfaceSqm: z.coerce.number().positive('Surface requise'),
   sellingPricePerSqm: z.coerce.number().positive('Prix requis'),
@@ -334,28 +353,39 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
                 Renseignez les hypothèses pour calculer la valorisation et sa sensibilité.
               </p>
             ) : (
+              <>
               <div className="flex flex-col gap-2">
-                {data.sensitivity.map((scenario) => (
-                  <div
-                    key={scenario.label}
-                    className={cn(
-                      'flex items-center justify-between rounded-md border p-3',
-                      scenario.label === 'Base' ? 'border-primary/40 bg-primary/5' : 'border-border',
-                    )}
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{scenario.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {scenario.sellingPricePerSqm} €/m² vente · {scenario.constructionCostPerSqm} €/m² coût
-                      </p>
+                {data.sensitivity.map((scenario) => {
+                  const tier = marginTier(scenario.marginPct);
+                  const style = MARGIN_TIER_STYLES[tier];
+                  return (
+                    <div
+                      key={scenario.label}
+                      className={cn(
+                        'flex items-center justify-between rounded-md border p-3',
+                        scenario.label === 'Base' ? `${style.border} ${style.bg}` : 'border-border',
+                      )}
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{scenario.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {scenario.sellingPricePerSqm} €/m² vente · {scenario.constructionCostPerSqm} €/m² coût
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold tabular-nums">{formatCurrency(scenario.margin)}</p>
+                        <p className={cn('text-xs font-medium tabular-nums', style.text)}>
+                          {style.dot} marge {scenario.marginPct}%
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold tabular-nums">{formatCurrency(scenario.margin)}</p>
-                      <p className="text-xs text-muted-foreground">marge {scenario.marginPct}%</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                🟢 &gt; 30 % · 🟡 20–30 % · 🟠 10–20 % · 🔴 &lt; 10 % — mêmes seuils que la grille appliquée par les agents IA.
+              </p>
+              </>
             )}
           </CardContent>
         </Card>
