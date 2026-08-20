@@ -27,7 +27,7 @@ type FormValues = FinancialModelFormValues;
 interface FinancialModelPanelProps {
   dealId: string;
   /** Values proposed by the BP extraction — applied once, then the parent should clear it via onPrefillApplied. */
-  prefill?: Partial<FormValues> | null;
+  prefill?: (Partial<FormValues> & { sourceDocumentId?: string }) | null;
   onPrefillApplied?: () => void;
 }
 
@@ -35,6 +35,7 @@ export function FinancialModelPanel({ dealId, prefill, onPrefillApplied }: Finan
   const { data, isLoading } = useFinancialModel(dealId);
   const save = useSaveFinancialModel(dealId);
   const [prefillNotice, setPrefillNotice] = useState(false);
+  const [sourceDocumentId, setSourceDocumentId] = useState<string | undefined>();
 
   const { register, handleSubmit, reset, getValues, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -48,15 +49,26 @@ export function FinancialModelPanel({ dealId, prefill, onPrefillApplied }: Finan
 
   useEffect(() => {
     if (prefill) {
-      reset({ ...getValues(), ...prefill });
+      const { sourceDocumentId: docId, ...values } = prefill;
+      reset({ ...getValues(), ...values });
       setPrefillNotice(true);
+      setSourceDocumentId(docId);
       onPrefillApplied?.();
     }
     // getValues/reset/onPrefillApplied are stable across renders here; only re-run when a new prefill arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill]);
 
-  const onSubmit = (values: FormValues) => save.mutate(values, { onSuccess: () => setPrefillNotice(false) });
+  const onSubmit = (values: FormValues) =>
+    save.mutate(
+      { ...values, sourceDocumentId },
+      {
+        onSuccess: () => {
+          setPrefillNotice(false);
+          setSourceDocumentId(undefined);
+        },
+      },
+    );
 
   if (isLoading) {
     return (
