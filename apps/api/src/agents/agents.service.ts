@@ -300,7 +300,7 @@ export class AgentsService {
         ? `Garanties : ${deal.guarantees.map((g) => `${g.type} — ${g.description} (${g.amount} €)`).join('; ')}`
         : 'Garanties : aucune enregistrée',
       deal.financialAssumption
-        ? `Modèle financier : ${deal.financialAssumption.surfaceSqm} m², coût construction ${deal.financialAssumption.constructionCostPerSqm} €/m², prix vente ${deal.financialAssumption.sellingPricePerSqm} €/m²`
+        ? `Modèle financier : ${deal.financialAssumption.surfaceSqm} m², prix de vente ${deal.financialAssumption.sellingPricePerSqm} €/m²${deal.financialAssumption.landPrice ? `, foncier ${deal.financialAssumption.landPrice} €` : ''} — détail complet du coût de revient (travaux, honoraires, financement) dans l'onglet Modèle financier du dossier`
         : null,
       deal.tags.length ? `Tags : ${deal.tags.map((t) => t.tag.name).join(', ')}` : null,
       checkpoints.length
