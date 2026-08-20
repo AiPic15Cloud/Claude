@@ -54,7 +54,10 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
   const update = useUpdateSaleLot(dealId);
   const remove = useDeleteSaleLot(dealId);
 
-  const totalSurface = lots.reduce((sum, l) => sum + l.surfaceSqm, 0);
+  // Arrondi à 2 décimales : sommer des Decimal convertis en Number (39 + 65 +
+  // 33.3 ...) peut produire une imprécision flottante affichée telle quelle
+  // (ex. 137.29999999999998 m²) sans cet arrondi.
+  const totalSurface = Math.round(lots.reduce((sum, l) => sum + l.surfaceSqm, 0) * 100) / 100;
   const totalPrice = lots.reduce((sum, l) => sum + l.salePrice, 0);
   const avgPricePerSqm = totalSurface > 0 ? Math.round(totalPrice / totalSurface) : null;
 
