@@ -61,7 +61,7 @@ export function CostLineItemsEditor({
         draft?.id === item.id ? (
           <div key={item.id} className="flex items-center gap-1.5">
             <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Poste" className="flex-1" />
-            <Input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
+            <Input type="number" step="any" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
             <Button size="icon" variant="ghost" onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
             </Button>
@@ -87,7 +87,7 @@ export function CostLineItemsEditor({
       {draft?.id === null && (
         <div className="flex items-center gap-1.5">
           <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder={placeholder} className="flex-1" autoFocus />
-          <Input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
+          <Input type="number" step="any" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
           <Button size="icon" variant="ghost" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
           </Button>

@@ -574,6 +574,15 @@ export interface CostLineItem {
   sortOrder: number;
 }
 
+export interface SaleLot {
+  id: string;
+  label: string;
+  surfaceSqm: number;
+  salePrice: number;
+  sold: boolean;
+  sortOrder: number;
+}
+
 export interface FinancialScenario {
   label: string;
   sellingPricePerSqm: number;
@@ -606,6 +615,15 @@ export interface FinancialSynthesis {
   bank: { enabled: false } | { enabled: true; name: string; loanTotal: number; interestOnDurationCible: number; totalFees: number };
   coutDeRevient: number;
   prixDeVente: number;
+  /** LOTS = somme de la grille de commercialisation, MOYENNE = sellingPricePerSqm × surfaceSqm (fallback tant qu'aucun lot n'est saisi). */
+  prixDeVenteSource: 'LOTS' | 'MOYENNE';
+  saleLotsSummary: {
+    count: number;
+    soldCount: number;
+    totalSurfaceSqm: number;
+    totalSalePrice: number;
+    avgPricePerSqm: number | null;
+  } | null;
   marge: number;
   margePct: number;
   expositionFinale: number;
@@ -623,6 +641,7 @@ export interface FinancialModel {
   assumption: FinancialAssumption | null;
   travauxItems: CostLineItem[] | null;
   honorairesTechniquesItems: CostLineItem[] | null;
+  saleLots: SaleLot[] | null;
   valuation: FinancialScenario | null;
   sensitivity: FinancialScenario[] | null;
   synthesis: FinancialSynthesis | null;
