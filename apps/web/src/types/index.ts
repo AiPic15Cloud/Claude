@@ -584,12 +584,22 @@ export interface CostLineItem {
   sortOrder: number;
 }
 
+export const SALE_LOT_STATUSES = ['OFFRE', 'PROMESSE_COMPROMIS', 'RESERVATION', 'VENDU'] as const;
+export type SaleLotStatus = (typeof SALE_LOT_STATUSES)[number];
+
+export const SALE_LOT_STATUS_LABELS: Record<SaleLotStatus, string> = {
+  OFFRE: 'Offre',
+  PROMESSE_COMPROMIS: 'Promesse/Compromis de vente',
+  RESERVATION: 'Réservation',
+  VENDU: 'Vendu',
+};
+
 export interface SaleLot {
   id: string;
   label: string;
   surfaceSqm: number;
   salePrice: number;
-  sold: boolean;
+  status: SaleLotStatus;
   sortOrder: number;
 }
 

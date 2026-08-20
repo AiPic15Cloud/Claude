@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { SaleLot } from '@/types';
+import type { SaleLot, SaleLotStatus } from '@/types';
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, dealId: string) {
   queryClient.invalidateQueries({ queryKey: ['financial-model', dealId] });
@@ -11,7 +11,7 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, dealId: s
 export function useCreateSaleLot(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { label: string; surfaceSqm: number; salePrice: number; sold?: boolean }) =>
+    mutationFn: (payload: { label: string; surfaceSqm: number; salePrice: number; status?: SaleLotStatus }) =>
       api.post<SaleLot>(`/deals/${dealId}/sale-lots`, payload),
     onSuccess: () => invalidateAll(queryClient, dealId),
   });
@@ -20,7 +20,7 @@ export function useCreateSaleLot(dealId: string) {
 export function useUpdateSaleLot(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ lotId, ...payload }: { lotId: string; label?: string; surfaceSqm?: number; salePrice?: number; sold?: boolean }) =>
+    mutationFn: ({ lotId, ...payload }: { lotId: string; label?: string; surfaceSqm?: number; salePrice?: number; status?: SaleLotStatus }) =>
       api.patch<SaleLot>(`/deals/${dealId}/sale-lots/${lotId}`, payload),
     onSuccess: () => invalidateAll(queryClient, dealId),
   });

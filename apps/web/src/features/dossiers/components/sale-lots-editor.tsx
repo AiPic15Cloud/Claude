@@ -2,17 +2,42 @@ import { useState } from 'react';
 import { Check, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateSaleLot, useUpdateSaleLot, useDeleteSaleLot } from '../hooks/use-sale-lots';
 import { formatCurrency } from '@/lib/format';
-import type { SaleLot } from '@/types';
+import { cn } from '@/lib/utils';
+import { SALE_LOT_STATUSES, SALE_LOT_STATUS_LABELS, type SaleLot, type SaleLotStatus } from '@/types';
 
 interface DraftLot {
   id: string | null;
   label: string;
   surfaceSqm: string;
   salePrice: string;
-  sold: boolean;
+}
+
+const STATUS_DOT: Record<SaleLotStatus, string> = {
+  OFFRE: 'bg-muted-foreground',
+  PROMESSE_COMPROMIS: 'bg-warning',
+  RESERVATION: 'bg-chart-accent',
+  VENDU: 'bg-success',
+};
+
+function StatusSelect({ value, onChange, disabled }: { value: SaleLotStatus; onChange: (status: SaleLotStatus) => void; disabled?: boolean }) {
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v as SaleLotStatus)} disabled={disabled}>
+      <SelectTrigger className="h-7 w-auto gap-1.5 border-none bg-transparent px-2 text-xs shadow-none">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_DOT[value])} />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {SALE_LOT_STATUSES.map((status) => (
+          <SelectItem key={status} value={status}>
+            {SALE_LOT_STATUS_LABELS[status]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 /**
@@ -32,9 +57,8 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
   const totalPrice = lots.reduce((sum, l) => sum + l.salePrice, 0);
   const avgPricePerSqm = totalSurface > 0 ? Math.round(totalPrice / totalSurface) : null;
 
-  const startEdit = (lot: SaleLot) =>
-    setDraft({ id: lot.id, label: lot.label, surfaceSqm: String(lot.surfaceSqm), salePrice: String(lot.salePrice), sold: lot.sold });
-  const startNew = () => setDraft({ id: null, label: '', surfaceSqm: '', salePrice: '', sold: false });
+  const startEdit = (lot: SaleLot) => setDraft({ id: lot.id, label: lot.label, surfaceSqm: String(lot.surfaceSqm), salePrice: String(lot.salePrice) });
+  const startNew = () => setDraft({ id: null, label: '', surfaceSqm: '', salePrice: '' });
   const cancel = () => setDraft(null);
 
   const save = () => {
@@ -43,13 +67,13 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
     const salePrice = Number(draft.salePrice);
     if (!draft.label.trim() || !(surfaceSqm > 0) || !(salePrice > 0)) return;
     if (draft.id) {
-      update.mutate({ lotId: draft.id, label: draft.label, surfaceSqm, salePrice, sold: draft.sold }, { onSuccess: () => setDraft(null) });
+      update.mutate({ lotId: draft.id, label: draft.label, surfaceSqm, salePrice }, { onSuccess: () => setDraft(null) });
     } else {
-      create.mutate({ label: draft.label, surfaceSqm, salePrice, sold: draft.sold }, { onSuccess: () => setDraft(null) });
+      create.mutate({ label: draft.label, surfaceSqm, salePrice }, { onSuccess: () => setDraft(null) });
     }
   };
 
-  const toggleSold = (lot: SaleLot) => update.mutate({ lotId: lot.id, sold: !lot.sold });
+  const changeStatus = (lot: SaleLot, status: SaleLotStatus) => update.mutate({ lotId: lot.id, status });
 
   const saving = create.isPending || update.isPending;
 
@@ -85,11 +109,7 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
         ) : (
           <div key={lot.id} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5">
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => toggleSold(lot)} disabled={update.isPending}>
-                <Badge variant={lot.sold ? 'success' : 'outline'} className="cursor-pointer">
-                  {lot.sold ? 'Vendu' : 'En commercialisation'}
-                </Badge>
-              </button>
+              <StatusSelect value={lot.status} onChange={(status) => changeStatus(lot, status)} disabled={update.isPending} />
               <span className="text-sm">{lot.label}</span>
               <span className="text-xs text-muted-foreground">{lot.surfaceSqm} m²</span>
             </div>
