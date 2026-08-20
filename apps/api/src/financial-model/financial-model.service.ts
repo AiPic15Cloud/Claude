@@ -47,6 +47,19 @@ interface Scenario {
 
 type AssumptionRow = Prisma.FinancialAssumptionGetPayload<Record<string, never>>;
 
+interface BpSnapshot {
+  prixDeVente: number;
+  foncier: number;
+  travaux: number;
+  honorairesTechniques: number;
+  autresFrais: number; // hors financement (agence + apport d'affaires + bancaire divers)
+  financementLpb: number;
+  coutDeRevient: number;
+  marge: number;
+  margePct: number;
+  sensitivity: Scenario[];
+}
+
 @Injectable()
 export class FinancialModelService {
   constructor(
@@ -173,6 +186,48 @@ export class FinancialModelService {
 
   private static num(v: Prisma.Decimal | number | null | undefined): number {
     return v === null || v === undefined ? 0 : Number(v);
+  }
+
+  /**
+   * Fige le BP initial — capture un instantané des totaux calculés maintenant
+   * (Foncier, Travaux, Honoraires, financement LPB, marge, sensibilité) et
+   * démarre à partir de cet instant le suivi des écarts dans le BP actualisé.
+   * Remplace la reconstruction depuis l'historique des valeurs (FieldChange) :
+   * celle-ci prenait à tort la première sauvegarde — souvent partielle, avec
+   * des champs encore vides — comme point de départ, ce qui faisait
+   * apparaître un écart fictif dès qu'un champ était rempli plus tard. Ici,
+   * l'utilisateur choisit explicitement le moment où sa saisie est terminée.
+   */
+  async lockBaseline(organizationId: string, dealId: string, userId: string) {
+    const deal = await this.assertDeal(organizationId, dealId);
+    const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
+    if (!assumption) throw new NotFoundException('Aucun modèle financier à figer pour ce dossier');
+
+    const response = await this.buildResponse(organizationId, dealId, deal, assumption);
+    const snapshot: BpSnapshot = {
+      prixDeVente: response.synthesis.prixDeVente,
+      foncier: response.synthesis.foncierTotal,
+      travaux: response.synthesis.travauxTotal,
+      honorairesTechniques: response.synthesis.honorairesTechniquesTotal,
+      autresFrais: response.synthesis.agencyFees + response.synthesis.referralFees + response.synthesis.bankMiscFees,
+      financementLpb: response.synthesis.lpb.totalFees,
+      coutDeRevient: response.synthesis.coutDeRevient,
+      marge: response.synthesis.marge,
+      margePct: response.synthesis.margePct,
+      sensitivity: response.sensitivity,
+    };
+
+    await this.prisma.financialAssumption.update({
+      where: { dealId },
+      data: {
+        baselineSnapshot: snapshot as unknown as Prisma.InputJsonValue,
+        baselineLockedAt: new Date(),
+        baselineLockedById: userId,
+      },
+    });
+    await this.activities.log(dealId, userId, 'FINANCIAL_MODEL_UPDATED', 'BP initial figé — le suivi des écarts démarre à partir de maintenant');
+
+    return this.get(organizationId, dealId);
   }
 
   /**
@@ -408,135 +463,65 @@ export class FinancialModelService {
   }
 
   /**
-   * BP initial vs actualisé — reconstruit à partir de l'historique des valeurs
-   * (FieldChange) plutôt que d'un snapshot dédié : pour chaque champ, la
-   * première valeur jamais enregistrée sert de "BP initial", la valeur
-   * actuelle de "BP actualisé". Un champ jamais modifié depuis la création du
-   * modèle financier n'a pas de FieldChange — dans ce cas, initial = actuel
-   * (aucune dérive n'est inventée). Le financement (LPB/bancaire) n'est pas
-   * tracé champ par champ pour l'instant : il est tenu constant à sa valeur
-   * actuelle des deux côtés plutôt que d'être deviné.
+   * BP initial vs actualisé — compare l'instantané figé via lockBaseline()
+   * à l'état recalculé maintenant. Tant que rien n'a été
+   * figé (baselineLockedAt null), aucune comparaison n'est retournée : la
+   * saisie initiale peut s'étaler sur plusieurs sauvegardes sans qu'un champ
+   * encore vide dans une sauvegarde intermédiaire soit pris à tort pour un
+   * "écart" une fois rempli.
    */
   async getBpComparison(organizationId: string, dealId: string) {
-    await this.assertDeal(organizationId, dealId);
-    const deal = await this.prisma.deal.findUniqueOrThrow({ where: { id: dealId } });
+    const deal = await this.assertDeal(organizationId, dealId);
     const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
-    if (!assumption) return { hasData: false, hasAnyHistory: false, earliestChangeAt: null, lines: [], disclaimer: null };
+    if (!assumption) return { hasData: false, locked: false, lockedAt: null, lines: [], sensitivity: null, disclaimer: null };
 
-    const num = FinancialModelService.num;
-
-    const [travauxItems, honorairesTechniquesItems, saleLots, hasActiveHypotheque, changes] = await Promise.all([
-      this.prisma.costLineItem.findMany({ where: { dealId, category: 'TRAVAUX' } }),
-      this.prisma.costLineItem.findMany({ where: { dealId, category: 'HONORAIRES_TECHNIQUES' } }),
-      this.prisma.saleLot.findMany({ where: { dealId } }),
-      this.prisma.guarantee.findFirst({ where: { dealId, type: 'HYPOTHEQUE', status: 'ACTIVE' } }).then(Boolean),
-      this.prisma.fieldChange.findMany({
-        where: { dealId, entityType: { in: ['FinancialAssumption', 'CostLineItem', 'SaleLot'] } },
-        orderBy: { changedAt: 'asc' },
-        select: { entityType: true, fieldKey: true, oldValue: true, newValue: true, changedAt: true },
-      }),
-    ]);
-
-    const earliestByKey = new Map<string, { oldValue: string | null; newValue: string | null }>();
-    for (const c of changes) {
-      const compositeKey = `${c.entityType}:${c.fieldKey}`;
-      if (!earliestByKey.has(compositeKey)) earliestByKey.set(compositeKey, c);
-    }
-    const hasAnyHistory = changes.length > 0;
-    const earliestChangeAt = changes[0]?.changedAt ?? null;
-
-    const initialOf = (entityType: string, fieldKey: string, current: number): number => {
-      const row = earliestByKey.get(`${entityType}:${fieldKey}`);
-      if (!row) return current; // pas d'historique => aucune dérive connue, pas de valeur inventée
-      return row.oldValue !== null ? Number(row.oldValue) : Number(row.newValue);
-    };
-
-    // Foncier
-    const landPrice_i = initialOf('FinancialAssumption', 'landPrice', num(assumption.landPrice));
-    const notaryFees_i = initialOf('FinancialAssumption', 'notaryFees', num(assumption.notaryFees));
-    const foncier_i = landPrice_i + notaryFees_i;
-    const foncier_c = num(assumption.landPrice) + num(assumption.notaryFees);
-
-    // Travaux — uniquement les postes qui existent encore aujourd'hui (un
-    // poste supprimé depuis n'apparaît dans aucune des deux colonnes, plutôt
-    // que de deviner à quel total il appartenait).
-    const travaux_i = travauxItems.reduce((sum, item) => sum + initialOf('CostLineItem', item.id, Number(item.amount)), 0);
-    const travaux_c = travauxItems.reduce((sum, item) => sum + Number(item.amount), 0);
-
-    // Honoraires techniques
-    const diag_i = initialOf('FinancialAssumption', 'diagnosticsCost', num(assumption.diagnosticsCost));
-    const ins_i = initialOf('FinancialAssumption', 'insuranceCost', num(assumption.insuranceCost));
-    const tax_i = initialOf('FinancialAssumption', 'propertyTaxCost', num(assumption.propertyTaxCost));
-    const survey_i = initialOf('FinancialAssumption', 'surveyStudiesCost', num(assumption.surveyStudiesCost));
-    const honorairesItems_i = honorairesTechniquesItems.reduce((sum, item) => sum + initialOf('CostLineItem', item.id, Number(item.amount)), 0);
-    const honorairesItems_c = honorairesTechniquesItems.reduce((sum, item) => sum + Number(item.amount), 0);
-    const honoraires_i = diag_i + ins_i + tax_i + survey_i + honorairesItems_i;
-    const honoraires_c =
-      num(assumption.diagnosticsCost) + num(assumption.insuranceCost) + num(assumption.propertyTaxCost) + num(assumption.surveyStudiesCost) + honorairesItems_c;
-
-    // Autres frais — scalaires uniquement (hors LPB/banque, voir disclaimer)
-    const agency_i = initialOf('FinancialAssumption', 'agencyFees', num(assumption.agencyFees));
-    const referral_i = initialOf('FinancialAssumption', 'referralFees', num(assumption.referralFees));
-    const miscBank_i = initialOf('FinancialAssumption', 'bankMiscFees', num(assumption.bankMiscFees));
-    const autresFrais_i = agency_i + referral_i + miscBank_i;
-    const autresFrais_c = num(assumption.agencyFees) + num(assumption.referralFees) + num(assumption.bankMiscFees);
-
-    // Prix de vente — grille de lots si utilisée, sinon prix moyen × surface
-    let prixDeVente_i: number;
-    let prixDeVente_c: number;
-    if (saleLots.length > 0) {
-      prixDeVente_i = saleLots.reduce((sum, lot) => sum + initialOf('SaleLot', `${lot.id}:salePrice`, Number(lot.salePrice)), 0);
-      prixDeVente_c = saleLots.reduce((sum, lot) => sum + Number(lot.salePrice), 0);
-    } else {
-      const sellingPricePerSqm_i = initialOf('FinancialAssumption', 'sellingPricePerSqm', num(assumption.sellingPricePerSqm));
-      const surfaceSqm_i = initialOf('FinancialAssumption', 'surfaceSqm', num(assumption.surfaceSqm));
-      prixDeVente_i = sellingPricePerSqm_i * surfaceSqm_i;
-      prixDeVente_c = num(assumption.sellingPricePerSqm) * num(assumption.surfaceSqm);
+    if (!assumption.baselineLockedAt || !assumption.baselineSnapshot) {
+      return {
+        hasData: true,
+        locked: false,
+        lockedAt: null,
+        lines: [],
+        sensitivity: null,
+        disclaimer:
+          "Le BP initial n'est pas encore figé. Terminez la saisie de vos hypothèses (Foncier, Travaux, Honoraires, grille de lots…) puis cliquez sur « Figer le BP initial » : à partir de ce moment, tout changement apparaîtra comme un écart dans le BP actualisé.",
+      };
     }
 
-    // Financement (LPB + banque) tenu constant à sa valeur actuelle des deux
-    // côtés — Deal.amountTarget/interestRate et les champs bancaires ne sont
-    // pas tracés champ par champ pour l'instant, donc aucune dérive n'y est
-    // attribuée dans cette comparaison.
-    const { lpbTotalFees } = this.computeFinancingFees(assumption, deal, hasActiveHypotheque);
+    const snap = assumption.baselineSnapshot as unknown as BpSnapshot;
+    const current = await this.buildResponse(organizationId, dealId, deal, assumption);
+    const autresFraisCurrent = current.synthesis.agencyFees + current.synthesis.referralFees + current.synthesis.bankMiscFees;
 
-    const coutDeRevient_i = foncier_i + travaux_i + honoraires_i + autresFrais_i + lpbTotalFees;
-    const coutDeRevient_c = foncier_c + travaux_c + honoraires_c + autresFrais_c + lpbTotalFees;
-    const marge_i = prixDeVente_i - coutDeRevient_i;
-    const marge_c = prixDeVente_c - coutDeRevient_c;
-    const margePct_i = prixDeVente_i > 0 ? Math.round((marge_i / prixDeVente_i) * 1000) / 10 : 0;
-    const margePct_c = prixDeVente_c > 0 ? Math.round((marge_c / prixDeVente_c) * 1000) / 10 : 0;
-
-    const line = (key: string, label: string, initial: number, current: number) => {
-      const deltaAbs = current - initial;
+    const line = (key: string, label: string, initial: number, curr: number) => {
+      const deltaAbs = curr - initial;
       const deltaPct = initial !== 0 ? Math.round((deltaAbs / Math.abs(initial)) * 1000) / 10 : null;
-      return { key, label, initial: Math.round(initial), current: Math.round(current), deltaAbs: Math.round(deltaAbs), deltaPct };
+      return { key, label, initial: Math.round(initial), current: Math.round(curr), deltaAbs: Math.round(deltaAbs), deltaPct };
     };
 
     return {
       hasData: true,
-      hasAnyHistory,
-      earliestChangeAt,
+      locked: true,
+      lockedAt: assumption.baselineLockedAt,
       lines: [
-        line('prixDeVente', 'Prix de vente', prixDeVente_i, prixDeVente_c),
-        line('foncier', 'Foncier', foncier_i, foncier_c),
-        line('travaux', 'Travaux', travaux_i, travaux_c),
-        line('honorairesTechniques', 'Honoraires techniques', honoraires_i, honoraires_c),
-        line('autresFrais', "Autres frais (hors financement)", autresFrais_i, autresFrais_c),
-        line('coutDeRevient', 'Coût de revient', coutDeRevient_i, coutDeRevient_c),
+        line('prixDeVente', 'Prix de vente', snap.prixDeVente, current.synthesis.prixDeVente),
+        line('foncier', 'Foncier', snap.foncier, current.synthesis.foncierTotal),
+        line('travaux', 'Travaux', snap.travaux, current.synthesis.travauxTotal),
+        line('honorairesTechniques', 'Honoraires techniques', snap.honorairesTechniques, current.synthesis.honorairesTechniquesTotal),
+        line('autresFrais', 'Autres frais (hors financement)', snap.autresFrais, autresFraisCurrent),
+        line('financementLpb', 'Frais de financement LPB', snap.financementLpb, current.synthesis.lpb.totalFees),
+        line('coutDeRevient', 'Coût de revient', snap.coutDeRevient, current.synthesis.coutDeRevient),
         {
           key: 'marge',
           label: 'Marge avant impôts',
-          initial: Math.round(marge_i),
-          current: Math.round(marge_c),
-          deltaAbs: Math.round(marge_c - marge_i),
+          initial: Math.round(snap.marge),
+          current: Math.round(current.synthesis.marge),
+          deltaAbs: Math.round(current.synthesis.marge - snap.marge),
           deltaPct: null,
-          initialPct: margePct_i,
-          currentPct: margePct_c,
+          initialPct: snap.margePct,
+          currentPct: current.synthesis.margePct,
         },
       ],
-      disclaimer:
-        "Le \"BP initial\" est reconstruit à partir de la première valeur jamais enregistrée pour chaque champ (historique des valeurs). Un champ jamais modifié depuis la création du modèle financier affiche la même valeur des deux côtés — aucune dérive n'est inventée. Le financement (collecte, taux, frais LPB/bancaires) n'est pas encore tracé champ par champ : il reste à sa valeur actuelle dans les deux colonnes.",
+      sensitivity: { initial: snap.sensitivity, current: current.sensitivity },
+      disclaimer: `BP initial figé le ${new Date(assumption.baselineLockedAt).toLocaleDateString('fr-FR')}. Tout écart provient d'une modification réelle survenue après cette date — cliquez à nouveau sur « Figer le BP initial » pour redémarrer le suivi à partir d'aujourd'hui.`,
     };
   }
 }

@@ -58,6 +58,17 @@ export function useSaveFinancialModel(dealId: string) {
   });
 }
 
+export function useLockBaseline(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<FinancialModel>(`/deals/${dealId}/financial-model/lock-baseline`),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['financial-model', dealId], data);
+      queryClient.invalidateQueries({ queryKey: ['financial-model', dealId, 'bp-comparison'] });
+    },
+  });
+}
+
 export function useDeleteFinancialModel(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({

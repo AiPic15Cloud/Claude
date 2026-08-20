@@ -584,10 +584,11 @@ export interface CostLineItem {
   sortOrder: number;
 }
 
-export const SALE_LOT_STATUSES = ['OFFRE', 'PROMESSE_COMPROMIS', 'RESERVATION', 'VENDU'] as const;
+export const SALE_LOT_STATUSES = ['EN_VENTE', 'OFFRE', 'PROMESSE_COMPROMIS', 'RESERVATION', 'VENDU'] as const;
 export type SaleLotStatus = (typeof SALE_LOT_STATUSES)[number];
 
 export const SALE_LOT_STATUS_LABELS: Record<SaleLotStatus, string> = {
+  EN_VENTE: 'En vente',
   OFFRE: 'Offre',
   PROMESSE_COMPROMIS: 'Promesse/Compromis de vente',
   RESERVATION: 'Réservation',
@@ -672,9 +673,11 @@ export interface BpComparisonLine {
 
 export interface BpComparison {
   hasData: boolean;
-  hasAnyHistory: boolean;
-  earliestChangeAt: string | null;
+  /** true une fois le BP initial figé via "Figer le BP initial" — sans quoi lines/sensitivity restent vides. */
+  locked: boolean;
+  lockedAt: string | null;
   lines: BpComparisonLine[];
+  sensitivity: { initial: FinancialScenario[]; current: FinancialScenario[] } | null;
   disclaimer: string | null;
 }
 

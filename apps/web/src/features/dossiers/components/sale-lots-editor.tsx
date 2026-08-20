@@ -16,7 +16,8 @@ interface DraftLot {
 }
 
 const STATUS_DOT: Record<SaleLotStatus, string> = {
-  OFFRE: 'bg-muted-foreground',
+  EN_VENTE: 'bg-muted-foreground',
+  OFFRE: 'bg-chart-3',
   PROMESSE_COMPROMIS: 'bg-warning',
   RESERVATION: 'bg-chart-accent',
   VENDU: 'bg-success',

@@ -4,7 +4,7 @@ import { IsIn, IsInt, IsNumber, IsOptional, IsPositive, IsString, MinLength } fr
 // Statut de commercialisation du lot — string libre (pas un enum Prisma),
 // même convention que CostLineItem.category : validé ici, pas de migration
 // nécessaire si un statut s'ajoute plus tard.
-export const SALE_LOT_STATUSES = ['OFFRE', 'PROMESSE_COMPROMIS', 'RESERVATION', 'VENDU'] as const;
+export const SALE_LOT_STATUSES = ['EN_VENTE', 'OFFRE', 'PROMESSE_COMPROMIS', 'RESERVATION', 'VENDU'] as const;
 
 export class CreateSaleLotDto {
   @ApiProperty()

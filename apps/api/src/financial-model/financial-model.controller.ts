@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -20,6 +20,11 @@ export class FinancialModelController {
   @Get('bp-comparison')
   getBpComparison(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string) {
     return this.financialModelService.getBpComparison(user.organizationId, dealId);
+  }
+
+  @Post('lock-baseline')
+  lockBaseline(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string) {
+    return this.financialModelService.lockBaseline(user.organizationId, dealId, user.id);
   }
 
   @Put()
