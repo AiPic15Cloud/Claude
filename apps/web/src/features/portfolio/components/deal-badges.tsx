@@ -31,7 +31,13 @@ export function TypeBadge({ type }: { type: DealType }) {
   return <Badge variant="outline">{DEAL_TYPE_LABELS[type]}</Badge>;
 }
 
-export function RepaidBadge({ repaid }: { repaid: boolean }) {
+export function RepaidBadge({ repaid, stage }: { repaid: boolean; stage?: DealStage }) {
+  // Une étape terminale (REMBOURSE/DEFAUT) est déjà portée par StageBadge —
+  // afficher aussi "En cours" à côté serait trompeur (dossiers importés
+  // avant que DealsService.update() ne synchronise stage et repaid), et
+  // répéter "Remboursé" deux fois serait redondant. On laisse StageBadge
+  // seul porter l'information dans ce cas.
+  if (stage === 'REMBOURSE' || stage === 'DEFAUT') return null;
   return <Badge variant={repaid ? 'success' : 'outline'}>{repaid ? 'Remboursé' : 'En cours'}</Badge>;
 }
 

@@ -119,7 +119,7 @@ export function DossierPage() {
               <span className="shrink-0 whitespace-nowrap">{deal.reference}</span>
               <TypeBadge type={deal.type} />
               <StageBadge stage={deal.stage} />
-              <RepaidBadge repaid={deal.repaid} />
+              <RepaidBadge repaid={deal.repaid} stage={deal.stage} />
               <RecoveryStatusBadge status={deal.recoveryStatus} />
               <PorteurMonitoringBadge status={deal.porteurMonitoringStatus} />
             </div>

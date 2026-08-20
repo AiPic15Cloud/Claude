@@ -64,7 +64,7 @@ export class CompanyMonitoringService {
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async checkAll() {
     const deals = await this.prisma.deal.findMany({
-      where: { status: 'ACTIVE', repaid: false, porteurSiren: { not: null } },
+      where: { status: 'ACTIVE', repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] }, porteurSiren: { not: null } },
       select: {
         id: true,
         organizationId: true,

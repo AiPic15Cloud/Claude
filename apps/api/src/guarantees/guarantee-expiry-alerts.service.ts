@@ -34,7 +34,7 @@ export class GuaranteeExpiryAlertsService implements OnApplicationBootstrap {
       where: {
         status: 'ACTIVE',
         endDate: { not: null },
-        deal: { repaid: false, stage: { not: 'DEFAUT' } },
+        deal: { repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] } },
       },
       select: {
         id: true,
