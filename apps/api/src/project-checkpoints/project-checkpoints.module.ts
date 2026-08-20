@@ -4,9 +4,10 @@ import { ProjectCheckpointsController } from './project-checkpoints.controller';
 import { ActivitiesModule } from '../activities/activities.module';
 import { FinancialModelModule } from '../financial-model/financial-model.module';
 import { RiskEngineModule } from '../risk-engine/risk-engine.module';
+import { FieldChangeModule } from '../field-changes/field-change.module';
 
 @Module({
-  imports: [ActivitiesModule, FinancialModelModule, RiskEngineModule],
+  imports: [ActivitiesModule, FinancialModelModule, RiskEngineModule, FieldChangeModule],
   providers: [ProjectCheckpointsService],
   controllers: [ProjectCheckpointsController],
 })
