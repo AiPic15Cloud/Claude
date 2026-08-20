@@ -16,6 +16,7 @@ export interface CreateCheckpointPayload {
   commercialisationLancee?: boolean;
   pourcentageVendu?: number;
   prixVenteInitialPrevu?: number;
+  prixVenteActualise?: number;
   prixVenteReelADate?: number;
   atterrissagePrevu?: string;
   notes?: string;

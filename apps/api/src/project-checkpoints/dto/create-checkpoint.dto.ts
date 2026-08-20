@@ -29,6 +29,10 @@ export class CreateCheckpointDto {
 
   @IsOptional()
   @IsNumber()
+  prixVenteActualise?: number;
+
+  @IsOptional()
+  @IsNumber()
   prixVenteReelADate?: number;
 
   @IsOptional()

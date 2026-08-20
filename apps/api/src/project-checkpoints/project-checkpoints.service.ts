@@ -13,6 +13,7 @@ const CHECKPOINT_FIELD_LABELS: Record<string, string> = {
   commercialisationLancee: 'Commercialisation lancée',
   pourcentageVendu: 'Lots vendus (%)',
   prixVenteInitialPrevu: 'Prix de vente prévu',
+  prixVenteActualise: 'Prix de vente actualisé (objectif revu)',
   prixVenteReelADate: 'Prix de vente réel à date',
   atterrissagePrevu: 'Atterrissage prévu',
   notes: 'Notes',
@@ -65,6 +66,7 @@ export class ProjectCheckpointsService {
         commercialisationLancee: dto.commercialisationLancee ?? false,
         pourcentageVendu: dto.pourcentageVendu,
         prixVenteInitialPrevu,
+        prixVenteActualise: dto.prixVenteActualise,
         prixVenteReelADate: dto.prixVenteReelADate,
         atterrissagePrevu: dto.atterrissagePrevu,
         notes: dto.notes,
@@ -121,12 +123,14 @@ export class ProjectCheckpointsService {
       travauxBudgetInitial: unknown;
       travauxDepensesADate: unknown;
       prixVenteInitialPrevu: unknown;
+      prixVenteActualise: unknown;
       prixVenteReelADate: unknown;
     },
   >(checkpoint: T) {
     const budget = checkpoint.travauxBudgetInitial !== null ? Number(checkpoint.travauxBudgetInitial) : null;
     const depenses = checkpoint.travauxDepensesADate !== null ? Number(checkpoint.travauxDepensesADate) : null;
     const prixPrevu = checkpoint.prixVenteInitialPrevu !== null ? Number(checkpoint.prixVenteInitialPrevu) : null;
+    const prixActualise = checkpoint.prixVenteActualise !== null ? Number(checkpoint.prixVenteActualise) : null;
     const prixReel = checkpoint.prixVenteReelADate !== null ? Number(checkpoint.prixVenteReelADate) : null;
 
     return {
@@ -134,8 +138,12 @@ export class ProjectCheckpointsService {
       travauxBudgetInitial: budget,
       travauxDepensesADate: depenses,
       prixVenteInitialPrevu: prixPrevu,
+      prixVenteActualise: prixActualise,
       prixVenteReelADate: prixReel,
       deltaTravaux: budget !== null && depenses !== null ? Math.round((depenses - budget) * 100) / 100 : null,
+      // Objectif revu par l'opérateur vs plan initial — distinct de deltaPrix
+      // (ventes réellement réalisées vs plan initial) ci-dessous.
+      deltaPrixActualise: prixPrevu !== null && prixActualise !== null ? Math.round((prixActualise - prixPrevu) * 100) / 100 : null,
       deltaPrix: prixPrevu !== null && prixReel !== null ? Math.round((prixReel - prixPrevu) * 100) / 100 : null,
       margeADate: prixReel !== null && depenses !== null ? Math.round((prixReel - depenses) * 100) / 100 : null,
     };

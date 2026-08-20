@@ -31,6 +31,7 @@ const schema = z.object({
   commercialisationLancee: z.boolean().optional(),
   pourcentageVendu: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   prixVenteInitialPrevu: z.preprocess(blankToUndefined, z.coerce.number().min(0).optional()),
+  prixVenteActualise: z.preprocess(blankToUndefined, z.coerce.number().min(0).optional()),
   prixVenteReelADate: z.preprocess(blankToUndefined, z.coerce.number().min(0).optional()),
   atterrissagePrevu: z.string().optional(),
   notes: z.string().optional(),
@@ -86,6 +87,7 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
       commercialisationLancee: checkpoint.commercialisationLancee,
       pourcentageVendu: checkpoint.pourcentageVendu ?? undefined,
       prixVenteInitialPrevu: checkpoint.prixVenteInitialPrevu ?? undefined,
+      prixVenteActualise: checkpoint.prixVenteActualise ?? undefined,
       prixVenteReelADate: checkpoint.prixVenteReelADate ?? undefined,
       atterrissagePrevu: checkpoint.atterrissagePrevu ?? undefined,
       notes: checkpoint.notes ?? undefined,
@@ -162,6 +164,15 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
                     type="number"
                     placeholder="Pré-rempli depuis le modèle financier si vide"
                     {...register('prixVenteInitialPrevu')}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="prixVenteActualise">Prix de vente actualisé (€)</Label>
+                  <Input
+                    id="prixVenteActualise"
+                    type="number"
+                    placeholder="Objectif revu par le porteur, si modifié"
+                    {...register('prixVenteActualise')}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -242,13 +253,17 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
                   </Button>
                 </div>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-3 text-xs">
+              <div className="mt-2 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
                 <div>
                   <p className="text-muted-foreground">Delta travaux</p>
                   <DeltaBadge value={c.deltaTravaux} invert={false} />
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Delta prix de vente</p>
+                  <p className="text-muted-foreground">Delta prix actualisé</p>
+                  <DeltaBadge value={c.deltaPrixActualise} invert />
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Delta prix réel</p>
                   <DeltaBadge value={c.deltaPrix} invert />
                 </div>
                 <div>
