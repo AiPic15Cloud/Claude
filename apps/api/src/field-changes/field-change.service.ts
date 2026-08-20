@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { DataValidationService } from './data-validation.service';
 
 export interface FieldChangeInput {
   key: string;
@@ -16,7 +17,10 @@ function stringify(value: unknown): string | null {
 
 @Injectable()
 export class FieldChangeService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dataValidation: DataValidationService,
+  ) {}
 
   /**
    * Compare oldValue/newValue (stringified) per field and only persists the
@@ -49,6 +53,10 @@ export class FieldChangeService {
 
     if (rows.length === 0) return;
     await this.prisma.fieldChange.createMany({ data: rows });
+    // Un changement réel invalide toute attestation "relu et confirmé"
+    // précédente pour cette entité — "validé" ne doit jamais survivre à une
+    // modification du contenu qu'il atteste.
+    await this.dataValidation.invalidate(dealId, entityType);
   }
 
   listForDeal(organizationId: string, dealId: string) {

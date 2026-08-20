@@ -8,6 +8,7 @@ import { computeCheckpointHealth } from '../deals/checkpoint-health.util';
 import { computeGuaranteeExpiry } from '../guarantees/guarantee-expiry.util';
 import { computeNewsletterStatus } from '../deals/newsletter.util';
 import { riskTier, tierRank, type RiskTier } from './risk-tier.util';
+import { FACTOR_DEFINITIONS, METHODOLOGY_DISCLAIMER, factorWeight } from './factor-definitions';
 
 export interface RiskFactor {
   key: string;
@@ -126,6 +127,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
         lng: true,
         riskScore: true,
         riskScorePrevious: true,
+        riskScoreAtClosure: true,
         checkpoints: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -148,9 +150,20 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     if (closed) {
       if (persist) {
+        // Capturé une seule fois, au tout premier passage en dossier clos —
+        // c'est le seul point où le "dernier score connu avant clôture" est
+        // encore disponible (previousScore) avant d'être effacé ci-dessous.
+        // Alimente la validation rétrospective du modèle (getModelValidation)
+        // avec des cas réels plutôt qu'un historique fabriqué.
+        const captureAtClosure = deal.riskScoreAtClosure === null && previousScore !== null;
         await this.prisma.deal.update({
           where: { id: dealId },
-          data: { riskScore: null, riskScorePrevious: null, riskScoreUpdatedAt: now },
+          data: {
+            riskScore: null,
+            riskScorePrevious: null,
+            riskScoreUpdatedAt: now,
+            ...(captureAtClosure ? { riskScoreAtClosure: previousScore, riskScoreAtClosureDate: now } : {}),
+          },
         });
       }
       return {
@@ -208,6 +221,68 @@ export class RiskEngineService implements OnApplicationBootstrap {
     };
   }
 
+  /** Méthodologie exposée en clair (poids + justification par facteur) — lue depuis la même source que le calcul réel, jamais dupliquée. */
+  getMethodology() {
+    return {
+      factors: FACTOR_DEFINITIONS,
+      calibrationDisclaimer: METHODOLOGY_DISCLAIMER,
+      disclaimer: DISCLAIMER,
+      tiers: { SAFE: '< 40', WATCH: '40 à 69', HIGH: '≥ 70' },
+    };
+  }
+
+  /**
+   * Validation rétrospective : rapproche le dernier score connu de chaque
+   * dossier clos (riskScoreAtClosure, capturé une seule fois dans
+   * computeDealRisk() juste avant la remise à zéro) de son résultat réel
+   * (REMBOURSE vs DEFAUT). Construite à partir de données 100% réelles —
+   * jamais un historique simulé — donc honnête sur sa propre faiblesse
+   * statistique tant que l'effectif de dossiers clos reste faible.
+   */
+  async getModelValidation(organizationId: string) {
+    const deals = await this.prisma.deal.findMany({
+      where: { organizationId, riskScoreAtClosure: { not: null } },
+      select: { id: true, reference: true, name: true, stage: true, riskScoreAtClosure: true, riskScoreAtClosureDate: true },
+    });
+
+    const outcomeOf = (stage: string): 'REMBOURSE' | 'DEFAUT' => (stage === 'DEFAUT' ? 'DEFAUT' : 'REMBOURSE');
+
+    const summarize = (scores: number[]) => {
+      if (scores.length === 0) return { count: 0, averageScore: null as number | null, medianScore: null as number | null, tierDistribution: { SAFE: 0, WATCH: 0, HIGH: 0 } };
+      const sorted = [...scores].sort((a, b) => a - b);
+      const tierDistribution = { SAFE: 0, WATCH: 0, HIGH: 0 };
+      for (const s of scores) tierDistribution[riskTier(s)] += 1;
+      return {
+        count: scores.length,
+        averageScore: Math.round(scores.reduce((sum, v) => sum + v, 0) / scores.length),
+        medianScore: sorted[Math.floor(sorted.length / 2)],
+        tierDistribution,
+      };
+    };
+
+    const scoresByOutcome: Record<'REMBOURSE' | 'DEFAUT', number[]> = { REMBOURSE: [], DEFAUT: [] };
+    for (const d of deals) scoresByOutcome[outcomeOf(d.stage)].push(d.riskScoreAtClosure!);
+
+    return {
+      totalCount: deals.length,
+      sampleTooSmall: deals.length < 10,
+      outcomes: {
+        REMBOURSE: summarize(scoresByOutcome.REMBOURSE),
+        DEFAUT: summarize(scoresByOutcome.DEFAUT),
+      },
+      cases: deals
+        .map((d) => ({
+          dealId: d.id,
+          reference: d.reference,
+          name: d.name,
+          outcome: outcomeOf(d.stage),
+          scoreAtClosure: d.riskScoreAtClosure!,
+          closureDate: d.riskScoreAtClosureDate!.toISOString(),
+        }))
+        .sort((a, b) => b.closureDate.localeCompare(a.closureDate)),
+    };
+  }
+
   // ── Facteurs ──────────────────────────────────────────────────────────
 
   private echeanceFactor(dateMax: Date | null, now: Date): Omit<RiskFactor, 'contribution'> {
@@ -223,7 +298,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     return {
       key: 'echeance',
       label: 'Échéance de vote',
-      weight: 0.2,
+      weight: factorWeight('echeance'),
       value: value[alert.stage ?? 'RAS'],
       explanation: alert.actionLabel ?? 'Aucune échéance imminente.',
     };
@@ -242,7 +317,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       return {
         key: 'chantier',
         label: 'Suivi chantier / commercialisation',
-        weight: 0.2,
+        weight: factorWeight('chantier'),
         value: 40,
         explanation: 'Aucun point de suivi chantier enregistré.',
       };
@@ -259,7 +334,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     return {
       key: 'chantier',
       label: 'Suivi chantier / commercialisation',
-      weight: 0.2,
+      weight: factorWeight('chantier'),
       value,
       explanation: health.reasons.length > 0 ? health.reasons.join(' ; ') : `Suivi chantier : ${health.level ?? 'aucune donnée'}.`,
     };
@@ -270,7 +345,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     return {
       key: 'recouvrement',
       label: 'Statut de recouvrement',
-      weight: 0.2,
+      weight: factorWeight('recouvrement'),
       value: value[status] ?? 5,
       explanation: RECOVERY_LABEL[status] ?? 'Statut de recouvrement inconnu.',
     };
@@ -281,7 +356,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     return {
       key: 'porteur',
       label: 'Santé du porteur de projet',
-      weight: 0.15,
+      weight: factorWeight('porteur'),
       value: status ? (value[status] ?? 5) : 5,
       explanation: status ? (PORTEUR_LABEL[status] ?? 'Statut du porteur inconnu.') : 'SIREN non suivi.',
     };
@@ -295,7 +370,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       return {
         key: 'garanties',
         label: 'Garanties / sûretés',
-        weight: 0.15,
+        weight: factorWeight('garanties'),
         value: 40,
         explanation: 'Aucune garantie active enregistrée.',
       };
@@ -314,7 +389,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       }
     }
 
-    return { key: 'garanties', label: 'Garanties / sûretés', weight: 0.15, value: worstValue, explanation: worstExplanation };
+    return { key: 'garanties', label: 'Garanties / sûretés', weight: factorWeight('garanties'), value: worstValue, explanation: worstExplanation };
   }
 
   private newsletterFactor(lastNewsletterDate: Date | null, targetDays: number, now: Date): Omit<RiskFactor, 'contribution'> {
@@ -323,7 +398,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     return {
       key: 'newsletter',
       label: 'Communication investisseurs',
-      weight: 0.05,
+      weight: factorWeight('newsletter'),
       value: value[status],
       explanation:
         daysSince === null
@@ -337,7 +412,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       return {
         key: 'environnement',
         label: 'Risques environnementaux',
-        weight: 0.05,
+        weight: factorWeight('environnement'),
         value: 20,
         explanation: "Pas de coordonnées géographiques — facteur neutre.",
       };
@@ -347,7 +422,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       return {
         key: 'environnement',
         label: 'Risques environnementaux',
-        weight: 0.05,
+        weight: factorWeight('environnement'),
         value: 20,
         explanation: 'Données non disponibles (onglet "Risques & urbanisme" du dossier jamais consulté) — facteur neutre.',
       };
@@ -361,7 +436,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     return {
       key: 'environnement',
       label: 'Risques environnementaux',
-      weight: 0.05,
+      weight: factorWeight('environnement'),
       value,
       explanation: labels.length > 0 ? `Risque(s) identifié(s) : ${labels.join(', ')}.` : 'Aucun risque environnemental identifié.',
     };

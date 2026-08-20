@@ -186,6 +186,7 @@ model Organization {
   competitorProjects CompetitorProject[]
   tasks              Task[]
   fieldChanges       FieldChange[]
+  dataValidations    DataValidation[]
 
   @@map("organizations")
 }
@@ -237,6 +238,7 @@ model User {
   agentMessages              AgentMessage[]
   pushSubscriptions          PushSubscription[]
   fieldChanges               FieldChange[]
+  dataValidations            DataValidation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -339,6 +341,15 @@ model Deal {
   riskScorePrevious  Int?
   riskScoreUpdatedAt DateTime?
 
+  // Dernier score connu juste avant la clôture du dossier (repaid ou
+  // DEFAUT) — capturé une seule fois, jamais réécrit ensuite. Sert de base
+  // 100% réelle à la validation rétrospective du modèle (RiskEngineService
+  // .getModelValidation()) : rapprocher ce score du résultat effectif
+  // (remboursé vs défaut) plutôt que de calibrer les pondérations sans
+  // historique suffisant.
+  riskScoreAtClosure     Int?
+  riskScoreAtClosureDate DateTime?
+
   startDate DateTime?
   endDate   DateTime?
 
@@ -397,6 +408,7 @@ model Deal {
   checkpoints                ProjectCheckpoint[]
   agentMessages              AgentMessage[]
   fieldChanges               FieldChange[]
+  dataValidations            DataValidation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -637,6 +649,29 @@ model FieldChange {
   @@index([organizationId])
   @@index([dealId, entityType])
   @@map("field_changes")
+}
+
+// Sign-off d'une seule personne (pas un maker-checker à deux) : atteste que
+// l'état actuel d'une entité sur ce dossier a été relu et confirmé, avec
+// horodatage. Une ligne = "validé, rien n'a changé depuis" — dès qu'un
+// nouveau FieldChange est écrit pour ce (dealId, entityType), la ligne est
+// supprimée (FieldChangeService.recordDiff) pour que "validé" ne mente
+// jamais sur l'état réel.
+model DataValidation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  entityType String // même convention que FieldChange.entityType
+
+  validatedById String
+  validatedBy   User     @relation(fields: [validatedById], references: [id], onDelete: Cascade)
+  validatedAt   DateTime @default(now())
+
+  @@unique([dealId, entityType])
+  @@map("data_validations")
 }
 
 model Task {
