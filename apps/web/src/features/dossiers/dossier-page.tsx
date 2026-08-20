@@ -24,6 +24,7 @@ import { RiskBreakdownCard } from './components/risk-breakdown-card';
 import { DealNarrativeCard } from './components/deal-narrative-card';
 import { DealStageTimeline } from './components/deal-stage-timeline';
 import { ActivityLogPanel } from './components/activity-log-panel';
+import { FieldHistoryPanel } from './components/field-history-panel';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
@@ -54,10 +55,10 @@ export function DossierPage() {
   const deleteDeal = useDeleteDeal();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [activeTab, setActiveTab] = useState('score');
-  const [financialPrefill, setFinancialPrefill] = useState<Partial<FinancialModelFormValues> | null>(null);
+  const [financialPrefill, setFinancialPrefill] = useState<(Partial<FinancialModelFormValues> & { sourceDocumentId?: string }) | null>(null);
 
   const handleApplyExtraction = (extraction: FinancialExtraction) => {
-    const prefill: Partial<FinancialModelFormValues> = {};
+    const prefill: Partial<FinancialModelFormValues> & { sourceDocumentId?: string } = { sourceDocumentId: extraction.documentId };
     if (extraction.surfaceM2 !== null) prefill.surfaceSqm = extraction.surfaceM2;
     if (extraction.coutTravauxM2 !== null) prefill.constructionCostPerSqm = extraction.coutTravauxM2;
     if (extraction.prixSortieM2 !== null) prefill.sellingPricePerSqm = extraction.prixSortieM2;
@@ -303,8 +304,12 @@ export function DossierPage() {
         <TabsContent value="entities">
           <EntitiesPanel dealId={deal.id} />
         </TabsContent>
-        <TabsContent value="activity">
+        <TabsContent value="activity" className="flex flex-col gap-4">
           <ActivityLogPanel dealId={deal.id} />
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Historique des valeurs</h3>
+            <FieldHistoryPanel dealId={deal.id} />
+          </div>
         </TabsContent>
         <TabsContent value="assistant" className="h-[32rem]">
           <DealAssistantPanel dealId={deal.id} />

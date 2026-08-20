@@ -265,6 +265,19 @@ export interface Activity {
   createdAt: string;
 }
 
+export interface FieldChange {
+  id: string;
+  dealId: string;
+  entityType: string;
+  fieldKey: string;
+  fieldLabel: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
+  changedBy?: { id: string; firstName: string; lastName: string } | null;
+  sourceDocument?: { id: string; name: string } | null;
+}
+
 export interface DealKpis {
   activeDeals: number;
   totalAum: number;
@@ -829,4 +842,5 @@ export interface FinancialExtraction {
   notes: string;
   marginBand: 'vert' | 'jaune' | 'orange' | 'rouge' | null;
   sourceDocument: string;
+  documentId: string;
 }

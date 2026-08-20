@@ -16,6 +16,8 @@ export interface FinancialAssumptionPayload {
   otherCosts?: number;
   targetMarginPct?: number;
   notes?: string;
+  /** Document du dossier qui justifie ces valeurs (ex. un BP analysé par l'IA) — tracé dans l'historique des valeurs. */
+  sourceDocumentId?: string;
 }
 
 export function useSaveFinancialModel(dealId: string) {
