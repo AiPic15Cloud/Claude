@@ -117,11 +117,17 @@ export function FinancialSynthesisCard({ synthesis }: { synthesis: FinancialSynt
             <Row
               label="Intérêts sur durée cible"
               value={formatCurrency(synthesis.lpb.interestOnDurationCible)}
-              hint={synthesis.lpb.latePenaltyApplied ? `Calculés à ${synthesis.lpb.tauxPctEffectif}% (${synthesis.lpb.tauxPct}% + pénalité de retard simulée)` : undefined}
+              hint={
+                synthesis.lpb.latePenaltyEffective
+                  ? `Calculés à ${synthesis.lpb.tauxPctEffectif}% (${synthesis.lpb.tauxPct}% + pénalité de retard${synthesis.lpb.latePenaltyAuto ? '' : ' simulée'})`
+                  : undefined
+              }
             />
-            {synthesis.lpb.latePenaltyApplied && (
+            {synthesis.lpb.latePenaltyEffective && (
               <p className="text-[11px] text-warning">
-                Pénalité de retard simulée : taux à {synthesis.lpb.tauxPctEffectif}% au lieu de {synthesis.lpb.tauxPct}%.
+                {synthesis.lpb.latePenaltyAuto
+                  ? `Pénalité de retard appliquée automatiquement (durée cible du financement dépassée) : taux à ${synthesis.lpb.tauxPctEffectif}% au lieu de ${synthesis.lpb.tauxPct}%.`
+                  : `Pénalité de retard simulée : taux à ${synthesis.lpb.tauxPctEffectif}% au lieu de ${synthesis.lpb.tauxPct}%.`}
               </p>
             )}
             <Row label="Fees TTC" value={formatCurrency(synthesis.lpb.feesTTC)} />

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { FieldChangeService } from '../field-changes/field-change.service';
+import { computeDurationTargetAlert } from '../deals/duration-target.util';
 import { UpsertFinancialAssumptionDto } from './dto/upsert-financial-assumption.dto';
 
 const FINANCIAL_FIELD_LABELS: Record<string, string> = {
@@ -239,15 +240,28 @@ export class FinancialModelService {
    */
   private computeFinancingFees(
     assumption: AssumptionRow,
-    deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null },
+    deal: {
+      amountTarget: Prisma.Decimal;
+      interestRate: Prisma.Decimal | null;
+      durationMonths: number | null;
+      startDate: Date | null;
+      repaid: boolean;
+    },
     hasActiveHypotheque: boolean,
   ) {
     const num = FinancialModelService.num;
     const collecte = num(deal.amountTarget);
     const baseTauxPct = num(deal.interestRate);
-    // Simulation "et si le projet est en retard" — +5 points sur le taux utilisé pour les
-    // intérêts, pour mesurer l'impact financier réel plutôt que de juste documenter un fait.
-    const tauxPctEffectif = baseTauxPct + (assumption.latePenaltyApplied ? LATE_PENALTY_RATE_POINTS : 0);
+    // La pénalité de retard (+5 pts sur le taux utilisé pour les intérêts) s'applique
+    // automatiquement dès que la durée cible du financement est réellement dépassée
+    // (même détection que l'alerte "durée cible" du dossier) — un projet en retard
+    // doit voir son coût de revient et sa marge réellement impactés, pas seulement
+    // sur simulation manuelle. Le toggle "latePenaltyApplied" reste disponible pour
+    // simuler l'impact par anticipation, avant que la durée cible ne soit dépassée.
+    const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), deal.repaid);
+    const latePenaltyAuto = durationTargetAlert.stage === 'DEPASSEE';
+    const latePenaltyEffective = assumption.latePenaltyApplied || latePenaltyAuto;
+    const tauxPctEffectif = baseTauxPct + (latePenaltyEffective ? LATE_PENALTY_RATE_POINTS : 0);
     const tauxLpb = tauxPctEffectif / 100;
     const dureeCibleLpb = deal.durationMonths ?? 0;
 
@@ -267,6 +281,8 @@ export class FinancialModelService {
       collecte,
       baseTauxPct,
       tauxPctEffectif,
+      latePenaltyEffective,
+      latePenaltyAuto,
       dureeCibleLpb,
       lpbInterestOnDurationCible,
       lpbFeesHT,
@@ -284,7 +300,7 @@ export class FinancialModelService {
   private async buildResponse(
     organizationId: string,
     dealId: string,
-    deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null },
+    deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null; startDate: Date | null; repaid: boolean },
     assumption: AssumptionRow,
   ) {
     const [travauxItems, honorairesTechniquesItems, hasActiveHypotheque, saleLots] = await Promise.all([
@@ -313,6 +329,8 @@ export class FinancialModelService {
       collecte,
       baseTauxPct,
       tauxPctEffectif,
+      latePenaltyEffective,
+      latePenaltyAuto,
       dureeCibleLpb,
       lpbInterestOnDurationCible,
       lpbFeesHT,
@@ -359,6 +377,8 @@ export class FinancialModelService {
         tauxPct: baseTauxPct,
         tauxPctEffectif,
         latePenaltyApplied: assumption.latePenaltyApplied,
+        latePenaltyEffective,
+        latePenaltyAuto,
         dureeCibleMonths: dureeCibleLpb,
         interestOnDurationCible: Math.round(lpbInterestOnDurationCible),
         feesHT: Math.round(lpbFeesHT),
