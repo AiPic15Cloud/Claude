@@ -107,6 +107,10 @@ export function useUpdateDeal(dealId: string) {
       queryClient.invalidateQueries({ queryKey: ['market-ticker'] });
       queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
       queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
+      // interestRate/amountTarget/durationMonths pilotent le calcul des intérêts LPB/bancaires
+      // du modèle financier (financial-model.service.ts) — sans cette invalidation, la carte
+      // Synthèse & ratios reste calculée sur l'ancienne durée/le taux après un "Modifier".
+      queryClient.invalidateQueries({ queryKey: ['financial-model', dealId] });
     },
   });
 }
