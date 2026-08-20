@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Loader2, Plus, TrendingDown, TrendingUp } from 'lucide-react';
+import { Loader2, Pencil, Plus, TrendingDown, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCheckpoints, useCreateCheckpoint } from '../hooks/use-checkpoints';
+import { useCheckpoints, useCreateCheckpoint, useUpdateCheckpoint } from '../hooks/use-checkpoints';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ApiError } from '@/lib/api';
+import type { ProjectCheckpoint } from '@/types';
 
 // Optional numeric fields must stay unset (not coerce to 0) when left
 // blank — same fix already applied elsewhere for register()-bound number
@@ -58,7 +59,9 @@ function DeltaBadge({ value, invert = false }: { value: number | null; invert?: 
 export function CheckpointsPanel({ dealId }: { dealId: string }) {
   const { data: checkpoints, isLoading } = useCheckpoints(dealId);
   const create = useCreateCheckpoint(dealId);
+  const update = useUpdateCheckpoint(dealId);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const {
     register,
@@ -68,7 +71,44 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  const startCreate = () => {
+    setEditingId(null);
+    reset({});
+    setOpen(true);
+  };
+
+  const startEdit = (checkpoint: ProjectCheckpoint) => {
+    setEditingId(checkpoint.id);
+    reset({
+      travauxBudgetInitial: checkpoint.travauxBudgetInitial ?? undefined,
+      travauxDepensesADate: checkpoint.travauxDepensesADate ?? undefined,
+      travauxTermines: checkpoint.travauxTermines,
+      commercialisationLancee: checkpoint.commercialisationLancee,
+      pourcentageVendu: checkpoint.pourcentageVendu ?? undefined,
+      prixVenteInitialPrevu: checkpoint.prixVenteInitialPrevu ?? undefined,
+      prixVenteReelADate: checkpoint.prixVenteReelADate ?? undefined,
+      atterrissagePrevu: checkpoint.atterrissagePrevu ?? undefined,
+      notes: checkpoint.notes ?? undefined,
+    });
+    setOpen(true);
+  };
+
+  const saving = create.isPending || update.isPending;
+
   const onSubmit = (values: FormValues) => {
+    if (editingId) {
+      update.mutate(
+        { checkpointId: editingId, ...values },
+        {
+          onSuccess: () => {
+            setOpen(false);
+            setEditingId(null);
+            reset();
+          },
+        },
+      );
+      return;
+    }
     create.mutate(values, {
       onSuccess: () => {
         setOpen(false);
@@ -84,15 +124,21 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
           <CardTitle>Points à durée cible</CardTitle>
           <CardDescription>État des lieux chantier / commercialisation, comparé au prévisionnel initial.</CardDescription>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) setEditingId(null);
+          }}
+        >
           <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" onClick={startCreate}>
               <Plus className="h-3.5 w-3.5" /> Nouveau point
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nouveau point à durée cible</DialogTitle>
+              <DialogTitle>{editingId ? 'Modifier le point à durée cible' : 'Nouveau point à durée cible'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
@@ -157,16 +203,16 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
                 <Textarea id="notes" rows={2} {...register('notes')} />
               </div>
 
-              {create.isError && (
+              {(create.isError || update.isError) && (
                 <p className="text-xs text-destructive">
-                  {create.error instanceof ApiError ? create.error.message : 'Une erreur est survenue'}
+                  {(create.error ?? update.error) instanceof ApiError ? (create.error ?? update.error)?.message : 'Une erreur est survenue'}
                 </p>
               )}
 
               <DialogFooter>
-                <Button type="submit" size="sm" disabled={create.isPending}>
-                  {create.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Enregistrer le point
+                <Button type="submit" size="sm" disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editingId ? 'Enregistrer les modifications' : 'Enregistrer le point'}
                 </Button>
               </DialogFooter>
             </form>
@@ -191,6 +237,9 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
                   {c.commercialisationLancee && (
                     <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary">Commercialisé {c.pourcentageVendu ?? 0}%</span>
                   )}
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEdit(c)}>
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                  </Button>
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-3 text-xs">

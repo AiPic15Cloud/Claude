@@ -3,7 +3,20 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { FinancialModelService } from '../financial-model/financial-model.service';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
+import { FieldChangeService } from '../field-changes/field-change.service';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
+
+const CHECKPOINT_FIELD_LABELS: Record<string, string> = {
+  travauxBudgetInitial: 'Budget travaux initial',
+  travauxDepensesADate: 'Dépenses travaux à date',
+  travauxTermines: 'Travaux terminés',
+  commercialisationLancee: 'Commercialisation lancée',
+  pourcentageVendu: 'Lots vendus (%)',
+  prixVenteInitialPrevu: 'Prix de vente prévu',
+  prixVenteReelADate: 'Prix de vente réel à date',
+  atterrissagePrevu: 'Atterrissage prévu',
+  notes: 'Notes',
+};
 
 @Injectable()
 export class ProjectCheckpointsService {
@@ -14,6 +27,7 @@ export class ProjectCheckpointsService {
     private readonly activities: ActivitiesService,
     private readonly financialModel: FinancialModelService,
     private readonly riskEngine: RiskEngineService,
+    private readonly fieldChanges: FieldChangeService,
   ) {}
 
   async list(organizationId: string, dealId: string) {
@@ -62,6 +76,37 @@ export class ProjectCheckpointsService {
     await this.riskEngine
       .recomputeAndPersist(organizationId, dealId)
       .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${dealId}`, err instanceof Error ? err.stack : err));
+    return this.withDeltas(checkpoint);
+  }
+
+  async update(organizationId: string, dealId: string, checkpointId: string, userId: string, dto: CreateCheckpointDto) {
+    await this.assertDeal(organizationId, dealId);
+    const existing = await this.prisma.projectCheckpoint.findFirst({ where: { id: checkpointId, dealId } });
+    if (!existing) throw new NotFoundException('Point à durée cible introuvable');
+
+    const checkpoint = await this.prisma.projectCheckpoint.update({
+      where: { id: checkpointId },
+      data: { ...dto },
+      include: { recordedBy: { select: { id: true, firstName: true, lastName: true } } },
+    });
+
+    await this.fieldChanges.recordDiff(
+      organizationId,
+      dealId,
+      'ProjectCheckpoint',
+      userId,
+      Object.keys(CHECKPOINT_FIELD_LABELS).map((key) => ({
+        key: `${checkpointId}:${key}`,
+        label: `Point à durée cible du ${new Date(existing.createdAt).toLocaleDateString('fr-FR')} — ${CHECKPOINT_FIELD_LABELS[key]}`,
+        oldValue: (existing as unknown as Record<string, unknown>)[key],
+        newValue: (checkpoint as unknown as Record<string, unknown>)[key],
+      })),
+    );
+    await this.activities.log(dealId, userId, 'CHECKPOINT_CREATED', 'Point à durée cible modifié');
+    await this.riskEngine
+      .recomputeAndPersist(organizationId, dealId)
+      .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${dealId}`, err instanceof Error ? err.stack : err));
+
     return this.withDeltas(checkpoint);
   }
 

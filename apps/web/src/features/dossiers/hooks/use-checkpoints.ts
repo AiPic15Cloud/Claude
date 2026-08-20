@@ -28,3 +28,15 @@ export function useCreateCheckpoint(dealId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['checkpoints', dealId] }),
   });
 }
+
+export function useUpdateCheckpoint(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ checkpointId, ...payload }: CreateCheckpointPayload & { checkpointId: string }) =>
+      api.patch<ProjectCheckpoint>(`/deals/${dealId}/checkpoints/${checkpointId}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checkpoints', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
+    },
+  });
+}
