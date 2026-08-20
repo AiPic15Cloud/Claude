@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFinancialModel, useSaveFinancialModel } from '../hooks/use-financial-model';
+import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
 import { ValidationBadge } from './validation-badge';
 import { CostLineItemsEditor } from './cost-line-items-editor';
 import { SaleLotsEditor } from './sale-lots-editor';
@@ -113,6 +114,21 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
     n(watched.surveyStudiesCost) +
     (data?.honorairesTechniquesItems ?? []).reduce((sum, item) => sum + item.amount, 0);
   const liveAutresFraisScalaires = n(watched.agencyFees) + n(watched.referralFees) + n(watched.bankMiscFees);
+
+  // Durée cible : champ du dossier (Deal.durationMonths), pas du modèle financier — mais les
+  // intérêts LPB/bancaires sont calculés sur cette durée, donc éditable directement ici plutôt
+  // que de forcer un aller-retour par "Modifier" en haut de page.
+  const updateDeal = useUpdateDeal(dealId);
+  const [durationDraft, setDurationDraft] = useState<string>('');
+  useEffect(() => {
+    setDurationDraft(dealDurationMonths !== null && dealDurationMonths !== undefined ? String(dealDurationMonths) : '');
+  }, [dealDurationMonths]);
+  const saveDuration = () => {
+    const value = Number(durationDraft);
+    if (!Number.isFinite(value) || value <= 0) return;
+    if (value === dealDurationMonths) return;
+    updateDeal.mutate({ durationMonths: Math.round(value) });
+  };
 
   useEffect(() => {
     if (data?.assumption) {
@@ -308,10 +324,24 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
             <section className="flex flex-col gap-2">
               <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Financement LPB</h3>
               <p className="text-xs text-muted-foreground">
-                Collecte, taux ({dealInterestRate ?? '—'}%) et durée cible ({dealDurationMonths ?? '—'} mois) sont ceux du dossier — à modifier via
-                "Modifier" en haut de page.
+                Collecte et taux ({dealInterestRate ?? '—'}%) sont ceux du dossier — à modifier via "Modifier" en haut de page.
               </p>
               <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="dealDurationMonths">Durée cible (mois)</Label>
+                  <Input
+                    id="dealDurationMonths"
+                    type="number"
+                    step="any"
+                    min={1}
+                    value={durationDraft}
+                    onChange={(e) => setDurationDraft(e.target.value)}
+                    onBlur={saveDuration}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {updateDeal.isPending ? 'Enregistrement…' : "Sert au calcul des intérêts LPB et bancaires (durée cible × taux)."}
+                  </p>
+                </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="lpbFeesPctHT">Fees HT (%)</Label>
                   <Input id="lpbFeesPctHT" type="number" min={0} step="any" {...register('lpbFeesPctHT')} />
