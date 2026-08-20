@@ -479,7 +479,7 @@ export class FinancialModelService {
   async getBpComparison(organizationId: string, dealId: string) {
     const deal = await this.assertDeal(organizationId, dealId);
     const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
-    if (!assumption) return { hasData: false, locked: false, lockedAt: null, lines: [], sensitivity: null, disclaimer: null };
+    if (!assumption) return { hasData: false, locked: false, lockedAt: null, lines: [], sensitivity: null, marginAlert: null, disclaimer: null };
 
     if (!assumption.baselineLockedAt || !assumption.baselineSnapshot) {
       return {
@@ -487,6 +487,7 @@ export class FinancialModelService {
         locked: false,
         lockedAt: null,
         lines: [],
+        marginAlert: null,
         sensitivity: null,
         disclaimer:
           "Le BP initial n'est pas encore figé. Terminez la saisie de vos hypothèses (Foncier, Travaux, Honoraires, grille de lots…) puis cliquez sur « Figer le BP initial » : à partir de ce moment, tout changement apparaîtra comme un écart dans le BP actualisé.",
@@ -527,7 +528,29 @@ export class FinancialModelService {
         },
       ],
       sensitivity: { initial: snap.sensitivity, current: current.sensitivity },
+      marginAlert: FinancialModelService.computeMarginAlert(snap.margePct, current.synthesis.margePct),
       disclaimer: `BP initial figé le ${new Date(assumption.baselineLockedAt).toLocaleDateString('fr-FR')}. Tout écart provient d'une modification réelle survenue après cette date — cliquez à nouveau sur « Figer le BP initial » pour redémarrer le suivi à partir d'aujourd'hui.`,
     };
+  }
+
+  /**
+   * Signal "projet qui ne tourne pas correctement" directement sur la marge
+   * actualisée — seuils explicitement validés avec l'utilisateur : marge
+   * actualisée < 10 % (ou < 0 %) OU dégradation de ≥10 pts (ou ≥20 pts)
+   * depuis le BP initial figé.
+   */
+  private static computeMarginAlert(initialPct: number, currentPct: number): { level: 'ATTENTION' | 'URGENT'; message: string } | null {
+    const drop = Math.round((initialPct - currentPct) * 10) / 10;
+    if (currentPct < 0 || drop >= 20) {
+      return currentPct < 0
+        ? { level: 'URGENT', message: `Marge actualisée négative (${currentPct}%) — ce projet ne dégage plus de marge au prix actuel.` }
+        : { level: 'URGENT', message: `Marge dégradée de ${drop} pts depuis le BP initial (${initialPct}% → ${currentPct}%) — écart significatif à examiner.` };
+    }
+    if (currentPct < 10 || drop >= 10) {
+      return currentPct < 10
+        ? { level: 'ATTENTION', message: `Marge actualisée faible (${currentPct}%) — sous le seuil de vigilance de 10 %.` }
+        : { level: 'ATTENTION', message: `Marge en baisse de ${drop} pts depuis le BP initial (${initialPct}% → ${currentPct}%).` };
+    }
+    return null;
   }
 }

@@ -83,6 +83,17 @@ export function BpComparisonCard({ dealId, comparison }: { dealId: string; compa
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {comparison.marginAlert && (
+          <div
+            className={cn(
+              'flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+              comparison.marginAlert.level === 'URGENT' ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning',
+            )}
+          >
+            <span className={cn('h-2 w-2 shrink-0 rounded-full', comparison.marginAlert.level === 'URGENT' ? 'bg-destructive' : 'bg-warning')} />
+            <span>{comparison.marginAlert.message}</span>
+          </div>
+        )}
         <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-3 gap-y-2 text-sm">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Poste</span>
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Initial</span>

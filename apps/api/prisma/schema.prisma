@@ -562,7 +562,11 @@ model ProjectCheckpoint {
   commercialisationLancee Boolean  @default(false)
   pourcentageVendu        Int?
   prixVenteInitialPrevu   Decimal? @db.Decimal(14, 2)
-  prixVenteReelADate      Decimal? @db.Decimal(14, 2)
+  // Objectif de prix revu par le porteur de projet (ex. baisse pour accélérer la
+  // commercialisation) — distinct de prixVenteReelADate qui reste les ventes
+  // effectivement réalisées à ce jour, potentiellement en deçà de cet objectif.
+  prixVenteActualise Decimal? @db.Decimal(14, 2)
+  prixVenteReelADate Decimal? @db.Decimal(14, 2)
 
   atterrissagePrevu String?
   notes             String?

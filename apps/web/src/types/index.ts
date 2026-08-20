@@ -678,6 +678,7 @@ export interface BpComparison {
   lockedAt: string | null;
   lines: BpComparisonLine[];
   sensitivity: { initial: FinancialScenario[]; current: FinancialScenario[] } | null;
+  marginAlert: { level: 'ATTENTION' | 'URGENT'; message: string } | null;
   disclaimer: string | null;
 }
 
@@ -701,10 +702,12 @@ export interface ProjectCheckpoint {
   commercialisationLancee: boolean;
   pourcentageVendu: number | null;
   prixVenteInitialPrevu: number | null;
+  prixVenteActualise: number | null;
   prixVenteReelADate: number | null;
   atterrissagePrevu: string | null;
   notes: string | null;
   deltaTravaux: number | null;
+  deltaPrixActualise: number | null;
   deltaPrix: number | null;
   margeADate: number | null;
   createdAt: string;
