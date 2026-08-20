@@ -188,6 +188,25 @@ export function DossierPage() {
         </div>
       )}
 
+      {deal.durationTargetAlert && deal.durationTargetAlert.level !== 'RAS' && (
+        <div
+          className={cn(
+            'flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+            deal.durationTargetAlert.level === 'URGENT'
+              ? 'border-destructive/30 bg-destructive/10 text-destructive'
+              : 'border-warning/30 bg-warning/10 text-warning',
+          )}
+        >
+          <span
+            className={cn('h-2 w-2 shrink-0 rounded-full', deal.durationTargetAlert.level === 'URGENT' ? 'bg-destructive' : 'bg-warning')}
+          />
+          <span className="font-medium">
+            {deal.durationTargetAlert.stage === 'DEPASSEE' ? 'Durée cible dépassée' : `Durée cible dans J-${deal.durationTargetAlert.daysToTarget}`} —
+          </span>
+          <span className="flex-1">{deal.durationTargetAlert.actionLabel}</span>
+        </div>
+      )}
+
       {guaranteeWarnings.length > 0 && (
         <div
           className={cn(
