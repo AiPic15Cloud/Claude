@@ -24,6 +24,7 @@ const FINANCIAL_FIELD_LABELS: Record<string, string> = {
   lpbTvaRatePct: 'Financement LPB — taux de TVA',
   lpbDurationMinMonths: 'Financement LPB — durée min (mois)',
   lpbDurationMaxMonths: 'Financement LPB — durée max (mois)',
+  latePenaltyApplied: 'Financement LPB — pénalité de retard appliquée (+5 pts)',
   bankName: 'Financement bancaire — banque',
   bankLoanAcquisition: 'Financement bancaire — crédit acquisition',
   bankLoanAccompagnement: 'Financement bancaire — crédit accompagnement',
@@ -31,6 +32,8 @@ const FINANCIAL_FIELD_LABELS: Record<string, string> = {
   bankFileFees: 'Financement bancaire — frais de dossier',
   bankGuaranteeFees: 'Financement bancaire — frais de garantie',
 };
+
+const LATE_PENALTY_RATE_POINTS = 5;
 
 interface Scenario {
   label: string;
@@ -120,7 +123,11 @@ export class FinancialModelService {
   ) {
     const num = FinancialModelService.num;
     const collecte = num(deal.amountTarget);
-    const tauxLpb = num(deal.interestRate) / 100;
+    const baseTauxPct = num(deal.interestRate);
+    // Simulation "et si le projet est en retard" — +5 points sur le taux utilisé pour les
+    // intérêts, pour mesurer l'impact financier réel plutôt que de juste documenter un fait.
+    const tauxPctEffectif = baseTauxPct + (assumption.latePenaltyApplied ? LATE_PENALTY_RATE_POINTS : 0);
+    const tauxLpb = tauxPctEffectif / 100;
     const dureeCibleLpb = deal.durationMonths ?? 0;
 
     const lpbInterestOnDurationCible = (collecte * tauxLpb * dureeCibleLpb) / 12;
@@ -137,6 +144,8 @@ export class FinancialModelService {
 
     return {
       collecte,
+      baseTauxPct,
+      tauxPctEffectif,
       dureeCibleLpb,
       lpbInterestOnDurationCible,
       lpbFeesHT,
@@ -181,6 +190,8 @@ export class FinancialModelService {
 
     const {
       collecte,
+      baseTauxPct,
+      tauxPctEffectif,
       dureeCibleLpb,
       lpbInterestOnDurationCible,
       lpbFeesHT,
@@ -222,7 +233,9 @@ export class FinancialModelService {
       bankMiscFees: num(assumption.bankMiscFees),
       lpb: {
         collecte: Math.round(collecte),
-        tauxPct: num(deal.interestRate),
+        tauxPct: baseTauxPct,
+        tauxPctEffectif,
+        latePenaltyApplied: assumption.latePenaltyApplied,
         dureeCibleMonths: dureeCibleLpb,
         interestOnDurationCible: Math.round(lpbInterestOnDurationCible),
         feesHT: Math.round(lpbFeesHT),
@@ -304,6 +317,7 @@ export class FinancialModelService {
         lpbTvaRatePct: assumption.lpbTvaRatePct !== null ? Number(assumption.lpbTvaRatePct) : null,
         lpbDurationMinMonths: assumption.lpbDurationMinMonths,
         lpbDurationMaxMonths: assumption.lpbDurationMaxMonths,
+        latePenaltyApplied: assumption.latePenaltyApplied,
         bankName: assumption.bankName,
         bankLoanAcquisition: assumption.bankLoanAcquisition !== null ? Number(assumption.bankLoanAcquisition) : null,
         bankLoanAccompagnement: assumption.bankLoanAccompagnement !== null ? Number(assumption.bankLoanAccompagnement) : null,

@@ -814,6 +814,10 @@ model FinancialAssumption {
   lpbTvaRatePct        Decimal? @db.Decimal(5, 2)
   lpbDurationMinMonths Int?
   lpbDurationMaxMonths Int?
+  // Simulation "et si le projet est en retard" : +5 points sur le taux LPB
+  // utilisé pour calculer les intérêts sur durée cible — sert à mesurer
+  // l'impact financier réel d'un dépassement plutôt qu'à documenter un fait.
+  latePenaltyApplied Boolean @default(false)
 
   // Financement bancaire (optionnel, distinct de LPB) — activé dès qu'un nom de banque est renseigné
   bankName               String?

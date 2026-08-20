@@ -40,6 +40,7 @@ const schema = z.object({
   lpbTvaRatePct: z.coerce.number().min(0).optional(),
   lpbDurationMinMonths: z.coerce.number().min(0).optional(),
   lpbDurationMaxMonths: z.coerce.number().min(0).optional(),
+  latePenaltyApplied: z.boolean().optional(),
   bankName: z.string().optional(),
   bankLoanAcquisition: z.coerce.number().min(0).optional(),
   bankLoanAccompagnement: z.coerce.number().min(0).optional(),
@@ -134,6 +135,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
         lpbTvaRatePct: data.assumption.lpbTvaRatePct ?? undefined,
         lpbDurationMinMonths: data.assumption.lpbDurationMinMonths ?? undefined,
         lpbDurationMaxMonths: data.assumption.lpbDurationMaxMonths ?? undefined,
+        latePenaltyApplied: data.assumption.latePenaltyApplied,
         bankName: data.assumption.bankName ?? undefined,
         bankLoanAcquisition: data.assumption.bankLoanAcquisition ?? undefined,
         bankLoanAccompagnement: data.assumption.bankLoanAccompagnement ?? undefined,
@@ -352,6 +354,25 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
                     <Label htmlFor="lpbTvaApplicable" className="cursor-pointer font-normal">
                       TVA applicable sur les fees
                     </Label>
+                  </div>
+                )}
+              />
+              <Controller
+                control={control}
+                name="latePenaltyApplied"
+                render={({ field }) => (
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2.5">
+                      <Switch checked={field.value ?? false} onCheckedChange={field.onChange} id="latePenaltyApplied" />
+                      <Label htmlFor="latePenaltyApplied" className="cursor-pointer font-normal">
+                        Simuler la pénalité de retard (+5 pts sur le taux)
+                      </Label>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {field.value
+                        ? `Taux utilisé pour les intérêts : ${dealInterestRate ?? '—'}% + 5 pts = ${dealInterestRate !== null && dealInterestRate !== undefined ? dealInterestRate + 5 : '—'}%. Impact visible dans la Synthèse & ratios ci-contre.`
+                        : "N'affecte que le calcul des intérêts affiché — le taux du dossier n'est pas modifié."}
+                    </p>
                   </div>
                 )}
               />

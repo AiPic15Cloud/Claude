@@ -109,6 +109,11 @@ export class UpsertFinancialAssumptionDto {
   @Min(0)
   lpbDurationMaxMonths?: number;
 
+  @ApiProperty({ required: false, description: 'Simulation "et si le projet est en retard" — +5 points sur le taux LPB utilisé pour les intérêts.' })
+  @IsOptional()
+  @IsBoolean()
+  latePenaltyApplied?: boolean;
+
   // Financement bancaire (optionnel)
   @ApiProperty({ required: false })
   @IsOptional()

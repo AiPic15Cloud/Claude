@@ -35,6 +35,7 @@ export interface FinancialAssumptionPayload {
   lpbTvaRatePct?: number;
   lpbDurationMinMonths?: number;
   lpbDurationMaxMonths?: number;
+  latePenaltyApplied?: boolean;
   bankName?: string;
   bankLoanAcquisition?: number;
   bankLoanAccompagnement?: number;

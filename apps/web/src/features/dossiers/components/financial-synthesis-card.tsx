@@ -114,7 +114,16 @@ export function FinancialSynthesisCard({ synthesis }: { synthesis: FinancialSynt
           <div className="flex flex-col gap-1">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Financement LPB</p>
             <Row label="Collecte" value={formatCurrency(synthesis.lpb.collecte)} />
-            <Row label="Intérêts sur durée cible" value={formatCurrency(synthesis.lpb.interestOnDurationCible)} />
+            <Row
+              label="Intérêts sur durée cible"
+              value={formatCurrency(synthesis.lpb.interestOnDurationCible)}
+              hint={synthesis.lpb.latePenaltyApplied ? `Calculés à ${synthesis.lpb.tauxPctEffectif}% (${synthesis.lpb.tauxPct}% + pénalité de retard simulée)` : undefined}
+            />
+            {synthesis.lpb.latePenaltyApplied && (
+              <p className="text-[11px] text-warning">
+                Pénalité de retard simulée : taux à {synthesis.lpb.tauxPctEffectif}% au lieu de {synthesis.lpb.tauxPct}%.
+              </p>
+            )}
             <Row label="Fees TTC" value={formatCurrency(synthesis.lpb.feesTTC)} />
             {synthesis.lpb.hasActiveHypotheque && <Row label="Frais de garantie estimés (1,5 %)" value={formatCurrency(synthesis.lpb.guaranteeFeesEstimate)} />}
             <Row label="Montant décaissé net" value={formatCurrency(synthesis.lpb.netDisbursed)} bold />
