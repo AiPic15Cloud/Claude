@@ -61,7 +61,8 @@ export class FinancialModelService {
   async get(organizationId: string, dealId: string) {
     const deal = await this.assertDeal(organizationId, dealId);
     const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
-    if (!assumption) return { assumption: null, travauxItems: null, honorairesTechniquesItems: null, valuation: null, sensitivity: null, synthesis: null };
+    if (!assumption)
+      return { assumption: null, travauxItems: null, honorairesTechniquesItems: null, saleLots: null, valuation: null, sensitivity: null, synthesis: null };
     return this.buildResponse(organizationId, dealId, deal, assumption);
   }
 
@@ -107,10 +108,11 @@ export class FinancialModelService {
     deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null },
     assumption: AssumptionRow,
   ) {
-    const [travauxItems, honorairesTechniquesItems, hasActiveHypotheque] = await Promise.all([
+    const [travauxItems, honorairesTechniquesItems, hasActiveHypotheque, saleLots] = await Promise.all([
       this.prisma.costLineItem.findMany({ where: { dealId, category: 'TRAVAUX' }, orderBy: { sortOrder: 'asc' } }),
       this.prisma.costLineItem.findMany({ where: { dealId, category: 'HONORAIRES_TECHNIQUES' }, orderBy: { sortOrder: 'asc' } }),
       this.prisma.guarantee.findFirst({ where: { dealId, type: 'HYPOTHEQUE', status: 'ACTIVE' } }).then(Boolean),
+      this.prisma.saleLot.findMany({ where: { dealId }, orderBy: { sortOrder: 'asc' } }),
     ]);
 
     const num = (v: Prisma.Decimal | number | null | undefined): number => (v === null || v === undefined ? 0 : Number(v));
@@ -147,7 +149,15 @@ export class FinancialModelService {
     const autresFraisTotal = num(assumption.agencyFees) + num(assumption.referralFees) + num(assumption.bankMiscFees) + lpbTotalFees;
 
     const coutDeRevient = foncierTotal + travauxTotal + honorairesTechniquesTotal + autresFraisTotal;
-    const prixDeVente = sellingPricePerSqm * surface;
+    // Dès qu'au moins un lot de la grille de commercialisation est saisi, le prix de vente
+    // devient la somme réelle des lots plutôt que sellingPricePerSqm × surfaceSqm (une moyenne
+    // peut masquer qu'un projet n'est viable que si certains lots se vendent au-dessus du
+    // marché — la grille rend ce risque visible). Fallback sur le prix moyen tant qu'aucun
+    // lot n'est saisi (rétrocompatible avec les dossiers en Phase 1).
+    const saleLotsTotal = saleLots.reduce((sum, lot) => sum + num(lot.salePrice), 0);
+    const saleLotsSurface = saleLots.reduce((sum, lot) => sum + num(lot.surfaceSqm), 0);
+    const usesSaleLots = saleLots.length > 0;
+    const prixDeVente = usesSaleLots ? saleLotsTotal : sellingPricePerSqm * surface;
     const marge = prixDeVente - coutDeRevient;
     const margePct = prixDeVente > 0 ? Math.round((marge / prixDeVente) * 1000) / 10 : 0;
 
@@ -185,6 +195,16 @@ export class FinancialModelService {
         : { enabled: false },
       coutDeRevient: Math.round(coutDeRevient),
       prixDeVente: Math.round(prixDeVente),
+      prixDeVenteSource: usesSaleLots ? ('LOTS' as const) : ('MOYENNE' as const),
+      saleLotsSummary: usesSaleLots
+        ? {
+            count: saleLots.length,
+            soldCount: saleLots.filter((lot) => lot.sold).length,
+            totalSurfaceSqm: saleLotsSurface,
+            totalSalePrice: Math.round(saleLotsTotal),
+            avgPricePerSqm: saleLotsSurface > 0 ? Math.round(saleLotsTotal / saleLotsSurface) : null,
+          }
+        : null,
       marge: Math.round(marge),
       margePct,
       expositionFinale: Math.round(expositionFinale),
@@ -245,6 +265,14 @@ export class FinancialModelService {
       },
       travauxItems: travauxItems.map((item) => ({ id: item.id, label: item.label, amount: Number(item.amount), sortOrder: item.sortOrder })),
       honorairesTechniquesItems: honorairesTechniquesItems.map((item) => ({ id: item.id, label: item.label, amount: Number(item.amount), sortOrder: item.sortOrder })),
+      saleLots: saleLots.map((lot) => ({
+        id: lot.id,
+        label: lot.label,
+        surfaceSqm: Number(lot.surfaceSqm),
+        salePrice: Number(lot.salePrice),
+        sold: lot.sold,
+        sortOrder: lot.sortOrder,
+      })),
       valuation: base,
       sensitivity,
       synthesis,
