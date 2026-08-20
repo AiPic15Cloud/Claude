@@ -402,6 +402,7 @@ model Deal {
   alerts                     Alert[]
   guarantees                 Guarantee[]
   costLineItems              CostLineItem[]
+  saleLots                   SaleLot[]
   financialAssumption        FinancialAssumption?
   entityLinks                DealEntityLink[]
   repayments                 Repayment[]
@@ -847,6 +848,29 @@ model CostLineItem {
 
   @@index([dealId, category])
   @@map("cost_line_items")
+}
+
+/// Grille de commercialisation lot par lot — remplace le prix de vente moyen
+/// (sellingPricePerSqm × surfaceSqm) par la somme des prix réels/prévisionnels
+/// de chaque lot dès qu'au moins un lot est saisi (FinancialModelService).
+/// Un prix moyen peut masquer qu'un projet n'est viable que si certains lots
+/// se vendent au-dessus du marché — la grille rend ce risque visible.
+model SaleLot {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  label      String
+  surfaceSqm Decimal @db.Decimal(10, 2)
+  salePrice  Decimal @db.Decimal(14, 2)
+  sold       Boolean @default(false)
+  sortOrder  Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("sale_lots")
 }
 
 // ── Knowledge Graph ────────────────────────────────────────
