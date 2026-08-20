@@ -542,10 +542,35 @@ export interface RepaymentWithDeal {
 
 export interface FinancialAssumption {
   surfaceSqm: number;
-  constructionCostPerSqm: number;
   sellingPricePerSqm: number;
-  otherCosts: number;
   targetMarginPct: number | null;
+  notes: string | null;
+  landPrice: number | null;
+  notaryFees: number | null;
+  diagnosticsCost: number | null;
+  insuranceCost: number | null;
+  propertyTaxCost: number | null;
+  surveyStudiesCost: number | null;
+  agencyFees: number | null;
+  bankMiscFees: number | null;
+  lpbFeesPctHT: number | null;
+  lpbTvaApplicable: boolean;
+  lpbTvaRatePct: number | null;
+  lpbDurationMinMonths: number | null;
+  lpbDurationMaxMonths: number | null;
+  bankName: string | null;
+  bankLoanAcquisition: number | null;
+  bankLoanAccompagnement: number | null;
+  bankInterestRatePct: number | null;
+  bankFileFees: number | null;
+  bankGuaranteeFees: number | null;
+}
+
+export interface CostLineItem {
+  id: string;
+  label: string;
+  amount: number;
+  sortOrder: number;
 }
 
 export interface FinancialScenario {
@@ -558,10 +583,46 @@ export interface FinancialScenario {
   marginPct: number;
 }
 
+export interface FinancialSynthesis {
+  foncierTotal: number;
+  travauxTotal: number;
+  honorairesTechniquesTotal: number;
+  agencyFees: number;
+  bankMiscFees: number;
+  lpb: {
+    collecte: number;
+    tauxPct: number;
+    dureeCibleMonths: number;
+    interestOnDurationCible: number;
+    feesHT: number;
+    feesTTC: number;
+    guaranteeFeesEstimate: number;
+    hasActiveHypotheque: boolean;
+    totalFees: number;
+    netDisbursed: number;
+  };
+  bank: { enabled: false } | { enabled: true; name: string; loanTotal: number; interestOnDurationCible: number; totalFees: number };
+  coutDeRevient: number;
+  prixDeVente: number;
+  marge: number;
+  margePct: number;
+  expositionFinale: number;
+  ratios: {
+    lta: number | null;
+    ltc: number | null;
+    ltv: number | null;
+    ltaAvecBanque: number | null;
+    ltcAvecBanque: number | null;
+    ltvAvecBanque: number | null;
+  };
+}
+
 export interface FinancialModel {
   assumption: FinancialAssumption | null;
+  travauxItems: CostLineItem[] | null;
   valuation: FinancialScenario | null;
   sensitivity: FinancialScenario[] | null;
+  synthesis: FinancialSynthesis | null;
 }
 
 export interface ProjectCheckpoint {

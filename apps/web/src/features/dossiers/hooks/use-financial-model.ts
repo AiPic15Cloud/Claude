@@ -11,11 +11,28 @@ export function useFinancialModel(dealId: string) {
 
 export interface FinancialAssumptionPayload {
   surfaceSqm: number;
-  constructionCostPerSqm: number;
   sellingPricePerSqm: number;
-  otherCosts?: number;
   targetMarginPct?: number;
   notes?: string;
+  landPrice?: number;
+  notaryFees?: number;
+  diagnosticsCost?: number;
+  insuranceCost?: number;
+  propertyTaxCost?: number;
+  surveyStudiesCost?: number;
+  agencyFees?: number;
+  bankMiscFees?: number;
+  lpbFeesPctHT?: number;
+  lpbTvaApplicable?: boolean;
+  lpbTvaRatePct?: number;
+  lpbDurationMinMonths?: number;
+  lpbDurationMaxMonths?: number;
+  bankName?: string;
+  bankLoanAcquisition?: number;
+  bankLoanAccompagnement?: number;
+  bankInterestRatePct?: number;
+  bankFileFees?: number;
+  bankGuaranteeFees?: number;
   /** Document du dossier qui justifie ces valeurs (ex. un BP analysé par l'IA) — tracé dans l'historique des valeurs. */
   sourceDocumentId?: string;
 }

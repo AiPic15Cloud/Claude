@@ -17,6 +17,7 @@ import {
 } from '@/features/portfolio/components/deal-badges';
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { useGuarantees } from './hooks/use-guarantees';
+import { useCreateCostLineItem } from './hooks/use-cost-line-items';
 import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
@@ -58,19 +59,28 @@ export function DossierPage() {
   const [activeTab, setActiveTab] = useState('score');
   const [financialPrefill, setFinancialPrefill] = useState<(Partial<FinancialModelFormValues> & { sourceDocumentId?: string }) | null>(null);
 
+  const createCostLineItem = useCreateCostLineItem(id ?? '');
+
   const handleApplyExtraction = (extraction: FinancialExtraction) => {
     const prefill: Partial<FinancialModelFormValues> & { sourceDocumentId?: string } = { sourceDocumentId: extraction.documentId };
     if (extraction.surfaceM2 !== null) prefill.surfaceSqm = extraction.surfaceM2;
-    if (extraction.coutTravauxM2 !== null) prefill.constructionCostPerSqm = extraction.coutTravauxM2;
     if (extraction.prixSortieM2 !== null) prefill.sellingPricePerSqm = extraction.prixSortieM2;
     if (extraction.margePct !== null) prefill.targetMarginPct = extraction.margePct;
-    if (extraction.coutDeRevientTotal !== null && extraction.coutTravauxM2 !== null && extraction.surfaceM2 !== null) {
-      const other = extraction.coutDeRevientTotal - extraction.coutTravauxM2 * extraction.surfaceM2;
-      if (other >= 0) prefill.otherCosts = Math.round(other);
+    if (extraction.prixAcquisitionM2 !== null && extraction.surfaceM2 !== null) {
+      prefill.landPrice = Math.round(extraction.prixAcquisitionM2 * extraction.surfaceM2);
     }
     const notesParts = [`Chiffres extraits automatiquement du document « ${extraction.sourceDocument} » — à vérifier avant utilisation.`];
     if (extraction.notes) notesParts.push(extraction.notes);
     prefill.notes = notesParts.join(' ');
+
+    // Le coût travaux extrait est un total (ou dérivé €/m²×surface), pas un
+    // champ du formulaire "Hypothèses" — devient un poste "Travaux" libre,
+    // au même titre que ceux saisis manuellement.
+    const travauxAmount =
+      extraction.montantTravaux ?? (extraction.coutTravauxM2 !== null && extraction.surfaceM2 !== null ? extraction.coutTravauxM2 * extraction.surfaceM2 : null);
+    if (travauxAmount !== null && travauxAmount >= 0) {
+      createCostLineItem.mutate({ label: 'Travaux (extrait du BP)', amount: Math.round(travauxAmount) });
+    }
 
     setFinancialPrefill(prefill);
     setActiveTab('financial');
@@ -295,6 +305,8 @@ export function DossierPage() {
         <TabsContent value="financial">
           <FinancialModelPanel
             dealId={deal.id}
+            dealInterestRate={deal.interestRate !== undefined && deal.interestRate !== null ? Number(deal.interestRate) : null}
+            dealDurationMonths={deal.durationMonths ?? null}
             prefill={financialPrefill}
             onPrefillApplied={() => setFinancialPrefill(null)}
           />
