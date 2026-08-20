@@ -21,6 +21,7 @@ export interface FinancialAssumptionPayload {
   propertyTaxCost?: number;
   surveyStudiesCost?: number;
   agencyFees?: number;
+  referralFees?: number;
   bankMiscFees?: number;
   lpbFeesPctHT?: number;
   lpbTvaApplicable?: boolean;

@@ -552,6 +552,7 @@ export interface FinancialAssumption {
   propertyTaxCost: number | null;
   surveyStudiesCost: number | null;
   agencyFees: number | null;
+  referralFees: number | null;
   bankMiscFees: number | null;
   lpbFeesPctHT: number | null;
   lpbTvaApplicable: boolean;
@@ -588,6 +589,7 @@ export interface FinancialSynthesis {
   travauxTotal: number;
   honorairesTechniquesTotal: number;
   agencyFees: number;
+  referralFees: number;
   bankMiscFees: number;
   lpb: {
     collecte: number;
@@ -620,6 +622,7 @@ export interface FinancialSynthesis {
 export interface FinancialModel {
   assumption: FinancialAssumption | null;
   travauxItems: CostLineItem[] | null;
+  honorairesTechniquesItems: CostLineItem[] | null;
   valuation: FinancialScenario | null;
   sensitivity: FinancialScenario[] | null;
   synthesis: FinancialSynthesis | null;

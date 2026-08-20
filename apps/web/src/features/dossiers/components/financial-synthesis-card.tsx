@@ -32,7 +32,10 @@ export function FinancialSynthesisCard({ synthesis }: { synthesis: FinancialSynt
           <Row label="Foncier" value={formatCurrency(synthesis.foncierTotal)} />
           <Row label="Travaux" value={formatCurrency(synthesis.travauxTotal)} />
           <Row label="Honoraires techniques" value={formatCurrency(synthesis.honorairesTechniquesTotal)} />
-          <Row label="Autres frais (agence, bancaire divers, LPB)" value={formatCurrency(synthesis.agencyFees + synthesis.bankMiscFees + synthesis.lpb.totalFees)} />
+          <Row
+            label="Autres frais (agence, apport d'affaires, bancaire divers, LPB)"
+            value={formatCurrency(synthesis.agencyFees + synthesis.referralFees + synthesis.bankMiscFees + synthesis.lpb.totalFees)}
+          />
           <Row label="Prix de Revient" value={formatCurrency(synthesis.coutDeRevient)} bold />
         </div>
 

@@ -8,11 +8,13 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>, dealId: s
   queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
 }
 
-export function useCreateCostLineItem(dealId: string) {
+export type CostLineItemCategory = 'TRAVAUX' | 'HONORAIRES_TECHNIQUES';
+
+export function useCreateCostLineItem(dealId: string, category: CostLineItemCategory = 'TRAVAUX') {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: { label: string; amount: number }) =>
-      api.post<CostLineItem>(`/deals/${dealId}/cost-line-items`, { category: 'TRAVAUX', ...payload }),
+      api.post<CostLineItem>(`/deals/${dealId}/cost-line-items`, { category, ...payload }),
     onSuccess: () => invalidateAll(queryClient, dealId),
   });
 }

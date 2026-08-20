@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFinancialModel, useSaveFinancialModel } from '../hooks/use-financial-model';
 import { ValidationBadge } from './validation-badge';
-import { TravauxLineItemsEditor } from './travaux-line-items-editor';
+import { CostLineItemsEditor } from './cost-line-items-editor';
 import { FinancialSynthesisCard } from './financial-synthesis-card';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,7 @@ const schema = z.object({
   propertyTaxCost: z.coerce.number().min(0).optional(),
   surveyStudiesCost: z.coerce.number().min(0).optional(),
   agencyFees: z.coerce.number().min(0).optional(),
+  referralFees: z.coerce.number().min(0).optional(),
   bankMiscFees: z.coerce.number().min(0).optional(),
   lpbFeesPctHT: z.coerce.number().min(0).optional(),
   lpbTvaApplicable: z.boolean().optional(),
@@ -83,6 +84,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
         propertyTaxCost: data.assumption.propertyTaxCost ?? undefined,
         surveyStudiesCost: data.assumption.surveyStudiesCost ?? undefined,
         agencyFees: data.assumption.agencyFees ?? undefined,
+        referralFees: data.assumption.referralFees ?? undefined,
         bankMiscFees: data.assumption.bankMiscFees ?? undefined,
         lpbFeesPctHT: data.assumption.lpbFeesPctHT ?? undefined,
         lpbTvaApplicable: data.assumption.lpbTvaApplicable,
@@ -183,7 +185,13 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
 
             <section className="flex flex-col gap-2">
               <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Travaux</h3>
-              <TravauxLineItemsEditor dealId={dealId} items={data?.travauxItems ?? []} />
+              <CostLineItemsEditor
+                dealId={dealId}
+                category="TRAVAUX"
+                items={data?.travauxItems ?? []}
+                totalLabel="Total travaux"
+                placeholder="Ex. Gros œuvre"
+              />
             </section>
 
             <section className="flex flex-col gap-2">
@@ -206,6 +214,13 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
                   <Input id="surveyStudiesCost" type="number" min={0} {...register('surveyStudiesCost')} />
                 </div>
               </div>
+              <CostLineItemsEditor
+                dealId={dealId}
+                category="HONORAIRES_TECHNIQUES"
+                items={data?.honorairesTechniquesItems ?? []}
+                totalLabel="Total postes additionnels"
+                placeholder="Ex. Contrôle technique"
+              />
             </section>
 
             <section className="flex flex-col gap-2">
@@ -213,7 +228,11 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="agencyFees">Honoraires d'agence (€)</Label>
-                  <Input id="agencyFees" type="number" min={0} {...register('agencyFees')} />
+                  <Input id="agencyFees" type="number" min={0} placeholder="0" {...register('agencyFees')} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="referralFees">Apport d'affaires (€)</Label>
+                  <Input id="referralFees" type="number" min={0} placeholder="0" {...register('referralFees')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bankMiscFees">Frais bancaires divers (€)</Label>
