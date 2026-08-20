@@ -176,6 +176,7 @@ export interface Deal {
   porteurSiren?: string | null;
   porteurMonitoringStatus?: string | null;
   deadlineAlert?: DeadlineAlert;
+  durationTargetAlert?: DurationTargetAlert;
   checkpointHealth?: CheckpointHealth;
   narrative?: AutoSummary;
   createdById: string;
@@ -301,6 +302,14 @@ export interface DeadlineAlert {
   level: DeadlineLevel;
   daysToMax: number;
   stage: 'J90' | 'J60' | 'J30' | 'J15' | 'CONTENTIEUX' | null;
+  actionLabel: string | null;
+}
+
+export interface DurationTargetAlert {
+  level: 'RAS' | 'ATTENTION' | 'URGENT';
+  targetDate: string | null;
+  daysToTarget: number | null;
+  stage: 'J30' | 'DEPASSEE' | null;
   actionLabel: string | null;
 }
 
@@ -635,6 +644,25 @@ export interface FinancialSynthesis {
     ltcAvecBanque: number | null;
     ltvAvecBanque: number | null;
   };
+}
+
+export interface BpComparisonLine {
+  key: string;
+  label: string;
+  initial: number;
+  current: number;
+  deltaAbs: number;
+  deltaPct: number | null;
+  initialPct?: number;
+  currentPct?: number;
+}
+
+export interface BpComparison {
+  hasData: boolean;
+  hasAnyHistory: boolean;
+  earliestChangeAt: string | null;
+  lines: BpComparisonLine[];
+  disclaimer: string | null;
 }
 
 export interface FinancialModel {

@@ -10,6 +10,7 @@ import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
 import { computeDeadlineAlert } from './deadline.util';
+import { computeDurationTargetAlert } from './duration-target.util';
 import { computeNewsletterStatus } from './newsletter.util';
 import { buildMiseEnDemeure } from './mise-en-demeure.util';
 import { computeCheckpointHealth } from './checkpoint-health.util';
@@ -204,7 +205,11 @@ export class DealsService {
 
     await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
     this.indexForSearch(deal!);
-    return { ...deal!, deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), isDealClosed(deal!)) };
+    return {
+      ...deal!,
+      deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), isDealClosed(deal!)),
+      durationTargetAlert: computeDurationTargetAlert(deal!.startDate, deal!.durationMonths, new Date(), isDealClosed(deal!)),
+    };
   }
 
   async findAll(organizationId: string, query: QueryDealsDto) {
@@ -243,7 +248,11 @@ export class DealsService {
     const withHealth = await this.attachCheckpointHealth(items);
 
     return {
-      items: withHealth.map((d) => ({ ...d, deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), isDealClosed(d)) })),
+      items: withHealth.map((d) => ({
+        ...d,
+        deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), isDealClosed(d)),
+        durationTargetAlert: computeDurationTargetAlert(d.startDate, d.durationMonths, new Date(), isDealClosed(d)),
+      })),
       total,
       page,
       pageSize,
@@ -272,9 +281,10 @@ export class DealsService {
     const checkpointHealth = this.toCheckpointHealth(deal.checkpoints[0] ?? null, isDealClosed(deal));
     const notes = await Promise.all(deal.notes.map((note) => withNoteImageUrls(note, this.storage)));
     const deadlineAlert = computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal));
+    const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), isDealClosed(deal));
     const riskBreakdown = await this.riskEngine.computeDealRisk(organizationId, id, false);
-    const narrative = this.buildNarrative(deal, riskBreakdown, deadlineAlert);
-    return { ...deal, notes, deadlineAlert, checkpointHealth, narrative };
+    const narrative = this.buildNarrative(deal, riskBreakdown, deadlineAlert, durationTargetAlert);
+    return { ...deal, notes, deadlineAlert, durationTargetAlert, checkpointHealth, narrative };
   }
 
   /**
@@ -287,6 +297,7 @@ export class DealsService {
     deal: { recoveryStatus: string; porteurMonitoringStatus: string | null },
     riskBreakdown: Awaited<ReturnType<RiskEngineService['computeDealRisk']>>,
     deadlineAlert: ReturnType<typeof computeDeadlineAlert>,
+    durationTargetAlert: ReturnType<typeof computeDurationTargetAlert>,
   ): { headline: string; items: { label: string; severity: 'critical' | 'warning' | 'info' }[] } {
     if (riskBreakdown.suppressed || riskBreakdown.score === null) {
       return { headline: 'Dossier clos.', items: [] };
@@ -314,6 +325,10 @@ export class DealsService {
 
     if (deadlineAlert.level !== 'RAS' && deadlineAlert.actionLabel && !topFactorKeys.has('echeance')) {
       items.push({ label: deadlineAlert.actionLabel, severity: deadlineAlert.level === 'URGENT' ? 'critical' : 'warning' });
+    }
+
+    if (durationTargetAlert.level !== 'RAS' && durationTargetAlert.actionLabel) {
+      items.push({ label: durationTargetAlert.actionLabel, severity: durationTargetAlert.level === 'URGENT' ? 'critical' : 'warning' });
     }
 
     if (deal.recoveryStatus !== 'SAIN' && !topFactorKeys.has('recouvrement')) {
@@ -491,7 +506,11 @@ export class DealsService {
         .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${id}`, err instanceof Error ? err.stack : err));
     }
 
-    return { ...deal, deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal)) };
+    return {
+      ...deal,
+      deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal)),
+      durationTargetAlert: computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), isDealClosed(deal)),
+    };
   }
 
   async changeStage(organizationId: string, id: string, userId: string, stage: Prisma.DealUpdateInput['stage']) {

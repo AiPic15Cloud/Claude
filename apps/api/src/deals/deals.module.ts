@@ -4,6 +4,7 @@ import { DealsController } from './deals.controller';
 import { GeocodingService } from './geocoding.service';
 import { GeocodingBackfillService } from './geocoding-backfill.service';
 import { DeadlineAlertsService } from './deadline-alerts.service';
+import { DurationTargetAlertsService } from './duration-target-alerts.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { SearchModule } from '../search/search.module';
@@ -16,7 +17,7 @@ import { FieldChangeModule } from '../field-changes/field-change.module';
 
 @Module({
   imports: [ActivitiesModule, SearchModule, AlertsModule, TasksModule, StorageModule, RiskDataModule, RiskEngineModule, FieldChangeModule],
-  providers: [DealsService, GeocodingService, GeocodingBackfillService, DeadlineAlertsService, CompanyMonitoringService],
+  providers: [DealsService, GeocodingService, GeocodingBackfillService, DeadlineAlertsService, DurationTargetAlertsService, CompanyMonitoringService],
   controllers: [DealsController],
   exports: [DealsService],
 })
