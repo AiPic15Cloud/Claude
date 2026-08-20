@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useCreateCostLineItem, useUpdateCostLineItem, useDeleteCostLineItem } from '../hooks/use-cost-line-items';
+import { useCreateCostLineItem, useUpdateCostLineItem, useDeleteCostLineItem, type CostLineItemCategory } from '../hooks/use-cost-line-items';
 import { formatCurrency } from '@/lib/format';
 import type { CostLineItem } from '@/types';
 
@@ -13,14 +13,26 @@ interface DraftItem {
 }
 
 /**
- * Postes de travaux libres — l'utilisateur les saisit ligne par ligne dans
- * son classeur réel (pas des champs fixes) : ajouter/renommer/supprimer un
- * poste, chaque action persistée immédiatement et tracée dans l'historique
- * des valeurs (FieldChangeService côté API).
+ * Postes libres, en plus des champs fixes d'une section — l'utilisateur les
+ * saisit ligne par ligne dans son classeur réel (pas des champs fixes) :
+ * ajouter/renommer/supprimer un poste, chaque action persistée immédiatement
+ * et tracée dans l'historique des valeurs (FieldChangeService côté API).
  */
-export function TravauxLineItemsEditor({ dealId, items }: { dealId: string; items: CostLineItem[] }) {
+export function CostLineItemsEditor({
+  dealId,
+  category,
+  items,
+  totalLabel,
+  placeholder,
+}: {
+  dealId: string;
+  category: CostLineItemCategory;
+  items: CostLineItem[];
+  totalLabel: string;
+  placeholder: string;
+}) {
   const [draft, setDraft] = useState<DraftItem | null>(null);
-  const create = useCreateCostLineItem(dealId);
+  const create = useCreateCostLineItem(dealId, category);
   const update = useUpdateCostLineItem(dealId);
   const remove = useDeleteCostLineItem(dealId);
 
@@ -74,7 +86,7 @@ export function TravauxLineItemsEditor({ dealId, items }: { dealId: string; item
       )}
       {draft?.id === null && (
         <div className="flex items-center gap-1.5">
-          <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Ex. Gros œuvre" className="flex-1" autoFocus />
+          <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder={placeholder} className="flex-1" autoFocus />
           <Input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
           <Button size="icon" variant="ghost" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
@@ -90,7 +102,7 @@ export function TravauxLineItemsEditor({ dealId, items }: { dealId: string; item
         </Button>
       )}
       <div className="mt-1 flex items-center justify-between border-t border-border pt-1.5 text-sm">
-        <span className="font-medium">Total travaux</span>
+        <span className="font-medium">{totalLabel}</span>
         <span className="font-semibold tabular-nums">{formatCurrency(total)}</span>
       </div>
     </div>
