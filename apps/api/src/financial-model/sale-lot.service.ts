@@ -27,7 +27,7 @@ export class SaleLotService {
         label: dto.label,
         surfaceSqm: dto.surfaceSqm,
         salePrice: dto.salePrice,
-        status: dto.status ?? 'OFFRE',
+        status: dto.status ?? 'EN_VENTE',
         sortOrder: dto.sortOrder ?? 0,
       },
     });

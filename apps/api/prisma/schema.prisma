@@ -239,6 +239,7 @@ model User {
   pushSubscriptions          PushSubscription[]
   fieldChanges               FieldChange[]
   dataValidations            DataValidation[]
+  financialAssumptionsLocked FinancialAssumption[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -827,6 +828,17 @@ model FinancialAssumption {
   bankFileFees           Decimal? @db.Decimal(14, 2)
   bankGuaranteeFees      Decimal? @db.Decimal(14, 2)
 
+  // BP initial figé — copie gelée des totaux calculés (Foncier, Travaux,
+  // Honoraires, financement, marge, sensibilité) au moment où l'utilisateur
+  // clique "Figer le BP initial", une fois sa saisie terminée. Tant que
+  // baselineLockedAt est null, aucune comparaison initial/actualisé n'est
+  // affichée — évite qu'un champ encore vide en cours de saisie (donc à sa
+  // valeur par défaut) soit pris à tort pour le "point de départ" réel.
+  baselineSnapshot   Json?
+  baselineLockedAt   DateTime?
+  baselineLockedById String?
+  baselineLockedBy   User?     @relation(fields: [baselineLockedById], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -870,8 +882,8 @@ model SaleLot {
   // Statut de commercialisation du lot — string libre (pas un enum Prisma)
   // pour rester cohérent avec CostLineItem.category : validé côté DTO
   // (@IsIn), pas de migration nécessaire si un statut s'ajoute plus tard.
-  // Valeurs : OFFRE | PROMESSE_COMPROMIS | RESERVATION | VENDU
-  status     String  @default("OFFRE")
+  // Valeurs : EN_VENTE | OFFRE | PROMESSE_COMPROMIS | RESERVATION | VENDU
+  status     String  @default("EN_VENTE")
   sortOrder  Int     @default(0)
 
   createdAt DateTime @default(now())

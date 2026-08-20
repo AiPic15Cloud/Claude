@@ -17,36 +17,48 @@ import { CostLineItemsEditor } from './cost-line-items-editor';
 import { SaleLotsEditor } from './sale-lots-editor';
 import { FinancialSynthesisCard } from './financial-synthesis-card';
 import { BpComparisonCard } from './bp-comparison-card';
+import { SensitivityComparisonCard } from './sensitivity-comparison-card';
 import { formatCurrency } from '@/lib/format';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
 import { cn } from '@/lib/utils';
 
+// z.coerce.number() sur une chaîne vide donne 0 (Number('') === 0), pas
+// undefined — .optional() ne rattrape rien puisque 0 est une valeur "valide".
+// Un champ laissé vide (saisie du modèle financier étalée sur plusieurs
+// sauvegardes) serait donc enregistré comme "explicitement mis à 0", ce qui
+// pollue l'historique des valeurs. Le preprocess normalise '' en undefined
+// avant coercition pour que "pas encore rempli" reste "pas encore rempli".
+const optionalNumber = (max?: number) => {
+  const base = max !== undefined ? z.coerce.number().min(0).max(max) : z.coerce.number().min(0);
+  return z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : v), base.optional());
+};
+
 const schema = z.object({
   surfaceSqm: z.coerce.number().positive('Surface requise'),
   sellingPricePerSqm: z.coerce.number().positive('Prix requis'),
-  targetMarginPct: z.coerce.number().min(0).max(100).optional(),
+  targetMarginPct: optionalNumber(100),
   notes: z.string().optional(),
-  landPrice: z.coerce.number().min(0).optional(),
-  notaryFees: z.coerce.number().min(0).optional(),
-  diagnosticsCost: z.coerce.number().min(0).optional(),
-  insuranceCost: z.coerce.number().min(0).optional(),
-  propertyTaxCost: z.coerce.number().min(0).optional(),
-  surveyStudiesCost: z.coerce.number().min(0).optional(),
-  agencyFees: z.coerce.number().min(0).optional(),
-  referralFees: z.coerce.number().min(0).optional(),
-  bankMiscFees: z.coerce.number().min(0).optional(),
-  lpbFeesPctHT: z.coerce.number().min(0).optional(),
+  landPrice: optionalNumber(),
+  notaryFees: optionalNumber(),
+  diagnosticsCost: optionalNumber(),
+  insuranceCost: optionalNumber(),
+  propertyTaxCost: optionalNumber(),
+  surveyStudiesCost: optionalNumber(),
+  agencyFees: optionalNumber(),
+  referralFees: optionalNumber(),
+  bankMiscFees: optionalNumber(),
+  lpbFeesPctHT: optionalNumber(),
   lpbTvaApplicable: z.boolean().optional(),
-  lpbTvaRatePct: z.coerce.number().min(0).optional(),
-  lpbDurationMinMonths: z.coerce.number().min(0).optional(),
-  lpbDurationMaxMonths: z.coerce.number().min(0).optional(),
+  lpbTvaRatePct: optionalNumber(),
+  lpbDurationMinMonths: optionalNumber(),
+  lpbDurationMaxMonths: optionalNumber(),
   latePenaltyApplied: z.boolean().optional(),
   bankName: z.string().optional(),
-  bankLoanAcquisition: z.coerce.number().min(0).optional(),
-  bankLoanAccompagnement: z.coerce.number().min(0).optional(),
-  bankInterestRatePct: z.coerce.number().min(0).optional(),
-  bankFileFees: z.coerce.number().min(0).optional(),
-  bankGuaranteeFees: z.coerce.number().min(0).optional(),
+  bankLoanAcquisition: optionalNumber(),
+  bankLoanAccompagnement: optionalNumber(),
+  bankInterestRatePct: optionalNumber(),
+  bankFileFees: optionalNumber(),
+  bankGuaranteeFees: optionalNumber(),
 });
 export type FinancialModelFormValues = z.infer<typeof schema>;
 type FormValues = FinancialModelFormValues;
@@ -456,8 +468,11 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
 
       <div className="flex flex-col gap-4">
         {data?.synthesis && <FinancialSynthesisCard synthesis={data.synthesis} />}
-        {bpComparison && <BpComparisonCard comparison={bpComparison} />}
+        {bpComparison && <BpComparisonCard dealId={dealId} comparison={bpComparison} />}
 
+        {bpComparison?.locked && bpComparison.sensitivity ? (
+          <SensitivityComparisonCard initial={bpComparison.sensitivity.initial} current={bpComparison.sensitivity.current} />
+        ) : (
         <Card>
           <CardHeader>
             <CardTitle>Sensibilité</CardTitle>
@@ -504,6 +519,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
             )}
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );
