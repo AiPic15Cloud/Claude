@@ -25,6 +25,7 @@ import { DealNarrativeCard } from './components/deal-narrative-card';
 import { DealStageTimeline } from './components/deal-stage-timeline';
 import { ActivityLogPanel } from './components/activity-log-panel';
 import { FieldHistoryPanel } from './components/field-history-panel';
+import { ValidationBadge } from './components/validation-badge';
 import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
@@ -307,7 +308,10 @@ export function DossierPage() {
         <TabsContent value="activity" className="flex flex-col gap-4">
           <ActivityLogPanel dealId={deal.id} />
           <div>
-            <h3 className="mb-2 text-sm font-medium text-muted-foreground">Historique des valeurs</h3>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-medium text-muted-foreground">Historique des valeurs</h3>
+              <ValidationBadge dealId={deal.id} entityType="Deal" />
+            </div>
             <FieldHistoryPanel dealId={deal.id} />
           </div>
         </TabsContent>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { useDealRisk, useRecomputeRisk } from '../hooks/use-risk';
+import { RiskMethodologySheet } from './risk-methodology-sheet';
 
 // Sémantique inversée de scoreColor (Score ATLAS) : ici, haut = mauvais.
 function riskColor(value: number): string {
@@ -46,10 +47,13 @@ export function RiskBreakdownCard({ dealId }: { dealId: string }) {
           <CardTitle>Risque ATLAS</CardTitle>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{data.score}/100</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
-          {recompute.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Recalculer
-        </Button>
+        <div className="flex items-center gap-1">
+          <RiskMethodologySheet />
+          <Button variant="outline" size="sm" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
+            {recompute.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Recalculer
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {data.factors.map((factor) => (

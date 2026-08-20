@@ -24,6 +24,10 @@ export function useSaveFinancialModel(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: FinancialAssumptionPayload) => api.put<FinancialModel>(`/deals/${dealId}/financial-model`, payload),
-    onSuccess: (data) => queryClient.setQueryData(['financial-model', dealId], data),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['financial-model', dealId], data);
+      queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
+    },
   });
 }
