@@ -102,34 +102,23 @@ export class FinancialModelService {
     return this.buildResponse(organizationId, dealId, deal, assumption);
   }
 
-  private async buildResponse(
-    organizationId: string,
-    dealId: string,
-    deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null },
+  private static num(v: Prisma.Decimal | number | null | undefined): number {
+    return v === null || v === undefined ? 0 : Number(v);
+  }
+
+  /**
+   * Coûts de financement (LPB + banque optionnelle) — extrait de buildResponse()
+   * pour être réutilisé tel quel par getBpComparison() : le financement n'est pas
+   * tracé champ par champ dans l'historique des valeurs (Deal.amountTarget/
+   * interestRate ne le sont pas encore), donc sa valeur actuelle sert de constante
+   * des deux côtés (initial et actualisé) plutôt que d'être devinée.
+   */
+  private computeFinancingFees(
     assumption: AssumptionRow,
+    deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null },
+    hasActiveHypotheque: boolean,
   ) {
-    const [travauxItems, honorairesTechniquesItems, hasActiveHypotheque, saleLots] = await Promise.all([
-      this.prisma.costLineItem.findMany({ where: { dealId, category: 'TRAVAUX' }, orderBy: { sortOrder: 'asc' } }),
-      this.prisma.costLineItem.findMany({ where: { dealId, category: 'HONORAIRES_TECHNIQUES' }, orderBy: { sortOrder: 'asc' } }),
-      this.prisma.guarantee.findFirst({ where: { dealId, type: 'HYPOTHEQUE', status: 'ACTIVE' } }).then(Boolean),
-      this.prisma.saleLot.findMany({ where: { dealId }, orderBy: { sortOrder: 'asc' } }),
-    ]);
-
-    const num = (v: Prisma.Decimal | number | null | undefined): number => (v === null || v === undefined ? 0 : Number(v));
-
-    const surface = num(assumption.surfaceSqm);
-    const sellingPricePerSqm = num(assumption.sellingPricePerSqm);
-
-    const foncierTotal = num(assumption.landPrice) + num(assumption.notaryFees);
-    const travauxTotal = travauxItems.reduce((sum, item) => sum + num(item.amount), 0);
-    const honorairesTechniquesItemsTotal = honorairesTechniquesItems.reduce((sum, item) => sum + num(item.amount), 0);
-    const honorairesTechniquesTotal =
-      num(assumption.diagnosticsCost) +
-      num(assumption.insuranceCost) +
-      num(assumption.propertyTaxCost) +
-      num(assumption.surveyStudiesCost) +
-      honorairesTechniquesItemsTotal;
-
+    const num = FinancialModelService.num;
     const collecte = num(deal.amountTarget);
     const tauxLpb = num(deal.interestRate) / 100;
     const dureeCibleLpb = deal.durationMonths ?? 0;
@@ -145,6 +134,65 @@ export class FinancialModelService {
     const bankLoanTotal = bankEnabled ? num(assumption.bankLoanAcquisition) + num(assumption.bankLoanAccompagnement) : 0;
     const bankInterestOnDurationCible = bankEnabled ? (bankLoanTotal * (num(assumption.bankInterestRatePct) / 100) * dureeCibleLpb) / 12 : 0;
     const bankTotalFees = bankEnabled ? bankInterestOnDurationCible + num(assumption.bankGuaranteeFees) + num(assumption.bankFileFees) * 1.2 : 0;
+
+    return {
+      collecte,
+      dureeCibleLpb,
+      lpbInterestOnDurationCible,
+      lpbFeesHT,
+      lpbFeesTTC,
+      guaranteeFeesEstimate,
+      lpbTotalFees,
+      lpbNetDisbursed,
+      bankEnabled,
+      bankLoanTotal,
+      bankInterestOnDurationCible,
+      bankTotalFees,
+    };
+  }
+
+  private async buildResponse(
+    organizationId: string,
+    dealId: string,
+    deal: { amountTarget: Prisma.Decimal; interestRate: Prisma.Decimal | null; durationMonths: number | null },
+    assumption: AssumptionRow,
+  ) {
+    const [travauxItems, honorairesTechniquesItems, hasActiveHypotheque, saleLots] = await Promise.all([
+      this.prisma.costLineItem.findMany({ where: { dealId, category: 'TRAVAUX' }, orderBy: { sortOrder: 'asc' } }),
+      this.prisma.costLineItem.findMany({ where: { dealId, category: 'HONORAIRES_TECHNIQUES' }, orderBy: { sortOrder: 'asc' } }),
+      this.prisma.guarantee.findFirst({ where: { dealId, type: 'HYPOTHEQUE', status: 'ACTIVE' } }).then(Boolean),
+      this.prisma.saleLot.findMany({ where: { dealId }, orderBy: { sortOrder: 'asc' } }),
+    ]);
+
+    const num = FinancialModelService.num;
+
+    const surface = num(assumption.surfaceSqm);
+    const sellingPricePerSqm = num(assumption.sellingPricePerSqm);
+
+    const foncierTotal = num(assumption.landPrice) + num(assumption.notaryFees);
+    const travauxTotal = travauxItems.reduce((sum, item) => sum + num(item.amount), 0);
+    const honorairesTechniquesItemsTotal = honorairesTechniquesItems.reduce((sum, item) => sum + num(item.amount), 0);
+    const honorairesTechniquesTotal =
+      num(assumption.diagnosticsCost) +
+      num(assumption.insuranceCost) +
+      num(assumption.propertyTaxCost) +
+      num(assumption.surveyStudiesCost) +
+      honorairesTechniquesItemsTotal;
+
+    const {
+      collecte,
+      dureeCibleLpb,
+      lpbInterestOnDurationCible,
+      lpbFeesHT,
+      lpbFeesTTC,
+      guaranteeFeesEstimate,
+      lpbTotalFees,
+      lpbNetDisbursed,
+      bankEnabled,
+      bankLoanTotal,
+      bankInterestOnDurationCible,
+      bankTotalFees,
+    } = this.computeFinancingFees(assumption, deal, hasActiveHypotheque);
 
     const autresFraisTotal = num(assumption.agencyFees) + num(assumption.referralFees) + num(assumption.bankMiscFees) + lpbTotalFees;
 
@@ -276,6 +324,139 @@ export class FinancialModelService {
       valuation: base,
       sensitivity,
       synthesis,
+    };
+  }
+
+  /**
+   * BP initial vs actualisé — reconstruit à partir de l'historique des valeurs
+   * (FieldChange) plutôt que d'un snapshot dédié : pour chaque champ, la
+   * première valeur jamais enregistrée sert de "BP initial", la valeur
+   * actuelle de "BP actualisé". Un champ jamais modifié depuis la création du
+   * modèle financier n'a pas de FieldChange — dans ce cas, initial = actuel
+   * (aucune dérive n'est inventée). Le financement (LPB/bancaire) n'est pas
+   * tracé champ par champ pour l'instant : il est tenu constant à sa valeur
+   * actuelle des deux côtés plutôt que d'être deviné.
+   */
+  async getBpComparison(organizationId: string, dealId: string) {
+    await this.assertDeal(organizationId, dealId);
+    const deal = await this.prisma.deal.findUniqueOrThrow({ where: { id: dealId } });
+    const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
+    if (!assumption) return { hasData: false, hasAnyHistory: false, earliestChangeAt: null, lines: [], disclaimer: null };
+
+    const num = FinancialModelService.num;
+
+    const [travauxItems, honorairesTechniquesItems, saleLots, hasActiveHypotheque, changes] = await Promise.all([
+      this.prisma.costLineItem.findMany({ where: { dealId, category: 'TRAVAUX' } }),
+      this.prisma.costLineItem.findMany({ where: { dealId, category: 'HONORAIRES_TECHNIQUES' } }),
+      this.prisma.saleLot.findMany({ where: { dealId } }),
+      this.prisma.guarantee.findFirst({ where: { dealId, type: 'HYPOTHEQUE', status: 'ACTIVE' } }).then(Boolean),
+      this.prisma.fieldChange.findMany({
+        where: { dealId, entityType: { in: ['FinancialAssumption', 'CostLineItem', 'SaleLot'] } },
+        orderBy: { changedAt: 'asc' },
+        select: { entityType: true, fieldKey: true, oldValue: true, newValue: true, changedAt: true },
+      }),
+    ]);
+
+    const earliestByKey = new Map<string, { oldValue: string | null; newValue: string | null }>();
+    for (const c of changes) {
+      const compositeKey = `${c.entityType}:${c.fieldKey}`;
+      if (!earliestByKey.has(compositeKey)) earliestByKey.set(compositeKey, c);
+    }
+    const hasAnyHistory = changes.length > 0;
+    const earliestChangeAt = changes[0]?.changedAt ?? null;
+
+    const initialOf = (entityType: string, fieldKey: string, current: number): number => {
+      const row = earliestByKey.get(`${entityType}:${fieldKey}`);
+      if (!row) return current; // pas d'historique => aucune dérive connue, pas de valeur inventée
+      return row.oldValue !== null ? Number(row.oldValue) : Number(row.newValue);
+    };
+
+    // Foncier
+    const landPrice_i = initialOf('FinancialAssumption', 'landPrice', num(assumption.landPrice));
+    const notaryFees_i = initialOf('FinancialAssumption', 'notaryFees', num(assumption.notaryFees));
+    const foncier_i = landPrice_i + notaryFees_i;
+    const foncier_c = num(assumption.landPrice) + num(assumption.notaryFees);
+
+    // Travaux — uniquement les postes qui existent encore aujourd'hui (un
+    // poste supprimé depuis n'apparaît dans aucune des deux colonnes, plutôt
+    // que de deviner à quel total il appartenait).
+    const travaux_i = travauxItems.reduce((sum, item) => sum + initialOf('CostLineItem', item.id, Number(item.amount)), 0);
+    const travaux_c = travauxItems.reduce((sum, item) => sum + Number(item.amount), 0);
+
+    // Honoraires techniques
+    const diag_i = initialOf('FinancialAssumption', 'diagnosticsCost', num(assumption.diagnosticsCost));
+    const ins_i = initialOf('FinancialAssumption', 'insuranceCost', num(assumption.insuranceCost));
+    const tax_i = initialOf('FinancialAssumption', 'propertyTaxCost', num(assumption.propertyTaxCost));
+    const survey_i = initialOf('FinancialAssumption', 'surveyStudiesCost', num(assumption.surveyStudiesCost));
+    const honorairesItems_i = honorairesTechniquesItems.reduce((sum, item) => sum + initialOf('CostLineItem', item.id, Number(item.amount)), 0);
+    const honorairesItems_c = honorairesTechniquesItems.reduce((sum, item) => sum + Number(item.amount), 0);
+    const honoraires_i = diag_i + ins_i + tax_i + survey_i + honorairesItems_i;
+    const honoraires_c =
+      num(assumption.diagnosticsCost) + num(assumption.insuranceCost) + num(assumption.propertyTaxCost) + num(assumption.surveyStudiesCost) + honorairesItems_c;
+
+    // Autres frais — scalaires uniquement (hors LPB/banque, voir disclaimer)
+    const agency_i = initialOf('FinancialAssumption', 'agencyFees', num(assumption.agencyFees));
+    const referral_i = initialOf('FinancialAssumption', 'referralFees', num(assumption.referralFees));
+    const miscBank_i = initialOf('FinancialAssumption', 'bankMiscFees', num(assumption.bankMiscFees));
+    const autresFrais_i = agency_i + referral_i + miscBank_i;
+    const autresFrais_c = num(assumption.agencyFees) + num(assumption.referralFees) + num(assumption.bankMiscFees);
+
+    // Prix de vente — grille de lots si utilisée, sinon prix moyen × surface
+    let prixDeVente_i: number;
+    let prixDeVente_c: number;
+    if (saleLots.length > 0) {
+      prixDeVente_i = saleLots.reduce((sum, lot) => sum + initialOf('SaleLot', `${lot.id}:salePrice`, Number(lot.salePrice)), 0);
+      prixDeVente_c = saleLots.reduce((sum, lot) => sum + Number(lot.salePrice), 0);
+    } else {
+      const sellingPricePerSqm_i = initialOf('FinancialAssumption', 'sellingPricePerSqm', num(assumption.sellingPricePerSqm));
+      const surfaceSqm_i = initialOf('FinancialAssumption', 'surfaceSqm', num(assumption.surfaceSqm));
+      prixDeVente_i = sellingPricePerSqm_i * surfaceSqm_i;
+      prixDeVente_c = num(assumption.sellingPricePerSqm) * num(assumption.surfaceSqm);
+    }
+
+    // Financement (LPB + banque) tenu constant à sa valeur actuelle des deux
+    // côtés — Deal.amountTarget/interestRate et les champs bancaires ne sont
+    // pas tracés champ par champ pour l'instant, donc aucune dérive n'y est
+    // attribuée dans cette comparaison.
+    const { lpbTotalFees } = this.computeFinancingFees(assumption, deal, hasActiveHypotheque);
+
+    const coutDeRevient_i = foncier_i + travaux_i + honoraires_i + autresFrais_i + lpbTotalFees;
+    const coutDeRevient_c = foncier_c + travaux_c + honoraires_c + autresFrais_c + lpbTotalFees;
+    const marge_i = prixDeVente_i - coutDeRevient_i;
+    const marge_c = prixDeVente_c - coutDeRevient_c;
+    const margePct_i = prixDeVente_i > 0 ? Math.round((marge_i / prixDeVente_i) * 1000) / 10 : 0;
+    const margePct_c = prixDeVente_c > 0 ? Math.round((marge_c / prixDeVente_c) * 1000) / 10 : 0;
+
+    const line = (key: string, label: string, initial: number, current: number) => {
+      const deltaAbs = current - initial;
+      const deltaPct = initial !== 0 ? Math.round((deltaAbs / Math.abs(initial)) * 1000) / 10 : null;
+      return { key, label, initial: Math.round(initial), current: Math.round(current), deltaAbs: Math.round(deltaAbs), deltaPct };
+    };
+
+    return {
+      hasData: true,
+      hasAnyHistory,
+      earliestChangeAt,
+      lines: [
+        line('prixDeVente', 'Prix de vente', prixDeVente_i, prixDeVente_c),
+        line('foncier', 'Foncier', foncier_i, foncier_c),
+        line('travaux', 'Travaux', travaux_i, travaux_c),
+        line('honorairesTechniques', 'Honoraires techniques', honoraires_i, honoraires_c),
+        line('autresFrais', "Autres frais (hors financement)", autresFrais_i, autresFrais_c),
+        line('coutDeRevient', 'Coût de revient', coutDeRevient_i, coutDeRevient_c),
+        {
+          key: 'marge',
+          label: 'Marge avant impôts',
+          initial: Math.round(marge_i),
+          current: Math.round(marge_c),
+          deltaAbs: Math.round(marge_c - marge_i),
+          deltaPct: null,
+          initialPct: margePct_i,
+          currentPct: margePct_c,
+        },
+      ],
+      disclaimer:
+        "Le \"BP initial\" est reconstruit à partir de la première valeur jamais enregistrée pour chaque champ (historique des valeurs). Un champ jamais modifié depuis la création du modèle financier affiche la même valeur des deux côtés — aucune dérive n'est inventée. Le financement (collecte, taux, frais LPB/bancaires) n'est pas encore tracé champ par champ : il reste à sa valeur actuelle dans les deux colonnes.",
     };
   }
 }
