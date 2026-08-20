@@ -25,6 +25,7 @@ import { ProjectCheckpointsModule } from './project-checkpoints/project-checkpoi
 import { ScoringModule } from './scoring/scoring.module';
 import { RiskEngineModule } from './risk-engine/risk-engine.module';
 import { RiskDataModule } from './risk-data/risk-data.module';
+import { FieldChangeModule } from './field-changes/field-change.module';
 import { GraphModule } from './graph/graph.module';
 import { IntelligenceConcurrentielleModule } from './intelligence-concurrentielle/intelligence-concurrentielle.module';
 import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
@@ -64,6 +65,7 @@ import { HealthController } from './health/health.controller';
     ScoringModule,
     RiskEngineModule,
     RiskDataModule,
+    FieldChangeModule,
     GraphModule,
     IntelligenceConcurrentielleModule,
     IntelligenceMarcheModule,
