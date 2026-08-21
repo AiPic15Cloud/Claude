@@ -52,6 +52,11 @@ export function useSaveFinancialModel(dealId: string) {
     mutationFn: (payload: FinancialAssumptionPayload) => api.put<FinancialModel>(`/deals/${dealId}/financial-model`, payload),
     onSuccess: (data) => {
       queryClient.setQueryData(['financial-model', dealId], data);
+      // setQueryData n'écrit que la clé exacte ['financial-model', dealId] — contrairement à
+      // invalidateQueries, il ne rafraîchit jamais la clé enfant 'bp-comparison', qui restait
+      // donc figée sur l'état d'avant enregistrement (ex. la pénalité de retard cochée
+      // n'apparaissait jamais dans la colonne "actualisé" du comparatif BP).
+      queryClient.invalidateQueries({ queryKey: ['financial-model', dealId, 'bp-comparison'] });
       queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
       queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
     },
