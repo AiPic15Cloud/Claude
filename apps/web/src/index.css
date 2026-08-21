@@ -11,52 +11,51 @@
 
 @layer base {
   /*
-   * "Navy dashboard" identity — light theme is white cards on a cool
-   * blue-gray page with a deep navy primary (hue 230); dark theme swaps to
-   * a near-black indigo base (hue 240) with a bright indigo primary (hue
-   * 235) and a five-stop cyan→blue→violet→magenta→rose chart spectrum
-   * (185°/222°/260°/297°/335°, evenly spaced ~35-38° apart) used both as
-   * flat categorical fills and, in dark mode only, as adjacent-token
-   * gradients (see PipelineFunnelCard) — light mode stays flat-color per
-   * the reference, gradients are a dark-mode-only motif. The sidebar is
-   * deliberately NOT part of the light/dark split: --sidebar* and
-   * --sidebar-accent carry one fixed dark-navy value in both blocks, so
-   * the nav rail reads the same regardless of page theme (matches the
-   * reference, which keeps a dark sidebar even on its light dashboard).
-   * --sidebar and --sidebar-accent now equal --brand-cyanotype and
-   * --brand-accent exactly (see below) — the always-dark nav rail is the
-   * one surface in the app where the Atlas keystone's brand palette can
-   * show up directly, without fighting the light/dark split.
-   * Every pairing below was checked against the real sRGB relative-
-   * luminance contrast formula, not eyeballed: light primary-foreground/
-   * primary 12.6:1, dark primary-foreground/primary 5.65:1 — all AA or
-   * better (dark primary sits at L=70%, the minimum lightness that clears
-   * 4.5:1 for its near-black label text; lighter reads better here than a
-   * darker near-black would).
+   * "Colorométrie" identity (planche de marque fournie par l'utilisateur :
+   * #970747/#C8095E/#660530 vin-magenta, #111111 encre, #FEF4E8 crème,
+   * #2A2A2A charbon) — light theme est cartes blanches sur page crème très
+   * pâle avec une encre quasi noire (#111111) et un primary vin-magenta
+   * (hue 333, calculé directement depuis #970747) ; dark theme bascule sur
+   * un fond quasi noir littéral (#111111) avec une encre teintée crème et
+   * un primary magenta plus clair (hue 333, L58%) pour rester lisible sur
+   * fond sombre. Le spectre de graphique à 5 tons (magenta/bleu/émeraude/
+   * violet/orange) a été validé par le script de la compétence dataviz
+   * (six checks : bande de clarté, plancher de chroma, séparation CVD,
+   * plancher vision normale, contraste — tous PASS en clair et en sombre,
+   * seule la 3e teinte reste sous 3:1 en clair, mitigé par les libellés
+   * déjà visibles sur chaque graphique). Le sidebar reste, comme avant,
+   * délibérément HORS de la bascule clair/sombre : --sidebar* et
+   * --sidebar-accent portent une valeur fixe (encre #111111 + magenta vif)
+   * dans les deux blocs, pour que le rail de navigation reste identique
+   * quel que soit le thème de la page — et --sidebar/--sidebar-border
+   * reprennent littéralement #111111/#2A2A2A de la planche.
+   * Chaque paire a été vérifiée avec la vraie formule de contraste sRGB,
+   * pas au jugé : light primary-foreground/primary 8.85:1, dark
+   * primary-foreground/primary 5.23:1 — AA ou mieux partout.
    */
   :root {
-    --background: 210 20% 96%;
-    --foreground: 222 20% 14%;
+    --background: 33 45% 96%;
+    --foreground: 0 0% 9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 20% 14%;
+    --card-foreground: 0 0% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 20% 14%;
+    --popover-foreground: 0 0% 9%;
 
-    --primary: 230 55% 28%;
+    --primary: 333 91% 31%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 93%;
-    --secondary-foreground: 222 20% 14%;
+    --secondary: 33 20% 93%;
+    --secondary-foreground: 0 0% 9%;
 
-    --muted: 210 20% 93%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 30 16% 93%;
+    --muted-foreground: 20 8% 42%;
 
-    --accent: 210 25% 92%;
-    --accent-foreground: 222 20% 14%;
+    --accent: 333 35% 95%;
+    --accent-foreground: 333 85% 26%;
 
-    --destructive: 0 70% 45%;
+    --destructive: 4 72% 42%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 150 60% 32%;
@@ -65,20 +64,20 @@
     --warning: 38 85% 30%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 230 55% 28%;
+    --border: 30 16% 87%;
+    --input: 30 16% 87%;
+    --ring: 333 91% 31%;
 
-    --sidebar: 217 56% 16%;
-    --sidebar-foreground: 220 25% 92%;
-    --sidebar-border: 217 30% 24%;
-    --sidebar-accent: 12 79% 58%;
+    --sidebar: 0 0% 7%;
+    --sidebar-foreground: 33 25% 92%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-accent: 333 82% 52%;
 
-    --chart-accent: 230 55% 45%;
-    --chart-2: 28 85% 45%;
-    --chart-3: 200 80% 38%;
-    --chart-4: 265 60% 50%;
-    --chart-5: 325 70% 48%;
+    --chart-accent: 333 91% 41%;
+    --chart-2: 213 68% 50%;
+    --chart-3: 159 73% 40%;
+    --chart-4: 249 48% 44%;
+    --chart-5: 17 82% 56%;
 
     /* Sharper than the previous 1rem — a more architectural, less
        "rounded-everything" corner, closer to the restraint of the
@@ -87,66 +86,67 @@
     --radius: 0.625rem;
 
     /* Palette de marque — signe Atlas (claveau), fixe dans les deux thèmes
-       comme --sidebar* : bleu cyanotype, encre profonde, blanc calque,
-       trait estompé, rouge de repérage (voir la planche d'identité). */
-    --brand-cyanotype: 217 56% 16%;
-    --brand-ink: 214 60% 10%;
-    --brand-line: 212 7% 95%;
-    --brand-dim: 220 29% 63%;
-    --brand-accent: 12 79% 58%;
+       comme --sidebar* : encre #111111, noir absolu, ligne crème #FEF4E8,
+       estompe magenta clair, rouge de repérage devenu magenta vif
+       #C8095E (voir la planche « Colorométrie »). */
+    --brand-cyanotype: 0 0% 7%;
+    --brand-ink: 0 0% 4%;
+    --brand-line: 33 60% 95%;
+    --brand-dim: 333 20% 65%;
+    --brand-accent: 333 91% 41%;
   }
 
   .dark {
-    --background: 240 25% 6%;
-    --foreground: 220 20% 92%;
+    --background: 0 0% 7%;
+    --foreground: 33 20% 93%;
 
-    --card: 240 20% 9%;
-    --card-foreground: 220 20% 92%;
+    --card: 0 0% 10%;
+    --card-foreground: 33 20% 93%;
 
-    --popover: 240 20% 9%;
-    --popover-foreground: 220 20% 92%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 33 20% 93%;
 
-    --primary: 235 85% 70%;
-    --primary-foreground: 240 50% 5%;
+    --primary: 333 82% 58%;
+    --primary-foreground: 0 0% 8%;
 
-    --secondary: 240 18% 14%;
-    --secondary-foreground: 220 20% 92%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 33 20% 93%;
 
-    --muted: 240 15% 13%;
-    --muted-foreground: 220 10% 62%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 20 5% 65%;
 
-    --accent: 240 18% 14%;
-    --accent-foreground: 220 20% 92%;
+    --accent: 0 0% 13%;
+    --accent-foreground: 33 20% 93%;
 
-    --destructive: 0 75% 58%;
-    --destructive-foreground: 240 50% 5%;
+    --destructive: 4 78% 60%;
+    --destructive-foreground: 0 0% 8%;
 
     --success: 150 65% 48%;
-    --success-foreground: 240 50% 5%;
+    --success-foreground: 0 0% 8%;
 
     --warning: 38 90% 58%;
-    --warning-foreground: 240 50% 5%;
+    --warning-foreground: 0 0% 8%;
 
-    --chart-accent: 185 85% 55%;
-    --chart-2: 222 85% 62%;
-    --chart-3: 260 80% 65%;
-    --chart-4: 297 78% 62%;
-    --chart-5: 335 80% 62%;
+    --chart-accent: 338 72% 57%;
+    --chart-2: 213 77% 56%;
+    --chart-3: 159 73% 36%;
+    --chart-4: 247 69% 72%;
+    --chart-5: 17 70% 50%;
 
-    --border: 240 15% 18%;
-    --input: 240 15% 18%;
-    --ring: 235 85% 70%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 333 82% 58%;
 
-    --sidebar: 217 56% 16%;
-    --sidebar-foreground: 220 25% 92%;
-    --sidebar-border: 217 30% 24%;
-    --sidebar-accent: 12 79% 58%;
+    --sidebar: 0 0% 7%;
+    --sidebar-foreground: 33 25% 92%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-accent: 333 82% 52%;
 
-    --brand-cyanotype: 217 56% 16%;
-    --brand-ink: 214 60% 10%;
-    --brand-line: 212 7% 95%;
-    --brand-dim: 220 29% 63%;
-    --brand-accent: 12 79% 58%;
+    --brand-cyanotype: 0 0% 7%;
+    --brand-ink: 0 0% 4%;
+    --brand-line: 33 60% 95%;
+    --brand-dim: 333 20% 65%;
+    --brand-accent: 333 91% 41%;
   }
 
   * {
