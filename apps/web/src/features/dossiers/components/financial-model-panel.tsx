@@ -455,17 +455,11 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
                         Simuler la pénalité de retard (+5 pts sur le taux)
                       </Label>
                     </div>
-                    {data?.synthesis?.lpb.latePenaltyAuto ? (
-                      <p className="rounded-md border border-warning/30 bg-warning/5 px-2 py-1.5 text-[11px] text-warning">
-                        Durée cible du financement dépassée — la pénalité est déjà appliquée automatiquement au calcul réel, indépendamment de ce réglage.
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-muted-foreground">
-                        {field.value
-                          ? `Taux utilisé pour les intérêts : ${dealInterestRate ?? '—'}% + 5 pts = ${dealInterestRate !== null && dealInterestRate !== undefined ? dealInterestRate + 5 : '—'}%. Impact visible dans la Synthèse & ratios ci-contre.`
-                          : "N'affecte que le calcul des intérêts affiché — le taux du dossier n'est pas modifié. S'applique automatiquement, sans ce réglage, dès que la durée cible du financement est réellement dépassée."}
-                      </p>
-                    )}
+                    <p className="text-[11px] text-muted-foreground">
+                      {field.value
+                        ? `Taux utilisé pour les intérêts : ${dealInterestRate ?? '—'}% + 5 pts = ${dealInterestRate !== null && dealInterestRate !== undefined ? dealInterestRate + 5 : '—'}%. Impact visible dans la Synthèse & ratios ci-contre.`
+                        : "N'affecte que le calcul des intérêts affiché — le taux du dossier n'est pas modifié. Ne s'applique que si cette case est cochée, jamais automatiquement."}
+                    </p>
                   </div>
                 )}
               />

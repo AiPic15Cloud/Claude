@@ -626,10 +626,8 @@ export interface FinancialSynthesis {
     tauxPct: number;
     tauxPctEffectif: number;
     latePenaltyApplied: boolean;
-    /** true si la pénalité est réellement appliquée au calcul (manuelle OU automatique). */
+    /** true si la pénalité est appliquée au calcul — reflète uniquement la case cochée par l'utilisateur, jamais automatique. */
     latePenaltyEffective: boolean;
-    /** true si la pénalité s'est déclenchée automatiquement (durée cible dépassée), sans action de l'utilisateur. */
-    latePenaltyAuto: boolean;
     dureeCibleMonths: number;
     interestOnDurationCible: number;
     feesHT: number;

@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { FieldChangeService } from '../field-changes/field-change.service';
-import { computeDurationTargetAlert } from '../deals/duration-target.util';
 import { UpsertFinancialAssumptionDto } from './dto/upsert-financial-assumption.dto';
 
 const FINANCIAL_FIELD_LABELS: Record<string, string> = {
@@ -252,15 +251,13 @@ export class FinancialModelService {
     const num = FinancialModelService.num;
     const collecte = num(deal.amountTarget);
     const baseTauxPct = num(deal.interestRate);
-    // La pénalité de retard (+5 pts sur le taux utilisé pour les intérêts) s'applique
-    // automatiquement dès que la durée cible du financement est réellement dépassée
-    // (même détection que l'alerte "durée cible" du dossier) — un projet en retard
-    // doit voir son coût de revient et sa marge réellement impactés, pas seulement
-    // sur simulation manuelle. Le toggle "latePenaltyApplied" reste disponible pour
-    // simuler l'impact par anticipation, avant que la durée cible ne soit dépassée.
-    const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), deal.repaid);
-    const latePenaltyAuto = durationTargetAlert.stage === 'DEPASSEE';
-    const latePenaltyEffective = assumption.latePenaltyApplied || latePenaltyAuto;
+    // La pénalité de retard (+5 pts sur le taux utilisé pour les intérêts) ne s'applique
+    // QUE si l'utilisateur coche explicitement "Simuler la pénalité de retard" sur ce
+    // dossier — jamais automatiquement, même si la durée cible du financement est
+    // dépassée. Un déclenchement automatique avait été tenté puis explicitement rejeté :
+    // il modifiait la marge de dossiers dont la case n'était pas cochée, faussant la
+    // comparaison avec le plan d'affaires de référence sans action de l'utilisateur.
+    const latePenaltyEffective = assumption.latePenaltyApplied;
     const tauxPctEffectif = baseTauxPct + (latePenaltyEffective ? LATE_PENALTY_RATE_POINTS : 0);
     const tauxLpb = tauxPctEffectif / 100;
     const dureeCibleLpb = deal.durationMonths ?? 0;
@@ -282,7 +279,6 @@ export class FinancialModelService {
       baseTauxPct,
       tauxPctEffectif,
       latePenaltyEffective,
-      latePenaltyAuto,
       dureeCibleLpb,
       lpbInterestOnDurationCible,
       lpbFeesHT,
@@ -330,7 +326,6 @@ export class FinancialModelService {
       baseTauxPct,
       tauxPctEffectif,
       latePenaltyEffective,
-      latePenaltyAuto,
       dureeCibleLpb,
       lpbInterestOnDurationCible,
       lpbFeesHT,
@@ -378,7 +373,6 @@ export class FinancialModelService {
         tauxPctEffectif,
         latePenaltyApplied: assumption.latePenaltyApplied,
         latePenaltyEffective,
-        latePenaltyAuto,
         dureeCibleMonths: dureeCibleLpb,
         interestOnDurationCible: Math.round(lpbInterestOnDurationCible),
         feesHT: Math.round(lpbFeesHT),
