@@ -8,8 +8,12 @@ const OUTCOME_LABELS: Record<'REMBOURSE' | 'DEFAUT', string> = { REMBOURSE: 'Rem
 /**
  * Validation rétrospective du Risk Engine — rapproche le dernier score connu
  * des dossiers clos de leur résultat réel. Construite à partir de données
- * 100% réelles (jamais un historique simulé), donc honnête sur sa propre
- * faiblesse statistique tant que l'effectif de clôtures reste faible.
+ * 100% réelles (jamais un historique simulé). Reste invisible tant que
+ * l'effectif de clôtures est trop faible pour dire quoi que ce soit
+ * (sampleTooSmall, seuil N=10 côté API) : la capture du score à la clôture
+ * continue en arrière-plan sans coût, mais n'affiche rien tant qu'elle n'a
+ * rien de solide à montrer plutôt que d'occuper de l'espace pour un
+ * avertissement à chaque ouverture du Cockpit.
  */
 export function ModelValidationCard() {
   const { data, isLoading } = useRiskModelValidation();
@@ -24,6 +28,8 @@ export function ModelValidationCard() {
     );
   }
 
+  if (data.sampleTooSmall) return null;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -31,37 +37,22 @@ export function ModelValidationCard() {
         <span className="text-xs text-muted-foreground">{data.totalCount} dossier(s) clos noté(s)</span>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {data.totalCount === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            Aucun dossier clos avec un score de risque connu pour l'instant — cette section s'alimentera au fil des remboursements et défauts réels.
-          </p>
-        ) : (
-          <>
-            {data.sampleTooSmall && (
-              <p className="rounded-md border border-warning/30 bg-warning/5 p-2.5 text-xs text-foreground">
-                Historique insuffisant (N={data.totalCount}) pour une validation statistique robuste — indicatif uniquement.
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              {(['REMBOURSE', 'DEFAUT'] as const).map((outcome) => {
-                const group = data.outcomes[outcome];
-                return (
-                  <div key={outcome} className="rounded-md border border-border p-3">
-                    <p className="text-xs text-muted-foreground">{OUTCOME_LABELS[outcome]}</p>
-                    <p className="mt-1 text-lg font-semibold tabular-nums">
-                      {group.count === 0 ? '—' : `${group.averageScore}/100`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{group.count} dossier(s) · score moyen au dernier calcul avant clôture</p>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Un modèle fiable attendrait un score moyen plus élevé côté « En défaut » que côté « Remboursés » — à surveiller au fil des
-              clôtures, pas à l'instant sur un si petit effectif.
-            </p>
-          </>
-        )}
+        <div className="grid grid-cols-2 gap-3">
+          {(['REMBOURSE', 'DEFAUT'] as const).map((outcome) => {
+            const group = data.outcomes[outcome];
+            return (
+              <div key={outcome} className="rounded-md border border-border p-3">
+                <p className="text-xs text-muted-foreground">{OUTCOME_LABELS[outcome]}</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums">{group.count === 0 ? '—' : `${group.averageScore}/100`}</p>
+                <p className="text-xs text-muted-foreground">{group.count} dossier(s) · score moyen au dernier calcul avant clôture</p>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Un modèle fiable attendrait un score moyen plus élevé côté « En défaut » que côté « Remboursés » — à surveiller au fil des
+          clôtures, pas à l'instant sur un si petit effectif.
+        </p>
         {data.cases.length > 0 && (
           <div className="border-t border-border pt-2 text-xs">
             {data.cases.slice(0, 5).map((c) => (
