@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -137,17 +137,31 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
     deleteFinancialModel.mutate(undefined, { onSuccess: () => setConfirmingDeleteModel(false) });
   };
 
+  // `data` change aussi pour des raisons SANS RAPPORT avec ce formulaire — ex. éditer la
+  // "durée cible" ci-dessous invalide et refetch la query financial-model pour rafraîchir
+  // la Synthèse, ce qui déclenchait un reset() complet du formulaire et effaçait toute
+  // saisie en cours non enregistrée dans les autres champs (Honoraires techniques, Autres
+  // frais...). On ne resynchronise donc le formulaire que (a) au tout premier chargement de
+  // ce dossier, ou (b) juste après NOTRE PROPRE enregistrement (onSubmit ci-dessous) — jamais
+  // sur un refetch déclenché par ailleurs pendant que l'utilisateur est en train de saisir.
+  const initializedForDealRef = useRef<string | null>(null);
+  const justSavedRef = useRef(false);
+
   useEffect(() => {
-    if (data?.assumption) {
-      // Champs texte/nombre optionnels non renseignés : reset() à '' plutôt qu'undefined.
-      // RHF calcule isDirty en comparant les valeurs par défaut à ce que contient
-      // réellement le DOM des <input> non contrôlés (register()) — un input HTML vide
-      // vaut toujours '', jamais undefined. Reset à undefined crée donc un écart
-      // ('' côté DOM vs undefined côté défaut) qui laisse isDirty bloqué à true en
-      // permanence dès qu'un champ optionnel est vide, même juste après un enregistrement
-      // réussi (bannière "Modifications non enregistrées" qui ne se referme jamais).
-      // Le preprocess zod du schéma traite déjà '' comme "non renseigné" à la soumission.
-      reset({
+    if (!data?.assumption) return;
+    const isFirstLoadForThisDeal = initializedForDealRef.current !== dealId;
+    if (!isFirstLoadForThisDeal && !justSavedRef.current) return;
+    initializedForDealRef.current = dealId;
+    justSavedRef.current = false;
+    // Champs texte/nombre optionnels non renseignés : reset() à '' plutôt qu'undefined.
+    // RHF calcule isDirty en comparant les valeurs par défaut à ce que contient
+    // réellement le DOM des <input> non contrôlés (register()) — un input HTML vide
+    // vaut toujours '', jamais undefined. Reset à undefined crée donc un écart
+    // ('' côté DOM vs undefined côté défaut) qui laisse isDirty bloqué à true en
+    // permanence dès qu'un champ optionnel est vide, même juste après un enregistrement
+    // réussi (bannière "Modifications non enregistrées" qui ne se referme jamais).
+    // Le preprocess zod du schéma traite déjà '' comme "non renseigné" à la soumission.
+    reset({
         ...data.assumption,
         targetMarginPct: data.assumption.targetMarginPct ?? '',
         notes: data.assumption.notes ?? '',
@@ -176,8 +190,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
         // type de SORTIE, après coercition) — mais c'est bien la forme attendue par register()
         // avant soumission, et le preprocess du schéma la retraite normalement au submit suivant.
       } as FormValues);
-    }
-  }, [data, reset]);
+  }, [data, dealId, reset]);
 
   useEffect(() => {
     if (prefill) {
@@ -191,7 +204,8 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill]);
 
-  const onSubmit = (values: FormValues) =>
+  const onSubmit = (values: FormValues) => {
+    justSavedRef.current = true;
     save.mutate(
       { ...values, sourceDocumentId },
       {
@@ -199,8 +213,12 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
           setPrefillNotice(false);
           setSourceDocumentId(undefined);
         },
+        onError: () => {
+          justSavedRef.current = false;
+        },
       },
     );
+  };
 
   if (isLoading) {
     return (
