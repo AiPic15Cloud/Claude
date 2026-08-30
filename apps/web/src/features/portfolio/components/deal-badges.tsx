@@ -4,10 +4,12 @@ import { cn } from '@/lib/utils';
 import {
   DEAL_RECOVERY_STATUS_LABELS,
   DEAL_STAGE_LABELS,
+  DEAL_SURVEILLANCE_STATUS_LABELS,
   DEAL_TYPE_LABELS,
   type CheckpointHealth,
   type DealRecoveryStatus,
   type DealStage,
+  type DealSurveillanceStatus,
   type DealType,
 } from '@/types';
 
@@ -42,28 +44,57 @@ export function RepaidBadge({ repaid, stage }: { repaid: boolean; stage?: DealSt
 }
 
 const RECOVERY_STATUS_VARIANT: Record<DealRecoveryStatus, 'success' | 'warning' | 'destructive'> = {
-  SAIN: 'success',
-  EN_RETARD: 'warning',
-  PRE_CONTENTIEUX: 'destructive',
-  PROCEDURE: 'destructive',
+  RAS: 'success',
+  AMIABLE: 'warning',
+  MISE_EN_DEMEURE: 'destructive',
+  CONTENTIEUX: 'destructive',
+  PROCEDURE_COLLECTIVE: 'destructive',
 };
 
 export function RecoveryStatusBadge({ status, compact }: { status: DealRecoveryStatus; compact?: boolean }) {
   // Same "don't clutter a healthy card" convention as CheckpointHealthBadge.
-  if (compact && status === 'SAIN') return null;
+  if (compact && status === 'RAS') return null;
   if (compact) {
     return (
       <span
         title={DEAL_RECOVERY_STATUS_LABELS[status]}
         className={cn(
           'inline-block h-2 w-2 shrink-0 rounded-full',
-          status === 'EN_RETARD' && 'bg-warning',
-          (status === 'PRE_CONTENTIEUX' || status === 'PROCEDURE') && 'bg-destructive',
+          status === 'AMIABLE' && 'bg-warning',
+          (status === 'MISE_EN_DEMEURE' || status === 'CONTENTIEUX' || status === 'PROCEDURE_COLLECTIVE') && 'bg-destructive',
         )}
       />
     );
   }
   return <Badge variant={RECOVERY_STATUS_VARIANT[status]}>{DEAL_RECOVERY_STATUS_LABELS[status]}</Badge>;
+}
+
+const SURVEILLANCE_STATUS_VARIANT: Record<DealSurveillanceStatus, 'success' | 'warning' | 'destructive'> = {
+  OUTPERFORMING: 'success',
+  PERFORMING: 'success',
+  WATCH: 'warning',
+  RECOVERY: 'warning',
+  DRIFTING: 'destructive',
+  DISTRESSED: 'destructive',
+};
+
+/** Statut de surveillance ATLAS (Risk Engine v2) — remplace à terme la seule lecture de RiskScoreBadge sur les vues portefeuille. */
+export function SurveillanceStatusBadge({ status, compact }: { status?: DealSurveillanceStatus | null; compact?: boolean }) {
+  if (!status) return compact ? null : <span className="text-xs text-muted-foreground">—</span>;
+  if (compact && (status === 'OUTPERFORMING' || status === 'PERFORMING')) return null;
+  if (compact) {
+    return (
+      <span
+        title={DEAL_SURVEILLANCE_STATUS_LABELS[status]}
+        className={cn(
+          'inline-block h-2 w-2 shrink-0 rounded-full',
+          (status === 'WATCH' || status === 'RECOVERY') && 'bg-warning',
+          (status === 'DRIFTING' || status === 'DISTRESSED') && 'bg-destructive',
+        )}
+      />
+    );
+  }
+  return <Badge variant={SURVEILLANCE_STATUS_VARIANT[status]}>{DEAL_SURVEILLANCE_STATUS_LABELS[status]}</Badge>;
 }
 
 /** Surveillance quotidienne du SIREN du porteur (voir CompanyMonitoringService) — silencieux tant que tout va bien. */

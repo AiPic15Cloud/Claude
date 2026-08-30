@@ -38,13 +38,25 @@ export type DealStage =
 
 export type DealStatus = 'ACTIVE' | 'ON_HOLD' | 'CLOSED' | 'ARCHIVED';
 
-export type DealRecoveryStatus = 'SAIN' | 'EN_RETARD' | 'PRE_CONTENTIEUX' | 'PROCEDURE';
+export type DealRecoveryStatus = 'RAS' | 'AMIABLE' | 'MISE_EN_DEMEURE' | 'CONTENTIEUX' | 'PROCEDURE_COLLECTIVE';
 
 export const DEAL_RECOVERY_STATUS_LABELS: Record<DealRecoveryStatus, string> = {
-  SAIN: 'Sain',
-  EN_RETARD: 'En retard',
-  PRE_CONTENTIEUX: 'Pré-contentieux',
-  PROCEDURE: 'Procédure',
+  RAS: 'RAS',
+  AMIABLE: 'Amiable',
+  MISE_EN_DEMEURE: 'Mise en demeure',
+  CONTENTIEUX: 'Contentieux',
+  PROCEDURE_COLLECTIVE: 'Procédure collective',
+};
+
+export type DealSurveillanceStatus = 'OUTPERFORMING' | 'PERFORMING' | 'WATCH' | 'DRIFTING' | 'DISTRESSED' | 'RECOVERY';
+
+export const DEAL_SURVEILLANCE_STATUS_LABELS: Record<DealSurveillanceStatus, string> = {
+  OUTPERFORMING: 'Outperforming',
+  PERFORMING: 'Performing',
+  WATCH: 'Watch',
+  DRIFTING: 'Drifting',
+  DISTRESSED: 'Distressed',
+  RECOVERY: 'Recovery',
 };
 
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -163,6 +175,11 @@ export interface Deal {
   riskScore?: number | null;
   riskScorePrevious?: number | null;
   riskScoreUpdatedAt?: string | null;
+  qualityScore?: number | null;
+  performanceScore?: number | null;
+  ewsScore?: number | null;
+  surveillanceStatus?: DealSurveillanceStatus | null;
+  chantierSignaleArret?: boolean;
   startDate?: string | null;
   endDate?: string | null;
   dateMin?: string | null;
@@ -733,41 +750,118 @@ export interface ScoreBreakdown {
   disclaimer: string;
 }
 
-// ── Risk Engine ──────────────────────────────────────────────
+// ── Risk Engine v2 (Phase 1) ─────────────────────────────────
 
-export interface RiskFactor {
+export interface ScoreInput {
   key: string;
   label: string;
-  value: number;
   weight: number;
-  contribution: number;
+  value: number;
   explanation: string;
 }
 
-export interface RiskBreakdown {
-  dealId: string;
-  score: number | null;
-  previousScore: number | null;
-  tier: 'SAFE' | 'WATCH' | 'HIGH' | null;
-  trend: 'UP' | 'DOWN' | 'FLAT' | null;
-  factors: RiskFactor[];
-  computedAt: string;
-  suppressed: boolean;
-  disclaimer: string;
+export interface QualityScoreResult {
+  score: number;
+  inputs: ScoreInput[];
 }
 
-export interface RiskFactorDefinition {
+export interface PerformanceScoreResult {
+  score: number;
+  inputs: ScoreInput[];
+}
+
+export interface TriggeredIndicator {
+  key: string;
+  label: string;
+  points: number;
+  explanation: string;
+}
+
+export interface EwsScoreResult {
+  score: number;
+  triggered: TriggeredIndicator[];
+}
+
+export interface RiskOverrideRow {
+  ruleKey: string;
+  label: string;
+  minimumSurveillanceStatus: DealSurveillanceStatus;
+  triggeredAt: string;
+}
+
+export interface AnalystOverride {
+  overrideStatus: DealSurveillanceStatus;
+  justification: string;
+  createdAt: string;
+  createdByName: string;
+}
+
+export interface DealRiskProfile {
+  dealId: string;
+  suppressed: boolean;
+  computedAt: string;
+  disclaimer: string;
+  composite: {
+    score: number | null;
+    previousScore: number | null;
+    trend: 'UP' | 'DOWN' | 'FLAT' | null;
+    deltas: { d7: number | null; d30: number | null; d90: number | null };
+  };
+  quality: QualityScoreResult | null;
+  performance: PerformanceScoreResult | null;
+  ews: EwsScoreResult | null;
+  surveillance: {
+    status: DealSurveillanceStatus | null;
+    automaticStatus: DealSurveillanceStatus | null;
+    velocity: { band: string; direction: string; delta90: number | null } | null;
+    hardOverrides: RiskOverrideRow[];
+    analystOverride: AnalystOverride | null;
+  };
+  cycleProjet: 'EN_COURS' | 'SORTIE' | 'REMBOURSEMENT' | 'CLOTURE';
+  recoveryStatus: DealRecoveryStatus | null;
+  topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
+}
+
+export interface RiskTrajectoryPoint {
+  computedAt: string;
+  compositeScore: number;
+  qualityScore: number;
+  performanceScore: number;
+  ewsScore: number;
+  surveillanceStatus: DealSurveillanceStatus;
+}
+
+export interface ScoreInputDefinition {
   key: string;
   label: string;
   weight: number;
   rationale: string;
 }
 
+export interface EwsIndicatorDefinition {
+  key: string;
+  label: string;
+  maxPoints: number;
+  rationale: string;
+}
+
+export interface HardOverrideRuleDefinition {
+  key: string;
+  label: string;
+  minimumSurveillanceStatus: DealSurveillanceStatus;
+}
+
 export interface RiskMethodology {
-  factors: RiskFactorDefinition[];
+  quality: ScoreInputDefinition[];
+  performance: ScoreInputDefinition[];
+  ews: EwsIndicatorDefinition[];
+  composite: { weights: { quality: number; performance: number; ews: number } };
+  surveillanceBands: Record<DealSurveillanceStatus | 'OUTPERFORMING' | 'PERFORMING' | 'WATCH' | 'DRIFTING' | 'DISTRESSED', string>;
+  velocityWindowDays: number;
+  velocityBands: { STABLE: string; DETERIORATION: string; DERIVE: string; DETERIORATION_RAPIDE: string };
+  hardOverrideRules: HardOverrideRuleDefinition[];
   calibrationDisclaimer: string;
   disclaimer: string;
-  tiers: { SAFE: string; WATCH: string; HIGH: string };
 }
 
 export interface RiskValidationGroup {

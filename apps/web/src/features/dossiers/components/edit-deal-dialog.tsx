@@ -28,7 +28,7 @@ import { ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
 
 const DEAL_STATUSES: DealStatus[] = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED'];
-const DEAL_RECOVERY_STATUSES: DealRecoveryStatus[] = ['SAIN', 'EN_RETARD', 'PRE_CONTENTIEUX', 'PROCEDURE'];
+const DEAL_RECOVERY_STATUSES: DealRecoveryStatus[] = ['RAS', 'AMIABLE', 'MISE_EN_DEMEURE', 'CONTENTIEUX', 'PROCEDURE_COLLECTIVE'];
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
@@ -49,6 +49,7 @@ const schema = z.object({
   description: z.string().optional(),
   repaid: z.boolean().optional(),
   recoveryStatus: z.enum(DEAL_RECOVERY_STATUSES as [DealRecoveryStatus, ...DealRecoveryStatus[]]).optional(),
+  chantierSignaleArret: z.boolean().optional(),
   porteurNom: z.string().optional(),
   porteurSociete: z.string().optional(),
   porteurAdresse: z.string().optional(),
@@ -94,6 +95,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       description: deal.description ?? '',
       repaid: deal.repaid,
       recoveryStatus: deal.recoveryStatus,
+      chantierSignaleArret: deal.chantierSignaleArret ?? false,
       porteurNom: deal.porteurNom ?? '',
       porteurSociete: deal.porteurSociete ?? '',
       porteurAdresse: deal.porteurAdresse ?? '',
@@ -314,6 +316,18 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
                 )}
               />
             </div>
+            <Controller
+              control={control}
+              name="chantierSignaleArret"
+              render={({ field }) => (
+                <div className="flex items-center gap-2.5">
+                  <Switch checked={field.value} onCheckedChange={field.onChange} id="chantierSignaleArret" />
+                  <Label htmlFor="chantierSignaleArret" className="cursor-pointer font-normal">
+                    Chantier signalé à l'arrêt (force le statut de surveillance à Distressed)
+                  </Label>
+                </div>
+              )}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
