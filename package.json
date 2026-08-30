@@ -7,7 +7,7 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@11.24.0",
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev:api": "pnpm --filter @atlas/api dev",
     "dev:web": "pnpm --filter @atlas/web dev",
