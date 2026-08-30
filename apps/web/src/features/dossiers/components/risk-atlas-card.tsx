@@ -61,7 +61,7 @@ function DeltaBadge({ label, info, value }: { label: string; info: string; value
   );
 }
 
-const STATUS_OPTIONS: DealSurveillanceStatus[] = ['OUTPERFORMING', 'PERFORMING', 'WATCH', 'DRIFTING', 'DISTRESSED', 'RECOVERY'];
+const STATUS_OPTIONS: DealSurveillanceStatus[] = ['FAIBLE', 'SOUS_SURVEILLANCE', 'ELEVE', 'CRITIQUE'];
 
 function AnalystOverrideDialog({ dealId, currentStatus, open, onOpenChange }: { dealId: string; currentStatus: DealSurveillanceStatus | null; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [status, setStatus] = useState<DealSurveillanceStatus | ''>('');

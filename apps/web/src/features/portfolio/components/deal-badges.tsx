@@ -78,26 +78,23 @@ export function RecoveryStatusBadge({ status, compact }: { status: DealRecoveryS
 }
 
 const SURVEILLANCE_STATUS_VARIANT: Record<DealSurveillanceStatus, 'success' | 'warning' | 'destructive'> = {
-  OUTPERFORMING: 'success',
-  PERFORMING: 'success',
-  WATCH: 'warning',
-  RECOVERY: 'warning',
-  DRIFTING: 'destructive',
-  DISTRESSED: 'destructive',
+  FAIBLE: 'success',
+  SOUS_SURVEILLANCE: 'warning',
+  ELEVE: 'warning',
+  CRITIQUE: 'destructive',
 };
 
 /** Statut de surveillance ATLAS (Risk Engine v2) — remplace à terme la seule lecture de RiskScoreBadge sur les vues portefeuille. */
 export function SurveillanceStatusBadge({ status, compact }: { status?: DealSurveillanceStatus | null; compact?: boolean }) {
   if (!status) return compact ? null : <span className="text-xs text-muted-foreground">—</span>;
-  if (compact && (status === 'OUTPERFORMING' || status === 'PERFORMING')) return null;
+  if (compact && status === 'FAIBLE') return null;
   if (compact) {
     return (
       <span
         title={DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS[status]}
         className={cn(
           'inline-block h-2 w-2 shrink-0 rounded-full',
-          (status === 'WATCH' || status === 'RECOVERY') && 'bg-warning',
-          (status === 'DRIFTING' || status === 'DISTRESSED') && 'bg-destructive',
+          status === 'SOUS_SURVEILLANCE' || status === 'ELEVE' ? 'bg-warning' : 'bg-destructive',
         )}
       />
     );
