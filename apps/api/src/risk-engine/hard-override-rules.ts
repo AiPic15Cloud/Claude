@@ -12,6 +12,8 @@ export interface HardOverrideDealState {
   hasCriticalExpiredGuarantee: boolean;
   /** Toute autre garantie active aujourd'hui NON_VALIDE. */
   hasOtherExpiredGuarantee: boolean;
+  /** Durée cible du financement dépassée (voir duration-target.util.ts). */
+  hasDurationOverdue: boolean;
 }
 
 export interface HardOverrideRule {
@@ -38,43 +40,51 @@ export const HARD_OVERRIDE_RULES: HardOverrideRule[] = [
   {
     key: 'PROCEDURE_COLLECTIVE_PORTEUR',
     label: 'Procédure collective ouverte chez le porteur',
-    minimumSurveillanceStatus: 'DISTRESSED',
+    minimumSurveillanceStatus: 'CRITIQUE',
     condition: (s) => s.porteurMonitoringStatus === 'procedure_collective',
   },
   {
     key: 'PROCEDURE_COLLECTIVE_RECOUVREMENT',
     label: 'Procédure collective (situation juridique du dossier)',
-    minimumSurveillanceStatus: 'DISTRESSED',
+    minimumSurveillanceStatus: 'CRITIQUE',
     condition: (s) => s.recoveryStatus === 'PROCEDURE_COLLECTIVE',
   },
   {
     key: 'ECHEANCE_DEPASSEE',
     label: 'Échéance de vote dépassée sans remboursement',
-    minimumSurveillanceStatus: 'DISTRESSED',
+    minimumSurveillanceStatus: 'CRITIQUE',
     condition: (s) => !s.repaid && s.deadlineStage === 'CONTENTIEUX',
   },
   {
     key: 'DEFAUT_CARACTERISE',
     label: 'Défaut caractérisé',
-    minimumSurveillanceStatus: 'RECOVERY',
+    minimumSurveillanceStatus: 'CRITIQUE',
     condition: (s) => s.stage === 'DEFAUT',
   },
   {
     key: 'GARANTIE_MAJEURE_EXPIREE_CRITIQUE',
     label: 'Garantie majeure (rang 1, ≥50% du montant collecté) expirée',
-    minimumSurveillanceStatus: 'DISTRESSED',
+    minimumSurveillanceStatus: 'CRITIQUE',
     condition: (s) => s.hasCriticalExpiredGuarantee,
   },
   {
     key: 'GARANTIE_MAJEURE_EXPIREE',
     label: 'Garantie expirée sans renouvellement',
-    minimumSurveillanceStatus: 'WATCH',
+    minimumSurveillanceStatus: 'SOUS_SURVEILLANCE',
     condition: (s) => s.hasOtherExpiredGuarantee,
   },
   {
     key: 'CHANTIER_SIGNALE_ARRET',
     label: 'Chantier signalé à l’arrêt',
-    minimumSurveillanceStatus: 'DISTRESSED',
+    minimumSurveillanceStatus: 'CRITIQUE',
     condition: (s) => s.chantierSignaleArret,
+  },
+  {
+    key: 'MISE_EN_DEMEURE_AVEC_RETARD',
+    label: 'Mise en demeure envoyée sur un dossier en retard',
+    minimumSurveillanceStatus: 'SOUS_SURVEILLANCE',
+    condition: (s) =>
+      (s.recoveryStatus === 'MISE_EN_DEMEURE' || s.recoveryStatus === 'CONTENTIEUX' || s.recoveryStatus === 'PROCEDURE_COLLECTIVE') &&
+      (s.deadlineStage !== null || s.hasDurationOverdue),
   },
 ];

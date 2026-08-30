@@ -6,7 +6,7 @@ import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import { computeDeadlineAlert } from '../deals/deadline.util';
 import { computeCrd } from '../deals/crd.util';
 
-const NEEDS_ATTENTION = new Set(['WATCH', 'DRIFTING', 'DISTRESSED', 'RECOVERY']);
+const NEEDS_ATTENTION = new Set(['SOUS_SURVEILLANCE', 'ELEVE', 'CRITIQUE']);
 import { computeGuaranteeExpiry, isExpirableGuaranteeType } from '../guarantees/guarantee-expiry.util';
 
 function startOfDay(date: Date): Date {
@@ -207,12 +207,11 @@ export class CockpitService {
         dealId: d.id,
         dealName: d.name,
         dealReference: d.reference,
-        // Le nouveau statut de surveillance a 6 valeurs ; le Decision Center
-        // actuel n'en affiche que 2 (Critique/Vigilance) — DISTRESSED devient
-        // HIGH, tout le reste "à surveiller" (WATCH/DRIFTING/RECOVERY) reste
-        // WATCH. Une vraie Attention Queue à statuts multiples est prévue en
-        // Phase 5, pas une refonte de cet écran ici.
-        tier: (d.surveillanceStatus === 'DISTRESSED' ? 'HIGH' : 'WATCH') as 'WATCH' | 'HIGH',
+        // Le statut de surveillance a 4 paliers ; le Decision Center actuel
+        // n'en affiche que 2 (Critique/Vigilance) — CRITIQUE devient HIGH,
+        // SOUS_SURVEILLANCE/ELEVE restent WATCH. Une vraie Attention Queue à
+        // paliers multiples est prévue en Phase 5, pas une refonte ici.
+        tier: (d.surveillanceStatus === 'CRITIQUE' ? 'HIGH' : 'WATCH') as 'WATCH' | 'HIGH',
         score: d.riskScore!,
         previousScore: d.riskScorePrevious,
         signalLabel: topFactor?.label ?? 'Risque global',

@@ -6,6 +6,7 @@ import { RiskDataService } from '../risk-data/risk-data.service';
 import { FinancialModelService } from '../financial-model/financial-model.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
 import { computeDeadlineAlert } from '../deals/deadline.util';
+import { computeDurationTargetAlert } from '../deals/duration-target.util';
 import { computeCheckpointHealth } from '../deals/checkpoint-health.util';
 import { computeGuaranteeExpiry } from '../guarantees/guarantee-expiry.util';
 import { computeNewsletterStatus } from '../deals/newsletter.util';
@@ -170,6 +171,8 @@ export class RiskEngineService implements OnApplicationBootstrap {
         stage: true,
         amountRaised: true,
         dateMax: true,
+        startDate: true,
+        durationMonths: true,
         recoveryStatus: true,
         porteurMonitoringStatus: true,
         lastNewsletterDate: true,
@@ -180,7 +183,6 @@ export class RiskEngineService implements OnApplicationBootstrap {
         riskScorePrevious: true,
         riskScoreAtClosure: true,
         surveillanceStatus: true,
-        recoveryWatchUntil: true,
         chantierSignaleArret: true,
         checkpoints: {
           orderBy: { createdAt: 'desc' },
@@ -223,7 +225,6 @@ export class RiskEngineService implements OnApplicationBootstrap {
             performanceScore: null,
             ewsScore: null,
             surveillanceStatus: null,
-            recoveryWatchUntil: null,
             ...(captureAtClosure ? { riskScoreAtClosure: previousScore, riskScoreAtClosureDate: now } : {}),
           },
         });
@@ -285,6 +286,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     const daysSinceLastCheckpoint = latestRaw ? Math.floor((now.getTime() - latestRaw.createdAt.getTime()) / DAY_MS) : null;
 
     const deadlineAlert = computeDeadlineAlert(deal.dateMax, now, false);
+    const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, now, false);
     const newsletter = computeNewsletterStatus(deal.lastNewsletterDate, deal.newsletterTargetDays, now);
 
     const environmentHazardCount = (() => {
@@ -294,10 +296,11 @@ export class RiskEngineService implements OnApplicationBootstrap {
       return [cached.floodZone?.present, cached.seismicZone?.present].filter((p) => p === true).length;
     })();
 
-    // ── Garanties : pire cas, couverture rang 1, planchers critiques ────
+    // ── Garanties : comptage par sûreté, couverture rang 1, planchers critiques ────
     const amountRaised = Number(deal.amountRaised);
     const crd = computeCrd(amountRaised, sumRealizedRepayments(deal.repayments));
-    let guaranteeWorstCase: 'AUCUNE' | 'VALIDE' | 'EXPIRE_BIENTOT' | 'NON_VALIDE' = 'AUCUNE';
+    let guaranteeNonValideCount = 0;
+    let guaranteeExpireBientotCount = 0;
     let hasCriticalExpiredGuarantee = false;
     let hasOtherExpiredGuarantee = false;
     let rank1Sum = 0;
@@ -306,14 +309,12 @@ export class RiskEngineService implements OnApplicationBootstrap {
       if (g.rank === 1) rank1Sum += Number(g.amount);
       const expiry = computeGuaranteeExpiry(g.type, g.endDate, now, false);
       if (expiry.validity === 'NON_VALIDE') {
-        guaranteeWorstCase = 'NON_VALIDE';
+        guaranteeNonValideCount += 1;
         const sharePct = amountRaised > 0 ? Number(g.amount) / amountRaised : 0;
         if (g.rank === 1 && sharePct >= 0.5) hasCriticalExpiredGuarantee = true;
         else hasOtherExpiredGuarantee = true;
-      } else if (expiry.expiringSoon && guaranteeWorstCase !== 'NON_VALIDE') {
-        guaranteeWorstCase = 'EXPIRE_BIENTOT';
-      } else if (guaranteeWorstCase === 'AUCUNE') {
-        guaranteeWorstCase = 'VALIDE';
+      } else if (expiry.expiringSoon) {
+        guaranteeExpireBientotCount += 1;
       }
     }
     // Couverture de l'exposition RESTANTE (CRD), pas du montant historique
@@ -365,10 +366,12 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     const ews = computeEwsScore({
       deadlineAlert,
+      durationTargetAlert,
       latestCheckpoint: toEwsFields(latestRaw),
       previousCheckpoint: toEwsFields(previousRaw),
       daysSinceLastCheckpoint,
-      guaranteeWorstCase,
+      guaranteeNonValideCount,
+      guaranteeExpireBientotCount,
       recoveryStatus: deal.recoveryStatus,
       porteurMonitoringStatus: deal.porteurMonitoringStatus,
       chantierSignaleArret: deal.chantierSignaleArret,
@@ -389,6 +392,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       chantierSignaleArret: deal.chantierSignaleArret,
       hasCriticalExpiredGuarantee,
       hasOtherExpiredGuarantee,
+      hasDurationOverdue: durationTargetAlert.stage === 'DEPASSEE',
     });
 
     const deltas = await this.riskHistory.getDeltas(dealId, composite, now);
@@ -398,9 +402,6 @@ export class RiskEngineService implements OnApplicationBootstrap {
       compositeScore: composite,
       ewsScore: ews.score,
       velocity,
-      previousSurveillanceStatus: deal.surveillanceStatus,
-      recoveryWatchUntil: deal.recoveryWatchUntil,
-      now,
       activeHardOverrideFloors: overrideEval.floors,
       analystOverrideStatus: activeDealOverride?.overrideStatus ?? null,
     });
@@ -420,7 +421,6 @@ export class RiskEngineService implements OnApplicationBootstrap {
           riskScore: composite,
           riskScoreUpdatedAt: now,
           surveillanceStatus: classification.finalStatus,
-          recoveryWatchUntil: classification.newRecoveryWatchUntil,
         },
       });
 
@@ -483,7 +483,12 @@ export class RiskEngineService implements OnApplicationBootstrap {
       performance: PERFORMANCE_INPUT_DEFINITIONS,
       ews: EWS_INDICATOR_DEFINITIONS,
       composite: { weights: COMPOSITE_WEIGHTS },
-      surveillanceBands: { OUTPERFORMING: '< 20', PERFORMING: '20 à 39', WATCH: '40 à 59', DRIFTING: '60 à 74', DISTRESSED: '≥ 75' },
+      surveillanceBands: {
+        FAIBLE: '0 à 25',
+        SOUS_SURVEILLANCE: '26 à 50',
+        ELEVE: '51 à 100 (score seul) — ou en dessous en cas d\'escalade EWS/vélocité',
+        CRITIQUE: 'jamais par le score seul — uniquement via un plancher dur (voir hardOverrideRules)',
+      },
       velocityWindowDays: 90,
       velocityBands: { STABLE: '0 à 3', DETERIORATION: '4 à 8', DERIVE: '9 à 15', DETERIORATION_RAPIDE: '> 15' },
       hardOverrideRules: HARD_OVERRIDE_RULES.map((r) => ({ key: r.key, label: r.label, minimumSurveillanceStatus: r.minimumSurveillanceStatus })),
@@ -568,7 +573,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     if (SURVEILLANCE_RANK[newStatus] > SURVEILLANCE_RANK[previousStatus]) {
       title = `Risque : entrée en zone ${newStatus} — ${deal.reference} (${dateSuffix})`;
       message = `${deal.name} (${exposition}) : statut passé de ${previousStatus} à ${newStatus}, score de ${previousScore ?? '—'} à ${newScore}/100${topLabels ? `, tiré par ${topLabels}` : ''}.`;
-      severity = newStatus === 'DISTRESSED' ? 'CRITICAL' : 'WARNING';
+      severity = newStatus === 'CRITIQUE' ? 'CRITICAL' : 'WARNING';
     } else if (SURVEILLANCE_RANK[newStatus] < SURVEILLANCE_RANK[previousStatus]) {
       title = `Risque : retour en zone ${newStatus} — ${deal.reference} (${dateSuffix})`;
       message = `${deal.name} (${exposition}) : statut redescendu de ${previousStatus} à ${newStatus}.`;

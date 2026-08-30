@@ -122,16 +122,15 @@ enum DealRecoveryStatus {
 
 // Statut de surveillance ATLAS — dérivé du score composite, de l'EWS et de la
 // vélocité (voir risk-engine/surveillance-status.util.ts), jamais saisi
-// manuellement sauf override analyste explicite (DealOverride). RECOVERY est
-// un état transitoire (cooldown après une sortie de DISTRESSED), pas une
-// bande de score comme les 5 autres.
+// manuellement sauf override analyste explicite (DealOverride). CRITIQUE
+// n'est jamais atteint par accumulation de points — seulement via un
+// déclencheur dur (hard override : procédure collective, échéance en
+// contentieux, garantie majeure expirée, chantier à l'arrêt).
 enum DealSurveillanceStatus {
-  OUTPERFORMING
-  PERFORMING
-  WATCH
-  DRIFTING
-  DISTRESSED
-  RECOVERY
+  FAIBLE
+  SOUS_SURVEILLANCE
+  ELEVE
+  CRITIQUE
 }
 
 enum GuaranteeStatus {
@@ -385,16 +384,10 @@ model Deal {
   ewsScore         Int?
 
   surveillanceStatus DealSurveillanceStatus?
-  // Tant que cette date n'est pas dépassée, le statut reste figé sur RECOVERY
-  // après une sortie de DISTRESSED, même si le score recalculé serait
-  // meilleur — évite qu'un dossier tout juste assaini redevienne WATCH/
-  // PERFORMING en un seul cycle, ce qui rendrait RECOVERY inutile comme
-  // signal de trajectoire pour l'analyste.
-  recoveryWatchUntil DateTime?
 
   // Réponse Phase 1 (délibérément manuelle) au "chantier abandonné" du
   // brief — aucune donnée existante ne permet de le déduire de façon fiable
-  // sans risque de faux négatif ; un hard override le plafonne à DISTRESSED.
+  // sans risque de faux négatif ; un hard override le plafonne à CRITIQUE.
   chantierSignaleArret   Boolean   @default(false)
   chantierSignaleArretAt DateTime?
 
