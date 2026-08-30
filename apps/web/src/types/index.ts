@@ -57,25 +57,21 @@ export const DEAL_RECOVERY_STATUS_DESCRIPTIONS: Record<DealRecoveryStatus, strin
   PROCEDURE_COLLECTIVE: 'Procédure collective (redressement ou liquidation judiciaire) ouverte chez le porteur.',
 };
 
-export type DealSurveillanceStatus = 'OUTPERFORMING' | 'PERFORMING' | 'WATCH' | 'DRIFTING' | 'DISTRESSED' | 'RECOVERY';
+export type DealSurveillanceStatus = 'FAIBLE' | 'SOUS_SURVEILLANCE' | 'ELEVE' | 'CRITIQUE';
 
 export const DEAL_SURVEILLANCE_STATUS_LABELS: Record<DealSurveillanceStatus, string> = {
-  OUTPERFORMING: 'Outperforming',
-  PERFORMING: 'Performing',
-  WATCH: 'Watch',
-  DRIFTING: 'Drifting',
-  DISTRESSED: 'Distressed',
-  RECOVERY: 'Recovery',
+  FAIBLE: 'Faible',
+  SOUS_SURVEILLANCE: 'Sous surveillance',
+  ELEVE: 'Élevé',
+  CRITIQUE: 'Critique',
 };
 
 /** Textes d'aide affichés au survol des badges de statut de surveillance — calculé par le Risk Engine, indépendant de l'étape du projet ou du recouvrement. */
 export const DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS: Record<DealSurveillanceStatus, string> = {
-  OUTPERFORMING: 'Situation nettement meilleure que prévu — aucun signal de risque, marge de sécurité confortable.',
-  PERFORMING: 'Trajectoire conforme au scénario initial, aucun signal de dérive détecté.',
-  WATCH: 'Premier niveau de vigilance — au moins un signal mérite un suivi renforcé, sans dégradation confirmée.',
-  DRIFTING: "Dégradation objective ou répétée constatée sur plusieurs facteurs par rapport au scénario initial.",
-  DISTRESSED: 'Difficulté matérielle avérée — situation critique nécessitant une action immédiate.',
-  RECOVERY: 'Sortie récente de zone critique, encore sous surveillance renforcée pendant la période de confirmation.',
+  FAIBLE: 'Trajectoire conforme au scénario initial, aucun signal de dérive détecté.',
+  SOUS_SURVEILLANCE: 'Premier niveau de vigilance — au moins un signal mérite un suivi renforcé, sans dégradation confirmée.',
+  ELEVE: "Dégradation objective constatée sur plusieurs facteurs — score élevé, mais pas (encore) de fait dur avéré.",
+  CRITIQUE: "Difficulté matérielle avérée (procédure collective, échéance en contentieux, garantie majeure expirée...) — jamais atteint par le seul score, toujours un fait constaté.",
 };
 
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -893,7 +889,7 @@ export interface RiskMethodology {
   performance: ScoreInputDefinition[];
   ews: EwsIndicatorDefinition[];
   composite: { weights: { quality: number; performance: number; ews: number } };
-  surveillanceBands: Record<DealSurveillanceStatus | 'OUTPERFORMING' | 'PERFORMING' | 'WATCH' | 'DRIFTING' | 'DISTRESSED', string>;
+  surveillanceBands: Record<DealSurveillanceStatus, string>;
   velocityWindowDays: number;
   velocityBands: { STABLE: string; DETERIORATION: string; DERIVE: string; DETERIORATION_RAPIDE: string };
   hardOverrideRules: HardOverrideRuleDefinition[];

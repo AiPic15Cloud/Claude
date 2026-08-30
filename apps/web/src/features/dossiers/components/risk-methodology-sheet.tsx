@@ -89,8 +89,8 @@ export function RiskMethodologySheet() {
               <div className="text-xs text-muted-foreground">
                 <p className="font-medium text-foreground">Statuts de surveillance (score composite)</p>
                 <p>
-                  Outperforming : {data.surveillanceBands.OUTPERFORMING} · Performing : {data.surveillanceBands.PERFORMING} · Watch :{' '}
-                  {data.surveillanceBands.WATCH} · Drifting : {data.surveillanceBands.DRIFTING} · Distressed : {data.surveillanceBands.DISTRESSED}
+                  Faible : {data.surveillanceBands.FAIBLE} · Sous surveillance : {data.surveillanceBands.SOUS_SURVEILLANCE} · Élevé :{' '}
+                  {data.surveillanceBands.ELEVE} · Critique : {data.surveillanceBands.CRITIQUE}
                 </p>
               </div>
 
