@@ -18,7 +18,6 @@ import { withNoteImageUrls } from '../notes/note-image.util';
 import { StorageService } from '../common/storage/storage.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
 import { RiskEngineService, RECOVERY_LABEL, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
-import { riskTier } from '../risk-engine/risk-tier.util';
 import { FieldChangeService } from '../field-changes/field-change.service';
 
 // Fixed, never-translated title so the daily check can recognize its own
@@ -299,31 +298,32 @@ export class DealsService {
     deadlineAlert: ReturnType<typeof computeDeadlineAlert>,
     durationTargetAlert: ReturnType<typeof computeDurationTargetAlert>,
   ): { headline: string; items: { label: string; severity: 'critical' | 'warning' | 'info' }[] } {
-    if (riskBreakdown.suppressed || riskBreakdown.score === null) {
+    if (riskBreakdown.suppressed || riskBreakdown.composite.score === null) {
       return { headline: 'Dossier clos.', items: [] };
     }
 
-    const tier = riskTier(riskBreakdown.score);
-    const tierLabel = tier === 'HIGH' ? 'Situation critique' : tier === 'WATCH' ? 'Vigilance requise' : 'Situation saine';
-    const headline = `${tierLabel} — score de risque ${riskBreakdown.score}/100.`;
+    const status = riskBreakdown.surveillance.status;
+    const severityForStatus = (s: typeof status): 'critical' | 'warning' | 'info' =>
+      s === 'DRIFTING' || s === 'DISTRESSED' ? 'critical' : s === 'WATCH' || s === 'RECOVERY' ? 'warning' : 'info';
+    const statusLabel: Record<string, string> = {
+      OUTPERFORMING: 'Situation très favorable',
+      PERFORMING: 'Situation saine',
+      WATCH: 'Vigilance requise',
+      DRIFTING: 'Dérive constatée',
+      DISTRESSED: 'Situation critique',
+      RECOVERY: 'En sortie de crise, sous surveillance',
+    };
+    const headline = `${statusLabel[status ?? 'PERFORMING']} — score de risque ${riskBreakdown.composite.score}/100.`;
 
     const items: { label: string; severity: 'critical' | 'warning' | 'info' }[] = [];
 
-    // Les facteurs à plus forte contribution sont déjà les explications les
-    // plus précises pour leur propre sujet (échéance/recouvrement/porteur) —
-    // les blocs "toujours vérifier" ci-dessous ne doivent ajouter du texte
-    // que pour les sujets qui n'ont PAS déjà été couverts par un facteur en
-    // tête de liste, sinon la même phrase apparaît deux fois.
-    const topFactorKeys = new Set<string>();
-    if (tier !== 'SAFE') {
-      const topFactors = [...riskBreakdown.factors].sort((a, b) => b.contribution - a.contribution).slice(0, 2);
-      for (const factor of topFactors) {
-        topFactorKeys.add(factor.key);
-        items.push({ label: factor.explanation, severity: tier === 'HIGH' ? 'critical' : 'warning' });
+    if (status && status !== 'OUTPERFORMING' && status !== 'PERFORMING') {
+      for (const contributor of riskBreakdown.topContributors.slice(0, 2)) {
+        items.push({ label: contributor.label, severity: severityForStatus(status) });
       }
     }
 
-    if (deadlineAlert.level !== 'RAS' && deadlineAlert.actionLabel && !topFactorKeys.has('echeance')) {
+    if (deadlineAlert.level !== 'RAS' && deadlineAlert.actionLabel) {
       items.push({ label: deadlineAlert.actionLabel, severity: deadlineAlert.level === 'URGENT' ? 'critical' : 'warning' });
     }
 
@@ -331,11 +331,11 @@ export class DealsService {
       items.push({ label: durationTargetAlert.actionLabel, severity: durationTargetAlert.level === 'URGENT' ? 'critical' : 'warning' });
     }
 
-    if (deal.recoveryStatus !== 'SAIN' && !topFactorKeys.has('recouvrement')) {
-      items.push({ label: RECOVERY_LABEL[deal.recoveryStatus] ?? 'Statut de recouvrement inconnu.', severity: 'warning' });
+    if (deal.recoveryStatus !== 'RAS') {
+      items.push({ label: RECOVERY_LABEL[deal.recoveryStatus] ?? 'Situation juridique inconnue.', severity: 'warning' });
     }
 
-    if ((deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') && !topFactorKeys.has('porteur')) {
+    if (deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') {
       items.push({ label: PORTEUR_LABEL[deal.porteurMonitoringStatus], severity: 'critical' });
     }
 
@@ -398,6 +398,7 @@ export class DealsService {
         porteurAdresse: true,
         recoveryStatus: true,
         repaid: true,
+        chantierSignaleArret: true,
       },
     });
 
@@ -516,7 +517,7 @@ export class DealsService {
       ]);
     }
 
-    // Ces quatre champs sont les entrées du Risk Engine qui ne passent pas
+    // Ces cinq champs sont les entrées du Risk Engine qui ne passent pas
     // déjà par un déclencheur dédié (checkpoint, garantie, surveillance
     // société) — recalculer seulement quand l'un d'eux a réellement changé
     // évite un aller-retour Prisma superflu sur chaque édition de dossier.
@@ -524,7 +525,8 @@ export class DealsService {
     const repaidChanged = rest.repaid !== undefined && rest.repaid !== current?.repaid;
     const stageChanged = stage !== undefined && stage !== current?.stage;
     const dateMaxChanged = dateMax !== undefined && (dateMax ? new Date(dateMax).getTime() : null) !== (current?.dateMax?.getTime() ?? null);
-    if (recoveryStatusChanged || repaidChanged || stageChanged || dateMaxChanged) {
+    const chantierSignaleArretChanged = rest.chantierSignaleArret !== undefined && rest.chantierSignaleArret !== current?.chantierSignaleArret;
+    if (recoveryStatusChanged || repaidChanged || stageChanged || dateMaxChanged || chantierSignaleArretChanged) {
       await this.riskEngine
         .recomputeAndPersist(organizationId, id)
         .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${id}`, err instanceof Error ? err.stack : err));
