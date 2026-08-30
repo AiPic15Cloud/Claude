@@ -48,6 +48,15 @@ export const DEAL_RECOVERY_STATUS_LABELS: Record<DealRecoveryStatus, string> = {
   PROCEDURE_COLLECTIVE: 'Procédure collective',
 };
 
+/** Textes d'aide affichés au survol des badges de situation juridique — indépendant du statut de surveillance ATLAS. */
+export const DEAL_RECOVERY_STATUS_DESCRIPTIONS: Record<DealRecoveryStatus, string> = {
+  RAS: "RAS = Rien À Signaler. Aucune procédure de recouvrement en cours sur ce dossier.",
+  AMIABLE: "Échéance dépassée sans réaction du porteur — discussion à l'amiable en cours, pas encore de procédure formelle.",
+  MISE_EN_DEMEURE: "Mise en demeure envoyée au porteur, action judiciaire pas encore engagée.",
+  CONTENTIEUX: 'Action judiciaire engagée contre le porteur.',
+  PROCEDURE_COLLECTIVE: 'Procédure collective (redressement ou liquidation judiciaire) ouverte chez le porteur.',
+};
+
 export type DealSurveillanceStatus = 'OUTPERFORMING' | 'PERFORMING' | 'WATCH' | 'DRIFTING' | 'DISTRESSED' | 'RECOVERY';
 
 export const DEAL_SURVEILLANCE_STATUS_LABELS: Record<DealSurveillanceStatus, string> = {
@@ -57,6 +66,16 @@ export const DEAL_SURVEILLANCE_STATUS_LABELS: Record<DealSurveillanceStatus, str
   DRIFTING: 'Drifting',
   DISTRESSED: 'Distressed',
   RECOVERY: 'Recovery',
+};
+
+/** Textes d'aide affichés au survol des badges de statut de surveillance — calculé par le Risk Engine, indépendant de l'étape du projet ou du recouvrement. */
+export const DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS: Record<DealSurveillanceStatus, string> = {
+  OUTPERFORMING: 'Situation nettement meilleure que prévu — aucun signal de risque, marge de sécurité confortable.',
+  PERFORMING: 'Trajectoire conforme au scénario initial, aucun signal de dérive détecté.',
+  WATCH: 'Premier niveau de vigilance — au moins un signal mérite un suivi renforcé, sans dégradation confirmée.',
+  DRIFTING: "Dégradation objective ou répétée constatée sur plusieurs facteurs par rapport au scénario initial.",
+  DISTRESSED: 'Difficulté matérielle avérée — situation critique nécessitant une action immédiate.',
+  RECOVERY: 'Sortie récente de zone critique, encore sous surveillance renforcée pendant la période de confirmation.',
 };
 
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';

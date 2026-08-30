@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { useDealRisk, useRecomputeRisk, useRiskHistory, useSetAnalystOverride, useClearAnalystOverride } from '../hooks/use-risk';
 import { RiskMethodologySheet } from './risk-methodology-sheet';
 import { RiskTrajectoryChart } from './risk-trajectory-chart';
@@ -28,11 +29,14 @@ function scoreColor(value: number): string {
   return 'bg-destructive';
 }
 
-function SubScore({ label, value }: { label: string; value: number | undefined | null }) {
+function SubScore({ label, info, value }: { label: string; info: string; value: number | undefined | null }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          {label}
+          <InfoTooltip text={info} />
+        </span>
         <span className="font-medium tabular-nums">{value ?? '—'}</span>
       </div>
       <Progress value={value ?? 0} className="h-1.5" indicatorClassName={value === null || value === undefined ? 'bg-muted' : scoreColor(value)} />
@@ -42,7 +46,7 @@ function SubScore({ label, value }: { label: string; value: number | undefined |
 
 const TREND_ICON = { UP: TrendingUp, DOWN: TrendingDown, FLAT: Minus } as const;
 
-function DeltaBadge({ label, value }: { label: string; value: number | null }) {
+function DeltaBadge({ label, info, value }: { label: string; info: string; value: number | null }) {
   if (value === null) return null;
   // Composite : haut = pire, donc une hausse est une dégradation.
   const Icon = value > 0 ? TrendingUp : value < 0 ? TrendingDown : Minus;
@@ -52,6 +56,7 @@ function DeltaBadge({ label, value }: { label: string; value: number | null }) {
       <Icon className="h-3 w-3" />
       {label} {value > 0 ? '+' : ''}
       {value}
+      <InfoTooltip text={info} />
     </span>
   );
 }
@@ -165,7 +170,11 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
           <div className="flex items-center gap-2">
             <p className="text-2xl font-semibold tabular-nums">{data.composite.score}/100</p>
             <TrendIcon className="h-4 w-4 text-muted-foreground" />
-            <DeltaBadge label="Δ90j" value={data.composite.deltas.d90} />
+            <DeltaBadge
+              label="Δ90j"
+              info="Variation du score composite de risque sur les 90 derniers jours. Une hausse signale une dégradation, une baisse une amélioration."
+              value={data.composite.deltas.d90}
+            />
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -181,6 +190,7 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
           <div className="flex flex-col gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-3">
             <div className="flex items-center gap-1.5 text-sm font-medium text-destructive">
               <ShieldAlert className="h-4 w-4" /> Plancher(s) actif(s)
+              <InfoTooltip text="Un plancher (hard override) impose un statut minimum sur des faits objectifs (procédure collective, échéance dépassée, garantie majeure expirée...) qu'aucun bon score ne peut compenser." />
             </div>
             {data.surveillance.hardOverrides.map((o) => (
               <p key={o.ruleKey} className="text-xs text-muted-foreground">
@@ -212,9 +222,21 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
         )}
 
         <div className="grid grid-cols-3 gap-3">
-          <SubScore label="Quality" value={data.quality?.score} />
-          <SubScore label="Performance" value={data.performance?.score} />
-          <SubScore label="EWS" value={data.ews?.score} />
+          <SubScore
+            label="Quality"
+            info="Qualité structurelle du dossier : marge, ratios de financement (LTC/LTV), dépendance bancaire, garanties. Relativement stable dans le temps — plus haut est mieux."
+            value={data.quality?.score}
+          />
+          <SubScore
+            label="Performance"
+            info="Écart entre le réel et le business plan initial : marge à date, suivi chantier/commercialisation, prix de vente actualisé. Plus haut est mieux."
+            value={data.performance?.score}
+          />
+          <SubScore
+            label="EWS"
+            info="Early Warning Score — signaux d'alerte précoce cumulés (retards, dégradations, situation juridique...). Contrairement aux deux autres scores, plus haut est pire ici."
+            value={data.ews?.score}
+          />
         </div>
 
         {data.topContributors.length > 0 && (
@@ -238,8 +260,16 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
         </div>
 
         <div className="flex items-center justify-between border-t border-border pt-3">
-          <p className="text-xs text-muted-foreground">
-            Cycle : {data.cycleProjet} · Vélocité : {data.surveillance.velocity ? data.surveillance.velocity.band : '—'}
+          <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              Cycle : {data.cycleProjet}
+              <InfoTooltip text="Étape du cycle de vie du financement (en cours, sortie, remboursement, clôturé) — indépendant du statut de surveillance et de la situation juridique." />
+            </span>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1">
+              Vélocité : {data.surveillance.velocity ? data.surveillance.velocity.band : '—'}
+              <InfoTooltip text="Vitesse de dégradation ou d'amélioration du score composite sur 90 jours. Une détérioration rapide pèse plus lourd qu'un risque stable, même à score égal." />
+            </span>
           </p>
           <Button variant="ghost" size="sm" onClick={() => setOverrideDialogOpen(true)}>
             Forcer le statut

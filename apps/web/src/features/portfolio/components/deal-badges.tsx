@@ -1,9 +1,12 @@
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { cn } from '@/lib/utils';
 import {
+  DEAL_RECOVERY_STATUS_DESCRIPTIONS,
   DEAL_RECOVERY_STATUS_LABELS,
   DEAL_STAGE_LABELS,
+  DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS,
   DEAL_SURVEILLANCE_STATUS_LABELS,
   DEAL_TYPE_LABELS,
   type CheckpointHealth,
@@ -57,7 +60,7 @@ export function RecoveryStatusBadge({ status, compact }: { status: DealRecoveryS
   if (compact) {
     return (
       <span
-        title={DEAL_RECOVERY_STATUS_LABELS[status]}
+        title={DEAL_RECOVERY_STATUS_DESCRIPTIONS[status]}
         className={cn(
           'inline-block h-2 w-2 shrink-0 rounded-full',
           status === 'AMIABLE' && 'bg-warning',
@@ -66,7 +69,12 @@ export function RecoveryStatusBadge({ status, compact }: { status: DealRecoveryS
       />
     );
   }
-  return <Badge variant={RECOVERY_STATUS_VARIANT[status]}>{DEAL_RECOVERY_STATUS_LABELS[status]}</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Badge variant={RECOVERY_STATUS_VARIANT[status]}>{DEAL_RECOVERY_STATUS_LABELS[status]}</Badge>
+      <InfoTooltip text={DEAL_RECOVERY_STATUS_DESCRIPTIONS[status]} />
+    </span>
+  );
 }
 
 const SURVEILLANCE_STATUS_VARIANT: Record<DealSurveillanceStatus, 'success' | 'warning' | 'destructive'> = {
@@ -85,7 +93,7 @@ export function SurveillanceStatusBadge({ status, compact }: { status?: DealSurv
   if (compact) {
     return (
       <span
-        title={DEAL_SURVEILLANCE_STATUS_LABELS[status]}
+        title={DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS[status]}
         className={cn(
           'inline-block h-2 w-2 shrink-0 rounded-full',
           (status === 'WATCH' || status === 'RECOVERY') && 'bg-warning',
@@ -94,7 +102,12 @@ export function SurveillanceStatusBadge({ status, compact }: { status?: DealSurv
       />
     );
   }
-  return <Badge variant={SURVEILLANCE_STATUS_VARIANT[status]}>{DEAL_SURVEILLANCE_STATUS_LABELS[status]}</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Badge variant={SURVEILLANCE_STATUS_VARIANT[status]}>{DEAL_SURVEILLANCE_STATUS_LABELS[status]}</Badge>
+      <InfoTooltip text={DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS[status]} />
+    </span>
+  );
 }
 
 /** Surveillance quotidienne du SIREN du porteur (voir CompanyMonitoringService) — silencieux tant que tout va bien. */
