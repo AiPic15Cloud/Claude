@@ -1,6 +1,7 @@
 import type { DealRecoveryStatus } from '@prisma/client';
 import type { NewsletterStatus } from '../deals/newsletter.util';
 import type { DeadlineAlert } from '../deals/deadline.util';
+import type { DurationTargetAlert } from '../deals/duration-target.util';
 
 export interface TriggeredIndicator {
   key: string;
@@ -25,12 +26,15 @@ export interface EwsCheckpointFields {
 
 export interface EwsScoreParams {
   deadlineAlert: DeadlineAlert;
+  durationTargetAlert: DurationTargetAlert;
   /** null si aucun checkpoint n'a jamais été enregistré. */
   latestCheckpoint: EwsCheckpointFields | null;
   previousCheckpoint: EwsCheckpointFields | null;
   /** null si aucun checkpoint n'existe — traité comme "retard de reporting". */
   daysSinceLastCheckpoint: number | null;
-  guaranteeWorstCase: 'AUCUNE' | 'VALIDE' | 'EXPIRE_BIENTOT' | 'NON_VALIDE';
+  /** Nombre de sûretés actives aujourd'hui NON_VALIDE / EXPIRE_BIENTOT — chacune pointée individuellement, pas un seul "pire cas" global. */
+  guaranteeNonValideCount: number;
+  guaranteeExpireBientotCount: number;
   recoveryStatus: DealRecoveryStatus;
   porteurMonitoringStatus: string | null;
   chantierSignaleArret: boolean;
@@ -57,9 +61,10 @@ export const EWS_INDICATOR_DEFINITIONS: EwsIndicatorDefinition[] = [
   { key: 'STAGNATION_COMMERCIALE', label: 'Commercialisation stagnante', maxPoints: 10, rationale: 'Un pourcentage vendu qui ne progresse plus entre deux points de suivi, alors que la commercialisation est lancée.' },
   { key: 'DEGRADATION_ACCELEREE', label: 'Dépassement travaux en accélération', maxPoints: 5, rationale: "Le dépassement budgétaire s'aggrave d'un point de suivi à l'autre." },
   { key: 'RETARD_ADMINISTRATIF_ECHEANCE', label: 'Échéance de vote proche/dépassée', maxPoints: 20, rationale: "Réutilise directement les paliers J-60/J-30/J-15/contentieux déjà en place pour le suivi des échéances." },
+  { key: 'RETARD_DUREE_CIBLE', label: 'Retard sur la durée cible du financement', maxPoints: 25, rationale: "Paliers progressifs J+10/J+30/J+60 sur le dépassement de la durée cible du financement (Deal.durationMonths), distincte de l'échéance de vote." },
   { key: 'RETARD_REPORTING', label: 'Reporting en retard', maxPoints: 10, rationale: "Un dossier sans point de suivi récent prive l'analyste de visibilité — seuil fixe de 60 jours en Phase 1, cadence configurable par dossier en Phase 4." },
-  { key: 'GARANTIE_DEGRADEE', label: 'Garantie dégradée', maxPoints: 15, rationale: "Réutilise le calcul d'expiration des garanties déjà en place." },
-  { key: 'RECOUVREMENT', label: 'Situation juridique dégradée', maxPoints: 35, rationale: "La situation juridique du dossier (mise en demeure, contentieux, procédure collective) est un fait déjà constaté, pas un risque anticipé." },
+  { key: 'GARANTIE_DEGRADEE', label: 'Garantie dégradée', maxPoints: 60, rationale: "15 pts (non valide) ou 7 pts (expire bientôt) par sûreté concernée, pas un seul pire-cas global — plusieurs sûretés dégradées s'accumulent." },
+  { key: 'RECOUVREMENT', label: 'Situation juridique dégradée', maxPoints: 40, rationale: "La situation juridique du dossier (mise en demeure, contentieux, procédure collective) est un fait déjà constaté, pas un risque anticipé." },
   { key: 'PORTEUR', label: 'Santé administrative du porteur', maxPoints: 30, rationale: 'Une procédure collective ou une radiation chez le porteur conditionne sa capacité à mener le projet à terme.' },
   { key: 'MARGE_BP_DEGRADEE', label: 'Marge dégradée vs BP', maxPoints: 20, rationale: "Le même signal que la Performance Score, mais traité ici comme alerte précoce plutôt que comme composante d'un score d'exécution." },
   { key: 'CHANTIER_SIGNALE_ARRET', label: 'Chantier signalé à l’arrêt', maxPoints: 30, rationale: "Signal manuel de l'analyste — aucune donnée existante ne permet de détecter un chantier à l'arrêt de façon fiable." },
@@ -88,8 +93,9 @@ export function computeEwsScore(params: EwsScoreParams): EwsScoreResult {
   pushStagnationCommerciale(triggered, params.latestCheckpoint, params.previousCheckpoint);
   pushDegradationAcceleree(triggered, params.latestCheckpoint, params.previousCheckpoint);
   pushEcheance(triggered, params.deadlineAlert);
+  pushRetardDureeCible(triggered, params.durationTargetAlert);
   pushRetardReporting(triggered, params.daysSinceLastCheckpoint);
-  pushGarantieDegradee(triggered, params.guaranteeWorstCase);
+  pushGarantieDegradee(triggered, params.guaranteeNonValideCount, params.guaranteeExpireBientotCount);
   pushRecouvrement(triggered, params.recoveryStatus);
   pushPorteur(triggered, params.porteurMonitoringStatus);
   pushMargeBp(triggered, params.marginAlert);
@@ -165,6 +171,23 @@ function pushEcheance(out: TriggeredIndicator[], alert: DeadlineAlert) {
   if (points) out.push({ key: 'RETARD_ADMINISTRATIF_ECHEANCE', label: 'Échéance de vote proche/dépassée', points, explanation: alert.actionLabel ?? 'Échéance sous surveillance.' });
 }
 
+function pushRetardDureeCible(out: TriggeredIndicator[], alert: DurationTargetAlert) {
+  if (alert.stage !== 'DEPASSEE' || alert.daysToTarget === null) return;
+  const daysOverdue = -alert.daysToTarget;
+  let points: number | null = null;
+  if (daysOverdue >= 60) points = 25;
+  else if (daysOverdue >= 30) points = 15;
+  else if (daysOverdue >= 10) points = 5;
+  if (points) {
+    out.push({
+      key: 'RETARD_DUREE_CIBLE',
+      label: 'Retard sur la durée cible du financement',
+      points,
+      explanation: `Durée cible dépassée de ${daysOverdue} jour(s).`,
+    });
+  }
+}
+
 function pushRetardReporting(out: TriggeredIndicator[], daysSince: number | null) {
   if (daysSince === null || daysSince > REPORTING_STALE_DAYS) {
     out.push({
@@ -176,15 +199,29 @@ function pushRetardReporting(out: TriggeredIndicator[], daysSince: number | null
   }
 }
 
-function pushGarantieDegradee(out: TriggeredIndicator[], worst: EwsScoreParams['guaranteeWorstCase']) {
-  if (worst === 'NON_VALIDE') out.push({ key: 'GARANTIE_DEGRADEE', label: 'Garantie expirée', points: 15, explanation: 'Au moins une garantie active a dépassé sa date de validité.' });
-  else if (worst === 'EXPIRE_BIENTOT') out.push({ key: 'GARANTIE_DEGRADEE', label: 'Garantie expirant bientôt', points: 7, explanation: 'Au moins une garantie expire dans les 6 mois.' });
+function pushGarantieDegradee(out: TriggeredIndicator[], nonValideCount: number, expireBientotCount: number) {
+  if (nonValideCount > 0) {
+    out.push({
+      key: 'GARANTIE_DEGRADEE_NON_VALIDE',
+      label: 'Garantie(s) expirée(s)',
+      points: 15 * nonValideCount,
+      explanation: `${nonValideCount} garantie(s) active(s) ayant dépassé leur date de validité (15 pts chacune).`,
+    });
+  }
+  if (expireBientotCount > 0) {
+    out.push({
+      key: 'GARANTIE_DEGRADEE_EXPIRE_BIENTOT',
+      label: 'Garantie(s) expirant bientôt',
+      points: 7 * expireBientotCount,
+      explanation: `${expireBientotCount} garantie(s) expirant dans les 6 mois (7 pts chacune).`,
+    });
+  }
 }
 
 const RECOVERY_POINTS: Partial<Record<DealRecoveryStatus, number>> = {
-  MISE_EN_DEMEURE: 15,
+  MISE_EN_DEMEURE: 20,
   CONTENTIEUX: 25,
-  PROCEDURE_COLLECTIVE: 35,
+  PROCEDURE_COLLECTIVE: 40,
 };
 
 function pushRecouvrement(out: TriggeredIndicator[], status: DealRecoveryStatus) {

@@ -36,7 +36,7 @@ export class DealOverrideService {
       data: {
         organizationId,
         dealId,
-        automaticStatus: deal.surveillanceStatus ?? 'PERFORMING',
+        automaticStatus: deal.surveillanceStatus ?? 'FAIBLE',
         overrideStatus,
         justification,
         createdById: userId,

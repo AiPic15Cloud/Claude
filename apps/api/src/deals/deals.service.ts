@@ -334,20 +334,18 @@ export class DealsService {
 
     const status = riskBreakdown.surveillance.status;
     const severityForStatus = (s: typeof status): 'critical' | 'warning' | 'info' =>
-      s === 'DRIFTING' || s === 'DISTRESSED' ? 'critical' : s === 'WATCH' || s === 'RECOVERY' ? 'warning' : 'info';
+      s === 'ELEVE' || s === 'CRITIQUE' ? 'critical' : s === 'SOUS_SURVEILLANCE' ? 'warning' : 'info';
     const statusLabel: Record<string, string> = {
-      OUTPERFORMING: 'Situation très favorable',
-      PERFORMING: 'Situation saine',
-      WATCH: 'Vigilance requise',
-      DRIFTING: 'Dérive constatée',
-      DISTRESSED: 'Situation critique',
-      RECOVERY: 'En sortie de crise, sous surveillance',
+      FAIBLE: 'Situation saine',
+      SOUS_SURVEILLANCE: 'Vigilance requise',
+      ELEVE: 'Dérive constatée',
+      CRITIQUE: 'Situation critique',
     };
-    const headline = `${statusLabel[status ?? 'PERFORMING']} — score de risque ${riskBreakdown.composite.score}/100.`;
+    const headline = `${statusLabel[status ?? 'FAIBLE']} — score de risque ${riskBreakdown.composite.score}/100.`;
 
     const items: { label: string; severity: 'critical' | 'warning' | 'info' }[] = [];
 
-    if (status && status !== 'OUTPERFORMING' && status !== 'PERFORMING') {
+    if (status && status !== 'FAIBLE') {
       for (const contributor of riskBreakdown.topContributors.slice(0, 2)) {
         items.push({ label: contributor.label, severity: severityForStatus(status) });
       }
