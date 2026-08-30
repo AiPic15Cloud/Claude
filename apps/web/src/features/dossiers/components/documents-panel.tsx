@@ -138,7 +138,7 @@ function DocumentRow({
   const extractable = isDocumentReadableByAgent(doc);
 
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border px-3 py-2.5">
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-border px-3 py-2.5">
       <File className="h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{doc.name}</p>
@@ -153,32 +153,34 @@ function DocumentRow({
           </p>
         )}
       </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        title={extractable ? 'Analyser avec l\'IA (extraction financière)' : 'Analyse automatique disponible uniquement pour PDF et Excel'}
-        disabled={!extractable || extract.isPending}
-        onClick={() => extract.mutate(doc.id, { onSuccess: setResult })}
-      >
-        {extract.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => download.mutate(doc)} disabled={download.isPending}>
-        {download.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-      </Button>
-      {confirming ? (
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
-            Annuler
-          </Button>
-          <Button size="sm" variant="destructive" onClick={() => remove.mutate(doc.id)} disabled={remove.isPending}>
-            {remove.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Confirmer'}
-          </Button>
-        </div>
-      ) : (
-        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirming(true)}>
-          <Trash2 className="h-3.5 w-3.5" />
+      <div className="ml-7 flex flex-wrap items-center gap-1 sm:ml-0">
+        <Button
+          size="sm"
+          variant="ghost"
+          title={extractable ? 'Analyser avec l\'IA (extraction financière)' : 'Analyse automatique disponible uniquement pour PDF et Excel'}
+          disabled={!extractable || extract.isPending}
+          onClick={() => extract.mutate(doc.id, { onSuccess: setResult })}
+        >
+          {extract.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
         </Button>
-      )}
+        <Button size="sm" variant="ghost" onClick={() => download.mutate(doc)} disabled={download.isPending}>
+          {download.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        </Button>
+        {confirming ? (
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
+              Annuler
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => remove.mutate(doc.id)} disabled={remove.isPending}>
+              {remove.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Confirmer'}
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirming(true)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
 
       {result && (
         <ExtractionDialog

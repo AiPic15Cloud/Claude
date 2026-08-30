@@ -141,24 +141,28 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
           <p className="py-4 text-center text-xs text-muted-foreground">Aucun remboursement enregistré</p>
         )}
         {repayments.map((r) => (
-          <div key={r.id} className="flex items-center gap-3 rounded-md border border-border p-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Wallet className="h-4 w-4" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{formatDate(r.date)}</span>
-                {r.projected && <Badge variant="warning">Projeté</Badge>}
+          <div key={r.id} className="flex flex-col gap-3 rounded-md border border-border p-3 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Wallet className="h-4 w-4" />
               </div>
-              {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">{formatDate(r.date)}</span>
+                  {r.projected && <Badge variant="warning">Projeté</Badge>}
+                </div>
+                {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}
+              </div>
             </div>
-            <span className="text-sm font-semibold tabular-nums">{formatCurrency(r.amount)}</span>
-            <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
-              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => deleteRepayment.mutate(r.id)}>
-              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
+              <span className="text-sm font-semibold tabular-nums">{formatCurrency(r.amount)}</span>
+              <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => deleteRepayment.mutate(r.id)}>
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
           </div>
         ))}
       </CardContent>

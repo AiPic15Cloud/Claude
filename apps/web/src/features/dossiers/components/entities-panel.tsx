@@ -95,18 +95,20 @@ export function EntitiesPanel({ dealId }: { dealId: string }) {
       <CardContent className="flex flex-col gap-2">
         {links.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">Aucun intervenant lié</p>}
         {links.map((l) => (
-          <div key={l.id} className="flex items-center gap-3 rounded-md border border-border p-3">
+          <div key={l.id} className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Network className="h-4 w-4" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">{l.entity.name}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{l.entity.name}</p>
               <p className="text-xs text-muted-foreground">{GRAPH_ENTITY_TYPE_LABELS[l.entity.type]}</p>
             </div>
-            <Badge variant="secondary">{DEAL_ENTITY_ROLE_LABELS[l.role]}</Badge>
-            <Button variant="ghost" size="icon" onClick={() => unlink.mutate(l.id)}>
-              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
+            <div className="ml-11 flex items-center gap-2 sm:ml-0">
+              <Badge variant="secondary">{DEAL_ENTITY_ROLE_LABELS[l.role]}</Badge>
+              <Button variant="ghost" size="icon" onClick={() => unlink.mutate(l.id)}>
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
           </div>
         ))}
       </CardContent>

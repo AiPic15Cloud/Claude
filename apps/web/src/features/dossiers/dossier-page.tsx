@@ -170,7 +170,7 @@ export function DossierPage() {
       {deal.deadlineAlert && deal.deadlineAlert.level !== 'RAS' && (
         <div
           className={cn(
-            'flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+            'flex flex-wrap items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
             deal.deadlineAlert.level === 'URGENT'
               ? 'border-destructive/30 bg-destructive/10 text-destructive'
               : 'border-warning/30 bg-warning/10 text-warning',
@@ -191,7 +191,7 @@ export function DossierPage() {
       {deal.durationTargetAlert && deal.durationTargetAlert.level !== 'RAS' && (
         <div
           className={cn(
-            'flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+            'flex flex-wrap items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
             deal.durationTargetAlert.level === 'URGENT'
               ? 'border-destructive/30 bg-destructive/10 text-destructive'
               : 'border-warning/30 bg-warning/10 text-warning',
@@ -210,7 +210,7 @@ export function DossierPage() {
       {guaranteeWarnings.length > 0 && (
         <div
           className={cn(
-            'flex items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+            'flex flex-wrap items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
             guaranteeWarnings.some((g) => g.validity === 'NON_VALIDE')
               ? 'border-destructive/30 bg-destructive/10 text-destructive'
               : 'border-warning/30 bg-warning/10 text-warning',
