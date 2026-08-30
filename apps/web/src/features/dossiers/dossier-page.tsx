@@ -21,7 +21,7 @@ import { useCreateCostLineItem } from './hooks/use-cost-line-items';
 import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
-import { RiskBreakdownCard } from './components/risk-breakdown-card';
+import { RiskAtlasCard } from './components/risk-atlas-card';
 import { DealNarrativeCard } from './components/deal-narrative-card';
 import { DealStageTimeline } from './components/deal-stage-timeline';
 import { ActivityLogPanel } from './components/activity-log-panel';
@@ -288,7 +288,7 @@ export function DossierPage() {
           <ScoreBreakdownCard dealId={deal.id} />
         </TabsContent>
         <TabsContent value="risk">
-          <RiskBreakdownCard dealId={deal.id} />
+          <RiskAtlasCard dealId={deal.id} />
         </TabsContent>
         <TabsContent value="notes">
           <NotesPanel dealId={deal.id} notes={deal.notes} />
