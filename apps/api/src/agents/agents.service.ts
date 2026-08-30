@@ -285,13 +285,12 @@ export class AgentsService {
       deal.interestRate ? `Taux : ${deal.interestRate}%` : null,
       deal.city ? `Localisation : ${deal.city}` : null,
       `Score ATLAS : ${score.score}/100 (${score.factors.map((f) => `${f.label}: ${f.value}`).join(', ')})`,
-      riskBreakdown.suppressed || riskBreakdown.score === null
+      riskBreakdown.suppressed || riskBreakdown.composite.score === null
         ? 'Risque (Risk Engine) : dossier clos, non noté.'
-        : `Risque (Risk Engine) : ${riskBreakdown.score}/100, niveau ${riskBreakdown.tier}, tendance ${riskBreakdown.trend} — facteurs principaux : ${[...riskBreakdown.factors]
-            .sort((a, b) => b.contribution - a.contribution)
+        : `Risque (Risk Engine) : ${riskBreakdown.composite.score}/100, statut de surveillance ${riskBreakdown.surveillance.status}, tendance ${riskBreakdown.composite.trend} — Qualité ${riskBreakdown.quality?.score}/100, Performance ${riskBreakdown.performance?.score}/100, EWS ${riskBreakdown.ews?.score}/100 — principaux facteurs : ${riskBreakdown.topContributors
             .slice(0, 3)
-            .map((f) => f.explanation)
-            .join(' ')}`,
+            .map((c) => c.label)
+            .join(', ')}`,
       deal.porteurSiren
         ? `Surveillance du porteur (SIREN ${deal.porteurSiren}) : ${PORTEUR_LABEL[deal.porteurMonitoringStatus ?? ''] ?? 'statut inconnu.'}`
         : null,

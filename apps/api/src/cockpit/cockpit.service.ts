@@ -3,8 +3,9 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { DealsService } from '../deals/deals.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
-import { riskTier } from '../risk-engine/risk-tier.util';
 import { computeDeadlineAlert } from '../deals/deadline.util';
+
+const NEEDS_ATTENTION = new Set(['WATCH', 'DRIFTING', 'DISTRESSED', 'RECOVERY']);
 import { computeGuaranteeExpiry, isExpirableGuaranteeType } from '../guarantees/guarantee-expiry.util';
 
 function startOfDay(date: Date): Date {
@@ -103,7 +104,7 @@ export class CockpitService {
       }),
       this.prisma.deal.findMany({
         where: { organizationId, status: 'ACTIVE', repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] }, riskScore: { not: null } },
-        select: { id: true, name: true, reference: true, amountRaised: true, riskScore: true, riskScorePrevious: true, dateMax: true },
+        select: { id: true, name: true, reference: true, amountRaised: true, riskScore: true, riskScorePrevious: true, surveillanceStatus: true, dateMax: true },
       }),
     ]);
 
@@ -166,10 +167,19 @@ export class CockpitService {
    */
   private async buildDecisions(
     organizationId: string,
-    riskDeals: { id: string; name: string; reference: string; amountRaised: any; riskScore: number | null; riskScorePrevious: number | null; dateMax: Date | null }[],
+    riskDeals: {
+      id: string;
+      name: string;
+      reference: string;
+      amountRaised: any;
+      riskScore: number | null;
+      riskScorePrevious: number | null;
+      surveillanceStatus: string | null;
+      dateMax: Date | null;
+    }[],
   ) {
     const candidates = riskDeals
-      .filter((d) => d.riskScore !== null && riskTier(d.riskScore) !== 'SAFE')
+      .filter((d) => d.riskScore !== null && d.surveillanceStatus !== null && NEEDS_ATTENTION.has(d.surveillanceStatus))
       .sort((a, b) => (b.riskScore! - a.riskScore!) || (Number(b.amountRaised) - Number(a.amountRaised)))
       .slice(0, 10);
 
@@ -179,17 +189,22 @@ export class CockpitService {
 
     return candidates.map((d, i) => {
       const breakdown = breakdowns[i];
-      const topFactor = [...breakdown.factors].sort((a, b) => b.contribution - a.contribution)[0];
+      const topFactor = breakdown.topContributors[0];
       const deadline = computeDeadlineAlert(d.dateMax, new Date(), false);
       return {
         dealId: d.id,
         dealName: d.name,
         dealReference: d.reference,
-        tier: riskTier(d.riskScore!) as 'WATCH' | 'HIGH',
+        // Le nouveau statut de surveillance a 6 valeurs ; le Decision Center
+        // actuel n'en affiche que 2 (Critique/Vigilance) — DISTRESSED devient
+        // HIGH, tout le reste "à surveiller" (WATCH/DRIFTING/RECOVERY) reste
+        // WATCH. Une vraie Attention Queue à statuts multiples est prévue en
+        // Phase 5, pas une refonte de cet écran ici.
+        tier: (d.surveillanceStatus === 'DISTRESSED' ? 'HIGH' : 'WATCH') as 'WATCH' | 'HIGH',
         score: d.riskScore!,
         previousScore: d.riskScorePrevious,
         signalLabel: topFactor?.label ?? 'Risque global',
-        signalExplanation: topFactor?.explanation ?? '',
+        signalExplanation: topFactor ? `Contribution estimée : +${topFactor.points} pts.` : '',
         exposition: Number(d.amountRaised),
         daysToMax: deadline.stage ? deadline.daysToMax : null,
         deadlineActionLabel: deadline.actionLabel,

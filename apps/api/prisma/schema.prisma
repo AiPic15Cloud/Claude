@@ -89,6 +89,8 @@ enum ActivityType {
   FINANCIAL_MODEL_UPDATED
   ENTITY_LINKED
   CHECKPOINT_CREATED
+  RISK_OVERRIDE_TRIGGERED
+  ANALYST_OVERRIDE_SET
 }
 
 enum GuaranteeType {
@@ -101,17 +103,34 @@ enum GuaranteeType {
   AUTRE
 }
 
-// Sain → aucun signal ; En retard → échéance dépassée sans réaction du
-// porteur ; Pré-contentieux → mise en demeure envoyée mais pas encore de
-// procédure ; Procédure → action judiciaire engagée. Remplace l'ancien
-// booléen `contentieux` (trop grossier : il confondait pré-contentieux et
-// procédure) — renseigné manuellement, aucune règle ne peut fiablement
-// déduire ce jugement depuis les autres champs.
+// "Situation juridique" du dossier — RAS → aucun signal ; Amiable → échéance
+// dépassée sans réaction du porteur, encore en discussion ; Mise en demeure →
+// courrier formel envoyé, pas encore d'action judiciaire ; Contentieux →
+// action judiciaire engagée, avant toute procédure collective ; Procédure
+// collective → la société du porteur est elle-même en procédure. Renseigné
+// manuellement, aucune règle ne peut fiablement déduire ce jugement depuis
+// les autres champs (mais alimente aussi bien le facteur EWS "recouvrement"
+// que le hard override "procédure collective").
 enum DealRecoveryStatus {
-  SAIN
-  EN_RETARD
-  PRE_CONTENTIEUX
-  PROCEDURE
+  RAS
+  AMIABLE
+  MISE_EN_DEMEURE
+  CONTENTIEUX
+  PROCEDURE_COLLECTIVE
+}
+
+// Statut de surveillance ATLAS — dérivé du score composite, de l'EWS et de la
+// vélocité (voir risk-engine/surveillance-status.util.ts), jamais saisi
+// manuellement sauf override analyste explicite (DealOverride). RECOVERY est
+// un état transitoire (cooldown après une sortie de DISTRESSED), pas une
+// bande de score comme les 5 autres.
+enum DealSurveillanceStatus {
+  OUTPERFORMING
+  PERFORMING
+  WATCH
+  DRIFTING
+  DISTRESSED
+  RECOVERY
 }
 
 enum GuaranteeStatus {
@@ -187,6 +206,9 @@ model Organization {
   tasks              Task[]
   fieldChanges       FieldChange[]
   dataValidations    DataValidation[]
+  riskScoreSnapshots RiskScoreSnapshot[]
+  riskOverrides      RiskOverride[]
+  dealOverrides      DealOverride[]
 
   @@map("organizations")
 }
@@ -240,6 +262,8 @@ model User {
   fieldChanges               FieldChange[]
   dataValidations            DataValidation[]
   financialAssumptionsLocked FinancialAssumption[]
+  dealOverridesCreated       DealOverride[]         @relation("DealOverrideCreatedBy")
+  dealOverridesCleared       DealOverride[]         @relation("DealOverrideClearedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -351,6 +375,28 @@ model Deal {
   riskScoreAtClosure     Int?
   riskScoreAtClosureDate DateTime?
 
+  // Risk Engine v2 (Phase 1) — trois scores indépendants qui alimentent le
+  // score composite ci-dessus (riskScore) plutôt que de le remplacer :
+  // qualité structurelle (stable), exécution réelle vs BP (dynamique), et
+  // signaux d'alerte précoce (le plus réactif). Voir risk-engine/*.util.ts.
+  qualityScore     Int?
+  performanceScore Int?
+  ewsScore         Int?
+
+  surveillanceStatus DealSurveillanceStatus?
+  // Tant que cette date n'est pas dépassée, le statut reste figé sur RECOVERY
+  // après une sortie de DISTRESSED, même si le score recalculé serait
+  // meilleur — évite qu'un dossier tout juste assaini redevienne WATCH/
+  // PERFORMING en un seul cycle, ce qui rendrait RECOVERY inutile comme
+  // signal de trajectoire pour l'analyste.
+  recoveryWatchUntil DateTime?
+
+  // Réponse Phase 1 (délibérément manuelle) au "chantier abandonné" du
+  // brief — aucune donnée existante ne permet de le déduire de façon fiable
+  // sans risque de faux négatif ; un hard override le plafonne à DISTRESSED.
+  chantierSignaleArret   Boolean   @default(false)
+  chantierSignaleArretAt DateTime?
+
   startDate DateTime?
   endDate   DateTime?
 
@@ -366,7 +412,7 @@ model Deal {
   // recoveryStatus is an independent manual field — a deal can be repaid or
   // active while also being flagged as in (pre-)litigation.
   repaid         Boolean            @default(false)
-  recoveryStatus DealRecoveryStatus @default(SAIN)
+  recoveryStatus DealRecoveryStatus @default(RAS)
 
   // Investor newsletter follow-up — lastNewsletterDate resets the countdown;
   // status (À jour / À relancer / Critique) is derived from the elapsed days
@@ -412,6 +458,9 @@ model Deal {
   agentMessages              AgentMessage[]
   fieldChanges               FieldChange[]
   dataValidations            DataValidation[]
+  riskScoreSnapshots         RiskScoreSnapshot[]
+  riskOverrides              RiskOverride[]
+  dealOverrides              DealOverride[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -679,6 +728,92 @@ model DataValidation {
 
   @@unique([dealId, entityType])
   @@map("data_validations")
+}
+
+/// Historique append-only de chaque recalcul de risque qui CHANGE le tuple de
+/// scores (voir risk-history.service.ts, condition d'écriture) — jamais
+/// écrasé, contrairement à Deal.riskScore/qualityScore/etc qui ne gardent que
+/// la dernière valeur connue. Alimente Δ7j/Δ30j/Δ90j, le graphique de
+/// trajectoire, et l'explicabilité (breakdown JSON = détail complet du calcul
+/// à cet instant, permet de comparer deux points dans le temps sans tout
+/// recalculer).
+model RiskScoreSnapshot {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  qualityScore       Int
+  performanceScore   Int
+  ewsScore           Int
+  compositeScore     Int
+  surveillanceStatus DealSurveillanceStatus
+
+  breakdown Json
+  trigger   String
+
+  computedAt DateTime @default(now())
+
+  @@index([dealId, computedAt])
+  @@index([organizationId])
+  @@map("risk_score_snapshots")
+}
+
+/// Hard override objectif, piloté par règle (voir hard-override-rules.ts) —
+/// s'ouvre et se résout automatiquement à chaque recalcul selon que la
+/// condition déclenchante reste vraie ou non. Impose un plancher minimum sur
+/// le statut de surveillance qu'aucun bon score ne peut compenser
+/// mathématiquement. Distinct de DealOverride (jugement humain).
+model RiskOverride {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  ruleKey                   String
+  /// Texte de la règle figé au déclenchement — reste lisible et stable même
+  /// si le libellé de la règle change plus tard dans le code.
+  label                     String
+  minimumSurveillanceStatus DealSurveillanceStatus
+
+  active      Boolean   @default(true)
+  triggeredAt DateTime  @default(now())
+  resolvedAt  DateTime?
+
+  @@index([dealId, active])
+  @@index([organizationId])
+  @@map("risk_overrides")
+}
+
+/// Override analyste du statut de surveillance CALCULÉ — un jugement humain
+/// explicite, distinct de RiskOverride (règle objective) et de DataValidation
+/// (simple attestation que rien n'a changé). Reste actif tant qu'il n'est pas
+/// explicitement levé — le moteur automatique ne l'écrase jamais en silence.
+model DealOverride {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  automaticStatus DealSurveillanceStatus
+  overrideStatus  DealSurveillanceStatus
+  justification   String
+
+  createdById String
+  createdBy   User     @relation("DealOverrideCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  active      Boolean   @default(true)
+  clearedAt   DateTime?
+  clearedById String?
+  clearedBy   User?     @relation("DealOverrideClearedBy", fields: [clearedById], references: [id], onDelete: SetNull)
+
+  @@index([dealId, active])
+  @@index([organizationId])
+  @@map("deal_overrides")
 }
 
 model Task {

@@ -1,52 +1,72 @@
 import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
+import type { DealRecoveryStatus, DealSurveillanceStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { RiskDataService } from '../risk-data/risk-data.service';
+import { FinancialModelService } from '../financial-model/financial-model.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
 import { computeDeadlineAlert } from '../deals/deadline.util';
 import { computeCheckpointHealth } from '../deals/checkpoint-health.util';
 import { computeGuaranteeExpiry } from '../guarantees/guarantee-expiry.util';
 import { computeNewsletterStatus } from '../deals/newsletter.util';
-import { riskTier, tierRank, type RiskTier } from './risk-tier.util';
-import { FACTOR_DEFINITIONS, METHODOLOGY_DISCLAIMER, factorWeight } from './factor-definitions';
+import { computeQualityScore, QUALITY_INPUT_DEFINITIONS, type QualityScoreResult } from './quality-score.util';
+import { computePerformanceScore, PERFORMANCE_INPUT_DEFINITIONS, type PerformanceScoreResult, type CheckpointSnapshot } from './performance-score.util';
+import { computeEwsScore, EWS_INDICATOR_DEFINITIONS, type EwsScoreResult, type EwsCheckpointFields } from './ews-score.util';
+import { computeCompositeRisk, COMPOSITE_WEIGHTS } from './composite-risk.util';
+import { classifySurveillanceStatus, SURVEILLANCE_RANK } from './surveillance-status.util';
+import { classifyVelocity } from './risk-velocity.util';
+import { HARD_OVERRIDE_RULES } from './hard-override-rules';
+import { RiskOverrideService } from './risk-override.service';
+import { RiskHistoryService } from './risk-history.service';
 
-export interface RiskFactor {
-  key: string;
-  label: string;
-  /** 0-100, niveau de risque (0 = aucun risque, 100 = risque maximal) */
-  value: number;
-  /** Part du score final, 0-1 */
-  weight: number;
-  contribution: number;
-  explanation: string;
-}
-
-export interface RiskBreakdown {
+export interface DealRiskProfile {
   dealId: string;
-  score: number | null;
-  previousScore: number | null;
-  tier: RiskTier | null;
-  trend: 'UP' | 'DOWN' | 'FLAT' | null;
-  factors: RiskFactor[];
-  computedAt: string;
   suppressed: boolean;
+  computedAt: string;
   disclaimer: string;
+  composite: {
+    score: number | null;
+    previousScore: number | null;
+    trend: 'UP' | 'DOWN' | 'FLAT' | null;
+    deltas: { d7: number | null; d30: number | null; d90: number | null };
+  };
+  quality: QualityScoreResult | null;
+  performance: PerformanceScoreResult | null;
+  ews: EwsScoreResult | null;
+  surveillance: {
+    status: DealSurveillanceStatus | null;
+    automaticStatus: DealSurveillanceStatus | null;
+    velocity: { band: string; direction: string; delta90: number | null } | null;
+    hardOverrides: { ruleKey: string; label: string; minimumSurveillanceStatus: DealSurveillanceStatus; triggeredAt: string }[];
+    analystOverride: { overrideStatus: DealSurveillanceStatus; justification: string; createdAt: string; createdByName: string } | null;
+  };
+  cycleProjet: 'EN_COURS' | 'SORTIE' | 'REMBOURSEMENT' | 'CLOTURE';
+  recoveryStatus: DealRecoveryStatus | null;
+  topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
 }
 
 const DISCLAIMER =
   'Risk Engine ATLAS — score de risque propriétaire, calculé de façon transparente à partir des données du dossier. ' +
   "Ce n'est pas une notation financière officielle et ne remplace pas le jugement d'un analyste.";
 
-const CHECK_INTERVAL_MS = 6 * 60 * 60_000;
+const METHODOLOGY_DISCLAIMER =
+  "Ces pondérations sont une grille experte interne (jugement métier sur l'importance relative de chaque signal), pas un modèle calibré " +
+  "statistiquement : ATLAS ne dispose pas encore d'un historique de dossiers clos en nombre suffisant pour valider ou ajuster ces poids " +
+  'par la donnée. La section "Validation rétrospective" accumule cet historique au fil des clôtures réelles — à consulter pour juger de ' +
+  'la fiabilité du modèle avant de le traiter comme une notation stabilisée.';
 
-// Exportés pour réutilisation par DealsService.buildNarrative() — même
-// texte que les explications de facteur du Risk Engine, pas de nouvelle
-// rédaction pour la synthèse narrative d'Opération 360°.
+const CHECK_INTERVAL_MS = 6 * 60 * 60_000;
+const DAY_MS = 86_400_000;
+
+// Exportés pour réutilisation par DealsService.buildNarrative() et
+// AgentsService.buildDealContext() — même texte que les explications du
+// Risk Engine, pas de nouvelle rédaction pour la synthèse narrative.
 export const RECOVERY_LABEL: Record<string, string> = {
-  SAIN: 'Recouvrement sain, aucun signal.',
-  EN_RETARD: 'Échéance dépassée sans réaction du porteur.',
-  PRE_CONTENTIEUX: 'Mise en demeure envoyée, pas encore de procédure.',
-  PROCEDURE: 'Action judiciaire engagée.',
+  RAS: 'Recouvrement sain, aucun signal.',
+  AMIABLE: 'Échéance dépassée sans réaction du porteur, en discussion amiable.',
+  MISE_EN_DEMEURE: 'Mise en demeure envoyée, pas encore de procédure.',
+  CONTENTIEUX: 'Action judiciaire engagée.',
+  PROCEDURE_COLLECTIVE: 'Procédure collective ouverte chez le porteur.',
 };
 
 export const PORTEUR_LABEL: Record<string, string> = {
@@ -55,18 +75,45 @@ export const PORTEUR_LABEL: Record<string, string> = {
   procedure_collective: 'Procédure collective en cours.',
 };
 
+const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+
+interface RawCheckpoint {
+  travauxBudgetInitial: unknown;
+  travauxDepensesADate: unknown;
+  prixVenteInitialPrevu: unknown;
+  prixVenteActualise: unknown;
+  prixVenteReelADate: unknown;
+  pourcentageVendu: number | null;
+  commercialisationLancee: boolean;
+  createdAt: Date;
+}
+
+function margeADate(c: RawCheckpoint | null): number | null {
+  if (!c) return null;
+  const reel = num(c.prixVenteReelADate);
+  const depenses = num(c.travauxDepensesADate);
+  return reel !== null && depenses !== null ? reel - depenses : null;
+}
+
+function pctDelta(from: number | null, to: number | null): number | null {
+  if (from === null || from <= 0 || to === null) return null;
+  return ((to - from) / from) * 100;
+}
+
 /**
- * Score de risque dynamique (0-100, 100 = risque maximal) par dossier —
- * recalculé automatiquement à chaque événement pertinent (checkpoint,
- * garantie, recouvrement, échéance, surveillance société) en plus d'un
- * filet de sécurité périodique, plutôt que sur un simple timer comme le
- * reste des connecteurs "computed status" du codebase.
+ * Moteur de surveillance ATLAS — Phase 1 de la refonte : trois scores
+ * indépendants (Quality/Performance/EWS) plutôt qu'une moyenne pondérée
+ * unique, une trajectoire historisée (RiskScoreSnapshot, jamais écrasée), un
+ * statut de surveillance à 6 valeurs, et des hard overrides qu'aucun bon
+ * score ne peut compenser mathématiquement. Le score composite (headline
+ * "Risk X/100") réutilise les colonnes Deal.riskScore* existantes plutôt que
+ * de les dupliquer — c'est la combinaison des 3 scores qui change, pas leur
+ * point de stockage.
  *
- * Chaque facteur réutilise une fonction pure déjà en production
- * (computeDeadlineAlert, computeCheckpointHealth, computeGuaranteeExpiry,
- * computeNewsletterStatus) plutôt que d'inventer une nouvelle logique de
- * risque — même niveau d'auditabilité que Score ATLAS, sémantique inversée
- * (ici, haut = mauvais).
+ * Chaque score réutilise autant que possible les fonctions pures déjà en
+ * production (computeDeadlineAlert, computeCheckpointHealth,
+ * computeGuaranteeExpiry, computeNewsletterStatus, FinancialModelService)
+ * plutôt que d'inventer une nouvelle logique de risque.
  */
 @Injectable()
 export class RiskEngineService implements OnApplicationBootstrap {
@@ -76,6 +123,9 @@ export class RiskEngineService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly alerts: AlertsService,
     private readonly riskData: RiskDataService,
+    private readonly financialModel: FinancialModelService,
+    private readonly riskOverrides: RiskOverrideService,
+    private readonly riskHistory: RiskHistoryService,
   ) {}
 
   onApplicationBootstrap() {
@@ -93,22 +143,22 @@ export class RiskEngineService implements OnApplicationBootstrap {
     let alerted = 0;
     for (const deal of deals) {
       try {
-        const before = await this.prisma.deal.findUnique({ where: { id: deal.id }, select: { riskScore: true } });
-        const breakdown = await this.computeDealRisk(deal.organizationId, deal.id, true);
-        if (before?.riskScore !== breakdown.score) alerted += breakdown.score !== null ? 1 : 0;
+        const before = await this.prisma.deal.findUnique({ where: { id: deal.id }, select: { surveillanceStatus: true } });
+        const profile = await this.computeDealRisk(deal.organizationId, deal.id, true, 'scheduled_sweep');
+        if (before?.surveillanceStatus !== profile.surveillance.status) alerted += profile.suppressed ? 0 : 1;
       } catch (err) {
         this.logger.error(`Échec du calcul de risque pour le deal ${deal.id}`, err instanceof Error ? err.stack : err);
       }
     }
-    if (alerted > 0) this.logger.log(`Risk Engine : ${alerted} dossier(s) recalculé(s) avec un score modifié.`);
+    if (alerted > 0) this.logger.log(`Risk Engine : ${alerted} dossier(s) recalculé(s) avec un statut modifié.`);
   }
 
   /** Utilisé par les déclencheurs événementiels (checkpoint, garantie, recouvrement, surveillance société). */
   async recomputeAndPersist(organizationId: string, dealId: string): Promise<void> {
-    await this.computeDealRisk(organizationId, dealId, true);
+    await this.computeDealRisk(organizationId, dealId, true, 'event');
   }
 
-  async computeDealRisk(organizationId: string, dealId: string, persist = false): Promise<RiskBreakdown> {
+  async computeDealRisk(organizationId: string, dealId: string, persist = false, trigger = 'manual_recompute'): Promise<DealRiskProfile> {
     const deal = await this.prisma.deal.findFirst({
       where: { id: dealId, organizationId },
       select: {
@@ -128,18 +178,24 @@ export class RiskEngineService implements OnApplicationBootstrap {
         riskScore: true,
         riskScorePrevious: true,
         riskScoreAtClosure: true,
+        surveillanceStatus: true,
+        recoveryWatchUntil: true,
+        chantierSignaleArret: true,
         checkpoints: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
+          take: 2,
           select: {
             travauxBudgetInitial: true,
             travauxDepensesADate: true,
             prixVenteInitialPrevu: true,
+            prixVenteActualise: true,
             prixVenteReelADate: true,
+            pourcentageVendu: true,
+            commercialisationLancee: true,
             createdAt: true,
           },
         },
-        guarantees: { where: { status: 'ACTIVE' }, select: { type: true, endDate: true } },
+        guarantees: { where: { status: 'ACTIVE' }, select: { type: true, endDate: true, amount: true, rank: true } },
       },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
@@ -147,14 +203,13 @@ export class RiskEngineService implements OnApplicationBootstrap {
     const now = new Date();
     const closed = isDealClosed(deal);
     const previousScore = deal.riskScore ?? null;
+    const cycleProjet = computeCycleProjet(deal.stage, deal.repaid);
 
     if (closed) {
       if (persist) {
         // Capturé une seule fois, au tout premier passage en dossier clos —
-        // c'est le seul point où le "dernier score connu avant clôture" est
-        // encore disponible (previousScore) avant d'être effacé ci-dessous.
-        // Alimente la validation rétrospective du modèle (getModelValidation)
-        // avec des cas réels plutôt qu'un historique fabriqué.
+        // c'est le seul point où le "dernier score composite connu avant
+        // clôture" est encore disponible avant d'être effacé ci-dessous.
         const captureAtClosure = deal.riskScoreAtClosure === null && previousScore !== null;
         await this.prisma.deal.update({
           where: { id: dealId },
@@ -162,82 +217,277 @@ export class RiskEngineService implements OnApplicationBootstrap {
             riskScore: null,
             riskScorePrevious: null,
             riskScoreUpdatedAt: now,
+            qualityScore: null,
+            performanceScore: null,
+            ewsScore: null,
+            surveillanceStatus: null,
+            recoveryWatchUntil: null,
             ...(captureAtClosure ? { riskScoreAtClosure: previousScore, riskScoreAtClosureDate: now } : {}),
           },
         });
       }
       return {
         dealId,
-        score: null,
-        previousScore: null,
-        tier: null,
-        trend: null,
-        factors: [],
-        computedAt: now.toISOString(),
         suppressed: true,
+        computedAt: now.toISOString(),
         disclaimer: DISCLAIMER,
+        composite: { score: null, previousScore: null, trend: null, deltas: { d7: null, d30: null, d90: null } },
+        quality: null,
+        performance: null,
+        ews: null,
+        surveillance: { status: null, automaticStatus: null, velocity: null, hardOverrides: [], analystOverride: null },
+        cycleProjet,
+        recoveryStatus: deal.recoveryStatus,
+        topContributors: [],
       };
     }
 
-    const clamp = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+    // ── Données transverses ────────────────────────────────────────────
+    const [financial, bpComparison, activeDealOverride] = await Promise.all([
+      this.financialModel.get(organizationId, dealId),
+      this.financialModel.getBpComparison(organizationId, dealId),
+      this.prisma.dealOverride.findFirst({ where: { dealId, active: true }, include: { createdBy: { select: { firstName: true, lastName: true } } } }),
+    ]);
 
-    const factors: Omit<RiskFactor, 'contribution'>[] = [
-      this.echeanceFactor(deal.dateMax, now),
-      this.chantierFactor(deal.checkpoints[0] ?? null),
-      this.recouvrementFactor(deal.recoveryStatus),
-      this.porteurFactor(deal.porteurMonitoringStatus),
-      this.garantiesFactor(deal.guarantees, now),
-      this.newsletterFactor(deal.lastNewsletterDate, deal.newsletterTargetDays, now),
-      this.environnementFactor(deal.lat !== null ? Number(deal.lat) : null, deal.lng !== null ? Number(deal.lng) : null),
-    ].map((f) => ({ ...f, value: clamp(f.value) }));
+    const rawCheckpoints: RawCheckpoint[] = deal.checkpoints;
+    const latestRaw = rawCheckpoints[0] ?? null;
+    const previousRaw = rawCheckpoints[1] ?? null;
 
-    const withContribution: RiskFactor[] = factors.map((f) => ({
-      ...f,
-      contribution: Math.round(f.value * f.weight * 10) / 10,
-    }));
+    const checkpointHealth = computeCheckpointHealth(
+      latestRaw
+        ? {
+            travauxBudgetInitial: num(latestRaw.travauxBudgetInitial),
+            travauxDepensesADate: num(latestRaw.travauxDepensesADate),
+            prixVenteInitialPrevu: num(latestRaw.prixVenteInitialPrevu),
+            prixVenteReelADate: num(latestRaw.prixVenteReelADate),
+            createdAt: latestRaw.createdAt,
+          }
+        : null,
+    );
 
-    const score = Math.round(withContribution.reduce((sum, f) => sum + f.value * f.weight, 0));
-    const tier = riskTier(score);
-    const trend = previousScore === null || previousScore === score ? 'FLAT' : previousScore < score ? 'UP' : 'DOWN';
+    const toSnapshot = (c: RawCheckpoint | null): CheckpointSnapshot | null =>
+      c ? { pourcentageVendu: c.pourcentageVendu, margeADate: margeADate(c) } : null;
+    const toEwsFields = (c: RawCheckpoint | null): EwsCheckpointFields | null =>
+      c
+        ? {
+            travauxBudgetInitial: num(c.travauxBudgetInitial),
+            travauxDepensesADate: num(c.travauxDepensesADate),
+            prixVenteInitialPrevu: num(c.prixVenteInitialPrevu),
+            prixVenteReelADate: num(c.prixVenteReelADate),
+            pourcentageVendu: c.pourcentageVendu,
+            commercialisationLancee: c.commercialisationLancee,
+          }
+        : null;
+
+    const deltaPrixActualisePct = latestRaw ? pctDelta(num(latestRaw.prixVenteInitialPrevu), num(latestRaw.prixVenteActualise)) : null;
+    const daysSinceLastCheckpoint = latestRaw ? Math.floor((now.getTime() - latestRaw.createdAt.getTime()) / DAY_MS) : null;
+
+    const deadlineAlert = computeDeadlineAlert(deal.dateMax, now, false);
+    const newsletter = computeNewsletterStatus(deal.lastNewsletterDate, deal.newsletterTargetDays, now);
+
+    const environmentHazardCount = (() => {
+      if (deal.lat === null || deal.lng === null) return null;
+      const cached = this.riskData.peekCached(Number(deal.lat), Number(deal.lng));
+      if (!cached) return null;
+      return [cached.floodZone?.present, cached.seismicZone?.present].filter((p) => p === true).length;
+    })();
+
+    // ── Garanties : pire cas, couverture rang 1, planchers critiques ────
+    const amountRaised = Number(deal.amountRaised);
+    let guaranteeWorstCase: 'AUCUNE' | 'VALIDE' | 'EXPIRE_BIENTOT' | 'NON_VALIDE' = 'AUCUNE';
+    let hasCriticalExpiredGuarantee = false;
+    let hasOtherExpiredGuarantee = false;
+    let rank1Sum = 0;
+
+    for (const g of deal.guarantees) {
+      if (g.rank === 1) rank1Sum += Number(g.amount);
+      const expiry = computeGuaranteeExpiry(g.type, g.endDate, now, false);
+      if (expiry.validity === 'NON_VALIDE') {
+        guaranteeWorstCase = 'NON_VALIDE';
+        const sharePct = amountRaised > 0 ? Number(g.amount) / amountRaised : 0;
+        if (g.rank === 1 && sharePct >= 0.5) hasCriticalExpiredGuarantee = true;
+        else hasOtherExpiredGuarantee = true;
+      } else if (expiry.expiringSoon && guaranteeWorstCase !== 'NON_VALIDE') {
+        guaranteeWorstCase = 'EXPIRE_BIENTOT';
+      } else if (guaranteeWorstCase === 'AUCUNE') {
+        guaranteeWorstCase = 'VALIDE';
+      }
+    }
+    const guaranteeCoverageRatio = amountRaised > 0 ? rank1Sum / amountRaised : null;
+
+    // ── Entrées financières (Quality/Performance) ───────────────────────
+    const synthesis = financial.synthesis;
+    let qualityMarginPct: number | null = null;
+    if (synthesis) {
+      if (bpComparison.locked) {
+        const margeLine = bpComparison.lines.find((l) => l.key === 'marge') as { initialPct?: number } | undefined;
+        qualityMarginPct = margeLine?.initialPct ?? synthesis.margePct;
+      } else {
+        qualityMarginPct = synthesis.margePct;
+      }
+    }
+    const bank = synthesis?.bank;
+    const bankFinancingEnabled = bank?.enabled ?? false;
+    let bankLoanShare: number | null = null;
+    if (synthesis && bank?.enabled === true) {
+      const bankLoanTotal = Number((bank as { loanTotal?: number }).loanTotal ?? 0);
+      const total = synthesis.lpb.collecte + bankLoanTotal;
+      bankLoanShare = total > 0 ? bankLoanTotal / total : null;
+    }
+
+    // ── Les 3 scores ─────────────────────────────────────────────────────
+    const quality = computeQualityScore({
+      marginPct: qualityMarginPct,
+      ltc: synthesis?.ratios.ltc ?? null,
+      ltv: synthesis?.ratios.ltv ?? null,
+      bankFinancingEnabled,
+      bankLoanShare,
+      guaranteeCoverageRatio,
+    });
+
+    const performance = computePerformanceScore({
+      marginAlert: bpComparison.marginAlert,
+      bpLocked: bpComparison.locked,
+      checkpointHealthLevel: checkpointHealth.level,
+      deltaPrixActualisePct,
+      latestCheckpoint: toSnapshot(latestRaw),
+      previousCheckpoint: toSnapshot(previousRaw),
+    });
+
+    const ews = computeEwsScore({
+      deadlineAlert,
+      latestCheckpoint: toEwsFields(latestRaw),
+      previousCheckpoint: toEwsFields(previousRaw),
+      daysSinceLastCheckpoint,
+      guaranteeWorstCase,
+      recoveryStatus: deal.recoveryStatus,
+      porteurMonitoringStatus: deal.porteurMonitoringStatus,
+      chantierSignaleArret: deal.chantierSignaleArret,
+      marginAlert: bpComparison.marginAlert,
+      newsletterStatus: newsletter.status,
+      environmentHazardCount,
+    });
+
+    const composite = computeCompositeRisk(quality.score, performance.score, ews.score);
+
+    // ── Hard overrides + override analyste + historique/vélocité ────────
+    const overrideEval = await this.riskOverrides.evaluate(organizationId, dealId, deal.name, deal.reference, {
+      porteurMonitoringStatus: deal.porteurMonitoringStatus,
+      recoveryStatus: deal.recoveryStatus,
+      deadlineStage: deadlineAlert.stage,
+      repaid: deal.repaid,
+      stage: deal.stage,
+      chantierSignaleArret: deal.chantierSignaleArret,
+      hasCriticalExpiredGuarantee,
+      hasOtherExpiredGuarantee,
+    });
+
+    const deltas = await this.riskHistory.getDeltas(dealId, composite, now);
+    const velocity = classifyVelocity(deltas.d90);
+
+    const classification = classifySurveillanceStatus({
+      compositeScore: composite,
+      ewsScore: ews.score,
+      velocity,
+      previousSurveillanceStatus: deal.surveillanceStatus,
+      recoveryWatchUntil: deal.recoveryWatchUntil,
+      now,
+      activeHardOverrideFloors: overrideEval.floors,
+      analystOverrideStatus: activeDealOverride?.overrideStatus ?? null,
+    });
+
+    const trend: 'UP' | 'DOWN' | 'FLAT' = previousScore === null || previousScore === composite ? 'FLAT' : previousScore < composite ? 'UP' : 'DOWN';
+
+    const topContributors = buildTopContributors(quality, performance, ews);
 
     if (persist) {
       await this.prisma.deal.update({
         where: { id: dealId },
-        data: { riskScorePrevious: previousScore, riskScore: score, riskScoreUpdatedAt: now },
+        data: {
+          qualityScore: quality.score,
+          performanceScore: performance.score,
+          ewsScore: ews.score,
+          riskScorePrevious: previousScore,
+          riskScore: composite,
+          riskScoreUpdatedAt: now,
+          surveillanceStatus: classification.finalStatus,
+          recoveryWatchUntil: classification.newRecoveryWatchUntil,
+        },
       });
-      await this.maybeAlert(organizationId, deal, previousScore, score, withContribution);
+
+      await this.riskHistory.maybeSnapshot(
+        organizationId,
+        dealId,
+        {
+          qualityScore: quality.score,
+          performanceScore: performance.score,
+          ewsScore: ews.score,
+          compositeScore: composite,
+          surveillanceStatus: classification.finalStatus,
+          breakdown: {
+            quality,
+            performance,
+            ews,
+            hardOverrides: overrideEval.active.map((o) => o.ruleKey),
+            analystOverride: activeDealOverride?.overrideStatus ?? null,
+          } as unknown as Prisma.InputJsonValue,
+        },
+        trigger,
+      );
+
+      await this.maybeAlert(organizationId, deal, deal.surveillanceStatus, classification.finalStatus, previousScore, composite, topContributors);
     }
 
     return {
       dealId,
-      score,
-      previousScore,
-      tier,
-      trend: previousScore === null ? null : trend,
-      factors: withContribution,
-      computedAt: now.toISOString(),
       suppressed: false,
+      computedAt: now.toISOString(),
       disclaimer: DISCLAIMER,
+      composite: { score: composite, previousScore, trend: previousScore === null ? null : trend, deltas },
+      quality,
+      performance,
+      ews,
+      surveillance: {
+        status: classification.finalStatus,
+        automaticStatus: classification.automaticStatus,
+        velocity: { band: velocity.band, direction: velocity.direction, delta90: velocity.delta },
+        hardOverrides: overrideEval.active.map((o) => ({ ruleKey: o.ruleKey, label: o.label, minimumSurveillanceStatus: o.minimumSurveillanceStatus, triggeredAt: o.triggeredAt.toISOString() })),
+        analystOverride: activeDealOverride
+          ? {
+              overrideStatus: activeDealOverride.overrideStatus,
+              justification: activeDealOverride.justification,
+              createdAt: activeDealOverride.createdAt.toISOString(),
+              createdByName: `${activeDealOverride.createdBy.firstName} ${activeDealOverride.createdBy.lastName}`,
+            }
+          : null,
+      },
+      cycleProjet,
+      recoveryStatus: deal.recoveryStatus,
+      topContributors,
     };
   }
 
-  /** Méthodologie exposée en clair (poids + justification par facteur) — lue depuis la même source que le calcul réel, jamais dupliquée. */
+  /** Méthodologie exposée en clair — lue depuis les mêmes sources que le calcul réel, jamais dupliquée. */
   getMethodology() {
     return {
-      factors: FACTOR_DEFINITIONS,
+      quality: QUALITY_INPUT_DEFINITIONS,
+      performance: PERFORMANCE_INPUT_DEFINITIONS,
+      ews: EWS_INDICATOR_DEFINITIONS,
+      composite: { weights: COMPOSITE_WEIGHTS },
+      surveillanceBands: { OUTPERFORMING: '< 20', PERFORMING: '20 à 39', WATCH: '40 à 59', DRIFTING: '60 à 74', DISTRESSED: '≥ 75' },
+      velocityWindowDays: 90,
+      velocityBands: { STABLE: '0 à 3', DETERIORATION: '4 à 8', DERIVE: '9 à 15', DETERIORATION_RAPIDE: '> 15' },
+      hardOverrideRules: HARD_OVERRIDE_RULES.map((r) => ({ key: r.key, label: r.label, minimumSurveillanceStatus: r.minimumSurveillanceStatus })),
       calibrationDisclaimer: METHODOLOGY_DISCLAIMER,
       disclaimer: DISCLAIMER,
-      tiers: { SAFE: '< 40', WATCH: '40 à 69', HIGH: '≥ 70' },
     };
   }
 
   /**
-   * Validation rétrospective : rapproche le dernier score connu de chaque
-   * dossier clos (riskScoreAtClosure, capturé une seule fois dans
-   * computeDealRisk() juste avant la remise à zéro) de son résultat réel
-   * (REMBOURSE vs DEFAUT). Construite à partir de données 100% réelles —
-   * jamais un historique simulé — donc honnête sur sa propre faiblesse
-   * statistique tant que l'effectif de dossiers clos reste faible.
+   * Validation rétrospective : rapproche le dernier score composite connu de
+   * chaque dossier clos (riskScoreAtClosure) de son résultat réel (REMBOURSE
+   * vs DEFAUT). Inchangée depuis la Phase 1 — toujours construite à partir de
+   * données 100% réelles.
    */
   async getModelValidation(organizationId: string) {
     const deals = await this.prisma.deal.findMany({
@@ -247,11 +497,13 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     const outcomeOf = (stage: string): 'REMBOURSE' | 'DEFAUT' => (stage === 'DEFAUT' ? 'DEFAUT' : 'REMBOURSE');
 
+    const tierOf = (score: number): 'SAFE' | 'WATCH' | 'HIGH' => (score >= 70 ? 'HIGH' : score >= 40 ? 'WATCH' : 'SAFE');
+
     const summarize = (scores: number[]) => {
       if (scores.length === 0) return { count: 0, averageScore: null as number | null, medianScore: null as number | null, tierDistribution: { SAFE: 0, WATCH: 0, HIGH: 0 } };
       const sorted = [...scores].sort((a, b) => a - b);
       const tierDistribution = { SAFE: 0, WATCH: 0, HIGH: 0 };
-      for (const s of scores) tierDistribution[riskTier(s)] += 1;
+      for (const s of scores) tierDistribution[tierOf(s)] += 1;
       return {
         count: scores.length,
         averageScore: Math.round(scores.reduce((sum, v) => sum + v, 0) / scores.length),
@@ -283,201 +535,38 @@ export class RiskEngineService implements OnApplicationBootstrap {
     };
   }
 
-  // ── Facteurs ──────────────────────────────────────────────────────────
-
-  private echeanceFactor(dateMax: Date | null, now: Date): Omit<RiskFactor, 'contribution'> {
-    const alert = computeDeadlineAlert(dateMax, now, false);
-    const value: Record<NonNullable<typeof alert.stage> | 'RAS', number> = {
-      RAS: 10,
-      J90: 35,
-      J60: 55,
-      J30: 75,
-      J15: 90,
-      CONTENTIEUX: 100,
-    };
-    return {
-      key: 'echeance',
-      label: 'Échéance de vote',
-      weight: factorWeight('echeance'),
-      value: value[alert.stage ?? 'RAS'],
-      explanation: alert.actionLabel ?? 'Aucune échéance imminente.',
-    };
-  }
-
-  private chantierFactor(
-    checkpoint: {
-      travauxBudgetInitial: unknown;
-      travauxDepensesADate: unknown;
-      prixVenteInitialPrevu: unknown;
-      prixVenteReelADate: unknown;
-      createdAt: Date;
-    } | null,
-  ): Omit<RiskFactor, 'contribution'> {
-    if (!checkpoint) {
-      return {
-        key: 'chantier',
-        label: 'Suivi chantier / commercialisation',
-        weight: factorWeight('chantier'),
-        value: 40,
-        explanation: 'Aucun point de suivi chantier enregistré.',
-      };
-    }
-    const toNumber = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-    const health = computeCheckpointHealth({
-      travauxBudgetInitial: toNumber(checkpoint.travauxBudgetInitial),
-      travauxDepensesADate: toNumber(checkpoint.travauxDepensesADate),
-      prixVenteInitialPrevu: toNumber(checkpoint.prixVenteInitialPrevu),
-      prixVenteReelADate: toNumber(checkpoint.prixVenteReelADate),
-      createdAt: checkpoint.createdAt,
-    });
-    const value = health.level === 'ROUGE' ? 100 : health.level === 'ORANGE' ? 55 : health.level === 'VERT' ? 10 : 40;
-    return {
-      key: 'chantier',
-      label: 'Suivi chantier / commercialisation',
-      weight: factorWeight('chantier'),
-      value,
-      explanation: health.reasons.length > 0 ? health.reasons.join(' ; ') : `Suivi chantier : ${health.level ?? 'aucune donnée'}.`,
-    };
-  }
-
-  private recouvrementFactor(status: string): Omit<RiskFactor, 'contribution'> {
-    const value: Record<string, number> = { SAIN: 5, EN_RETARD: 50, PRE_CONTENTIEUX: 80, PROCEDURE: 100 };
-    return {
-      key: 'recouvrement',
-      label: 'Statut de recouvrement',
-      weight: factorWeight('recouvrement'),
-      value: value[status] ?? 5,
-      explanation: RECOVERY_LABEL[status] ?? 'Statut de recouvrement inconnu.',
-    };
-  }
-
-  private porteurFactor(status: string | null): Omit<RiskFactor, 'contribution'> {
-    const value: Record<string, number> = { actif: 5, fermee: 90, procedure_collective: 100 };
-    return {
-      key: 'porteur',
-      label: 'Santé du porteur de projet',
-      weight: factorWeight('porteur'),
-      value: status ? (value[status] ?? 5) : 5,
-      explanation: status ? (PORTEUR_LABEL[status] ?? 'Statut du porteur inconnu.') : 'SIREN non suivi.',
-    };
-  }
-
-  private garantiesFactor(
-    guarantees: { type: Parameters<typeof computeGuaranteeExpiry>[0]; endDate: Date | null }[],
-    now: Date,
-  ): Omit<RiskFactor, 'contribution'> {
-    if (guarantees.length === 0) {
-      return {
-        key: 'garanties',
-        label: 'Garanties / sûretés',
-        weight: factorWeight('garanties'),
-        value: 40,
-        explanation: 'Aucune garantie active enregistrée.',
-      };
-    }
-
-    let worstValue = 10;
-    let worstExplanation = `${guarantees.length} garantie(s) valide(s), aucune échéance de renouvellement proche.`;
-    for (const g of guarantees) {
-      const expiry = computeGuaranteeExpiry(g.type, g.endDate, now, false);
-      if (expiry.validity === 'NON_VALIDE') {
-        worstValue = Math.max(worstValue, 100);
-        worstExplanation = `Garantie ${g.type} expirée.`;
-      } else if (expiry.expiringSoon && worstValue < 100) {
-        worstValue = Math.max(worstValue, 50);
-        worstExplanation = `Garantie ${g.type} expire dans ${expiry.daysToExpiry} jour(s).`;
-      }
-    }
-
-    return { key: 'garanties', label: 'Garanties / sûretés', weight: factorWeight('garanties'), value: worstValue, explanation: worstExplanation };
-  }
-
-  private newsletterFactor(lastNewsletterDate: Date | null, targetDays: number, now: Date): Omit<RiskFactor, 'contribution'> {
-    const { status, daysSince } = computeNewsletterStatus(lastNewsletterDate, targetDays, now);
-    const value: Record<string, number> = { A_JOUR: 10, A_RELANCER: 50, CRITIQUE: 90 };
-    return {
-      key: 'newsletter',
-      label: 'Communication investisseurs',
-      weight: factorWeight('newsletter'),
-      value: value[status],
-      explanation:
-        daysSince === null
-          ? 'Aucune newsletter envoyée à ce jour.'
-          : `Dernière newsletter il y a ${daysSince} jour(s) (cible : ${targetDays} jours).`,
-    };
-  }
-
-  private environnementFactor(lat: number | null, lng: number | null): Omit<RiskFactor, 'contribution'> {
-    if (lat === null || lng === null) {
-      return {
-        key: 'environnement',
-        label: 'Risques environnementaux',
-        weight: factorWeight('environnement'),
-        value: 20,
-        explanation: "Pas de coordonnées géographiques — facteur neutre.",
-      };
-    }
-    const cached = this.riskData.peekCached(lat, lng);
-    if (!cached) {
-      return {
-        key: 'environnement',
-        label: 'Risques environnementaux',
-        weight: factorWeight('environnement'),
-        value: 20,
-        explanation: 'Données non disponibles (onglet "Risques & urbanisme" du dossier jamais consulté) — facteur neutre.',
-      };
-    }
-    const presentCount = [cached.floodZone?.present, cached.seismicZone?.present].filter((p) => p === true).length;
-    const value = presentCount === 0 ? 10 : presentCount === 1 ? 50 : 80;
-    const labels = [
-      cached.floodZone?.present ? 'inondation' : null,
-      cached.seismicZone?.present ? 'sismique' : null,
-    ].filter((l): l is string => l !== null);
-    return {
-      key: 'environnement',
-      label: 'Risques environnementaux',
-      weight: factorWeight('environnement'),
-      value,
-      explanation: labels.length > 0 ? `Risque(s) identifié(s) : ${labels.join(', ')}.` : 'Aucun risque environnemental identifié.',
-    };
-  }
-
   // ── Alerte ────────────────────────────────────────────────────────────
 
   private async maybeAlert(
     organizationId: string,
     deal: { id: string; reference: string; name: string; amountRaised: unknown },
+    previousStatus: DealSurveillanceStatus | null,
+    newStatus: DealSurveillanceStatus,
     previousScore: number | null,
     newScore: number,
-    factors: RiskFactor[],
+    topContributors: { label: string; points: number }[],
   ) {
-    if (previousScore === null) return; // premier calcul, ou dossier tout juste réactivé — rien à comparer
+    if (previousStatus === null) return; // premier calcul, ou dossier tout juste réactivé — rien à comparer
 
-    const oldTier = riskTier(previousScore);
-    const newTier = riskTier(newScore);
     const dateSuffix = new Date().toLocaleDateString('fr-FR');
     const exposition = `${Number(deal.amountRaised).toLocaleString('fr-FR')} €`;
-    const topFactors = [...factors]
-      .sort((a, b) => b.contribution - a.contribution)
-      .slice(0, 2)
-      .map((f) => f.label)
-      .join(' et ');
+    const topLabels = topContributors.slice(0, 2).map((c) => c.label).join(' et ');
 
     let title: string | null = null;
     let message: string | null = null;
     let severity: 'WARNING' | 'CRITICAL' = 'WARNING';
 
-    if (tierRank(newTier) > tierRank(oldTier)) {
-      title = `Risque : entrée en zone ${newTier} — ${deal.reference} (${dateSuffix})`;
-      message = `${deal.name} (${exposition}) : risque passé de ${previousScore} à ${newScore}/100, tiré par ${topFactors}.`;
-      severity = newTier === 'HIGH' ? 'CRITICAL' : 'WARNING';
-    } else if (tierRank(newTier) < tierRank(oldTier)) {
-      title = `Risque : retour en zone ${newTier} — ${deal.reference} (${dateSuffix})`;
-      message = `${deal.name} (${exposition}) : risque redescendu de ${previousScore} à ${newScore}/100.`;
+    if (SURVEILLANCE_RANK[newStatus] > SURVEILLANCE_RANK[previousStatus]) {
+      title = `Risque : entrée en zone ${newStatus} — ${deal.reference} (${dateSuffix})`;
+      message = `${deal.name} (${exposition}) : statut passé de ${previousStatus} à ${newStatus}, score de ${previousScore ?? '—'} à ${newScore}/100${topLabels ? `, tiré par ${topLabels}` : ''}.`;
+      severity = newStatus === 'DISTRESSED' ? 'CRITICAL' : 'WARNING';
+    } else if (SURVEILLANCE_RANK[newStatus] < SURVEILLANCE_RANK[previousStatus]) {
+      title = `Risque : retour en zone ${newStatus} — ${deal.reference} (${dateSuffix})`;
+      message = `${deal.name} (${exposition}) : statut redescendu de ${previousStatus} à ${newStatus}.`;
       severity = 'WARNING';
-    } else if (Math.abs(newScore - previousScore) >= 15) {
+    } else if (previousScore !== null && Math.abs(newScore - previousScore) >= 15) {
       title = `Risque : mouvement significatif — ${deal.reference} (${dateSuffix})`;
-      message = `${deal.name} (${exposition}) : risque passé de ${previousScore} à ${newScore}/100, tiré par ${topFactors}.`;
+      message = `${deal.name} (${exposition}) : score composite passé de ${previousScore} à ${newScore}/100${topLabels ? `, tiré par ${topLabels}` : ''}.`;
       severity = 'WARNING';
     }
 
@@ -488,4 +577,29 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     await this.alerts.create(organizationId, { title, message, severity, dealId: deal.id });
   }
+}
+
+function computeCycleProjet(stage: string, repaid: boolean): 'EN_COURS' | 'SORTIE' | 'REMBOURSEMENT' | 'CLOTURE' {
+  if (stage === 'DEFAUT') return 'CLOTURE';
+  if (stage === 'REMBOURSE' && repaid) return 'CLOTURE';
+  if (stage === 'REMBOURSE' || repaid) return 'REMBOURSEMENT';
+  if (stage === 'SUIVI') return 'SORTIE';
+  return 'EN_COURS';
+}
+
+function buildTopContributors(
+  quality: QualityScoreResult,
+  performance: PerformanceScoreResult,
+  ews: EwsScoreResult,
+): { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[] {
+  const fromScore = (inputs: { label: string; value: number; weight: number }[], source: 'quality' | 'performance') =>
+    inputs.map((i) => ({ label: i.label, points: Math.round((100 - i.value) * i.weight), source }));
+
+  const all = [
+    ...fromScore(quality.inputs, 'quality'),
+    ...fromScore(performance.inputs, 'performance'),
+    ...ews.triggered.map((t) => ({ label: t.label, points: t.points, source: 'ews' as const })),
+  ];
+
+  return all.filter((c) => c.points > 0).sort((a, b) => b.points - a.points).slice(0, 5);
 }

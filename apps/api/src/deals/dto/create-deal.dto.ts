@@ -136,6 +136,11 @@ export class CreateDealDto {
   @IsPositive()
   newsletterTargetDays?: number;
 
+  @ApiProperty({ required: false, description: 'Chantier signalé à l\'arrêt — force le statut de surveillance à Distressed (hard override)' })
+  @IsOptional()
+  @IsBoolean()
+  chantierSignaleArret?: boolean;
+
   @ApiProperty({ required: false, description: 'Nom du contact porteur de projet (relances, mise en demeure)' })
   @IsOptional()
   @IsString()
