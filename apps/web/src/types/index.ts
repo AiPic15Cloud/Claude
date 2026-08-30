@@ -180,6 +180,8 @@ export interface Deal {
   ewsScore?: number | null;
   surveillanceStatus?: DealSurveillanceStatus | null;
   chantierSignaleArret?: boolean;
+  /** Capital restant dû — jamais stocké côté API, calculé à la volée (voir crd.util.ts). */
+  crd?: number;
   startDate?: string | null;
   endDate?: string | null;
   dateMin?: string | null;
@@ -296,15 +298,30 @@ export interface FieldChange {
   sourceDocument?: { id: string; name: string } | null;
 }
 
+export interface OperatorConcentrationEntry {
+  porteurSiren: string | null;
+  porteurSociete: string | null;
+  crd: number;
+  dealCount: number;
+}
+
 export interface DealKpis {
   activeDeals: number;
   totalAum: number;
   totalRaised: number;
+  /** Capital restant dû total (dossiers ACTIVE) — voir Deal.crd. */
+  totalCrd: number;
   fundingProgress: number;
   averageInterestRate: number;
   lateDeals: number;
   byStage: Record<string, number>;
   byType: Record<string, number>;
+  /** Somme du CRD par typologie (pas un comptage — voir byType ci-dessus). */
+  exposureByType: Record<string, number>;
+  /** Top 5 porteurs par CRD cumulé ; porteurSiren: null regroupé sous une entrée distincte. */
+  topOperatorConcentration: OperatorConcentrationEntry[];
+  /** Dossiers réellement actifs mais dont le statut a été mis manuellement hors ACTIVE — angle mort de monitoring. */
+  statusMonitoringGaps: number;
 }
 
 export interface PipelineStage {
@@ -374,7 +391,8 @@ export interface FeesSummary {
 export interface AumHistoryPoint {
   month: string;
   label: string;
-  cumulativeAum: number;
+  /** Vrai CRD historique reconstruit à partir des remboursements réalisés — peut redescendre (voir buildAumHistory()). */
+  crd: number;
 }
 
 export interface CockpitSummary {

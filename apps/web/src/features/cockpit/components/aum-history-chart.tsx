@@ -43,7 +43,7 @@ export function AumHistoryChart({ history }: AumHistoryChartProps) {
             />
             <Area
               type="monotone"
-              dataKey="cumulativeAum"
+              dataKey="crd"
               stroke="hsl(var(--chart-accent))"
               strokeWidth={2}
               fill="url(#aumGradient)"
