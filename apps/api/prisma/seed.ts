@@ -249,11 +249,57 @@ async function main() {
       }
     }
 
+    // ── Phase 0 Data Foundation : données de test pour le CRD et le
+    // rapprochement SIREN ↔ GraphEntity. Le dossier avec le plus gros
+    // amountRaised reçoit 2 remboursements réalisés (30% + 20%) et 1
+    // prévisionnel (10%, ne doit jamais réduire le CRD) et le même SIREN que
+    // le GraphEntity Nexity ci-dessous, pour vérifier
+    // GraphService.autoLinkPromoteurBySiren() via un PATCH manuel après seed.
+    const dealForCrdTest = await prisma.deal.findFirst({
+      where: { organizationId: organization.id, amountRaised: { gt: 50_000 } },
+      orderBy: { amountRaised: 'desc' },
+    });
+    if (dealForCrdTest) {
+      const raised = Number(dealForCrdTest.amountRaised);
+      await prisma.deal.update({ where: { id: dealForCrdTest.id }, data: { porteurSiren: '552062411' } });
+      await prisma.repayment.createMany({
+        data: [
+          {
+            dealId: dealForCrdTest.id,
+            amount: Math.round(raised * 0.3),
+            date: new Date(Date.now() - 60 * 86_400_000),
+            projected: false,
+            note: 'Remboursement partiel réalisé (données de test Phase 0)',
+            createdById: admin.id,
+          },
+          {
+            dealId: dealForCrdTest.id,
+            amount: Math.round(raised * 0.2),
+            date: new Date(Date.now() - 20 * 86_400_000),
+            projected: false,
+            note: 'Remboursement partiel réalisé (données de test Phase 0)',
+            createdById: admin.id,
+          },
+          {
+            dealId: dealForCrdTest.id,
+            amount: Math.round(raised * 0.1),
+            date: new Date(Date.now() + 30 * 86_400_000),
+            projected: true,
+            note: 'Remboursement prévisionnel (données de test Phase 0) — ne doit jamais réduire le CRD',
+            createdById: admin.id,
+          },
+        ],
+      });
+    }
+
     // ── Knowledge Graph: real, publicly-known intervenants (name/city/site
     // only — no invented financials) plus the crowdfunding/fractionné
     // platforms named in the ATLAS competitive-watch scope.
     const promoteurDefs = [
-      { name: 'Nexity', city: 'Paris', website: 'https://www.nexity.fr' },
+      // SIREN de test (Phase 0 Data Foundation) — permet de vérifier
+      // GraphService.autoLinkPromoteurBySiren() en assignant ce même SIREN à
+      // un Deal après le seed (voir plus bas).
+      { name: 'Nexity', city: 'Paris', website: 'https://www.nexity.fr', siren: '552062411' },
       { name: 'Bouygues Immobilier', city: 'Issy-les-Moulineaux', website: 'https://www.bouygues-immobilier.com' },
       { name: 'Vinci Immobilier', city: 'Rueil-Malmaison', website: 'https://www.vinci-immobilier.com' },
     ];
@@ -271,7 +317,7 @@ async function main() {
     // with the production watchlist endpoint (see competitor-watchlist.ts).
     const platformDefs = COMPETITOR_WATCHLIST;
 
-    const createEntities = async (type: GraphEntityType, defs: { name: string; city?: string; website?: string }[]) =>
+    const createEntities = async (type: GraphEntityType, defs: { name: string; city?: string; website?: string; siren?: string }[]) =>
       Promise.all(
         defs.map((d) => {
           const coords = d.city ? ENTITY_CITY_COORDS[d.city] : undefined;
@@ -282,6 +328,7 @@ async function main() {
               name: d.name,
               city: d.city,
               website: d.website,
+              siren: d.siren,
               lat: coords?.lat,
               lng: coords?.lng,
             },

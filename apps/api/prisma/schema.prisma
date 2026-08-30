@@ -91,6 +91,7 @@ enum ActivityType {
   CHECKPOINT_CREATED
   RISK_OVERRIDE_TRIGGERED
   ANALYST_OVERRIDE_SET
+  STATUS_CHANGED
 }
 
 enum GuaranteeType {
@@ -753,6 +754,11 @@ model RiskScoreSnapshot {
   breakdown Json
   trigger   String
 
+  /// Identifie la version des poids/seuils du Risk Engine qui a produit cette
+  /// ligne — sans ça, un changement futur de formule (Phase 2+) rendrait
+  /// l'historique ambigu sur quel modèle a calculé quel score.
+  modelVersion String @default("risk-engine-v2.1")
+
   computedAt DateTime @default(now())
 
   @@index([dealId, computedAt])
@@ -1059,6 +1065,11 @@ model GraphEntity {
   email       String?
   phone       String?
 
+  /// SIREN du porteur (pertinent surtout pour type=PROMOTEUR) — permet de
+  /// rapprocher automatiquement cette entité du champ texte libre
+  /// Deal.porteurSiren (voir DealsService/GraphService.autoLinkPromoteurBySiren).
+  siren String?
+
   dealLinks          DealEntityLink[]
   relationsFrom      GraphRelation[]     @relation("RelationFrom")
   relationsTo        GraphRelation[]     @relation("RelationTo")
@@ -1068,6 +1079,7 @@ model GraphEntity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, siren])
   @@index([organizationId])
   @@index([type])
   @@map("graph_entities")

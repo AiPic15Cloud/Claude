@@ -123,6 +123,24 @@ export class GraphService {
     });
   }
 
+  /**
+   * Rapproche automatiquement Deal.porteurSiren (texte libre) d'une entité
+   * PROMOTEUR du Knowledge Graph portant le même SIREN — les deux
+   * représentations du porteur étaient jusqu'ici totalement déconnectées.
+   * Best-effort et jamais ambigu : ne remplace jamais un lien PROMOTEUR déjà
+   * posé, et ne fabrique jamais de GraphEntity — si aucune entité n'a ce
+   * SIREN, rien ne se passe.
+   */
+  async autoLinkPromoteurBySiren(organizationId: string, dealId: string, siren: string | null | undefined): Promise<boolean> {
+    if (!siren) return false;
+    const existing = await this.prisma.dealEntityLink.findFirst({ where: { dealId, role: 'PROMOTEUR' as never } });
+    if (existing) return false;
+    const entity = await this.prisma.graphEntity.findFirst({ where: { organizationId, type: 'PROMOTEUR', siren } });
+    if (!entity) return false;
+    await this.linkDeal(organizationId, dealId, entity.id, 'PROMOTEUR');
+    return true;
+  }
+
   async unlinkDeal(organizationId: string, dealId: string, linkId: string) {
     const link = await this.prisma.dealEntityLink.findFirst({
       where: { id: linkId, dealId, deal: { organizationId } },

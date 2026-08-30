@@ -19,6 +19,9 @@ import { StorageService } from '../common/storage/storage.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
 import { RiskEngineService, RECOVERY_LABEL, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
 import { FieldChangeService } from '../field-changes/field-change.service';
+import { GraphService } from '../graph/graph.service';
+import { computeCrd } from './crd.util';
+import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -50,6 +53,7 @@ export class DealsService {
     private readonly storage: StorageService,
     private readonly riskEngine: RiskEngineService,
     private readonly fieldChanges: FieldChangeService,
+    private readonly graph: GraphService,
   ) {}
 
   /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
@@ -105,6 +109,26 @@ export class DealsService {
     return deals.map((d) => ({
       ...d,
       checkpointHealth: this.toCheckpointHealth(latestByDeal.get(d.id) ?? null, isDealClosed(d)),
+    }));
+  }
+
+  /**
+   * Batch equivalent of computeCrd() for list endpoints — one groupBy for
+   * every deal in the page instead of N+1. The CRD itself is never stored
+   * (see crd.util.ts) : always derived from amountRaised + realized
+   * repayments at read time, exactly like checkpointHealth/deadlineAlert.
+   */
+  private async attachCrd<T extends { id: string; amountRaised: Prisma.Decimal | number }>(deals: T[]) {
+    if (deals.length === 0) return deals as (T & { crd: number })[];
+    const sums = await this.prisma.repayment.groupBy({
+      by: ['dealId'],
+      where: { dealId: { in: deals.map((d) => d.id) }, projected: false },
+      _sum: { amount: true },
+    });
+    const realizedByDeal = new Map(sums.map((s) => [s.dealId, Number(s._sum.amount ?? 0)]));
+    return deals.map((d) => ({
+      ...d,
+      crd: computeCrd(Number(d.amountRaised), realizedByDeal.get(d.id) ?? 0),
     }));
   }
 
@@ -204,6 +228,10 @@ export class DealsService {
 
     await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
     this.indexForSearch(deal!);
+    if (deal!.porteurSiren) {
+      const linked = await this.graph.autoLinkPromoteurBySiren(organizationId, deal!.id, deal!.porteurSiren);
+      if (linked) await this.activities.log(deal!.id, userId, 'ENTITY_LINKED', 'Porteur lié automatiquement via SIREN');
+    }
     return {
       ...deal!,
       deadlineAlert: computeDeadlineAlert(deal!.dateMax, new Date(), isDealClosed(deal!)),
@@ -245,9 +273,10 @@ export class DealsService {
     ]);
 
     const withHealth = await this.attachCheckpointHealth(items);
+    const withCrd = await this.attachCrd(withHealth);
 
     return {
-      items: withHealth.map((d) => ({
+      items: withCrd.map((d) => ({
         ...d,
         deadlineAlert: computeDeadlineAlert(d.dateMax, new Date(), isDealClosed(d)),
         durationTargetAlert: computeDurationTargetAlert(d.startDate, d.durationMonths, new Date(), isDealClosed(d)),
@@ -283,7 +312,8 @@ export class DealsService {
     const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), isDealClosed(deal));
     const riskBreakdown = await this.riskEngine.computeDealRisk(organizationId, id, false);
     const narrative = this.buildNarrative(deal, riskBreakdown, deadlineAlert, durationTargetAlert);
-    return { ...deal, notes, deadlineAlert, durationTargetAlert, checkpointHealth, narrative };
+    const [withCrd] = await this.attachCrd([deal]);
+    return { ...deal, crd: withCrd.crd, notes, deadlineAlert, durationTargetAlert, checkpointHealth, narrative };
   }
 
   /**
@@ -399,6 +429,7 @@ export class DealsService {
         recoveryStatus: true,
         repaid: true,
         chantierSignaleArret: true,
+        status: true,
       },
     });
 
@@ -452,6 +483,9 @@ export class DealsService {
         `Statut de recouvrement modifié : ${current.recoveryStatus} → ${rest.recoveryStatus}`,
       );
     }
+    if (rest.status && current && current.status !== rest.status) {
+      await this.activities.log(id, userId, 'STATUS_CHANGED', `Statut modifié : ${current.status} → ${rest.status}`);
+    }
     if (dateMax && current?.dateMax && new Date(dateMax).getTime() !== current.dateMax.getTime()) {
       await this.activities.log(
         id,
@@ -501,6 +535,7 @@ export class DealsService {
     // quand), pour la gouvernance de la donnée plutôt que la lecture humaine.
     if (current) {
       await this.fieldChanges.recordDiff(organizationId, id, 'Deal', userId, [
+        { key: 'status', label: 'Statut', oldValue: current.status, newValue: deal.status },
         { key: 'name', label: 'Nom', oldValue: current.name, newValue: deal.name },
         { key: 'interestRate', label: "Taux d'intérêt", oldValue: current.interestRate, newValue: deal.interestRate },
         { key: 'amountTarget', label: 'Montant cible', oldValue: current.amountTarget, newValue: deal.amountTarget },
@@ -530,6 +565,11 @@ export class DealsService {
       await this.riskEngine
         .recomputeAndPersist(organizationId, id)
         .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${id}`, err instanceof Error ? err.stack : err));
+    }
+
+    if (sirenChanged && deal.porteurSiren) {
+      const linked = await this.graph.autoLinkPromoteurBySiren(organizationId, id, deal.porteurSiren);
+      if (linked) await this.activities.log(id, userId, 'ENTITY_LINKED', 'Porteur lié automatiquement via SIREN');
     }
 
     return {
@@ -568,11 +608,31 @@ export class DealsService {
   async kpis(organizationId: string) {
     const deals = await this.prisma.deal.findMany({
       where: { organizationId, status: 'ACTIVE' },
-      select: { amountTarget: true, amountRaised: true, stage: true, type: true, interestRate: true, dateMax: true, repaid: true },
+      select: {
+        id: true,
+        amountTarget: true,
+        amountRaised: true,
+        stage: true,
+        type: true,
+        interestRate: true,
+        dateMax: true,
+        repaid: true,
+        porteurSiren: true,
+        porteurSociete: true,
+      },
     });
+
+    const realized = await this.prisma.repayment.groupBy({
+      by: ['dealId'],
+      where: { dealId: { in: deals.map((d) => d.id) }, projected: false },
+      _sum: { amount: true },
+    });
+    const realizedByDeal = new Map(realized.map((r) => [r.dealId, Number(r._sum.amount ?? 0)]));
+    const crdByDeal = new Map(deals.map((d) => [d.id, computeCrd(Number(d.amountRaised), realizedByDeal.get(d.id) ?? 0)]));
 
     const totalAum = deals.reduce((sum, d) => sum + Number(d.amountTarget), 0);
     const totalRaised = deals.reduce((sum, d) => sum + Number(d.amountRaised), 0);
+    const totalCrd = deals.reduce((sum, d) => sum + (crdByDeal.get(d.id) ?? 0), 0);
     const avgRate =
       deals.filter((d) => d.interestRate).reduce((sum, d) => sum + Number(d.interestRate), 0) /
       (deals.filter((d) => d.interestRate).length || 1);
@@ -583,18 +643,53 @@ export class DealsService {
     const byType: Record<string, number> = {};
     for (const d of deals) byType[d.type] = (byType[d.type] ?? 0) + 1;
 
+    // Exposition par typologie — somme du CRD, pas un comptage (byType
+    // ci-dessus ne dit rien du montant, seulement du nombre de dossiers).
+    const exposureByType: Record<string, number> = {};
+    for (const d of deals) exposureByType[d.type] = (exposureByType[d.type] ?? 0) + (crdByDeal.get(d.id) ?? 0);
+
+    // Concentration par opérateur — un dossier sans porteurSiren est
+    // regroupé sous une entrée explicite "Non renseigné", jamais fusionné
+    // silencieusement avec un vrai SIREN (l'absence d'information n'est
+    // jamais neutre).
+    const byOperator = new Map<string, { porteurSiren: string | null; porteurSociete: string | null; crd: number; dealCount: number }>();
+    for (const d of deals) {
+      const key = d.porteurSiren ?? '__UNKNOWN__';
+      const entry = byOperator.get(key) ?? { porteurSiren: d.porteurSiren, porteurSociete: d.porteurSociete, crd: 0, dealCount: 0 };
+      entry.crd += crdByDeal.get(d.id) ?? 0;
+      entry.dealCount += 1;
+      if (!entry.porteurSociete && d.porteurSociete) entry.porteurSociete = d.porteurSociete;
+      byOperator.set(key, entry);
+    }
+    const topOperatorConcentration = [...byOperator.values()].sort((a, b) => b.crd - a.crd).slice(0, 5);
+
     const now = new Date();
     const lateDeals = deals.filter((d) => !isDealClosed(d) && d.dateMax && d.dateMax < now).length;
+
+    // Dossiers réellement actifs (isDealClosed() = false) mais dont le
+    // status a été mis manuellement hors ACTIVE — un angle mort invisible
+    // aujourd'hui sur le monitoring de fond (voir deal-consistency.util.ts).
+    // Nécessite une requête séparée : les dossiers ci-dessus sont déjà
+    // filtrés sur status: 'ACTIVE'.
+    const nonActiveDeals = await this.prisma.deal.findMany({
+      where: { organizationId, status: { not: 'ACTIVE' } },
+      select: { status: true, repaid: true, stage: true },
+    });
+    const statusMonitoringGaps = nonActiveDeals.filter(isMonitoringSuppressedByStatus).length;
 
     return {
       activeDeals: deals.length,
       totalAum,
       totalRaised,
+      totalCrd,
       fundingProgress: totalAum > 0 ? Math.round((totalRaised / totalAum) * 100) : 0,
       averageInterestRate: Math.round(avgRate * 100) / 100,
       lateDeals,
       byStage,
       byType,
+      exposureByType,
+      topOperatorConcentration,
+      statusMonitoringGaps,
     };
   }
 

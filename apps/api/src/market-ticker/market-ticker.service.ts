@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MarketIndicatorsService } from '../intelligence-marche/indicators.service';
+import { computeCrd } from '../deals/crd.util';
 
 interface CachedFx {
   value: number;
@@ -232,17 +233,26 @@ export class MarketTickerService {
   }
 
   async summary(organizationId: string) {
-    const [fx, cac40, btc, indicators, aumAgg, activeCount] = await Promise.all([
+    const [fx, cac40, btc, indicators, activeDeals, activeCount] = await Promise.all([
       this.fetchFx(),
       this.fetchCac40(),
       this.fetchBtc(),
       this.marketIndicators.summary(),
-      this.prisma.deal.aggregate({
+      this.prisma.deal.findMany({
         where: { organizationId, status: 'ACTIVE' },
-        _sum: { amountRaised: true },
+        select: { id: true, amountRaised: true },
       }),
       this.prisma.deal.count({ where: { organizationId, status: 'ACTIVE' } }),
     ]);
+
+    // "Encours" = CRD, pas le montant collecté brut — voir crd.util.ts.
+    const realized = await this.prisma.repayment.groupBy({
+      by: ['dealId'],
+      where: { dealId: { in: activeDeals.map((d) => d.id) }, projected: false },
+      _sum: { amount: true },
+    });
+    const realizedByDeal = new Map(realized.map((r) => [r.dealId, Number(r._sum.amount ?? 0)]));
+    const totalCrd = activeDeals.reduce((sum, d) => sum + computeCrd(Number(d.amountRaised), realizedByDeal.get(d.id) ?? 0), 0);
 
     return {
       eurUsd: fx ? { value: fx.value, changePct: fx.changePct, degraded: false } : { value: null, changePct: null, degraded: true },
@@ -257,7 +267,7 @@ export class MarketTickerService {
         indicators.oat10y.value !== null
           ? { value: indicators.oat10y.value, period: indicators.oat10y.period, degraded: false }
           : { value: null, period: null, degraded: true },
-      aum: { value: Number(aumAgg._sum.amountRaised ?? 0) },
+      aum: { value: totalCrd },
       activeDeals: { value: activeCount },
       asOf: new Date().toISOString(),
     };

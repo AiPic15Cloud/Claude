@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { DealSurveillanceStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { RISK_MODEL_VERSION } from './risk-model-version';
 
 export interface SnapshotInput {
   qualityScore: number;
@@ -63,6 +64,7 @@ export class RiskHistoryService {
         surveillanceStatus: computed.surveillanceStatus,
         breakdown: computed.breakdown,
         trigger,
+        modelVersion: RISK_MODEL_VERSION,
       },
     });
   }
