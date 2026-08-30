@@ -4,6 +4,7 @@ import { DealsService } from '../deals/deals.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import { computeDeadlineAlert } from '../deals/deadline.util';
+import { computeCrd } from '../deals/crd.util';
 
 const NEEDS_ATTENTION = new Set(['WATCH', 'DRIFTING', 'DISTRESSED', 'RECOVERY']);
 import { computeGuaranteeExpiry, isExpirableGuaranteeType } from '../guarantees/guarantee-expiry.util';
@@ -85,7 +86,12 @@ export class CockpitService {
       }),
       this.prisma.deal.findMany({
         where: { organizationId },
-        select: { amountTarget: true, startDate: true, createdAt: true },
+        select: {
+          amountRaised: true,
+          startDate: true,
+          createdAt: true,
+          repayments: { where: { projected: false }, select: { amount: true, date: true } },
+        },
       }),
       this.prisma.guarantee.findMany({
         where: {
@@ -183,9 +189,15 @@ export class CockpitService {
       .sort((a, b) => (b.riskScore! - a.riskScore!) || (Number(b.amountRaised) - Number(a.amountRaised)))
       .slice(0, 10);
 
-    const breakdowns = await Promise.all(
-      candidates.map((d) => this.riskEngine.computeDealRisk(organizationId, d.id, false)),
-    );
+    const [breakdowns, realized] = await Promise.all([
+      Promise.all(candidates.map((d) => this.riskEngine.computeDealRisk(organizationId, d.id, false))),
+      this.prisma.repayment.groupBy({
+        by: ['dealId'],
+        where: { dealId: { in: candidates.map((d) => d.id) }, projected: false },
+        _sum: { amount: true },
+      }),
+    ]);
+    const realizedByDeal = new Map(realized.map((r) => [r.dealId, Number(r._sum.amount ?? 0)]));
 
     return candidates.map((d, i) => {
       const breakdown = breakdowns[i];
@@ -205,7 +217,10 @@ export class CockpitService {
         previousScore: d.riskScorePrevious,
         signalLabel: topFactor?.label ?? 'Risque global',
         signalExplanation: topFactor ? `Contribution estimée : +${topFactor.points} pts.` : '',
-        exposition: Number(d.amountRaised),
+        // CRD, pas le montant collecté d'origine — un dossier déjà remboursé
+        // à 80% ne doit pas afficher son exposition historique comme montant
+        // à risque aujourd'hui (voir crd.util.ts).
+        exposition: computeCrd(Number(d.amountRaised), realizedByDeal.get(d.id) ?? 0),
         daysToMax: deadline.stage ? deadline.daysToMax : null,
         deadlineActionLabel: deadline.actionLabel,
       };
@@ -213,30 +228,36 @@ export class CockpitService {
   }
 
   /**
-   * A monthly, cumulative "encours sous gestion" trend for the last 12
-   * months — built from real deal dates (startDate, falling back to
-   * createdAt like the fees chart does), not a stored snapshot series we
-   * don't have. Every deal ever onboarded counts once it entered the
-   * portfolio, regardless of its current stage/status, since the point is
-   * "how much was under management at that point in time", not "how much
-   * still is" — that's what the KPI tile already shows.
+   * Un vrai CRD historique pour les 12 derniers mois — reconstruit à partir
+   * des dates réelles des dossiers (startDate, à défaut createdAt) et des
+   * dates réelles des remboursements réalisés, pas une table de snapshots
+   * qu'on n'a pas. Pour chaque mois M : CRD(M) = Σ des dossiers déjà entrés
+   * dans le portefeuille à M de max(0, amountRaised_actuel − remboursements
+   * réalisés datés ≤ M). Approximation assumée : amountRaised n'étant pas
+   * lui-même historisé, on suppose sa valeur actuelle valable rétroactivement
+   * (fiable pour un dossier déjà clos à l'époque M, plus approximatif pour un
+   * dossier encore en collecte à l'époque). La courbe peut redescendre — un
+   * vrai CRD n'est pas monotone, contrairement à un cumul d'AUM onboardé.
    */
-  private buildAumHistory(deals: { amountTarget: any; startDate: Date | null; createdAt: Date }[]) {
+  private buildAumHistory(deals: { amountRaised: any; startDate: Date | null; createdAt: Date; repayments: { amount: any; date: Date }[] }[]) {
     const months = 12;
     const now = new Date();
-    const points: { month: string; label: string; cumulativeAum: number }[] = [];
+    const points: { month: string; label: string; crd: number }[] = [];
 
     for (let i = months - 1; i >= 0; i--) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
-      const cumulativeAum = deals
+      const crd = deals
         .filter((d) => (d.startDate ?? d.createdAt) <= monthEnd)
-        .reduce((sum, d) => sum + Number(d.amountTarget), 0);
+        .reduce((sum, d) => {
+          const realizedToDate = d.repayments.filter((r) => r.date <= monthEnd).reduce((s, r) => s + Number(r.amount), 0);
+          return sum + computeCrd(Number(d.amountRaised), realizedToDate);
+        }, 0);
 
       points.push({
         month: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
         label: monthDate.toLocaleDateString('fr-FR', { month: 'short' }),
-        cumulativeAum,
+        crd,
       });
     }
     return points;

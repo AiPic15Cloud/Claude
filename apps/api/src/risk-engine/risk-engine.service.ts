@@ -18,6 +18,7 @@ import { classifyVelocity } from './risk-velocity.util';
 import { HARD_OVERRIDE_RULES } from './hard-override-rules';
 import { RiskOverrideService } from './risk-override.service';
 import { RiskHistoryService } from './risk-history.service';
+import { computeCrd, sumRealizedRepayments } from '../deals/crd.util';
 
 export interface DealRiskProfile {
   dealId: string;
@@ -196,6 +197,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
           },
         },
         guarantees: { where: { status: 'ACTIVE' }, select: { type: true, endDate: true, amount: true, rank: true } },
+        repayments: { where: { projected: false }, select: { amount: true, projected: true } },
       },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
@@ -294,6 +296,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     // ── Garanties : pire cas, couverture rang 1, planchers critiques ────
     const amountRaised = Number(deal.amountRaised);
+    const crd = computeCrd(amountRaised, sumRealizedRepayments(deal.repayments));
     let guaranteeWorstCase: 'AUCUNE' | 'VALIDE' | 'EXPIRE_BIENTOT' | 'NON_VALIDE' = 'AUCUNE';
     let hasCriticalExpiredGuarantee = false;
     let hasOtherExpiredGuarantee = false;
@@ -313,7 +316,13 @@ export class RiskEngineService implements OnApplicationBootstrap {
         guaranteeWorstCase = 'VALIDE';
       }
     }
-    const guaranteeCoverageRatio = amountRaised > 0 ? rank1Sum / amountRaised : null;
+    // Couverture de l'exposition RESTANTE (CRD), pas du montant historique
+    // collecté — une garantie qui couvrait 60% au jour 0 en couvre
+    // mécaniquement une part croissante à mesure que le capital est
+    // remboursé. crd === 0 sur un dossier encore ouvert (cas limite non
+    // attendu, ex. données de remboursement incohérentes) : donnée non
+    // pertinente, ni division par zéro ni 100% artificiel.
+    const guaranteeCoverageRatio = crd > 0 ? rank1Sum / crd : null;
 
     // ── Entrées financières (Quality/Performance) ───────────────────────
     const synthesis = financial.synthesis;

@@ -163,6 +163,6 @@ function guaranteeCoverageInput(ratio: number | null): ScoreInput {
     explanation:
       ratio === null || ratio === 0
         ? 'Aucune garantie de premier rang active.'
-        : `Garanties de rang 1 couvrant ${(ratio * 100).toFixed(0)}% du montant collecté.`,
+        : `Garanties de rang 1 couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.`,
   };
 }
