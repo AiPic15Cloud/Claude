@@ -22,7 +22,6 @@ import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { RiskAtlasCard } from './components/risk-atlas-card';
 import { ProjectCommandHeader } from './components/project-command-header';
-import { DealNarrativeCard } from './components/deal-narrative-card';
 import { DealStageTimeline } from './components/deal-stage-timeline';
 import { ActivityLogPanel } from './components/activity-log-panel';
 import { FieldHistoryPanel } from './components/field-history-panel';
@@ -273,7 +272,6 @@ export function DossierPage() {
         </Card>
       </div>
 
-      <DealNarrativeCard narrative={deal.narrative} />
       <DealStageTimeline dealId={deal.id} currentStage={deal.stage} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

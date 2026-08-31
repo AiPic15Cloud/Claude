@@ -65,17 +65,8 @@ const METHODOLOGY_DISCLAIMER =
 const CHECK_INTERVAL_MS = 6 * 60 * 60_000;
 const DAY_MS = 86_400_000;
 
-// Exportés pour réutilisation par DealsService.buildNarrative() et
-// AgentsService.buildDealContext() — même texte que les explications du
-// Risk Engine, pas de nouvelle rédaction pour la synthèse narrative.
-export const RECOVERY_LABEL: Record<string, string> = {
-  RAS: 'Recouvrement sain, aucun signal.',
-  AMIABLE: 'Échéance dépassée sans réaction du porteur, en discussion amiable.',
-  MISE_EN_DEMEURE: 'Mise en demeure envoyée, pas encore de procédure.',
-  CONTENTIEUX: 'Action judiciaire engagée.',
-  PROCEDURE_COLLECTIVE: 'Procédure collective ouverte chez le porteur.',
-};
-
+// Exporté pour réutilisation par AgentsService.buildDealContext() — même
+// texte que les explications du Risk Engine, pas de nouvelle rédaction.
 export const PORTEUR_LABEL: Record<string, string> = {
   actif: 'Statut administratif actif.',
   fermee: 'Société fermée/radiée.',

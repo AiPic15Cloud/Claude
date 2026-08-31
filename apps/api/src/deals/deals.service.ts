@@ -17,7 +17,7 @@ import { computeCheckpointHealth } from './checkpoint-health.util';
 import { withNoteImageUrls } from '../notes/note-image.util';
 import { StorageService } from '../common/storage/storage.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
-import { RiskEngineService, RECOVERY_LABEL, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
+import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import { FieldChangeService } from '../field-changes/field-change.service';
 import { GraphService } from '../graph/graph.service';
 import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
@@ -315,68 +315,8 @@ export class DealsService {
     const notes = await Promise.all(deal.notes.map((note) => withNoteImageUrls(note, this.storage)));
     const deadlineAlert = computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal));
     const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), isDealClosed(deal));
-    const riskBreakdown = await this.riskEngine.computeDealRisk(organizationId, id, false);
-    const narrative = this.buildNarrative(deal, riskBreakdown, deadlineAlert, durationTargetAlert);
     const [withCrd] = await this.attachCrd([deal]);
-    return { ...deal, crd: withCrd.crd, notes, deadlineAlert, durationTargetAlert, checkpointHealth, narrative };
-  }
-
-  /**
-   * Synthèse "Atlas Intelligence" en haut de la page Dossier — chaque phrase
-   * reprend directement une valeur déjà calculée ailleurs (facteurs du Risk
-   * Engine, échéance, recouvrement, surveillance société), jamais un appel
-   * LLM présenté comme fait. Même patron que CockpitService.buildAutoSummary().
-   */
-  private buildNarrative(
-    deal: { recoveryStatus: string; porteurMonitoringStatus: string | null },
-    riskBreakdown: Awaited<ReturnType<RiskEngineService['computeDealRisk']>>,
-    deadlineAlert: ReturnType<typeof computeDeadlineAlert>,
-    durationTargetAlert: ReturnType<typeof computeDurationTargetAlert>,
-  ): { headline: string; items: { label: string; severity: 'critical' | 'warning' | 'info' }[] } {
-    if (riskBreakdown.suppressed || riskBreakdown.composite.score === null) {
-      return { headline: 'Dossier clos.', items: [] };
-    }
-
-    const status = riskBreakdown.surveillance.status;
-    const severityForStatus = (s: typeof status): 'critical' | 'warning' | 'info' =>
-      s === 'ELEVE' || s === 'CRITIQUE' ? 'critical' : s === 'SOUS_SURVEILLANCE' ? 'warning' : 'info';
-    const statusLabel: Record<string, string> = {
-      FAIBLE: 'Situation saine',
-      SOUS_SURVEILLANCE: 'Vigilance requise',
-      ELEVE: 'Dérive constatée',
-      CRITIQUE: 'Situation critique',
-    };
-    const headline = `${statusLabel[status ?? 'FAIBLE']} — score de risque ${riskBreakdown.composite.score}/100.`;
-
-    const items: { label: string; severity: 'critical' | 'warning' | 'info' }[] = [];
-
-    if (status && status !== 'FAIBLE') {
-      for (const contributor of riskBreakdown.triggered.slice(0, 2)) {
-        items.push({ label: contributor.label, severity: severityForStatus(status) });
-      }
-    }
-
-    if (deadlineAlert.level !== 'RAS' && deadlineAlert.actionLabel) {
-      items.push({ label: deadlineAlert.actionLabel, severity: deadlineAlert.level === 'URGENT' ? 'critical' : 'warning' });
-    }
-
-    if (durationTargetAlert.level !== 'RAS' && durationTargetAlert.actionLabel) {
-      items.push({ label: durationTargetAlert.actionLabel, severity: durationTargetAlert.level === 'URGENT' ? 'critical' : 'warning' });
-    }
-
-    if (deal.recoveryStatus !== 'RAS') {
-      items.push({ label: RECOVERY_LABEL[deal.recoveryStatus] ?? 'Situation juridique inconnue.', severity: 'warning' });
-    }
-
-    if (deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') {
-      items.push({ label: PORTEUR_LABEL[deal.porteurMonitoringStatus], severity: 'critical' });
-    }
-
-    if (items.length === 0) {
-      items.push({ label: 'Aucun signal particulier à ce jour.', severity: 'info' });
-    }
-
-    return { headline, items };
+    return { ...deal, crd: withCrd.crd, notes, deadlineAlert, durationTargetAlert, checkpointHealth };
   }
 
   async generateMiseEnDemeure(organizationId: string, id: string) {
