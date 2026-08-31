@@ -1088,11 +1088,13 @@ model GraphEntity {
   /// Deal.porteurSiren (voir DealsService/GraphService.autoLinkPromoteurBySiren).
   siren String?
 
-  dealLinks          DealEntityLink[]
-  relationsFrom      GraphRelation[]     @relation("RelationFrom")
-  relationsTo        GraphRelation[]     @relation("RelationTo")
-  articles           ArticleEntityLink[]
-  competitorProjects CompetitorProject[]
+  dealLinks              DealEntityLink[]
+  relationsFrom          GraphRelation[]          @relation("RelationFrom")
+  relationsTo            GraphRelation[]          @relation("RelationTo")
+  articles               ArticleEntityLink[]
+  competitorProjects     CompetitorProject[]
+  competitorProjectEvents CompetitorProjectEvent[]
+  platformStatsSnapshots PlatformStatsSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1481,7 +1483,88 @@ model CompetitorProject {
   @@map("competitor_projects")
 }
 
+enum CompetitorProjectEventType {
+  PROJECT_DETECTED
+  FUNDING_OPENED
+  FUNDING_CLOSED
+  PROJECT_REMOVED
+  PROJECT_UPDATED
+}
+
+/// Historique d'un CompetitorProject (spec ATLAS v2, C.3 — vocabulaire
+/// d'événements minimal). Colonnes dénormalisées (entityId, projectName)
+/// plutôt qu'une FK stricte vers CompetitorProject : PROJECT_REMOVED doit
+/// rester consultable après la suppression de la ligne qu'il décrit.
+model CompetitorProjectEvent {
+  id             String                     @id @default(cuid())
+  entityId       String
+  entity         GraphEntity                @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  projectId      String
+  projectName    String
+  eventType      CompetitorProjectEventType
+  previousStatus CompetitorProjectStatus?
+  newStatus      CompetitorProjectStatus?
+  occurredAt     DateTime                   @default(now())
+
+  @@index([entityId])
+  @@map("competitor_project_events")
+}
+
 // ── Intelligence Marché: news pipeline ─────────────────────
+
+enum SourceHealth {
+  OPERATIONAL
+  DEGRADED
+  BROKEN
+  UNKNOWN
+}
+
+enum SourceApprovalStatus {
+  APPROVED_FOR_COLLECTION
+  PENDING_REVIEW
+}
+
+/// Source Registry (spec ATLAS v2, C.2) — un enregistrement par connecteur
+/// (pas par organisation, pas par NewsSource : plusieurs NewsSource peuvent
+/// partager le même connecteur, ex. 9 lignes utilisent google-news-rss).
+/// Aucune source ne doit collecter avant que son statut soit
+/// APPROVED_FOR_COLLECTION — la conformité/santé d'une source externe est
+/// un fait sur la source elle-même, pas sur le tenant qui la consulte
+/// (même principe que RelationshipType, clé globale sans organizationId).
+model SourceRegistryEntry {
+  key                    String               @id
+  label                  String
+  accessMethod           String
+  termsReviewed          Boolean              @default(false)
+  reviewedAt             DateTime?
+  authenticationRequired Boolean              @default(false)
+  approvalStatus         SourceApprovalStatus @default(PENDING_REVIEW)
+
+  // Source Monitor (C.3)
+  lastCheckedAt DateTime?
+  lastSuccessAt DateTime?
+  health        SourceHealth @default(UNKNOWN)
+  lastChangeAt  DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("source_registry_entries")
+}
+
+/// Un instantané par synchronisation réussie ET changée (spec C.3 : "ne
+/// jamais écraser l'état précédent"). GraphEntity.metadata reste la vue
+/// "état courant" déjà lue par PlatformStatsPanel — ce modèle porte
+/// l'historique que la mise à jour en place ne conservait pas.
+model PlatformStatsSnapshot {
+  id         String      @id @default(cuid())
+  entityId   String
+  entity     GraphEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  metadata   Json
+  observedAt DateTime    @default(now())
+
+  @@index([entityId, observedAt])
+  @@map("platform_stats_snapshots")
+}
 
 /// A configured source for the market-intelligence pipeline. `connector`
 /// names the ingestion strategy — a registered code connector (e.g.
