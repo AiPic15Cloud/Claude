@@ -967,6 +967,46 @@ export interface GraphEntityDetail extends GraphEntity {
   articles: { article: Article }[];
 }
 
+/** Knowledge Graph v2 (spec ATLAS v2, section 0.2) — niveau de preuve/vérification, jamais un simple booléen. */
+export type RelationshipCoverage = 'UNKNOWN' | 'PARTIAL' | 'SUBSTANTIAL' | 'VERIFIED';
+
+export const RELATIONSHIP_COVERAGE_LABELS: Record<RelationshipCoverage, string> = {
+  UNKNOWN: 'Inconnue',
+  PARTIAL: 'Partielle',
+  SUBSTANTIAL: 'Substantielle',
+  VERIFIED: 'Vérifiée',
+};
+
+export type EvidenceLevel = 'DECLARED' | 'DOCUMENTED' | 'OFFICIAL';
+
+export const EVIDENCE_LEVEL_LABELS: Record<EvidenceLevel, string> = {
+  DECLARED: 'Déclarée (sans document)',
+  DOCUMENTED: 'Documentée',
+  OFFICIAL: 'Officielle (source publique/légale)',
+};
+
+export interface RelationshipTypeOption {
+  key: string;
+  label: string;
+  category: string;
+  description: string | null;
+}
+
+/** Fiche contrepartie enrichie (spec ATLAS v2, B.3) — requêtes déterministes de premier niveau du Knowledge Graph v2. */
+export interface EntitySummary {
+  coverage: RelationshipCoverage;
+  relationsCount: number;
+  informationConfidence: RelationshipCoverage | null;
+  lastVerifiedAt: string | null;
+  exposureDirect: number | null;
+  operationsActive: number;
+  operationsRepaid: number;
+  guaranteesSharedCount: number;
+  groupEconomique: { id: string; name: string }[];
+  exposureConsolidated: number | null;
+  distressedLinked: { id: string; name: string; reason: string }[];
+}
+
 export type CompetitorProjectStatus = 'A_VENIR' | 'EN_COLLECTE' | 'CLOTURE';
 
 export const COMPETITOR_PROJECT_STATUS_LABELS: Record<CompetitorProjectStatus, string> = {

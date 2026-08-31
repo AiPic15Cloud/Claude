@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom';
-import { Globe, Mail, MapPin, Phone, User } from 'lucide-react';
+import { Globe, Mail, MapPin, Phone, User, TriangleAlert } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useEntity } from '../hooks/use-graph';
+import { useEntity, useEntitySummary } from '../hooks/use-graph';
 import { CreateEntityDialog } from './create-entity-dialog';
+import { CreateRelationshipDialog } from './create-relationship-dialog';
 import { CompetitorProjectsPanel } from '@/features/intelligence-concurrentielle/components/competitor-projects-panel';
 import { PlatformStatsPanel } from '@/features/intelligence-concurrentielle/components/platform-stats-panel';
 import type { PlatformMetadata } from '@/features/intelligence-concurrentielle/platform-metadata';
-import { DEAL_ENTITY_ROLE_LABELS, GRAPH_ENTITY_TYPE_LABELS } from '@/types';
+import { DEAL_ENTITY_ROLE_LABELS, GRAPH_ENTITY_TYPE_LABELS, RELATIONSHIP_COVERAGE_LABELS } from '@/types';
+import { formatCurrency, formatDate } from '@/lib/format';
 
 interface EntityDrawerProps {
   entityId: string | null;
@@ -18,6 +20,7 @@ interface EntityDrawerProps {
 
 export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
   const { data: entity, isLoading } = useEntity(entityId);
+  const { data: summary } = useEntitySummary(entityId);
 
   return (
     <Sheet open={Boolean(entityId)} onOpenChange={(open) => !open && onClose()}>
@@ -121,6 +124,71 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
                         <Badge variant="outline">{r.label ?? r.type}</Badge>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {summary && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Analyse Knowledge Graph</h3>
+                    <CreateRelationshipDialog entityId={entity.id} />
+                  </div>
+                  <div className="flex flex-col gap-2 rounded-md border border-border p-3 text-sm">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <span className="text-muted-foreground">
+                        Exposition directe : <span className="font-medium text-foreground">{summary.exposureDirect !== null ? formatCurrency(summary.exposureDirect) : '—'}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Exposition consolidée : <span className="font-medium text-foreground">{summary.exposureConsolidated !== null ? formatCurrency(summary.exposureConsolidated) : '—'}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Opérations : <span className="font-medium text-foreground">{summary.operationsActive} active(s) · {summary.operationsRepaid} remboursée(s)</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Relations liées : <span className="font-medium text-foreground">{summary.relationsCount}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Garanties partagées : <span className="font-medium text-foreground">{summary.guaranteesSharedCount}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Confiance de l'information :{' '}
+                        <span className="font-medium text-foreground">
+                          {summary.informationConfidence ? RELATIONSHIP_COVERAGE_LABELS[summary.informationConfidence] : '—'}
+                        </span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Couverture : {RELATIONSHIP_COVERAGE_LABELS[summary.coverage]} · Dernière vérification :{' '}
+                      {summary.lastVerifiedAt ? formatDate(summary.lastVerifiedAt) : 'jamais'}
+                    </p>
+
+                    {summary.groupEconomique.length > 0 && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Groupe économique</p>
+                        <div className="flex flex-wrap gap-1">
+                          {summary.groupEconomique.map((g) => (
+                            <Badge key={g.id} variant="outline">
+                              {g.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {summary.distressedLinked.length > 0 && (
+                      <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <div>
+                          <p className="font-medium">Sociétés liées en difficulté</p>
+                          {summary.distressedLinked.map((d) => (
+                            <p key={d.id}>
+                              {d.name} — {d.reason}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { GraphEntity, GraphEntityDetail, GraphEntityType, GraphPayload } from '@/types';
+import type { EntitySummary, EvidenceLevel, GraphEntity, GraphEntityDetail, GraphEntityType, GraphPayload, RelationshipTypeOption } from '@/types';
 
 export function useGraph(types?: GraphEntityType[]) {
   const query = types?.length ? `?types=${types.join(',')}` : '';
@@ -76,11 +76,43 @@ export function useDeleteEntity() {
   });
 }
 
-export function useCreateRelation() {
+/** Fiche contrepartie enrichie (spec ATLAS v2, B.3) — requêtes déterministes du Knowledge Graph v2. */
+export function useEntitySummary(entityId: string | null) {
+  return useQuery({
+    queryKey: ['entity-summary', entityId],
+    queryFn: () => api.get<EntitySummary>(`/entities/${entityId}/summary`),
+    enabled: Boolean(entityId),
+  });
+}
+
+export function useRelationshipTypes() {
+  return useQuery({
+    queryKey: ['relationship-types'],
+    queryFn: () => api.get<RelationshipTypeOption[]>('/relationship-types'),
+    staleTime: Infinity,
+  });
+}
+
+export interface CreateRelationshipPayload {
+  sourceEntityId: string;
+  targetEntityId: string;
+  typeKey: string;
+  amount?: number;
+  percentage?: number;
+  evidenceLevel: EvidenceLevel;
+  evidenceSource: string;
+  evidenceReference?: string;
+  evidenceNote?: string;
+}
+
+/** Knowledge Graph v2 (B.2/B.3) — remplace l'ancien useCreateRelation (mort, jamais appelé), dont la route v1 ne portait ni preuve ni les types Groupe économique/Caution partagée nécessaires à B.3. */
+export function useCreateRelationship() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { fromEntityId: string; toEntityId: string; type: string; label?: string }) =>
-      api.post('/graph/relations', payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['graph'] }),
+    mutationFn: (payload: CreateRelationshipPayload) => api.post('/relationships', payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['entity-summary', variables.sourceEntityId] });
+      queryClient.invalidateQueries({ queryKey: ['entity-summary', variables.targetEntityId] });
+    },
   });
 }
