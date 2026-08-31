@@ -320,6 +320,19 @@ export interface OperatorConcentrationEntry {
   porteurSociete: string | null;
   crd: number;
   dealCount: number;
+  /** Exposition des dossiers liés à des entités du même groupe économique (B.3) — jamais fusionnée dans `crd`, toujours affichée à part. */
+  groupEconomiqueAdditionalExposure?: number;
+}
+
+export interface CityExposureEntry {
+  city: string;
+  crd: number;
+}
+
+export interface StressTest {
+  eleveExposure: number;
+  assumedDefaultRate: number;
+  potentialLoss: number;
 }
 
 export interface DealKpis {
@@ -339,6 +352,11 @@ export interface DealKpis {
   topOperatorConcentration: OperatorConcentrationEntry[];
   /** Dossiers réellement actifs mais dont le statut a été mis manuellement hors ACTIVE — angle mort de monitoring. */
   statusMonitoringGaps: number;
+  /** Somme du CRD par palier de surveillance — 'NON_CALCULE' pour un dossier sans score, jamais fusionné avec un vrai palier. */
+  exposureByRiskTier: Record<string, number>;
+  /** Top 8 villes par CRD cumulé ; 'Non renseignée' regroupée sous une entrée distincte. */
+  exposureByCity: CityExposureEntry[];
+  stressTest: StressTest;
 }
 
 export interface PipelineStage {
