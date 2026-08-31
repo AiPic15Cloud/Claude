@@ -58,6 +58,11 @@ export class PlatformsController {
     return this.competitorProjects.list(user.organizationId, id);
   }
 
+  @Get(':id/project-events')
+  listProjectEvents(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.competitorProjects.listEvents(user.organizationId, id);
+  }
+
   @Post(':id/projects')
   createProject(
     @CurrentUser() user: AuthenticatedUser,

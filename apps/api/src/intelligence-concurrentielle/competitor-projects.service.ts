@@ -23,7 +23,7 @@ export class CompetitorProjectsService {
 
   async create(organizationId: string, entityId: string, userId: string, dto: CreateCompetitorProjectDto) {
     await this.assertEntity(organizationId, entityId);
-    return this.prisma.competitorProject.create({
+    const project = await this.prisma.competitorProject.create({
       data: {
         organizationId,
         entityId,
@@ -37,12 +37,16 @@ export class CompetitorProjectsService {
       },
       include: { createdBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
     });
+    await this.prisma.competitorProjectEvent.create({
+      data: { entityId, projectId: project.id, projectName: project.name, eventType: 'PROJECT_DETECTED', newStatus: project.status },
+    });
+    return project;
   }
 
   async update(organizationId: string, id: string, dto: UpdateCompetitorProjectDto) {
     const project = await this.prisma.competitorProject.findFirst({ where: { id, organizationId } });
     if (!project) throw new NotFoundException('Projet concurrent introuvable');
-    return this.prisma.competitorProject.update({
+    const updated = await this.prisma.competitorProject.update({
       where: { id },
       data: {
         name: dto.name,
@@ -54,11 +58,45 @@ export class CompetitorProjectsService {
       },
       include: { createdBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
     });
+
+    if (dto.status !== undefined && dto.status !== project.status) {
+      const eventType =
+        project.status === 'A_VENIR' && dto.status === 'EN_COLLECTE'
+          ? 'FUNDING_OPENED'
+          : project.status === 'EN_COLLECTE' && dto.status === 'CLOTURE'
+            ? 'FUNDING_CLOSED'
+            : 'PROJECT_UPDATED';
+      await this.prisma.competitorProjectEvent.create({
+        data: {
+          entityId: updated.entityId,
+          projectId: updated.id,
+          projectName: updated.name,
+          eventType,
+          previousStatus: project.status,
+          newStatus: updated.status,
+        },
+      });
+    } else if (updated.name !== project.name || Number(updated.targetAmount ?? 0) !== Number(project.targetAmount ?? 0) || updated.url !== project.url) {
+      await this.prisma.competitorProjectEvent.create({
+        data: { entityId: updated.entityId, projectId: updated.id, projectName: updated.name, eventType: 'PROJECT_UPDATED' },
+      });
+    }
+
+    return updated;
   }
 
   async remove(organizationId: string, id: string) {
     const project = await this.prisma.competitorProject.findFirst({ where: { id, organizationId } });
     if (!project) throw new NotFoundException('Projet concurrent introuvable');
+    await this.prisma.competitorProjectEvent.create({
+      data: { entityId: project.entityId, projectId: project.id, projectName: project.name, eventType: 'PROJECT_REMOVED', previousStatus: project.status },
+    });
     await this.prisma.competitorProject.delete({ where: { id } });
+  }
+
+  /** Historique d'un projet concurrent (spec ATLAS v2, C.3) — colonnes dénormalisées, survit à la suppression du projet. */
+  async listEvents(organizationId: string, entityId: string) {
+    await this.assertEntity(organizationId, entityId);
+    return this.prisma.competitorProjectEvent.findMany({ where: { entityId }, orderBy: { occurredAt: 'desc' } });
   }
 }

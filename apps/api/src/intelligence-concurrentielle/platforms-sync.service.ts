@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { SourceRegistryService } from '../source-registry/source-registry.service';
 import { BarometerConnector } from './connectors/barometer.connector';
 import { COMPETITOR_WATCHLIST } from './competitor-watchlist';
+
+const BAROMETER_SOURCE_KEY = 'barometer';
 
 @Injectable()
 export class PlatformsSyncService {
@@ -10,15 +13,25 @@ export class PlatformsSyncService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly barometer: BarometerConnector,
+    private readonly sourceRegistry: SourceRegistryService,
   ) {}
 
   async syncFromBarometer(organizationId: string) {
-    const stats = await this.barometer.fetchCompetitorStats();
+    let stats;
+    try {
+      stats = await this.barometer.fetchCompetitorStats();
+    } catch (error) {
+      this.logger.error(`Échec de collecte du baromètre: ${(error as Error).message}`);
+      await this.sourceRegistry.recordOutcome(BAROMETER_SOURCE_KEY, { success: false });
+      return { synced: 0, source: 'barometre-crowdfunding.com', fetchedAt: new Date().toISOString(), degraded: true };
+    }
     if (stats.length === 0) {
+      await this.sourceRegistry.recordOutcome(BAROMETER_SOURCE_KEY, { success: true, degraded: true });
       return { synced: 0, source: 'barometre-crowdfunding.com', fetchedAt: new Date().toISOString(), degraded: true };
     }
 
     let synced = 0;
+    let changed = false;
     for (const stat of stats) {
       // The barometer publishes its own documented, rule-based quality score —
       // use it directly rather than approximating one from a subset of fields.
@@ -43,7 +56,16 @@ export class PlatformsSyncService {
         where: { organizationId, type: 'PLATEFORME', name: { equals: stat.name, mode: 'insensitive' } },
       });
 
+      // Snapshot avant l'écrasement (spec C.3 : "ne jamais écraser l'état
+      // précédent") — seulement si le contenu utile a réellement changé,
+      // pas à chaque tick horaire identique (fetchedAt seul ne compte pas).
       if (existing) {
+        const { fetchedAt: _prevFetchedAt, ...previousComparable } = (existing.metadata as Record<string, unknown>) ?? {};
+        const { fetchedAt: _newFetchedAt, ...newComparable } = metadata;
+        if (JSON.stringify(previousComparable) !== JSON.stringify(newComparable)) {
+          await this.prisma.platformStatsSnapshot.create({ data: { entityId: existing.id, metadata: existing.metadata as object } });
+          changed = true;
+        }
         await this.prisma.graphEntity.update({
           where: { id: existing.id },
           data: { metadata: { ...(existing.metadata as object), ...metadata } },
@@ -52,10 +74,12 @@ export class PlatformsSyncService {
         await this.prisma.graphEntity.create({
           data: { organizationId, type: 'PLATEFORME', name: stat.name, metadata },
         });
+        changed = true;
       }
       synced++;
     }
 
+    await this.sourceRegistry.recordOutcome(BAROMETER_SOURCE_KEY, { success: true, changed });
     this.logger.log(`Synced ${synced} competitor platform(s) from the barometer.`);
     return { synced, source: 'barometre-crowdfunding.com', fetchedAt: new Date().toISOString(), degraded: false };
   }
