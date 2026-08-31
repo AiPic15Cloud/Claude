@@ -24,6 +24,7 @@ import { RiskAtlasCard } from './components/risk-atlas-card';
 import { ProjectCommandHeader } from './components/project-command-header';
 import { DealStageTimeline } from './components/deal-stage-timeline';
 import { LoanLifecycleTimeline } from './components/loan-lifecycle-timeline';
+import { LoanExtensionDialog } from './components/loan-extension-dialog';
 import { ActivityLogPanel } from './components/activity-log-panel';
 import { FieldHistoryPanel } from './components/field-history-panel';
 import { ValidationBadge } from './components/validation-badge';
@@ -274,7 +275,12 @@ export function DossierPage() {
       </div>
 
       {isFinancedStage(deal.stage) ? (
-        <LoanLifecycleTimeline dealId={deal.id} variant="full" />
+        <div className="flex flex-col gap-2">
+          <LoanLifecycleTimeline dealId={deal.id} variant="full" />
+          <div className="flex justify-end">
+            <LoanExtensionDialog dealId={deal.id} dealName={deal.name} currentEndDate={deal.endDate ?? null} />
+          </div>
+        </div>
       ) : (
         <DealStageTimeline dealId={deal.id} currentStage={deal.stage} />
       )}

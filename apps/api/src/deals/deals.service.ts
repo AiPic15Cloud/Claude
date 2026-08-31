@@ -362,7 +362,6 @@ export class DealsService {
         dateMin: true,
         dateCible: true,
         dateMax: true,
-        dateEcheanceInitiale: true,
         address: true,
         city: true,
         postcode: true,
@@ -444,13 +443,6 @@ export class DealsService {
     const nextFeesRate = feesRate !== undefined ? feesRate : current ? Number(current.feesRate ?? 0) : 0;
     const nextAmountRaised = amountRaised !== undefined ? amountRaised : current ? Number(current.amountRaised) : 0;
 
-    // Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — la toute
-    // première fois qu'une échéance est renseignée sur un dossier (jamais
-    // vue jusqu'ici), elle devient l'échéance d'origine. Ce n'est pas une
-    // prorogation (voir extendDeadline()) : aucun LoanExtension créé, juste
-    // la capture d'une donnée réelle qui n'existait pas encore.
-    const isFirstDateMax = Boolean(dateMax) && !current?.dateMax && !current?.dateEcheanceInitiale;
-
     const deal = await this.prisma.deal.update({
       where: { id },
       data: {
@@ -468,7 +460,6 @@ export class DealsService {
         dateMin: dateMin ? new Date(dateMin) : undefined,
         dateCible: dateCible ? new Date(dateCible) : undefined,
         dateMax: dateMax ? new Date(dateMax) : undefined,
-        dateEcheanceInitiale: isFirstDateMax ? new Date(dateMax!) : undefined,
         lastNewsletterDate: lastNewsletterDate ? new Date(lastNewsletterDate) : undefined,
         tags: tagIds
           ? {
@@ -779,24 +770,27 @@ export class DealsService {
   }
 
   /**
-   * Prorogation formelle de l'échéance (spec ATLAS v2, A.3bis) — distincte
-   * du PATCH générique : crée un LoanExtension traçable avec sa propre date
-   * de signature, et ne réécrit jamais dateEcheanceInitiale une fois posée.
-   * Backfill : sur la toute première prorogation d'un dossier créé avant ce
-   * lot, dateEcheanceInitiale n'existe pas encore — on la fixe alors à la
-   * valeur de dateMax qu'on est en train de remplacer (dernière valeur
-   * réellement connue, jamais une reconstruction inventée du passé).
+   * Prorogation formelle de l'échéance du prêt (spec ATLAS v2, A.3bis) —
+   * distincte du champ "Échéance de vote" (dateMax, process J-90/J-60/J-30/
+   * J-15 propre à la campagne de collecte, voir ExtendDeadlineDialog) : ici
+   * on prolonge Deal.endDate, l'échéance contractuelle réelle du prêt
+   * affichée partout dans l'app. Crée un LoanExtension traçable avec sa
+   * propre date de signature, et ne réécrit jamais dateEcheanceInitiale une
+   * fois posée. Backfill : sur la toute première prorogation d'un dossier
+   * créé avant ce lot, dateEcheanceInitiale n'existe pas encore — on la fixe
+   * alors à la valeur d'endDate qu'on est en train de remplacer (dernière
+   * valeur réellement connue, jamais une reconstruction inventée du passé).
    */
   async extendDeadline(organizationId: string, dealId: string, userId: string, dto: ExtendDeadlineDto) {
     const deal = await this.prisma.deal.findFirst({
       where: { id: dealId, organizationId },
-      select: { id: true, dateMax: true, dateEcheanceInitiale: true },
+      select: { id: true, endDate: true, dateEcheanceInitiale: true },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
 
     const dateSignature = new Date(dto.dateSignature);
     const nouvelleDateEcheance = new Date(dto.nouvelleDateEcheance);
-    const backfillInitiale = deal.dateEcheanceInitiale ?? deal.dateMax ?? undefined;
+    const backfillInitiale = deal.dateEcheanceInitiale ?? deal.endDate ?? undefined;
 
     await this.prisma.$transaction([
       this.prisma.loanExtension.create({
@@ -805,7 +799,7 @@ export class DealsService {
       this.prisma.deal.update({
         where: { id: dealId },
         data: {
-          dateMax: nouvelleDateEcheance,
+          endDate: nouvelleDateEcheance,
           dateEcheanceInitiale: deal.dateEcheanceInitiale ? undefined : backfillInitiale,
         },
       }),
@@ -815,20 +809,27 @@ export class DealsService {
       dealId,
       userId,
       'DEAL_UPDATED',
-      `Échéance prolongée : ${deal.dateMax ? deal.dateMax.toLocaleDateString('fr-FR') : '—'} → ${nouvelleDateEcheance.toLocaleDateString('fr-FR')} (signature le ${dateSignature.toLocaleDateString('fr-FR')})`,
+      `Échéance du prêt prolongée : ${deal.endDate ? deal.endDate.toLocaleDateString('fr-FR') : '—'} → ${nouvelleDateEcheance.toLocaleDateString('fr-FR')} (signature le ${dateSignature.toLocaleDateString('fr-FR')})`,
     );
     await this.fieldChanges.recordDiff(organizationId, dealId, 'Deal', userId, [
-      { key: 'dateMax', label: 'Échéance max', oldValue: deal.dateMax, newValue: nouvelleDateEcheance },
+      { key: 'endDate', label: 'Échéance', oldValue: deal.endDate, newValue: nouvelleDateEcheance },
     ]);
 
     return this.findOne(organizationId, dealId);
   }
 
-  /** Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — calcul délégué à loan-lifecycle.util.ts (pur, testable en isolation). */
+  /**
+   * Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — calcul délégué à
+   * loan-lifecycle.util.ts (pur, testable en isolation). L'échéance
+   * d'origine retenue est dateEcheanceInitiale si une prorogation formelle a
+   * déjà eu lieu, sinon la valeur courante d'endDate (dernière donnée réelle
+   * connue) — évite d'exiger une action manuelle sur tout dossier existant
+   * avant que cette frise n'existe pour l'afficher correctement dès le départ.
+   */
   async getLoanLifecycle(organizationId: string, dealId: string) {
     const deal = await this.prisma.deal.findFirst({
       where: { id: dealId, organizationId },
-      select: { id: true, startDate: true, durationMonths: true, dateEcheanceInitiale: true, repaid: true, stage: true },
+      select: { id: true, startDate: true, durationMonths: true, endDate: true, dateEcheanceInitiale: true, repaid: true, stage: true },
     });
     if (!deal) throw new NotFoundException('Opération introuvable');
 
@@ -866,7 +867,7 @@ export class DealsService {
     return computeLoanLifecycle({
       startDate: deal.startDate,
       durationMonths: deal.durationMonths,
-      dateEcheanceInitiale: deal.dateEcheanceInitiale,
+      dateEcheanceInitiale: deal.dateEcheanceInitiale ?? deal.endDate,
       extensions,
       terminal,
     });
