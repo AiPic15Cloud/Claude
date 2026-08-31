@@ -5,8 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { TagBadge } from './tag-badge';
 import { SurveillanceStatusBadge } from './deal-badges';
+import { LoanLifecycleTimeline } from '@/features/dossiers/components/loan-lifecycle-timeline';
 import { formatCurrency } from '@/lib/format';
-import type { Deal } from '@/types';
+import { isFinancedStage, type Deal } from '@/types';
 import { cn } from '@/lib/utils';
 
 const MAX_VISIBLE_TAGS = 2;
@@ -63,6 +64,8 @@ export function DealCard({ deal, onClick }: DealCardProps) {
             <span>{formatCurrency(deal.amountTarget)}</span>
           </div>
         </div>
+
+        {isFinancedStage(deal.stage) && <LoanLifecycleTimeline dealId={deal.id} variant="sparkline" />}
 
         {deal.tags.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">

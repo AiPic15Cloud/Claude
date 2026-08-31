@@ -90,6 +90,13 @@ export const DEAL_STAGES: DealStage[] = [
   'DEFAUT',
 ];
 
+const FINANCED_STAGES: ReadonlySet<DealStage> = new Set(['FINANCE', 'SUIVI', 'REMBOURSE', 'DEFAUT']);
+
+/** Un prêt déjà décaissé (spec ATLAS v2, A.3bis) — bascule le stepper pipeline vers la frise du cycle de vie du prêt. */
+export function isFinancedStage(stage: DealStage): boolean {
+  return FINANCED_STAGES.has(stage);
+}
+
 export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
   SOURCING: 'Sourcing',
   ANALYSE: 'Analyse',
@@ -202,6 +209,7 @@ export interface Deal {
   dateMin?: string | null;
   dateCible?: string | null;
   dateMax?: string | null;
+  dateEcheanceInitiale?: string | null;
   repaid: boolean;
   recoveryStatus: DealRecoveryStatus;
   porteurNom?: string | null;
@@ -357,6 +365,44 @@ export interface DealKpis {
   /** Top 8 villes par CRD cumulé ; 'Non renseignée' regroupée sous une entrée distincte. */
   exposureByCity: CityExposureEntry[];
   stressTest: StressTest;
+}
+
+// Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — remplace le
+// stepper pipeline sur les dossiers déjà financés (FINANCE/SUIVI/REMBOURSE/
+// DEFAUT). Calculé côté API (loan-lifecycle.util.ts), jamais recalculé côté
+// front — le front ne fait qu'afficher les segments reçus.
+export type LoanLifecycleSegmentKind = 'NORMAL' | 'DEPASSEMENT' | 'HORS_CONTRAT' | 'PROROGE';
+
+export interface LoanLifecycleSegment {
+  kind: LoanLifecycleSegmentKind;
+  start: string;
+  end: string;
+}
+
+export type LoanLifecycleTerminalType = 'REMBOURSE' | 'DEFAUT' | 'PROCEDURE_COLLECTIVE';
+
+export interface LoanLifecycleTerminal {
+  type: LoanLifecycleTerminalType;
+  date: string;
+}
+
+export type LoanLifecycle =
+  | { status: 'INSUFFICIENT_DATA' }
+  | {
+      status: 'OK';
+      dateDureeCible: string;
+      segments: LoanLifecycleSegment[];
+      terminal: LoanLifecycleTerminal | null;
+      todayCursor: string | null;
+      retardDays: number;
+    };
+
+export interface LoanExtension {
+  id: string;
+  dealId: string;
+  dateSignature: string;
+  nouvelleDateEcheance: string;
+  createdAt: string;
 }
 
 export interface PipelineStage {
