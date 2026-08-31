@@ -8,8 +8,6 @@ import { useDeal, useDeleteDeal } from '@/features/portfolio/hooks/use-deals';
 import {
   StageBadge,
   TypeBadge,
-  ScoreBadge,
-  RiskScoreBadge,
   CheckpointHealthBadge,
   RepaidBadge,
   RecoveryStatusBadge,
@@ -22,6 +20,7 @@ import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { RiskAtlasCard } from './components/risk-atlas-card';
+import { ProjectCommandHeader } from './components/project-command-header';
 import { DealNarrativeCard } from './components/deal-narrative-card';
 import { DealStageTimeline } from './components/deal-stage-timeline';
 import { ActivityLogPanel } from './components/activity-log-panel';
@@ -156,8 +155,6 @@ export function DossierPage() {
               {deleteDeal.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               {confirmingDelete ? 'Confirmer la suppression' : 'Supprimer'}
             </Button>
-            <ScoreBadge score={deal.atlasScore} />
-            <RiskScoreBadge score={deal.riskScore} previousScore={deal.riskScorePrevious} />
           </div>
         </div>
         {deleteDeal.isError && (
@@ -166,6 +163,12 @@ export function DossierPage() {
           </p>
         )}
       </div>
+
+      <ProjectCommandHeader deal={deal} guaranteeWarnings={guaranteeWarnings} tasks={dealTasks} onOpenTasks={() => setActiveTab('tasks')} />
+
+      {(deal.deadlineAlert?.level !== 'RAS' || deal.durationTargetAlert?.level !== 'RAS' || guaranteeWarnings.length > 0) && (
+      <div className="flex flex-col gap-3">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signaux &amp; causes</h2>
 
       {deal.deadlineAlert && deal.deadlineAlert.level !== 'RAS' && (
         <div
@@ -236,6 +239,8 @@ export function DossierPage() {
             Voir les garanties
           </Button>
         </div>
+      )}
+      </div>
       )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
