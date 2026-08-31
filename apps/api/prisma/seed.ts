@@ -179,7 +179,6 @@ async function main() {
           postcode: location.postcode,
           lat: location.lat + (Math.random() - 0.5) * 0.05,
           lng: location.lng + (Math.random() - 0.5) * 0.05,
-          atlasScore: randomInt(35, 95),
           startDate: new Date(Date.now() - randomInt(0, 200) * 86_400_000),
           endDate: new Date(Date.now() + randomInt(60, 700) * 86_400_000),
           createdById: createdBy.id,
