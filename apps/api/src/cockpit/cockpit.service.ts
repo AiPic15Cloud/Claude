@@ -46,6 +46,8 @@ export class CockpitService {
       historyDeals,
       guaranteesData,
       riskDeals,
+      overdueTasksTotal,
+      overdueTasksUrgent,
     ] = await Promise.all([
       this.dealsService.kpis(organizationId),
       this.prisma.task.findMany({
@@ -112,6 +114,12 @@ export class CockpitService {
         where: { organizationId, status: 'ACTIVE', repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] }, riskScore: { not: null } },
         select: { id: true, name: true, reference: true, amountRaised: true, riskScore: true, riskScorePrevious: true, surveillanceStatus: true, dateMax: true },
       }),
+      // Remontée portefeuille (A.7) — toute l'organisation, pas seulement
+      // l'utilisateur courant (todayTasks/priorityTasks/agendaTasks
+      // ci-dessus sont personnels) : un agrégat "portefeuille" doit compter
+      // les tâches en retard de tout le monde.
+      this.prisma.task.count({ where: { organizationId, done: false, dueDate: { lt: now } } }),
+      this.prisma.task.count({ where: { organizationId, done: false, dueDate: { lt: now }, priority: 'URGENT' } }),
     ]);
 
     const decisions = await this.buildDecisions(organizationId, riskDeals);
@@ -142,6 +150,8 @@ export class CockpitService {
       urgentCount: priorityTasks.filter((t) => t.priority === 'URGENT').length,
       criticalAlertsCount: unreadAlerts.filter((a) => a.severity === 'CRITICAL').length,
       deadlineUrgentCount: deadlineAlerts.filter((d) => d.level === 'URGENT').length,
+      overdueTasksTotal,
+      overdueTasksUrgent,
     });
 
     return {
@@ -159,6 +169,7 @@ export class CockpitService {
       guaranteesToRenew,
       autoSummary,
       decisions,
+      overdueTasks: { total: overdueTasksTotal, urgent: overdueTasksUrgent },
     };
   }
 
@@ -293,8 +304,10 @@ export class CockpitService {
     urgentCount: number;
     criticalAlertsCount: number;
     deadlineUrgentCount: number;
+    overdueTasksTotal: number;
+    overdueTasksUrgent: number;
   }): { headline: string; items: { label: string; severity: 'critical' | 'warning' | 'info' }[] } {
-    const { kpis, todayTasksCount, urgentCount, criticalAlertsCount, deadlineUrgentCount } = input;
+    const { kpis, todayTasksCount, urgentCount, criticalAlertsCount, deadlineUrgentCount, overdueTasksTotal, overdueTasksUrgent } = input;
 
     const headline =
       `${kpis.activeDeals} opération${kpis.activeDeals > 1 ? 's' : ''} active${kpis.activeDeals > 1 ? 's' : ''}` +
@@ -320,6 +333,15 @@ export class CockpitService {
       items.push({
         label: `${urgentCount} priorité${urgentCount > 1 ? 's' : ''} urgente${urgentCount > 1 ? 's' : ''} en attente`,
         severity: 'warning',
+      });
+    }
+
+    if (overdueTasksTotal > 0) {
+      items.push({
+        label:
+          `${overdueTasksTotal} tâche${overdueTasksTotal > 1 ? 's' : ''} en retard sur le portefeuille` +
+          (overdueTasksUrgent > 0 ? ` dont ${overdueTasksUrgent} urgente${overdueTasksUrgent > 1 ? 's' : ''}` : ''),
+        severity: overdueTasksUrgent > 0 ? 'critical' : 'warning',
       });
     }
 

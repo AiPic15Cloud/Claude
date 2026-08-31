@@ -1,16 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
+import { AlertsService } from '../alerts/alerts.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { QueryTasksDto } from './dto/query-tasks.dto';
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly activities: ActivitiesService,
+    private readonly alerts: AlertsService,
   ) {}
 
   async create(organizationId: string, userId: string, dto: CreateTaskDto) {
@@ -95,5 +100,40 @@ export class TasksService {
     const task = await this.prisma.task.findFirst({ where: { id, organizationId } });
     if (!task) throw new NotFoundException('Tâche introuvable');
     await this.prisma.task.delete({ where: { id } });
+  }
+
+  /**
+   * Remontée portefeuille (spec ATLAS v2, A.7) pour les tâches ordinaires —
+   * complète PlaybooksService.escalateOverdueBlockingActions(), qui ne
+   * couvre que les tâches générées par un playbook. Pas de nouveau champ
+   * "bloquant" sur Task : la priorité URGENT (déjà saisie par l'utilisateur
+   * à la création) joue ce rôle — une tâche urgente en retard doit remonter,
+   * une tâche normale non. Toute organisation, pas seulement l'assigné :
+   * c'est une remontée "portefeuille", pas personnelle. Garde anti-doublon
+   * par titre, même pattern que PlaybooksService.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_8AM)
+  async escalateOverdueUrgentTasks() {
+    const now = new Date();
+    const overdue = await this.prisma.task.findMany({
+      where: { priority: 'URGENT', done: false, dueDate: { lt: now } },
+      select: { id: true, title: true, dueDate: true, dealId: true, organizationId: true },
+    });
+
+    let created = 0;
+    for (const task of overdue) {
+      const title = `Tâche urgente en retard — ${task.title}`;
+      const existingAlert = await this.prisma.alert.findFirst({ where: { organizationId: task.organizationId, title } });
+      if (existingAlert) continue;
+
+      await this.alerts.create(task.organizationId, {
+        title,
+        message: `"${task.title}" est urgente et en retard depuis le ${task.dueDate!.toLocaleDateString('fr-FR')}.`,
+        severity: 'CRITICAL',
+        dealId: task.dealId ?? undefined,
+      });
+      created += 1;
+    }
+    if (created > 0) this.logger.log(`${created} alerte(s) de tâche urgente en retard créée(s).`);
   }
 }
