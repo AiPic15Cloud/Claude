@@ -28,7 +28,6 @@ function baseBand(compositeScore: number): number {
 
 export interface ClassifySurveillanceInput {
   compositeScore: number;
-  ewsScore: number;
   velocity: Velocity;
   /** Planchers de tous les hard overrides actuellement actifs sur le dossier. */
   activeHardOverrideFloors: DealSurveillanceStatus[];
@@ -45,11 +44,13 @@ export interface ClassifySurveillanceResult {
 export function classifySurveillanceStatus(input: ClassifySurveillanceInput): ClassifySurveillanceResult {
   let band = baseBand(input.compositeScore);
 
-  // Escalade : un EWS élevé ou une vélocité qui se dégrade rapidement peuvent
-  // pousser le statut au-delà de ce que le seul score composite indiquerait —
-  // une amélioration rapide (AMELIORATION) n'escalade jamais. Plafonnée à
-  // ELEVE (rang 2) : l'escalade ne peut jamais produire CRITIQUE.
-  if (input.ewsScore >= 50) band += 1;
+  // Escalade : une vélocité qui se dégrade rapidement peut pousser le statut
+  // au-delà de ce que le seul score composite indiquerait — une amélioration
+  // rapide (AMELIORATION) n'escalade jamais. Plafonnée à ELEVE (rang 2) :
+  // l'escalade ne peut jamais produire CRITIQUE. Avant le passage au score
+  // additif unique (v3.0), un EWS élevé escaladait aussi le palier — devenu
+  // inutile : un score plat où chaque mauvais signal contribue déjà
+  // directement au total n'a plus besoin de ce correctif de dilution.
   if (input.velocity.direction === 'AGGRAVATION') {
     if (input.velocity.band === 'DETERIORATION_RAPIDE') band += 2;
     else if (input.velocity.band === 'DERIVE') band += 1;

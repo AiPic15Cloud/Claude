@@ -287,9 +287,9 @@ export class AgentsService {
       `Score ATLAS : ${score.score}/100 (${score.factors.map((f) => `${f.label}: ${f.value}`).join(', ')})`,
       riskBreakdown.suppressed || riskBreakdown.composite.score === null
         ? 'Risque (Risk Engine) : dossier clos, non noté.'
-        : `Risque (Risk Engine) : ${riskBreakdown.composite.score}/100, statut de surveillance ${riskBreakdown.surveillance.status}, tendance ${riskBreakdown.composite.trend} — Qualité ${riskBreakdown.quality?.score}/100, Performance ${riskBreakdown.performance?.score}/100, EWS ${riskBreakdown.ews?.score}/100 — principaux facteurs : ${riskBreakdown.topContributors
+        : `Risque (Risk Engine) : ${riskBreakdown.composite.score}/100, statut de surveillance ${riskBreakdown.surveillance.status}, tendance ${riskBreakdown.composite.trend} — principaux facteurs : ${riskBreakdown.triggered
             .slice(0, 3)
-            .map((c) => c.label)
+            .map((t) => t.label)
             .join(', ')}`,
       deal.porteurSiren
         ? `Surveillance du porteur (SIREN ${deal.porteurSiren}) : ${PORTEUR_LABEL[deal.porteurMonitoringStatus ?? ''] ?? 'statut inconnu.'}`

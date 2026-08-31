@@ -201,7 +201,7 @@ export class CockpitService {
 
     return candidates.map((d, i) => {
       const breakdown = breakdowns[i];
-      const topFactor = breakdown.topContributors[0];
+      const topFactor = breakdown.triggered[0];
       const deadline = computeDeadlineAlert(d.dateMax, new Date(), false);
       return {
         dealId: d.id,
