@@ -69,6 +69,17 @@ export class GuaranteesService {
     return attachExpiry(updated, isDealClosed(deal));
   }
 
+  /** Spec ATLAS v2, A.5 — "statut de chaque sûreté vérifié dans les 30 derniers jours ?". Même pattern que CompanyMonitoringCard : un humain confirme, jamais déduit. */
+  async markVerified(organizationId: string, dealId: string, id: string, userId: string) {
+    const deal = await this.assertDeal(organizationId, dealId);
+    const guarantee = await this.prisma.guarantee.findFirst({ where: { id, dealId } });
+    if (!guarantee) throw new NotFoundException('Garantie introuvable');
+    const updated = await this.prisma.guarantee.update({ where: { id }, data: { verifiedAt: new Date() } });
+    await this.activities.log(dealId, userId, 'GUARANTEE_VERIFIED', `Garantie vérifiée : ${updated.description} (${updated.type})`);
+    await this.recomputeRisk(organizationId, dealId);
+    return attachExpiry(updated, isDealClosed(deal));
+  }
+
   async remove(organizationId: string, dealId: string, id: string) {
     await this.assertDeal(organizationId, dealId);
     const guarantee = await this.prisma.guarantee.findFirst({ where: { id, dealId } });

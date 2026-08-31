@@ -36,6 +36,11 @@ export class GuaranteesController {
     return this.guaranteesService.update(user.organizationId, dealId, id, dto);
   }
 
+  @Patch(':id/verify')
+  markVerified(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Param('id') id: string) {
+    return this.guaranteesService.markVerified(user.organizationId, dealId, id, user.id);
+  }
+
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Param('id') id: string) {
