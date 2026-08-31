@@ -427,6 +427,7 @@ export interface CockpitSummary {
   guaranteesToRenew: GuaranteeToRenew[];
   autoSummary: AutoSummary;
   decisions: DecisionRow[];
+  overdueTasks: { total: number; urgent: number };
 }
 
 export interface DecisionRow {
@@ -510,6 +511,7 @@ export interface Guarantee {
   rank: number;
   status: GuaranteeStatus;
   endDate?: string | null;
+  verifiedAt?: string | null;
   // Calculés côté serveur à partir de endDate — jamais saisis directement.
   validity: GuaranteeValidity;
   expiringSoon: boolean;

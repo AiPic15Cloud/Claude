@@ -36,6 +36,15 @@ export function useUpdateGuarantee(dealId: string) {
   });
 }
 
+/** Spec ATLAS v2, A.5 — un humain confirme la vérification, jamais déduit automatiquement. */
+export function useMarkGuaranteeVerified(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.patch<Guarantee>(`/deals/${dealId}/guarantees/${id}/verify`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] }),
+  });
+}
+
 export function useDeleteGuarantee(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({

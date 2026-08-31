@@ -1,8 +1,9 @@
-import { Shield, Trash2, TriangleAlert } from 'lucide-react';
+import { ShieldCheck, Shield, Trash2, TriangleAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useGuarantees, useDeleteGuarantee } from '../hooks/use-guarantees';
+import { FreshnessBadge } from '@/components/ui/freshness-badge';
+import { useGuarantees, useDeleteGuarantee, useMarkGuaranteeVerified } from '../hooks/use-guarantees';
 import { GuaranteeFormDialog } from './guarantee-form-dialog';
 import { RenewGuaranteeDialog } from './renew-guarantee-dialog';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -17,6 +18,7 @@ const STATUS_VARIANT: Record<GuaranteeStatus, 'success' | 'warning' | 'destructi
 export function GuaranteesPanel({ dealId }: { dealId: string }) {
   const { data: guarantees = [], isLoading } = useGuarantees(dealId);
   const deleteGuarantee = useDeleteGuarantee(dealId);
+  const markVerified = useMarkGuaranteeVerified(dealId);
 
   return (
     <Card>
@@ -54,10 +56,16 @@ export function GuaranteesPanel({ dealId }: { dealId: string }) {
                   </div>
                   <p className="text-xs text-muted-foreground">{g.description}</p>
                   {g.endDate && <p className="text-xs text-muted-foreground">Fin : {formatDate(g.endDate)}</p>}
+                  {g.status === 'ACTIVE' && <FreshnessBadge checkedAt={g.verifiedAt} label="Vérifiée" />}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
                 <span className="text-sm font-semibold tabular-nums">{formatCurrency(g.amount)}</span>
+                {g.status === 'ACTIVE' && (
+                  <Button variant="outline" size="sm" onClick={() => markVerified.mutate(g.id)} disabled={markVerified.isPending}>
+                    <ShieldCheck className="h-3.5 w-3.5" /> Marquer comme vérifiée
+                  </Button>
+                )}
                 {needsRenewal && <RenewGuaranteeDialog dealId={dealId} guarantee={g} />}
                 <GuaranteeFormDialog dealId={dealId} guarantee={g} />
                 <Button variant="ghost" size="icon" onClick={() => deleteGuarantee.mutate(g.id)}>
