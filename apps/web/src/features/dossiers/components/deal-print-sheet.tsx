@@ -37,8 +37,8 @@ export function DealPrintSheet({ deal, guarantees }: { deal: Deal; guarantees: G
           <p className="text-lg font-semibold">{deal.interestRate ? `${deal.interestRate}%` : '—'}</p>
         </div>
         <div>
-          <p className="text-xs text-black/60">Score ATLAS</p>
-          <p className="text-lg font-semibold">{deal.atlasScore ?? '—'}</p>
+          <p className="text-xs text-black/60">Score de risque</p>
+          <p className="text-lg font-semibold">{deal.riskScore ?? '—'}</p>
         </div>
       </section>
 

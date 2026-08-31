@@ -193,7 +193,6 @@ export interface Deal {
   country: string;
   lat?: string | null;
   lng?: string | null;
-  atlasScore?: number | null;
   riskScore?: number | null;
   riskScorePrevious?: number | null;
   riskScoreUpdatedAt?: string | null;
@@ -835,24 +834,6 @@ export interface ProjectCheckpoint {
   deltaPrix: number | null;
   margeADate: number | null;
   createdAt: string;
-}
-
-// ── Score ATLAS ──────────────────────────────────────────────
-
-export interface ScoreFactor {
-  key: string;
-  label: string;
-  value: number;
-  weight: number;
-  contribution: number;
-  explanation: string;
-}
-
-export interface ScoreBreakdown {
-  score: number;
-  factors: ScoreFactor[];
-  computedAt: string;
-  disclaimer: string;
 }
 
 // ── Risk Engine v3 (score additif unique) ─────────────────────

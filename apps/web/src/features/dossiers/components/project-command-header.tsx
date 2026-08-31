@@ -30,8 +30,10 @@ interface ProjectCommandHeaderProps {
  * Header condensé de fiche projet (brief "Le Traçotin", section 3) : répond
  * dans l'ordre à "quelle est la situation, combien est exposé, pourquoi,
  * sommes-nous protégés, que doit-on faire, pour quand/par qui" — remplace
- * l'ancienne dispersion (ScoreBadge/RiskScoreBadge dans la rangée de boutons +
- * 3 bandeaux d'alerte au même niveau visuel). "Recovery : non évalué" et le
+ * l'ancienne dispersion (Score ATLAS/RiskScoreBadge dans la rangée de boutons +
+ * 3 bandeaux d'alerte au même niveau visuel — le Score ATLAS a depuis été
+ * supprimé, spec ATLAS v2 A.2bis : le score de risque est l'unique métrique
+ * de synthèse). "Recovery : non évalué" et le
  * décompte d'informations manquantes viennent de données réellement calculées
  * (DataValidation, RiskEngine.completeness), jamais d'un texte figé.
  */
@@ -88,8 +90,6 @@ export function ProjectCommandHeader({ deal, guaranteeWarnings, tasks, onOpenTas
               {data.composite.deltas.d90}
             </span>
           )}
-          <span className="text-muted-foreground/50">·</span>
-          <span className="text-xs text-muted-foreground">Score ATLAS {deal.atlasScore ?? '—'}/100</span>
         </div>
 
         {/* 2. Exposition + statuts fusionnés */}
