@@ -21,6 +21,7 @@ import { RiskEngineService, RECOVERY_LABEL, PORTEUR_LABEL } from '../risk-engine
 import { FieldChangeService } from '../field-changes/field-change.service';
 import { GraphService } from '../graph/graph.service';
 import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
+import { PlaybooksService } from '../playbooks/playbooks.service';
 import { computeCrd } from './crd.util';
 import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
 
@@ -56,6 +57,7 @@ export class DealsService {
     private readonly fieldChanges: FieldChangeService,
     private readonly graph: GraphService,
     private readonly entityMirror: EntityMirrorService,
+    private readonly playbooks: PlaybooksService,
   ) {}
 
   /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
@@ -569,6 +571,12 @@ export class DealsService {
       await this.riskEngine
         .recomputeAndPersist(organizationId, id)
         .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${id}`, err instanceof Error ? err.stack : err));
+    }
+
+    if (recoveryStatusChanged && rest.recoveryStatus === 'PROCEDURE_COLLECTIVE') {
+      await this.playbooks
+        .triggerProcedureCollective(organizationId, id, 'recovery_status_manuel')
+        .catch((err) => this.logger.error(`Échec du déclenchement du playbook procédure collective pour le deal ${id}`, err instanceof Error ? err.stack : err));
     }
 
     if (sirenChanged && deal.porteurSiren) {
