@@ -215,7 +215,6 @@ export interface Deal {
   deadlineAlert?: DeadlineAlert;
   durationTargetAlert?: DurationTargetAlert;
   checkpointHealth?: CheckpointHealth;
-  narrative?: AutoSummary;
   createdById: string;
   createdBy?: UserSummary;
   assignedToId?: string | null;
