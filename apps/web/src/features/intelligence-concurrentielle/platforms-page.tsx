@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePlatforms, useSyncPlatforms, useApplyWatchlist } from './hooks/use-platforms';
+import { useSourceCoverage } from '@/features/intelligence-marche/hooks/use-market-intelligence';
 import { EntityDrawer } from '@/features/knowledge-graph/components/entity-drawer';
 import { CreateEntityDialog } from '@/features/knowledge-graph/components/create-entity-dialog';
 import {
@@ -17,12 +18,17 @@ import {
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
+import { SOURCE_HEALTH_LABELS } from '@/types';
+
+const BAROMETER_HEALTH_VARIANT = { OPERATIONAL: 'success', DEGRADED: 'warning', BROKEN: 'destructive', UNKNOWN: 'outline' } as const;
 
 export function PlatformsPage() {
   const { data: platforms = [], isLoading } = usePlatforms();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sync = useSyncPlatforms();
   const watchlist = useApplyWatchlist();
+  const { data: coverage } = useSourceCoverage();
+  const barometerHealth = coverage?.sources.find((s) => s.key === 'barometer')?.health;
 
   return (
     <div className="flex flex-col gap-5">
@@ -39,6 +45,9 @@ export function PlatformsPage() {
               <RefreshCw className={cn('h-3.5 w-3.5', sync.isPending && 'animate-spin')} />
               Actualiser (baromètre)
             </Button>
+            {barometerHealth && barometerHealth !== 'OPERATIONAL' && (
+              <Badge variant={BAROMETER_HEALTH_VARIANT[barometerHealth]}>Baromètre : {SOURCE_HEALTH_LABELS[barometerHealth]}</Badge>
+            )}
             <CreateEntityDialog />
           </>
         }

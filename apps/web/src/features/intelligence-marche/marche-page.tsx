@@ -21,6 +21,7 @@ import { PortfolioRateBenchmarkCard } from './components/portfolio-rate-benchmar
 import { DvfSearchCard } from './components/dvf-search-card';
 import { MarketDigestCard } from './components/market-digest-card';
 import { SourcesPanel } from './components/sources-panel';
+import { SourceCoverageCard } from './components/source-coverage-card';
 import { useArticles, useCollectAll } from './hooks/use-market-intelligence';
 import { ARTICLE_CATEGORY_LABELS, type ArticleCategory, type Priority } from '@/types';
 import { cn } from '@/lib/utils';
@@ -69,6 +70,8 @@ export function MarchePage() {
       <DvfSearchCard />
 
       <MarketDigestCard />
+
+      <SourceCoverageCard />
 
       <SourcesPanel />
 

@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Article, ArticleCategory, NewsSource, PaginatedResult } from '@/types';
+import type { Article, ArticleCategory, NewsSource, PaginatedResult, SourceCoverage } from '@/types';
+
+/** Couverture des sources externes (spec ATLAS v2, C.7). */
+export function useSourceCoverage() {
+  return useQuery({
+    queryKey: ['source-registry'],
+    queryFn: () => api.get<SourceCoverage>('/source-registry'),
+  });
+}
 
 export function useSources() {
   return useQuery({
