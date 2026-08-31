@@ -28,6 +28,7 @@ import { RiskDataModule } from './risk-data/risk-data.module';
 import { FieldChangeModule } from './field-changes/field-change.module';
 import { GraphModule } from './graph/graph.module';
 import { EntityGraphModule } from './entity-graph/entity-graph.module';
+import { PlaybooksModule } from './playbooks/playbooks.module';
 import { IntelligenceConcurrentielleModule } from './intelligence-concurrentielle/intelligence-concurrentielle.module';
 import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
 import { AgentsModule } from './agents/agents.module';
@@ -69,6 +70,7 @@ import { HealthController } from './health/health.controller';
     FieldChangeModule,
     GraphModule,
     EntityGraphModule,
+    PlaybooksModule,
     IntelligenceConcurrentielleModule,
     IntelligenceMarcheModule,
     AgentsModule,
