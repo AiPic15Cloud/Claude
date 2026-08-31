@@ -209,6 +209,8 @@ model Organization {
   riskScoreSnapshots RiskScoreSnapshot[]
   riskOverrides      RiskOverride[]
   dealOverrides      DealOverride[]
+  entities           Entity[]
+  relationships      Relationship[]
 
   @@map("organizations")
 }
@@ -264,6 +266,7 @@ model User {
   financialAssumptionsLocked FinancialAssumption[]
   dealOverridesCreated       DealOverride[]         @relation("DealOverrideCreatedBy")
   dealOverridesCleared       DealOverride[]         @relation("DealOverrideClearedBy")
+  relationshipEvidence       Evidence[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -466,6 +469,8 @@ model Deal {
   riskScoreSnapshots         RiskScoreSnapshot[]
   riskOverrides              RiskOverride[]
   dealOverrides              DealOverride[]
+  /// Entité miroir dans le Knowledge Graph (type OPERATION) — voir Entity.mirrorsDealId.
+  entityMirror               Entity?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1131,6 +1136,240 @@ model GraphRelation {
   @@index([fromEntityId])
   @@index([toEntityId])
   @@map("graph_relations")
+}
+
+// ── Knowledge Graph v2 (spec ATLAS v2, B.2) — fondation ────────────────
+//
+// Coexiste avec GraphEntity/GraphRelation/DealEntityLink ci-dessus le temps
+// de la transition : le graphe visuel (graph.service.ts, graph-page.tsx)
+// continue de tourner sur l'ancien modèle jusqu'à ce que B.3 (requêtes
+// déterministes) vienne consommer celui-ci. Chaque GraphEntity/GraphRelation
+// existant est migré ici (même id, traçabilité directe) — jamais supprimé.
+
+enum EntityType {
+  PROMOTEUR
+  BANQUE
+  NOTAIRE
+  ARCHITECTE
+  COLLECTIVITE
+  INVESTISSEUR
+  PLATEFORME
+  /// Miroir d'un Deal — absent de l'ancien GraphEntityType, permet à une
+  /// Relationship de pointer nativement vers une opération (ex. "caution
+  /// partagée entre Opération X et Opération Y", B.3).
+  OPERATION
+}
+
+/// Portfolio = contreparties réelles liées à des opérations LPB (+ les Deals
+/// eux-mêmes) ; Market = veille concurrentielle. Champ explicite plutôt que
+/// deux graphes séparés, pour permettre le croisement futur (B.8) sans
+/// dupliquer l'infrastructure.
+enum EntityDomain {
+  PORTFOLIO
+  MARKET
+}
+
+/// Niveau de couverture relationnelle (section 0.2 de la spec) — jamais
+/// "aucun lien détecté" sans préciser le niveau de complétude de la
+/// documentation elle-même.
+enum RelationshipCoverage {
+  UNKNOWN
+  PARTIAL
+  SUBSTANTIAL
+  VERIFIED
+}
+
+model Entity {
+  /// Pas de @default(cuid()) : les entités migrées réutilisent l'id
+  /// GraphEntity d'origine, les miroirs de deal utilisent `deal_<dealId>`
+  /// (dérivable sans table de mapping), les nouvelles entités reçoivent un
+  /// cuid généré côté service.
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type        EntityType
+  domain      EntityDomain @default(PORTFOLIO)
+  name        String
+  description String?
+  metadata    Json?
+
+  coverage RelationshipCoverage @default(UNKNOWN)
+
+  /// Non-null uniquement pour les entités miroir d'un Deal (type OPERATION).
+  mirrorsDealId String? @unique
+  mirrorsDeal   Deal?   @relation(fields: [mirrorsDealId], references: [id], onDelete: Cascade)
+
+  identifiers       EntityIdentifier[]
+  aliases           EntityAlias[]
+  relationshipsFrom Relationship[]     @relation("RelFrom")
+  relationshipsTo   Relationship[]     @relation("RelTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, domain])
+  @@index([type])
+  @@map("entities")
+}
+
+enum EntityIdentifierType {
+  SIREN
+  SIRET
+  RCS
+  AUTRE
+}
+
+model EntityIdentifier {
+  id         String               @id @default(cuid())
+  entityId   String
+  entity     Entity               @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  type       EntityIdentifierType
+  value      String
+  /// Dernière vérification (SIRENE/BODACC) — alimente le badge de fraîcheur (0.3).
+  verifiedAt DateTime?
+
+  @@unique([entityId, type, value])
+  @@index([type, value])
+  @@map("entity_identifiers")
+}
+
+/// Variantes de nom observées pour une entité (ex. raison sociale abrégée,
+/// nom commercial différent du nom légal) — jamais fusionnées automatiquement
+/// avec le nom canonique.
+model EntityAlias {
+  id       String  @id @default(cuid())
+  entityId String
+  entity   Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  alias    String
+  source   String?
+
+  @@index([entityId])
+  @@map("entity_aliases")
+}
+
+/// Taxonomie des types de relation — table plutôt qu'enum Prisma pour pouvoir
+/// en ajouter sans migration. Seed fixe pour l'instant (pas d'UI d'admin) :
+/// voir entity-graph.seed dans EntityGraphModule.
+model RelationshipType {
+  key         String  @id
+  label       String
+  /// Catégorie de filtre pour le graphe visuel (B.7) : Financial/Legal/Ownership/Guarantees/Projects/Autre.
+  category    String
+  description String?
+
+  relationships Relationship[]
+
+  @@map("relationship_types")
+}
+
+enum RelationshipStatus {
+  ACTIVE
+  ENDED
+  DISPUTED
+}
+
+/// Niveau de preuve d'une relation — jamais une simple affirmation traitée
+/// comme un fait vérifié.
+enum EvidenceLevel {
+  DECLARED
+  DOCUMENTED
+  OFFICIAL
+}
+
+model Relationship {
+  /// Pas de @default(cuid()) : les relations migrées réutilisent l'id GraphRelation d'origine.
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  sourceEntityId String
+  sourceEntity   Entity @relation("RelFrom", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntityId String
+  targetEntity   Entity @relation("RelTo", fields: [targetEntityId], references: [id], onDelete: Cascade)
+
+  typeKey String
+  type    RelationshipType @relation(fields: [typeKey], references: [key])
+
+  startedAt   DateTime?
+  endedAt     DateTime?
+  amount      Decimal?  @db.Decimal(14, 2)
+  percentage  Decimal?  @db.Decimal(5, 2)
+  /// 0-100 — poids de ce lien pour une future analyse de contagion (B.4/B.5, pas construite ici).
+  criticality Int       @default(0)
+
+  status     RelationshipStatus   @default(ACTIVE)
+  confidence RelationshipCoverage @default(UNKNOWN)
+  verifiedAt DateTime?
+
+  evidence Evidence[]
+  events   RelationshipEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([sourceEntityId])
+  @@index([targetEntityId])
+  @@index([typeKey])
+  @@map("relationships")
+}
+
+model Evidence {
+  id             String       @id @default(cuid())
+  relationshipId String
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  level     EvidenceLevel
+  source    String
+  reference String?
+  note      String?
+
+  /// Nullable : une preuve migrée depuis l'ancien GraphRelation n'a pas
+  /// d'auteur réel — jamais attribuée à quelqu'un qui ne l'a pas créée.
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([relationshipId])
+  @@map("relationship_evidence")
+}
+
+enum RelationshipEventType {
+  CREATED
+  AMOUNT_CHANGED
+  PERCENTAGE_CHANGED
+  STATUS_CHANGED
+  CONFIDENCE_CHANGED
+  EVIDENCE_ADDED
+  ENDED
+}
+
+/// Colonnes typées (avant/après) plutôt qu'un JSON générique — un
+/// RelationshipEvent ne couvre que les champs qui changent réellement dans la
+/// vie d'une relation.
+model RelationshipEvent {
+  id             String       @id @default(cuid())
+  relationshipId String
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  eventType RelationshipEventType
+
+  previousAmount     Decimal?              @db.Decimal(14, 2)
+  newAmount          Decimal?              @db.Decimal(14, 2)
+  previousPercentage Decimal?              @db.Decimal(5, 2)
+  newPercentage      Decimal?              @db.Decimal(5, 2)
+  previousStatus     RelationshipStatus?
+  newStatus          RelationshipStatus?
+  previousConfidence RelationshipCoverage?
+  newConfidence      RelationshipCoverage?
+
+  note String?
+
+  occurredAt DateTime @default(now())
+
+  @@index([relationshipId])
+  @@map("relationship_events")
 }
 
 enum CompetitorProjectStatus {
