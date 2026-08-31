@@ -86,6 +86,7 @@ enum ActivityType {
   TAG_ADDED
   TAG_REMOVED
   GUARANTEE_ADDED
+  GUARANTEE_VERIFIED
   FINANCIAL_MODEL_UPDATED
   ENTITY_LINKED
   CHECKPOINT_CREATED
@@ -928,6 +929,12 @@ model Guarantee {
   // (computed, not stored — see guarantee-expiry.util.ts) and the 6-month
   // renewal warning/notification.
   endDate DateTime?
+
+  /// Dernière vérification par un analyste (spec ATLAS v2, A.5 —
+  /// "statut de chaque sûreté vérifié dans les 30 derniers jours ?").
+  /// Distinct d'endDate : une sûreté peut être valide sur le papier mais
+  /// jamais recontrôlée récemment.
+  verifiedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
