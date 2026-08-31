@@ -23,6 +23,7 @@ import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { RiskAtlasCard } from './components/risk-atlas-card';
 import { ProjectCommandHeader } from './components/project-command-header';
 import { DealStageTimeline } from './components/deal-stage-timeline';
+import { LoanLifecycleTimeline } from './components/loan-lifecycle-timeline';
 import { ActivityLogPanel } from './components/activity-log-panel';
 import { FieldHistoryPanel } from './components/field-history-panel';
 import { ValidationBadge } from './components/validation-badge';
@@ -45,7 +46,7 @@ import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { GUARANTEE_TYPE_LABELS, type FinancialExtraction } from '@/types';
+import { GUARANTEE_TYPE_LABELS, isFinancedStage, type FinancialExtraction } from '@/types';
 
 export function DossierPage() {
   const { id } = useParams<{ id: string }>();
@@ -272,7 +273,11 @@ export function DossierPage() {
         </Card>
       </div>
 
-      <DealStageTimeline dealId={deal.id} currentStage={deal.stage} />
+      {isFinancedStage(deal.stage) ? (
+        <LoanLifecycleTimeline dealId={deal.id} variant="full" />
+      ) : (
+        <DealStageTimeline dealId={deal.id} currentStage={deal.stage} />
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
