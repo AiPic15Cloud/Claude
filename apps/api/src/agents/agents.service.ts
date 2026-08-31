@@ -155,11 +155,21 @@ export class AgentsService {
     return { system, messages };
   }
 
-  /** Pure generation — yields text deltas as Claude produces them. Call only after prepareChat(WithFile) has validated the request. */
+  /**
+   * Pure generation — yields text deltas as Claude produces them. Call only
+   * after prepareChat(WithFile) has validated the request.
+   *
+   * max_tokens à 4096 coupait net les analyses longues (audit financier
+   * multi-sections, grille de risque détaillée...) en plein milieu d'une
+   * phrase, sans le moindre signal — le texte partiel était persisté comme
+   * si la réponse était complète. Relevé à 64000 (plafond de sortie du
+   * modèle configuré) ; si la limite est malgré tout atteinte, on l'affiche
+   * explicitement plutôt que de laisser la coupure silencieuse.
+   */
   async *streamText(system: string, messages: Anthropic.MessageParam[]): AsyncGenerator<string> {
     const stream = this.client!.messages.stream({
       model: this.config.get<string>('ai.anthropicModel')!,
-      max_tokens: 4096,
+      max_tokens: 64000,
       system,
       messages,
     });
@@ -167,6 +177,9 @@ export class AgentsService {
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         yield event.delta.text;
+      }
+      if (event.type === 'message_delta' && event.delta.stop_reason === 'max_tokens') {
+        yield '\n\n*(Réponse interrompue — limite de longueur atteinte. Redemandez la suite si besoin.)*';
       }
     }
   }
