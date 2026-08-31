@@ -1,13 +1,15 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { MapPin, TrendingUp, Clock } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { TagBadge } from './tag-badge';
-import { ScoreBadge, RiskScoreBadge, CheckpointHealthBadge } from './deal-badges';
+import { SurveillanceStatusBadge } from './deal-badges';
 import { formatCurrency } from '@/lib/format';
 import type { Deal } from '@/types';
 import { cn } from '@/lib/utils';
+
+const MAX_VISIBLE_TAGS = 2;
 
 interface DealCardProps {
   deal: Deal;
@@ -35,35 +37,24 @@ export function DealCard({ deal, onClick }: DealCardProps) {
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium leading-snug">{deal.name}</p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <CheckpointHealthBadge health={deal.checkpointHealth} compact />
-            <ScoreBadge score={deal.atlasScore} />
-            <RiskScoreBadge score={deal.riskScore} previousScore={deal.riskScorePrevious} />
-          </div>
+          {/* Un seul signal de risque, silencieux si le dossier est sain (FAIBLE) — plutôt que 3 badges numériques concurrents. */}
+          <SurveillanceStatusBadge status={deal.surveillanceStatus} compact />
         </div>
 
-        {deal.city && (
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3" /> {deal.city}
-          </p>
-        )}
-
-        {(deal.interestRate || deal.durationMonths) && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {deal.interestRate && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                <TrendingUp className="h-3 w-3" />
-                <span className="text-foreground">{Number(deal.interestRate).toFixed(2)}%</span>/an
-              </span>
-            )}
-            {deal.durationMonths && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span className="text-foreground">{deal.durationMonths}</span>mois
-              </span>
-            )}
-          </div>
-        )}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+          {deal.city && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> {deal.city}
+            </span>
+          )}
+          {(deal.interestRate || deal.durationMonths) && (
+            <span>
+              {deal.interestRate && `${Number(deal.interestRate).toFixed(2)}%/an`}
+              {deal.interestRate && deal.durationMonths && ' · '}
+              {deal.durationMonths && `${deal.durationMonths} mois`}
+            </span>
+          )}
+        </p>
 
         <div className="flex flex-col gap-1">
           <Progress value={progress} className="h-1.5" />
@@ -74,10 +65,13 @@ export function DealCard({ deal, onClick }: DealCardProps) {
         </div>
 
         {deal.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {deal.tags.map(({ tag }) => (
+          <div className="flex flex-wrap items-center gap-1">
+            {deal.tags.slice(0, MAX_VISIBLE_TAGS).map(({ tag }) => (
               <TagBadge key={tag.id} tag={tag} />
             ))}
+            {deal.tags.length > MAX_VISIBLE_TAGS && (
+              <span className="text-[11px] text-muted-foreground">+{deal.tags.length - MAX_VISIBLE_TAGS}</span>
+            )}
           </div>
         )}
       </CardContent>
