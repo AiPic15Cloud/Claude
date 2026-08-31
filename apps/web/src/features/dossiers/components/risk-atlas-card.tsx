@@ -3,7 +3,6 @@ import { Loader2, RefreshCw, TrendingDown, TrendingUp, Minus, ShieldAlert, Lock 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -21,28 +20,6 @@ import { RiskTrajectoryChart } from './risk-trajectory-chart';
 import { SurveillanceStatusBadge } from '@/features/portfolio/components/deal-badges';
 import { DEAL_SURVEILLANCE_STATUS_LABELS, type DealSurveillanceStatus } from '@/types';
 import { formatDate } from '@/lib/format';
-
-// Sub-scores structurels/de performance : haut = mieux, comme scoreColor.
-function scoreColor(value: number): string {
-  if (value >= 70) return 'bg-success';
-  if (value >= 40) return 'bg-warning';
-  return 'bg-destructive';
-}
-
-function SubScore({ label, info, value }: { label: string; info: string; value: number | undefined | null }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="inline-flex items-center gap-1 text-muted-foreground">
-          {label}
-          <InfoTooltip text={info} />
-        </span>
-        <span className="font-medium tabular-nums">{value ?? '—'}</span>
-      </div>
-      <Progress value={value ?? 0} className="h-1.5" indicatorClassName={value === null || value === undefined ? 'bg-muted' : scoreColor(value)} />
-    </div>
-  );
-}
 
 const TREND_ICON = { UP: TrendingUp, DOWN: TrendingDown, FLAT: Minus } as const;
 
@@ -221,38 +198,25 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3">
-          <SubScore
-            label="Quality"
-            info="Qualité structurelle du dossier : marge, ratios de financement (LTC/LTV), dépendance bancaire, garanties. Relativement stable dans le temps — plus haut est mieux."
-            value={data.quality?.score}
-          />
-          <SubScore
-            label="Performance"
-            info="Écart entre le réel et le business plan initial : marge à date, suivi chantier/commercialisation, prix de vente actualisé. Plus haut est mieux."
-            value={data.performance?.score}
-          />
-          <SubScore
-            label="EWS"
-            info="Early Warning Score — signaux d'alerte précoce cumulés (retards, dégradations, situation juridique...). Contrairement aux deux autres scores, plus haut est pire ici."
-            value={data.ews?.score}
-          />
-        </div>
-
-        {data.topContributors.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Principaux facteurs</p>
-            {data.topContributors.slice(0, 5).map((c, i) => (
-              <div key={`${c.source}-${i}`} className="flex items-center justify-between text-xs">
-                <span>{c.label}</span>
-                <span className={`font-medium tabular-nums ${c.points > 0 ? 'text-destructive' : c.points < 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                  {c.points > 0 ? '+' : ''}
-                  {c.points} pts
+        <div className="flex flex-col gap-1.5">
+          <p className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+            Pourquoi ce score ?
+            <InfoTooltip text="Score additif : chaque indicateur ci-dessous ajoute des points fixes à une condition objective (jamais une appréciation opaque), plafonné à 100. Détail complet des poids dans Méthodologie." />
+          </p>
+          {data.triggered.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun indicateur déclenché — dossier sans signal négatif identifié.</p>
+          ) : (
+            data.triggered.map((t) => (
+              <div key={t.key} className="flex items-start justify-between gap-3 text-xs">
+                <span className="text-muted-foreground">
+                  {t.label}
+                  <span className="block text-[11px] text-muted-foreground/70">{t.explanation}</span>
                 </span>
+                <span className="shrink-0 font-medium tabular-nums text-destructive">+{t.points} pts</span>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
 
         <div className="flex flex-col gap-1.5">
           <p className="text-xs font-medium text-muted-foreground">Trajectoire (90j)</p>

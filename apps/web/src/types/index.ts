@@ -786,36 +786,13 @@ export interface ScoreBreakdown {
   disclaimer: string;
 }
 
-// ── Risk Engine v2 (Phase 1) ─────────────────────────────────
-
-export interface ScoreInput {
-  key: string;
-  label: string;
-  weight: number;
-  value: number;
-  explanation: string;
-}
-
-export interface QualityScoreResult {
-  score: number;
-  inputs: ScoreInput[];
-}
-
-export interface PerformanceScoreResult {
-  score: number;
-  inputs: ScoreInput[];
-}
+// ── Risk Engine v3 (score additif unique) ─────────────────────
 
 export interface TriggeredIndicator {
   key: string;
   label: string;
   points: number;
   explanation: string;
-}
-
-export interface EwsScoreResult {
-  score: number;
-  triggered: TriggeredIndicator[];
 }
 
 export interface RiskOverrideRow {
@@ -843,9 +820,7 @@ export interface DealRiskProfile {
     trend: 'UP' | 'DOWN' | 'FLAT' | null;
     deltas: { d7: number | null; d30: number | null; d90: number | null };
   };
-  quality: QualityScoreResult | null;
-  performance: PerformanceScoreResult | null;
-  ews: EwsScoreResult | null;
+  triggered: TriggeredIndicator[];
   surveillance: {
     status: DealSurveillanceStatus | null;
     automaticStatus: DealSurveillanceStatus | null;
@@ -855,31 +830,21 @@ export interface DealRiskProfile {
   };
   cycleProjet: 'EN_COURS' | 'SORTIE' | 'REMBOURSEMENT' | 'CLOTURE';
   recoveryStatus: DealRecoveryStatus | null;
-  topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
   completeness: { missingCount: number; missingItems: { key: string; label: string }[] } | null;
   dataFreshness: {
     sources: { key: string; label: string; checkedAt: string | null; upToDate: boolean }[];
     confidencePct: number | null;
   } | null;
+  guaranteeProtection: string;
 }
 
 export interface RiskTrajectoryPoint {
   computedAt: string;
   compositeScore: number;
-  qualityScore: number;
-  performanceScore: number;
-  ewsScore: number;
   surveillanceStatus: DealSurveillanceStatus;
 }
 
-export interface ScoreInputDefinition {
-  key: string;
-  label: string;
-  weight: number;
-  rationale: string;
-}
-
-export interface EwsIndicatorDefinition {
+export interface RiskIndicatorDefinition {
   key: string;
   label: string;
   maxPoints: number;
@@ -893,10 +858,7 @@ export interface HardOverrideRuleDefinition {
 }
 
 export interface RiskMethodology {
-  quality: ScoreInputDefinition[];
-  performance: ScoreInputDefinition[];
-  ews: EwsIndicatorDefinition[];
-  composite: { weights: { quality: number; performance: number; ews: number } };
+  indicators: RiskIndicatorDefinition[];
   surveillanceBands: Record<DealSurveillanceStatus, string>;
   velocityWindowDays: number;
   velocityBands: { STABLE: string; DETERIORATION: string; DERIVE: string; DETERIORATION_RAPIDE: string };

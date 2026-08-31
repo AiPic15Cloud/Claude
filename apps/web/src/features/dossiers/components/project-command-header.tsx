@@ -66,7 +66,6 @@ export function ProjectCommandHeader({ deal, guaranteeWarnings, tasks, onOpenTas
 
   const TrendIcon = data.composite.trend ? TREND_ICON[data.composite.trend] : Minus;
 
-  const guaranteeInput = data.quality?.inputs.find((i) => i.key === 'garanties');
   const openTasks = tasks.filter((t) => !t.done);
   const urgentTasks = openTasks.filter((t) => t.priority === 'URGENT' || t.priority === 'HIGH');
   const nextTask = [...openTasks].sort((a, b) => {
@@ -101,18 +100,18 @@ export function ProjectCommandHeader({ deal, guaranteeWarnings, tasks, onOpenTas
         </p>
 
         {/* 3. Pourquoi */}
-        {data.topContributors.length > 0 && (
+        {data.triggered.length > 0 && (
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Pourquoi : </span>
-            {data.topContributors.slice(0, 2).map((c) => c.label).join(' · ')}
+            {data.triggered.slice(0, 2).map((t) => t.label).join(' · ')}
           </p>
         )}
 
         {/* 4. Protection */}
-        {(guaranteeInput || guaranteeWarnings.length > 0) && (
+        {(data.guaranteeProtection || guaranteeWarnings.length > 0) && (
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Protection : </span>
-            {guaranteeInput?.explanation}
+            {data.guaranteeProtection}
             {guaranteeWarnings.length > 0 && ` · ${guaranteeWarnings.length} sûreté(s) à revoir`}
           </p>
         )}
