@@ -15,9 +15,21 @@ import { RiskDataModule } from '../risk-data/risk-data.module';
 import { RiskEngineModule } from '../risk-engine/risk-engine.module';
 import { FieldChangeModule } from '../field-changes/field-change.module';
 import { GraphModule } from '../graph/graph.module';
+import { EntityGraphModule } from '../entity-graph/entity-graph.module';
 
 @Module({
-  imports: [ActivitiesModule, SearchModule, AlertsModule, TasksModule, StorageModule, RiskDataModule, RiskEngineModule, FieldChangeModule, GraphModule],
+  imports: [
+    ActivitiesModule,
+    SearchModule,
+    AlertsModule,
+    TasksModule,
+    StorageModule,
+    RiskDataModule,
+    RiskEngineModule,
+    FieldChangeModule,
+    GraphModule,
+    EntityGraphModule,
+  ],
   providers: [DealsService, GeocodingService, GeocodingBackfillService, DeadlineAlertsService, DurationTargetAlertsService, CompanyMonitoringService],
   controllers: [DealsController],
   exports: [DealsService],
