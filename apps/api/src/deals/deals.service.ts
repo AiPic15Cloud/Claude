@@ -20,6 +20,7 @@ import { isDealClosed } from '../common/deal-lifecycle.util';
 import { RiskEngineService, RECOVERY_LABEL, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
 import { FieldChangeService } from '../field-changes/field-change.service';
 import { GraphService } from '../graph/graph.service';
+import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
 import { computeCrd } from './crd.util';
 import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
 
@@ -54,6 +55,7 @@ export class DealsService {
     private readonly riskEngine: RiskEngineService,
     private readonly fieldChanges: FieldChangeService,
     private readonly graph: GraphService,
+    private readonly entityMirror: EntityMirrorService,
   ) {}
 
   /** Only geocodes when the client didn't already supply coordinates and there's an address to resolve. */
@@ -227,6 +229,7 @@ export class DealsService {
     }
 
     await this.activities.log(deal!.id, userId, 'DEAL_CREATED', `Opération créée : ${deal!.name}`);
+    await this.entityMirror.createMirror(organizationId, deal!.id, deal!.name, deal!.reference);
     this.indexForSearch(deal!);
     if (deal!.porteurSiren) {
       const linked = await this.graph.autoLinkPromoteurBySiren(organizationId, deal!.id, deal!.porteurSiren);
@@ -525,6 +528,9 @@ export class DealsService {
     });
 
     await this.activities.log(id, userId, 'DEAL_UPDATED', 'Opération mise à jour');
+    if (current && current.name !== deal.name) {
+      await this.entityMirror.syncMirror(id, deal.name, deal.reference);
+    }
     this.indexForSearch(deal);
 
     // Registre d'audit structuré par champ — distinct de l'Activity ci-dessus
