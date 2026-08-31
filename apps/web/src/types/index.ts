@@ -209,6 +209,9 @@ export interface Deal {
   porteurAdresse?: string | null;
   porteurSiren?: string | null;
   porteurMonitoringStatus?: string | null;
+  porteurCheckedAt?: string | null;
+  riskDataCheckedAt?: string | null;
+  dpeCheckedAt?: string | null;
   deadlineAlert?: DeadlineAlert;
   durationTargetAlert?: DurationTargetAlert;
   checkpointHealth?: CheckpointHealth;
@@ -854,6 +857,10 @@ export interface DealRiskProfile {
   recoveryStatus: DealRecoveryStatus | null;
   topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
   completeness: { missingCount: number; missingItems: { key: string; label: string }[] } | null;
+  dataFreshness: {
+    sources: { key: string; label: string; checkedAt: string | null; upToDate: boolean }[];
+    confidencePct: number | null;
+  } | null;
 }
 
 export interface RiskTrajectoryPoint {

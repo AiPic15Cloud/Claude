@@ -31,7 +31,19 @@ function niveauVariant(niveau: string | null): 'outline' | 'warning' | 'destruct
   return 'outline';
 }
 
-export function RiskDataCard({ dealId, hasCoords, hasPostcode }: { dealId: string; hasCoords: boolean; hasPostcode: boolean }) {
+export function RiskDataCard({
+  dealId,
+  hasCoords,
+  hasPostcode,
+  riskDataCheckedAt,
+  dpeCheckedAt,
+}: {
+  dealId: string;
+  hasCoords: boolean;
+  hasPostcode: boolean;
+  riskDataCheckedAt?: string | null;
+  dpeCheckedAt?: string | null;
+}) {
   const { data, isLoading, isError } = useRiskData(dealId, hasCoords);
   const { data: dpe, isLoading: dpeLoading } = useDpe(dealId, hasPostcode);
 
@@ -171,6 +183,10 @@ export function RiskDataCard({ dealId, hasCoords, hasPostcode }: { dealId: strin
               Sources : Géorisques (gouv.fr) — catastrophes naturelles, zones inondables · API Carto GPU (IGN) — zonage PLU ·
               OpenStreetMap (Overpass) — équipements à proximité · ADEME — DPE. Données indicatives, à confirmer par un
               professionnel avant toute décision d'investissement.
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Géorisques/IGN/OSM {riskDataCheckedAt ? `vérifiés le ${formatDate(riskDataCheckedAt)}` : 'jamais vérifiés — à vérifier'}
+              {hasPostcode && ` · ADEME ${dpeCheckedAt ? `vérifié le ${formatDate(dpeCheckedAt)}` : 'jamais vérifié — à vérifier'}`}
             </p>
           </>
         )}

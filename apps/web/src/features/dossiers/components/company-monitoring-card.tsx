@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCheckCompany } from '../hooks/use-check-company';
+import { formatDate } from '@/lib/format';
 
 const STATUS_LABEL: Record<string, string> = {
   actif: 'Statut administratif actif',
@@ -25,11 +26,13 @@ export function CompanyMonitoringCard({
   siren,
   societe,
   status,
+  checkedAt,
 }: {
   dealId: string;
   siren: string;
   societe?: string | null;
   status?: string | null;
+  checkedAt?: string | null;
 }) {
   const checkCompany = useCheckCompany(dealId);
   const displayStatus = checkCompany.data?.status ?? status ?? null;
@@ -76,6 +79,9 @@ export function CompanyMonitoringCard({
         <p className="text-[11px] text-muted-foreground">
           Sources : SIRENE (statut administratif) et BODACC (procédures collectives), via API Recherche d'Entreprises et le
           bulletin officiel. Vérification automatique quotidienne à 8h, alerte créée uniquement en cas de changement de statut.
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          {checkedAt ? `Dernière vérification : ${formatDate(checkedAt)}` : 'Jamais vérifié — à vérifier'}
         </p>
       </CardContent>
     </Card>
