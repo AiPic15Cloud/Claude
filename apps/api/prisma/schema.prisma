@@ -254,6 +254,7 @@ model User {
   notes                      Note[]
   documents                  Document[]
   repayments                 Repayment[]
+  loanExtensions             LoanExtension[]
   pipelineEntries            PipelineEntry[]
   tasksAssigned              Task[]              @relation("TaskAssignee")
   tasksCreated               Task[]              @relation("TaskCreatedBy")
@@ -406,6 +407,16 @@ model Deal {
   dateCible DateTime?
   dateMax   DateTime?
 
+  // Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — dateEcheanceInitiale
+  // est posée une seule fois (à la création, ou rétroactivement à la valeur de
+  // dateMax lors de la toute première prorogation formelle) et n'est plus
+  // jamais réécrite ensuite, y compris par une prorogation : la frise doit
+  // toujours pouvoir mesurer l'écart réel par rapport à l'engagement contractuel
+  // d'origine. dateMax reste l'échéance courante (= dateEcheanceInitiale, ou la
+  // dernière prorogation de loanExtensions) et continue d'alimenter tel quel
+  // tout le reste de l'app (deadline-alerts, mise en demeure, cockpit).
+  dateEcheanceInitiale DateTime?
+
   // repaid suppresses deadline-alert escalation entirely (a fully repaid
   // deal shouldn't keep raising "échéance dépassée" once it's settled).
   // recoveryStatus is an independent manual field — a deal can be repaid or
@@ -463,6 +474,7 @@ model Deal {
   financialAssumption        FinancialAssumption?
   entityLinks                DealEntityLink[]
   repayments                 Repayment[]
+  loanExtensions             LoanExtension[]
   convertedFromPipelineEntry PipelineEntry?       @relation("PipelineConvertedDeal")
   checkpoints                ProjectCheckpoint[]
   agentMessages              AgentMessage[]
@@ -570,6 +582,29 @@ model Repayment {
 
   @@index([dealId])
   @@map("repayments")
+}
+
+// Une prorogation formelle de l'échéance du prêt (spec ATLAS v2, A.3bis) —
+// distincte d'une simple correction de dateMax via le PATCH générique du
+// deal : chaque entrée ici a sa propre date de signature (potentiellement
+// différente de la date de saisie) et sa nouvelle échéance, conservées dans
+// l'ordre pour reconstruire la frise (segments "hors contrat"/"prorogé").
+// Jamais mutée ni supprimée après création — c'est un historique, pas un état.
+model LoanExtension {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  dateSignature        DateTime
+  nouvelleDateEcheance DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("loan_extensions")
 }
 
 model Note {

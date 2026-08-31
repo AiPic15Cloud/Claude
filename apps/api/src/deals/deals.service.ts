@@ -24,6 +24,8 @@ import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
 import { PlaybooksService } from '../playbooks/playbooks.service';
 import { computeCrd } from './crd.util';
 import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
+import { computeLoanLifecycle, type LoanLifecycleTerminal } from './loan-lifecycle.util';
+import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
 
 // Fixed, never-translated title so the daily check can recognize its own
 // previously-created reminder and never duplicate it — see
@@ -360,6 +362,7 @@ export class DealsService {
         dateMin: true,
         dateCible: true,
         dateMax: true,
+        dateEcheanceInitiale: true,
         address: true,
         city: true,
         postcode: true,
@@ -441,6 +444,13 @@ export class DealsService {
     const nextFeesRate = feesRate !== undefined ? feesRate : current ? Number(current.feesRate ?? 0) : 0;
     const nextAmountRaised = amountRaised !== undefined ? amountRaised : current ? Number(current.amountRaised) : 0;
 
+    // Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — la toute
+    // première fois qu'une échéance est renseignée sur un dossier (jamais
+    // vue jusqu'ici), elle devient l'échéance d'origine. Ce n'est pas une
+    // prorogation (voir extendDeadline()) : aucun LoanExtension créé, juste
+    // la capture d'une donnée réelle qui n'existait pas encore.
+    const isFirstDateMax = Boolean(dateMax) && !current?.dateMax && !current?.dateEcheanceInitiale;
+
     const deal = await this.prisma.deal.update({
       where: { id },
       data: {
@@ -458,6 +468,7 @@ export class DealsService {
         dateMin: dateMin ? new Date(dateMin) : undefined,
         dateCible: dateCible ? new Date(dateCible) : undefined,
         dateMax: dateMax ? new Date(dateMax) : undefined,
+        dateEcheanceInitiale: isFirstDateMax ? new Date(dateMax!) : undefined,
         lastNewsletterDate: lastNewsletterDate ? new Date(lastNewsletterDate) : undefined,
         tags: tagIds
           ? {
@@ -765,6 +776,100 @@ export class DealsService {
   /** Horodatage de la dernière vérification réussie d'une source externe (section 6 "Le Traçotin") — jamais un facteur de risque, seulement un indicateur de fraîcheur pour DataFreshnessResult. */
   async touchDataCheck(id: string, field: 'riskDataCheckedAt' | 'dpeCheckedAt') {
     await this.prisma.deal.update({ where: { id }, data: { [field]: new Date() } });
+  }
+
+  /**
+   * Prorogation formelle de l'échéance (spec ATLAS v2, A.3bis) — distincte
+   * du PATCH générique : crée un LoanExtension traçable avec sa propre date
+   * de signature, et ne réécrit jamais dateEcheanceInitiale une fois posée.
+   * Backfill : sur la toute première prorogation d'un dossier créé avant ce
+   * lot, dateEcheanceInitiale n'existe pas encore — on la fixe alors à la
+   * valeur de dateMax qu'on est en train de remplacer (dernière valeur
+   * réellement connue, jamais une reconstruction inventée du passé).
+   */
+  async extendDeadline(organizationId: string, dealId: string, userId: string, dto: ExtendDeadlineDto) {
+    const deal = await this.prisma.deal.findFirst({
+      where: { id: dealId, organizationId },
+      select: { id: true, dateMax: true, dateEcheanceInitiale: true },
+    });
+    if (!deal) throw new NotFoundException('Opération introuvable');
+
+    const dateSignature = new Date(dto.dateSignature);
+    const nouvelleDateEcheance = new Date(dto.nouvelleDateEcheance);
+    const backfillInitiale = deal.dateEcheanceInitiale ?? deal.dateMax ?? undefined;
+
+    await this.prisma.$transaction([
+      this.prisma.loanExtension.create({
+        data: { dealId, dateSignature, nouvelleDateEcheance, createdById: userId },
+      }),
+      this.prisma.deal.update({
+        where: { id: dealId },
+        data: {
+          dateMax: nouvelleDateEcheance,
+          dateEcheanceInitiale: deal.dateEcheanceInitiale ? undefined : backfillInitiale,
+        },
+      }),
+    ]);
+
+    await this.activities.log(
+      dealId,
+      userId,
+      'DEAL_UPDATED',
+      `Échéance prolongée : ${deal.dateMax ? deal.dateMax.toLocaleDateString('fr-FR') : '—'} → ${nouvelleDateEcheance.toLocaleDateString('fr-FR')} (signature le ${dateSignature.toLocaleDateString('fr-FR')})`,
+    );
+    await this.fieldChanges.recordDiff(organizationId, dealId, 'Deal', userId, [
+      { key: 'dateMax', label: 'Échéance max', oldValue: deal.dateMax, newValue: nouvelleDateEcheance },
+    ]);
+
+    return this.findOne(organizationId, dealId);
+  }
+
+  /** Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — calcul délégué à loan-lifecycle.util.ts (pur, testable en isolation). */
+  async getLoanLifecycle(organizationId: string, dealId: string) {
+    const deal = await this.prisma.deal.findFirst({
+      where: { id: dealId, organizationId },
+      select: { id: true, startDate: true, durationMonths: true, dateEcheanceInitiale: true, repaid: true, stage: true },
+    });
+    if (!deal) throw new NotFoundException('Opération introuvable');
+
+    const extensions = await this.prisma.loanExtension.findMany({
+      where: { dealId },
+      orderBy: { dateSignature: 'asc' },
+      select: { dateSignature: true, nouvelleDateEcheance: true },
+    });
+
+    let terminal: LoanLifecycleTerminal | null = null;
+    if (deal.stage === 'DEFAUT' || deal.repaid || deal.stage === 'REMBOURSE') {
+      const targetStage = deal.stage === 'DEFAUT' ? 'DEFAUT' : 'REMBOURSE';
+      const activity = await this.prisma.activity.findFirst({
+        where: { dealId, type: 'STAGE_CHANGED', message: { contains: `→ ${targetStage}` } },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      });
+      // Pas de date de transition connue (ex. repaid activé sans changement
+      // de stage tracé) → on ne fabrique pas de date de clôture, la frise
+      // continue de vivre "aujourd'hui" plutôt que de mentir sur une date.
+      if (activity) {
+        terminal = { type: targetStage, date: activity.createdAt };
+      }
+    }
+    if (!terminal) {
+      const procedureCollective = await this.prisma.playbookInstance.findFirst({
+        where: { dealId, eventType: 'PROCEDURE_COLLECTIVE_OUVERTE' },
+        select: { triggeredAt: true },
+      });
+      if (procedureCollective) {
+        terminal = { type: 'PROCEDURE_COLLECTIVE', date: procedureCollective.triggeredAt };
+      }
+    }
+
+    return computeLoanLifecycle({
+      startDate: deal.startDate,
+      durationMonths: deal.durationMonths,
+      dateEcheanceInitiale: deal.dateEcheanceInitiale,
+      extensions,
+      terminal,
+    });
   }
 
   private async assertExists(organizationId: string, id: string) {

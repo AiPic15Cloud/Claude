@@ -10,6 +10,7 @@ import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
 import { ChangeStageDto } from './dto/change-stage.dto';
 import { SetTagsDto } from './dto/set-tags.dto';
+import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
 
 @ApiTags('deals')
 @ApiBearerAuth()
@@ -97,6 +98,16 @@ export class DealsController {
   @Patch(':id/newsletter')
   pingNewsletter(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.pingNewsletter(user.organizationId, id, user.id);
+  }
+
+  @Get(':id/loan-lifecycle')
+  getLoanLifecycle(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.dealsService.getLoanLifecycle(user.organizationId, id);
+  }
+
+  @Post(':id/extend-deadline')
+  extendDeadline(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ExtendDeadlineDto) {
+    return this.dealsService.extendDeadline(user.organizationId, id, user.id, dto);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
