@@ -853,6 +853,7 @@ export interface DealRiskProfile {
   cycleProjet: 'EN_COURS' | 'SORTIE' | 'REMBOURSEMENT' | 'CLOTURE';
   recoveryStatus: DealRecoveryStatus | null;
   topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
+  completeness: { missingCount: number; missingItems: { key: string; label: string }[] } | null;
 }
 
 export interface RiskTrajectoryPoint {
