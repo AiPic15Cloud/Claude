@@ -13,6 +13,8 @@ import { FeesChartCard } from './components/fees-chart-card';
 import { RepaymentsChartCard } from './components/repayments-chart-card';
 import { PipelineFunnelCard } from './components/pipeline-funnel-card';
 import { DealTypeDonutCard } from './components/deal-type-donut-card';
+import { RiskExposureCard } from './components/risk-exposure-card';
+import { ConcentrationCard } from './components/concentration-card';
 import { GuaranteesToRenewCard } from './components/guarantees-to-renew-card';
 import { MarketDigestCard } from '@/features/intelligence-marche/components/market-digest-card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -95,6 +97,11 @@ export function CockpitPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PipelineFunnelCard />
         <DealTypeDonutCard />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RiskExposureCard exposureByRiskTier={data.kpis.exposureByRiskTier} stressTest={data.kpis.stressTest} />
+        <ConcentrationCard operators={data.kpis.topOperatorConcentration} cities={data.kpis.exposureByCity} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
