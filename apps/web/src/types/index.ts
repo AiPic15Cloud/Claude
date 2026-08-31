@@ -204,6 +204,10 @@ export interface Deal {
   chantierSignaleArret?: boolean;
   /** Capital restant dû — jamais stocké côté API, calculé à la volée (voir crd.util.ts). */
   crd?: number;
+  /** Intérêts courus depuis le dernier remboursement réalisé — null si taux ou date de départ manquants (jamais fabriqué à 0). */
+  crdInteretsCourus?: number | null;
+  /** crd + crdInteretsCourus — null si crdInteretsCourus est null. */
+  crdTotal?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   dateMin?: string | null;

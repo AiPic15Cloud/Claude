@@ -261,9 +261,16 @@ export function DossierPage() {
               <CardContent className="p-4">
                 <p className="flex items-center gap-1 text-xs text-muted-foreground">
                   Capital restant dû
-                  <InfoTooltip text="Le CRD suppose que chaque remboursement réalisé (non projeté) réduit le capital emprunté d'autant — les intérêts courus ne sont pas encore ventilés (Repayment ne distingue pas principal et intérêts). Les remboursements projetés ne sont jamais déduits." />
+                  <InfoTooltip text="Intérêts calculés au prorata simple (taux annuel × jours écoulés / 365) sur le capital restant dû, imputés en priorité sur chaque remboursement réalisé avant le capital — ordre légal par défaut à défaut de tableau d'amortissement contractuel (art. 1342-10 du Code civil). Les remboursements projetés ne sont jamais déduits." />
                 </p>
-                <p className="text-lg font-semibold tabular-nums">{formatCurrency(deal.crd ?? deal.amountRaised)}</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {formatCurrency(deal.crdTotal ?? deal.crd ?? deal.amountRaised)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {deal.crdInteretsCourus != null
+                    ? `dont ${formatCurrency(deal.crdInteretsCourus)} d'intérêts courus`
+                    : "Intérêts non calculés — taux ou date de départ manquants"}
+                </p>
               </CardContent>
             </Card>
           </>
