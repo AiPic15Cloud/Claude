@@ -571,6 +571,8 @@ export class DealsService {
         repaid: true,
         porteurSiren: true,
         porteurSociete: true,
+        surveillanceStatus: true,
+        city: true,
       },
     });
 
@@ -614,6 +616,39 @@ export class DealsService {
       byOperator.set(key, entry);
     }
     const topOperatorConcentration = [...byOperator.values()].sort((a, b) => b.crd - a.crd).slice(0, 5);
+    await this.enrichConcentrationWithGroupEconomique(organizationId, topOperatorConcentration);
+
+    // Exposition par palier de risque (spec ATLAS v2, A.8) — un dossier
+    // sans score n'est jamais fusionné sous un vrai palier, il a sa propre
+    // entrée NON_CALCULE (doctrine section 0 : l'absence n'est pas neutre).
+    const exposureByRiskTier: Record<string, number> = {};
+    for (const d of deals) {
+      const tier = d.surveillanceStatus ?? 'NON_CALCULE';
+      exposureByRiskTier[tier] = (exposureByRiskTier[tier] ?? 0) + (crdByDeal.get(d.id) ?? 0);
+    }
+
+    // Exposition géographique — même principe : ville non renseignée regroupée explicitement.
+    const byCity = new Map<string, number>();
+    for (const d of deals) {
+      const key = d.city ?? 'Non renseignée';
+      byCity.set(key, (byCity.get(key) ?? 0) + (crdByDeal.get(d.id) ?? 0));
+    }
+    const exposureByCity = [...byCity.entries()]
+      .map(([city, crd]) => ({ city, crd }))
+      .sort((a, b) => b.crd - a.crd)
+      .slice(0, 8);
+
+    // Stress test simple (A.8) : "impact portefeuille si X% des dossiers
+    // ÉLEVÉ basculent en défaut" — littéral, pas CRITIQUE (déjà proche du
+    // défaut par construction du palier). Taux illustratif fixe, pas un
+    // modèle de risque de crédit.
+    const STRESS_ASSUMED_DEFAULT_RATE = 0.3;
+    const eleveExposure = exposureByRiskTier['ELEVE'] ?? 0;
+    const stressTest = {
+      eleveExposure,
+      assumedDefaultRate: STRESS_ASSUMED_DEFAULT_RATE,
+      potentialLoss: Math.round(eleveExposure * STRESS_ASSUMED_DEFAULT_RATE),
+    };
 
     const now = new Date();
     const lateDeals = deals.filter((d) => !isDealClosed(d) && d.dateMax && d.dateMax < now).length;
@@ -642,7 +677,65 @@ export class DealsService {
       exposureByType,
       topOperatorConcentration,
       statusMonitoringGaps,
+      exposureByRiskTier,
+      exposureByCity,
+      stressTest,
     };
+  }
+
+  /**
+   * Combine grille de risque et Knowledge Graph (spec ATLAS v2, A.8) —
+   * borné aux opérateurs déjà sélectionnés dans le top 5, pas une
+   * réécriture de l'algorithme de regroupement (qui reste par SIREN,
+   * déjà correct). Pour chacun, si son entité PROMOTEUR a des relations
+   * GROUPE_ECONOMIQUE (B.3), expose l'exposition supplémentaire des
+   * dossiers liés aux entités sœurs — jamais fusionnée silencieusement
+   * dans le total principal (doctrine section 0).
+   */
+  private async enrichConcentrationWithGroupEconomique(
+    organizationId: string,
+    operators: { porteurSiren: string | null; crd: number; dealCount: number; groupEconomiqueAdditionalExposure?: number }[],
+  ): Promise<void> {
+    for (const operator of operators) {
+      if (!operator.porteurSiren) continue;
+
+      const link = await this.prisma.dealEntityLink.findFirst({
+        where: { role: 'PROMOTEUR', deal: { organizationId, porteurSiren: operator.porteurSiren } },
+        select: { entityId: true },
+      });
+      if (!link) continue;
+
+      const siblingRelationships = await this.prisma.relationship.findMany({
+        where: { organizationId, typeKey: 'GROUPE_ECONOMIQUE', OR: [{ sourceEntityId: link.entityId }, { targetEntityId: link.entityId }] },
+        select: { sourceEntityId: true, targetEntityId: true },
+      });
+      if (siblingRelationships.length === 0) continue;
+
+      const siblingIds = siblingRelationships.map((r) => (r.sourceEntityId === link.entityId ? r.targetEntityId : r.sourceEntityId));
+      const siblingDealLinks = await this.prisma.dealEntityLink.findMany({
+        where: {
+          role: 'PROMOTEUR',
+          entityId: { in: siblingIds },
+          // Prisma's `not` filter excludes NULL rows entirely (SQL 3-valued
+          // logic: NULL != X is unknown, not true) — a sibling deal with no
+          // porteurSiren at all would be silently dropped by a plain `not`
+          // here, even though it was never counted under operator.crd (only
+          // an exact SIREN match is grouped there). Explicit OR to include it.
+          deal: {
+            organizationId,
+            status: 'ACTIVE',
+            OR: [{ porteurSiren: null }, { porteurSiren: { not: operator.porteurSiren } }],
+          },
+        },
+        select: { deal: { select: { id: true, amountRaised: true, repayments: { where: { projected: false }, select: { amount: true } } } } },
+      });
+      if (siblingDealLinks.length === 0) continue;
+
+      operator.groupEconomiqueAdditionalExposure = siblingDealLinks.reduce((sum, l) => {
+        const realized = l.deal.repayments.reduce((s, r) => s + Number(r.amount), 0);
+        return sum + computeCrd(Number(l.deal.amountRaised), realized);
+      }, 0);
+    }
   }
 
   async newsletterSummary(organizationId: string) {
