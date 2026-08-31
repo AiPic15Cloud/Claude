@@ -41,7 +41,7 @@ import { EntitiesPanel } from './components/entities-panel';
 import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { DealPrintSheet } from './components/deal-print-sheet';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -314,17 +314,17 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="guarantees" className="flex flex-col gap-4">
           <GuaranteesPanel dealId={deal.id} />
-          {riskProfile?.dataFreshness && riskProfile.dataFreshness.confidencePct !== null && (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              Confiance des données externes : {riskProfile.dataFreshness.confidencePct} % (
-              {riskProfile.dataFreshness.sources.filter((s) => s.upToDate).length}/{riskProfile.dataFreshness.sources.length} sources à
-              jour)
-              <InfoTooltip
-                text={riskProfile.dataFreshness.sources
-                  .map((s) => `${s.label} : ${s.checkedAt ? `vérifié le ${formatDate(s.checkedAt)}` : 'jamais vérifié'}`)
-                  .join(' · ')}
-              />
-            </p>
+          {riskProfile?.dataFreshness && riskProfile.dataFreshness.sources.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs font-medium text-muted-foreground">
+                Fraîcheur des données externes ({riskProfile.dataFreshness.confidencePct} % à jour)
+              </p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {riskProfile.dataFreshness.sources.map((s) => (
+                  <FreshnessBadge key={s.key} checkedAt={s.checkedAt} label={s.label} />
+                ))}
+              </div>
+            </div>
           )}
           {deal.porteurSiren && (
             <CompanyMonitoringCard

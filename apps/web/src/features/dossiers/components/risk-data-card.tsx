@@ -2,6 +2,7 @@ import { TriangleAlert, Waves, Landmark, MapPinned, Zap, Activity } from 'lucide
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { useRiskData, useDpe } from '../hooks/use-risk-data';
 import { formatDate } from '@/lib/format';
 
@@ -184,10 +185,10 @@ export function RiskDataCard({
               OpenStreetMap (Overpass) — équipements à proximité · ADEME — DPE. Données indicatives, à confirmer par un
               professionnel avant toute décision d'investissement.
             </p>
-            <p className="text-[11px] text-muted-foreground">
-              Géorisques/IGN/OSM {riskDataCheckedAt ? `vérifiés le ${formatDate(riskDataCheckedAt)}` : 'jamais vérifiés — à vérifier'}
-              {hasPostcode && ` · ADEME ${dpeCheckedAt ? `vérifié le ${formatDate(dpeCheckedAt)}` : 'jamais vérifié — à vérifier'}`}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <FreshnessBadge checkedAt={riskDataCheckedAt} label="Géorisques/IGN/OSM" />
+              {hasPostcode && <FreshnessBadge checkedAt={dpeCheckedAt} label="ADEME" />}
+            </div>
           </>
         )}
       </CardContent>
