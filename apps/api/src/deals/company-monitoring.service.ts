@@ -101,7 +101,16 @@ export class CompanyMonitoringService {
     if (!deal.porteurSiren) return { status: null, alerted: false };
     try {
       const status = await this.fetchStatus(deal.porteurSiren);
-      if (!status || status === deal.porteurMonitoringStatus) return { status, alerted: false };
+      if (!status) return { status, alerted: false };
+
+      if (status === deal.porteurMonitoringStatus) {
+        // Vérification réussie mais rien n'a changé — on trace quand même la
+        // date de vérification (section 6 "Le Traçotin", fraîcheur des
+        // données), sinon un dossier vérifié 50 fois de suite sans
+        // changement ne laisserait aucune trace de la dernière vérification.
+        await this.prisma.deal.update({ where: { id: deal.id }, data: { porteurCheckedAt: new Date() } });
+        return { status, alerted: false };
+      }
 
       let alerted = false;
       if (status === 'procedure_collective' || status === 'fermee') {
@@ -124,7 +133,7 @@ export class CompanyMonitoringService {
         alerted = true;
       }
 
-      await this.prisma.deal.update({ where: { id: deal.id }, data: { porteurMonitoringStatus: status } });
+      await this.prisma.deal.update({ where: { id: deal.id }, data: { porteurMonitoringStatus: status, porteurCheckedAt: new Date() } });
       await this.riskEngine
         .recomputeAndPersist(deal.organizationId, deal.id)
         .catch((err) => this.logger.error(`Échec du recalcul de risque pour le deal ${deal.id}`, err instanceof Error ? err.stack : err));

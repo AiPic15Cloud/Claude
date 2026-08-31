@@ -53,7 +53,9 @@ export class DealsController {
     if (deal.lat === null || deal.lng === null) {
       throw new NotFoundException("Ce dossier n'a pas de coordonnées géographiques — impossible de vérifier les risques.");
     }
-    return this.riskData.getRiskProfile(Number(deal.lat), Number(deal.lng));
+    const profile = await this.riskData.getRiskProfile(Number(deal.lat), Number(deal.lng));
+    await this.dealsService.touchDataCheck(id, 'riskDataCheckedAt');
+    return profile;
   }
 
   @Get(':id/dpe')
@@ -62,7 +64,9 @@ export class DealsController {
     if (!deal.postcode) {
       throw new NotFoundException("Ce dossier n'a pas de code postal — impossible de rechercher un DPE.");
     }
-    return this.riskData.getDpe(deal.address, deal.postcode);
+    const dpe = await this.riskData.getDpe(deal.address, deal.postcode);
+    await this.dealsService.touchDataCheck(id, 'dpeCheckedAt');
+    return dpe;
   }
 
   @Post(':id/check-company')
