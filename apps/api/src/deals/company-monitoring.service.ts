@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
+import { PlaybooksService } from '../playbooks/playbooks.service';
 
 type MonitoringStatus = 'actif' | 'procedure_collective' | 'fermee';
 
@@ -59,6 +60,7 @@ export class CompanyMonitoringService {
     private readonly prisma: PrismaService,
     private readonly alerts: AlertsService,
     private readonly riskEngine: RiskEngineService,
+    private readonly playbooks: PlaybooksService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -122,6 +124,11 @@ export class CompanyMonitoringService {
           dealId: deal.id,
         });
         alerted = true;
+        if (status === 'procedure_collective') {
+          await this.playbooks
+            .triggerProcedureCollective(deal.organizationId, deal.id, 'surveillance_bodacc_auto')
+            .catch((err) => this.logger.error(`Échec du déclenchement du playbook procédure collective pour le deal ${deal.id}`, err instanceof Error ? err.stack : err));
+        }
       } else if (deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') {
         // Retour à un statut sain après une alerte précédente — vaut la peine d'être noté, sans réveiller le téléphone.
         await this.alerts.create(deal.organizationId, {
