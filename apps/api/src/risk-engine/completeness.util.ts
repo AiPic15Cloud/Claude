@@ -16,18 +16,27 @@ export interface CompletenessInput {
   daysSinceLastCheckpoint: number | null;
   porteurSiren: string | null;
   porteurMonitoringStatus: string | null;
-  guarantees: { type: GuaranteeType; endDate: Date | null }[];
+  guarantees: { type: GuaranteeType; endDate: Date | null; verifiedAt: Date | null }[];
+  /**
+   * null = pas de procédure collective ouverte pour ce dossier — rien à
+   * signaler (jamais un manque fabriqué sur un dossier sain, doctrine
+   * section 0). Non-null uniquement quand un PlaybookInstance existe.
+   */
+  procedureCollective: { typeIdentified: boolean; declarationCreanceFaite: boolean } | null;
 }
 
 const EXPIRABLE_TYPES: GuaranteeType[] = ['HYPOTHEQUE', 'FIDUCIE', 'CAUTION'];
+const GUARANTEE_VERIFICATION_THRESHOLD_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Moteur de complétude minimal (section 5 du brief "Le Traçotin") : un compte
- * réel de lacunes d'information, construit à partir de données déjà
- * assemblées par RiskEngineService.computeDealRisk() — aucune nouvelle
- * requête. Volontairement limité à ce qui est vérifiable aujourd'hui sans
- * fabriquer de donnée (ex. "type de procédure renseigné" du brief n'a pas de
- * champ correspondant dans le schéma — pas inclus ici plutôt que deviné).
+ * Moteur de complétude (section 5 du brief "Le Traçotin" + spec ATLAS v2,
+ * A.5) : un compte réel de lacunes d'information, construit à partir de
+ * données déjà assemblées par RiskEngineService.computeDealRisk() — aucune
+ * nouvelle requête pour la plupart des champs. Les 2 checks "procédure
+ * collective" viennent des tâches du playbook A.4 (identifier_type_procedure,
+ * declaration_creance) plutôt que d'un champ dédié — la donnée existe déjà,
+ * jamais dupliquée.
  *
  * C'est un rapport de qualité de donnée, pas un facteur de risque : une
  * lacune ici dégrade la confiance qu'on peut avoir dans le score, elle ne
@@ -54,6 +63,26 @@ export function computeCompleteness(input: CompletenessInput): CompletenessResul
 
   if (input.guarantees.some((g) => EXPIRABLE_TYPES.includes(g.type) && g.endDate === null)) {
     missingItems.push({ key: 'GARANTIE_SANS_DATE', label: 'Au moins une sûreté sans date de fin renseignée' });
+  }
+
+  const now = Date.now();
+  const unverifiedCount = input.guarantees.filter(
+    (g) => g.verifiedAt === null || (now - g.verifiedAt.getTime()) / DAY_MS > GUARANTEE_VERIFICATION_THRESHOLD_DAYS,
+  ).length;
+  if (unverifiedCount > 0) {
+    missingItems.push({
+      key: 'SURETES_NON_VERIFIEES',
+      label: `${unverifiedCount} sûreté(s) non vérifiée(s) depuis ${GUARANTEE_VERIFICATION_THRESHOLD_DAYS} jours`,
+    });
+  }
+
+  if (input.procedureCollective !== null) {
+    if (!input.procedureCollective.typeIdentified) {
+      missingItems.push({ key: 'TYPE_PROCEDURE_NON_IDENTIFIE', label: 'Type de procédure collective non identifié' });
+    }
+    if (!input.procedureCollective.declarationCreanceFaite) {
+      missingItems.push({ key: 'DECLARATION_CREANCE_NON_FAITE', label: 'Déclaration de créance non faite' });
+    }
   }
 
   return { missingCount: missingItems.length, missingItems };
