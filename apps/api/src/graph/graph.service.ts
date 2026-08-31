@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { GraphEntityType, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MeilisearchService } from '../search/meilisearch.service';
+import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
 import { CreateEntityDto } from './dto/create-entity.dto';
 import { UpdateEntityDto } from './dto/update-entity.dto';
 import { CreateRelationDto } from './dto/create-relation.dto';
@@ -28,6 +29,7 @@ export class GraphService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly search: MeilisearchService,
+    private readonly entityMirror: EntityMirrorService,
   ) {}
 
   listEntities(organizationId: string, query: QueryEntitiesDto) {
@@ -70,6 +72,10 @@ export class GraphService {
       type: entity.type,
       city: entity.city,
     });
+    // Miroir Knowledge Graph v2 (B.3) — sans lui cette contrepartie serait
+    // invisible pour les requêtes déterministes, qui ne lisent que le
+    // nouveau modèle.
+    await this.entityMirror.createGraphEntityMirror(organizationId, entity);
     return entity;
   }
 
@@ -86,6 +92,7 @@ export class GraphService {
       type: entity.type,
       city: entity.city,
     });
+    await this.entityMirror.syncGraphEntityMirror(entity.id, entity.name);
     return entity;
   }
 
@@ -93,6 +100,7 @@ export class GraphService {
     await this.assertEntity(organizationId, id);
     await this.prisma.graphEntity.delete({ where: { id } });
     void this.search.removeEntity(id);
+    await this.entityMirror.deleteGraphEntityMirror(id);
   }
 
   async createRelation(organizationId: string, dto: CreateRelationDto) {
