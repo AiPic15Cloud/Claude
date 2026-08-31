@@ -12,9 +12,10 @@ import { PressRssConnector } from './connectors/press-rss.connector';
 import { ManualConnector } from './connectors/manual.connector';
 import { AlertsModule } from '../alerts/alerts.module';
 import { SearchModule } from '../search/search.module';
+import { SourceRegistryModule } from '../source-registry/source-registry.module';
 
 @Module({
-  imports: [AlertsModule, SearchModule],
+  imports: [AlertsModule, SearchModule, SourceRegistryModule],
   providers: [
     IntelligenceMarcheService,
     MarketIndicatorsService,
