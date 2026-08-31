@@ -45,6 +45,13 @@ export function GraphPage() {
       id: n.id,
       type: 'entity',
       position: positions[n.id] ?? { x: 0, y: 0 },
+      // EntityNode's rendered size (w-56 + icon/padding) — without it, fitView
+      // has to wait for a DOM measurement round-trip on custom nodes and, with
+      // an oddly-shaped graph (one type column much taller than the others),
+      // fits on stale/zero dimensions: the resulting pan leaves most columns
+      // scrolled above the visible pane on first load.
+      width: 224,
+      height: 60,
       data: { label: n.label, subtitle: n.subtitle, type: n.type as GraphEntityType | 'DEAL' },
     }));
 
@@ -110,6 +117,8 @@ export function GraphPage() {
               if (node.id.startsWith('entity:')) setSelectedEntityId(node.id.replace('entity:', ''));
             }}
             fitView
+            fitViewOptions={{ padding: 0.15, minZoom: 0.05 }}
+            minZoom={0.05}
             proOptions={{ hideAttribution: true }}
           >
             <Background gap={20} />
