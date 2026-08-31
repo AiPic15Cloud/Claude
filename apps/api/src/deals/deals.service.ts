@@ -22,7 +22,7 @@ import { FieldChangeService } from '../field-changes/field-change.service';
 import { GraphService } from '../graph/graph.service';
 import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
 import { PlaybooksService } from '../playbooks/playbooks.service';
-import { computeCrd } from './crd.util';
+import { computeCrd, computeCrdDetailed } from './crd.util';
 import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
 import { computeLoanLifecycle, type LoanLifecycleTerminal } from './loan-lifecycle.util';
 import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
@@ -317,8 +317,26 @@ export class DealsService {
     const notes = await Promise.all(deal.notes.map((note) => withNoteImageUrls(note, this.storage)));
     const deadlineAlert = computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal));
     const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), isDealClosed(deal));
-    const [withCrd] = await this.attachCrd([deal]);
-    return { ...deal, crd: withCrd.crd, notes, deadlineAlert, durationTargetAlert, checkpointHealth };
+    const realizedRepayments = await this.prisma.repayment.findMany({
+      where: { dealId: id, projected: false },
+      select: { date: true, amount: true },
+    });
+    const crdDetailed = computeCrdDetailed(
+      Number(deal.amountRaised),
+      deal.interestRate ? Number(deal.interestRate) : null,
+      deal.startDate,
+      realizedRepayments.map((r) => ({ date: r.date, amount: Number(r.amount) })),
+    );
+    return {
+      ...deal,
+      crd: crdDetailed.crdCapital,
+      crdInteretsCourus: crdDetailed.crdInteretsCourus,
+      crdTotal: crdDetailed.crdTotal,
+      notes,
+      deadlineAlert,
+      durationTargetAlert,
+      checkpointHealth,
+    };
   }
 
   async generateMiseEnDemeure(organizationId: string, id: string) {
