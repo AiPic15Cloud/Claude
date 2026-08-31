@@ -29,6 +29,7 @@ import { FieldChangeModule } from './field-changes/field-change.module';
 import { GraphModule } from './graph/graph.module';
 import { EntityGraphModule } from './entity-graph/entity-graph.module';
 import { PlaybooksModule } from './playbooks/playbooks.module';
+import { SourceRegistryModule } from './source-registry/source-registry.module';
 import { IntelligenceConcurrentielleModule } from './intelligence-concurrentielle/intelligence-concurrentielle.module';
 import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
 import { AgentsModule } from './agents/agents.module';
@@ -71,6 +72,7 @@ import { HealthController } from './health/health.controller';
     GraphModule,
     EntityGraphModule,
     PlaybooksModule,
+    SourceRegistryModule,
     IntelligenceConcurrentielleModule,
     IntelligenceMarcheModule,
     AgentsModule,
