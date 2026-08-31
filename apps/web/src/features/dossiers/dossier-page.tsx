@@ -15,6 +15,7 @@ import {
 } from '@/features/portfolio/components/deal-badges';
 import { TagBadge } from '@/features/portfolio/components/tag-badge';
 import { useGuarantees } from './hooks/use-guarantees';
+import { useDealRisk } from './hooks/use-risk';
 import { useCreateCostLineItem } from './hooks/use-cost-line-items';
 import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
@@ -41,6 +42,7 @@ import { EntitiesPanel } from './components/entities-panel';
 import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { DealPrintSheet } from './components/deal-print-sheet';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -52,6 +54,7 @@ export function DossierPage() {
   const { data: deal, isLoading } = useDeal(id ?? null);
   const { data: guarantees = [] } = useGuarantees(id ?? '');
   const { data: dealTasks = [] } = useDealTasks(id ?? '');
+  const { data: riskProfile } = useDealRisk(id ?? '');
   const guaranteeWarnings = guarantees.filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE');
   const deleteDeal = useDeleteDeal();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -313,15 +316,34 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="guarantees" className="flex flex-col gap-4">
           <GuaranteesPanel dealId={deal.id} />
+          {riskProfile?.dataFreshness && riskProfile.dataFreshness.confidencePct !== null && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              Confiance des données externes : {riskProfile.dataFreshness.confidencePct} % (
+              {riskProfile.dataFreshness.sources.filter((s) => s.upToDate).length}/{riskProfile.dataFreshness.sources.length} sources à
+              jour)
+              <InfoTooltip
+                text={riskProfile.dataFreshness.sources
+                  .map((s) => `${s.label} : ${s.checkedAt ? `vérifié le ${formatDate(s.checkedAt)}` : 'jamais vérifié'}`)
+                  .join(' · ')}
+              />
+            </p>
+          )}
           {deal.porteurSiren && (
             <CompanyMonitoringCard
               dealId={deal.id}
               siren={deal.porteurSiren}
               societe={deal.porteurSociete}
               status={deal.porteurMonitoringStatus}
+              checkedAt={deal.porteurCheckedAt}
             />
           )}
-          <RiskDataCard dealId={deal.id} hasCoords={Boolean(deal.lat && deal.lng)} hasPostcode={Boolean(deal.postcode)} />
+          <RiskDataCard
+            dealId={deal.id}
+            hasCoords={Boolean(deal.lat && deal.lng)}
+            hasPostcode={Boolean(deal.postcode)}
+            riskDataCheckedAt={deal.riskDataCheckedAt}
+            dpeCheckedAt={deal.dpeCheckedAt}
+          />
         </TabsContent>
         <TabsContent value="repayments">
           <RepaymentsPanel dealId={deal.id} />
