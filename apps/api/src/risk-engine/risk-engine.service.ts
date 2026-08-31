@@ -197,7 +197,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
             createdAt: true,
           },
         },
-        guarantees: { where: { status: 'ACTIVE' }, select: { type: true, endDate: true, amount: true, rank: true } },
+        guarantees: { where: { status: 'ACTIVE' }, select: { type: true, endDate: true, verifiedAt: true, amount: true, rank: true } },
         repayments: { where: { projected: false }, select: { amount: true, projected: true } },
       },
     });
@@ -427,6 +427,17 @@ export class RiskEngineService implements OnApplicationBootstrap {
       await this.maybeAlert(organizationId, deal, deal.surveillanceStatus, classification.finalStatus, previousScore, composite, topTriggered);
     }
 
+    const procedureCollectiveInstance = await this.prisma.playbookInstance.findFirst({
+      where: { dealId, eventType: 'PROCEDURE_COLLECTIVE_OUVERTE' },
+      include: { actions: { select: { key: true, task: { select: { done: true } } } } },
+    });
+    const procedureCollective = procedureCollectiveInstance
+      ? {
+          typeIdentified: procedureCollectiveInstance.actions.find((a) => a.key === 'identifier_type_procedure')?.task.done ?? false,
+          declarationCreanceFaite: procedureCollectiveInstance.actions.find((a) => a.key === 'declaration_creance')?.task.done ?? false,
+        }
+      : null;
+
     const completeness = computeCompleteness({
       hasFinancialModel: synthesis !== null,
       bpLocked: bpComparison.locked,
@@ -434,6 +445,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       porteurSiren: deal.porteurSiren,
       porteurMonitoringStatus: deal.porteurMonitoringStatus,
       guarantees: deal.guarantees,
+      procedureCollective,
     });
 
     const dataFreshness = computeDataFreshness({
