@@ -211,6 +211,7 @@ model Organization {
   dealOverrides      DealOverride[]
   entities           Entity[]
   relationships      Relationship[]
+  playbookInstances  PlaybookInstance[]
 
   @@map("organizations")
 }
@@ -471,6 +472,7 @@ model Deal {
   dealOverrides              DealOverride[]
   /// Entité miroir dans le Knowledge Graph (type OPERATION) — voir Entity.mirrorsDealId.
   entityMirror               Entity?
+  playbookInstances          PlaybookInstance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -859,6 +861,9 @@ model Task {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
+
+  /// Présente uniquement si cette tâche a été générée par un playbook (A.4) — le statut affiché à l'analyste reste `done`/`dueDate` ci-dessus, jamais un champ dupliqué côté playbook.
+  playbookActionItem PlaybookActionItem?
 
   @@index([dealId])
   @@index([organizationId])
@@ -1370,6 +1375,74 @@ model RelationshipEvent {
 
   @@index([relationshipId])
   @@map("relationship_events")
+}
+
+// ── Playbooks (spec ATLAS v2, A.4 / A.7) ───────────────────────────────
+//
+// Un seul playbook codé en dur dans ce lot : "procédure_collective_ouverte"
+// (voir apps/api/src/playbooks/procedure-collective.playbook.ts). Bibliothèque
+// étendue par type d'événement = NEXT, pas construite ici.
+
+enum PlaybookEventType {
+  PROCEDURE_COLLECTIVE_OUVERTE
+}
+
+/// Une instance par (dossier, type d'événement) — jamais recréée deux fois
+/// pour le même dossier, quel que soit le signal qui l'a déclenchée
+/// (recoveryStatus manuel ou détection BODACC automatique).
+model PlaybookInstance {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  eventType PlaybookEventType
+
+  /// 'recovery_status_manuel' | 'surveillance_bodacc_auto' — traçabilité, sans incidence fonctionnelle.
+  triggerSource String
+  triggeredAt   DateTime @default(now())
+
+  /// Ancre des délais légaux (ex. date_publication_BODACC) — par défaut
+  /// triggeredAt, corrigeable ensuite par l'analyste (recalcule alors les
+  /// échéances des actions pas encore faites, jamais celles déjà cochées).
+  anchorDate DateTime
+
+  actions PlaybookActionItem[]
+
+  @@unique([dealId, eventType])
+  @@index([organizationId])
+  @@map("playbook_instances")
+}
+
+/// Adossée à une Task existante plutôt que de dupliquer un statut : le
+/// statut affiché (à faire / fait / en retard) se dérive directement de
+/// Task.done et Task.dueDate — zéro désynchronisation possible, zéro
+/// nouvelle UI de complétion (l'onglet Tâches existant suffit).
+model PlaybookActionItem {
+  id                 String           @id @default(cuid())
+  playbookInstanceId String
+  playbookInstance   PlaybookInstance @relation(fields: [playbookInstanceId], references: [id], onDelete: Cascade)
+
+  /// Clé stable de l'action dans le playbook (ex. "declaration_creance").
+  key String
+
+  bloquant Boolean @default(false)
+
+  /// Garde-fou de la spec (A.4) : une action à conséquence juridique/
+  /// financière significative est proposée par le système mais jamais
+  /// marquée "faite" par lui — toujours vrai dans ce lot, exposé pour que
+  /// le futur workflow d'approbation (A.10) ait une donnée à consommer.
+  requiresHumanValidation Boolean @default(true)
+
+  taskId String @unique
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([playbookInstanceId, key])
+  @@index([playbookInstanceId])
+  @@map("playbook_action_items")
 }
 
 enum CompetitorProjectStatus {
