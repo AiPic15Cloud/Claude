@@ -4,7 +4,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod/v4';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { ScoringService } from '../scoring/scoring.service';
 import { DocumentsService } from '../documents/documents.service';
 import { RiskEngineService, PORTEUR_LABEL } from '../risk-engine/risk-engine.service';
 import { RiskDataService } from '../risk-data/risk-data.service';
@@ -64,7 +63,6 @@ export class AgentsService {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly scoring: ScoringService,
     private readonly documents: DocumentsService,
     private readonly riskEngine: RiskEngineService,
     private readonly riskData: RiskDataService,
@@ -278,8 +276,6 @@ export class AgentsService {
       }),
     ]);
 
-    const score = await this.scoring.computeDealScore(organizationId, dealId, false);
-
     // Environnement : lecture cache-seule (RiskDataService.peekCached), jamais d'appel réseau
     // synchrone dans un chemin de chat — omis silencieusement si le cache est vide (cas normal
     // tant que l'onglet Risques du dossier n'a pas été ouvert au moins une fois).
@@ -297,7 +293,6 @@ export class AgentsService {
       `Montant cible : ${deal.amountTarget} € · Collecté : ${deal.amountRaised} €`,
       deal.interestRate ? `Taux : ${deal.interestRate}%` : null,
       deal.city ? `Localisation : ${deal.city}` : null,
-      `Score ATLAS : ${score.score}/100 (${score.factors.map((f) => `${f.label}: ${f.value}`).join(', ')})`,
       riskBreakdown.suppressed || riskBreakdown.composite.score === null
         ? 'Risque (Risk Engine) : dossier clos, non noté.'
         : `Risque (Risk Engine) : ${riskBreakdown.composite.score}/100, statut de surveillance ${riskBreakdown.surveillance.status}, tendance ${riskBreakdown.composite.trend} — principaux facteurs : ${riskBreakdown.triggered

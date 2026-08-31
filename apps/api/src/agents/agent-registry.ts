@@ -8,7 +8,7 @@ export interface AgentDefinition {
 // Chat has no document-parsing pipeline — the analyst pastes excerpts (compromis,
 // GAPD, Kbis, diagnostics…) directly into the conversation. What IS injected
 // automatically, when a dealId is attached, is the deal's structured ATLAS record
-// (see AgentsService.buildDealContext): montant, garanties, Score ATLAS, score de
+// (see AgentsService.buildDealContext): montant, garanties, score de
 // risque dynamique (Risk Engine, avec facteurs explicités), statut de surveillance
 // du porteur (procédure collective/fermeture), risques environnementaux identifiés
 // (inondation/sismique, si le cache Géorisques du dossier a déjà été peuplé),

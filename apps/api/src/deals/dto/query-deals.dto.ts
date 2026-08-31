@@ -56,7 +56,7 @@ export class QueryDealsDto {
 
   @ApiProperty({ required: false, default: 'createdAt' })
   @IsOptional()
-  @IsIn(['createdAt', 'updatedAt', 'name', 'amountTarget', 'amountRaised', 'atlasScore', 'startDate'])
+  @IsIn(['createdAt', 'updatedAt', 'name', 'amountTarget', 'amountRaised', 'startDate'])
   sortBy?: string = 'createdAt';
 
   @ApiProperty({ required: false, default: 'desc' })

@@ -95,7 +95,6 @@ async function main() {
       country: 'FR',
       // riskScore n'est plus écrit ici : c'est désormais un champ dérivé,
       // recalculé automatiquement par le Risk Engine (voir risk-engine/).
-      atlasScore: Math.max(0, 100 - d.riskScore),
       startDate: startDate ?? undefined,
       endDate: endDate ?? undefined,
       createdById: owner.id,
