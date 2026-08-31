@@ -6,6 +6,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { MeilisearchService } from '../search/meilisearch.service';
 import { ConnectorRegistryService } from './connectors/connector-registry.service';
+import { SourceRegistryService } from '../source-registry/source-registry.service';
 import { CreateSourceDto } from './dto/create-source.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { QueryArticlesDto } from './dto/query-articles.dto';
@@ -82,6 +83,7 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
     private readonly alerts: AlertsService,
     private readonly connectors: ConnectorRegistryService,
     private readonly search: MeilisearchService,
+    private readonly sourceRegistry: SourceRegistryService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -183,7 +185,14 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
       return { created: 0 };
     }
 
-    const fetched = await connector.fetchArticles(source.url);
+    let fetched;
+    try {
+      fetched = await connector.fetchArticles(source.url);
+    } catch (error) {
+      this.logger.warn(`Échec de collecte pour "${source.name}" (${source.connector}): ${(error as Error).message}`);
+      await this.sourceRegistry.recordOutcome(source.connector, { success: false });
+      return { created: 0 };
+    }
     let created = 0;
 
     for (const item of fetched) {
@@ -234,6 +243,7 @@ export class IntelligenceMarcheService implements OnApplicationBootstrap {
     }
 
     await this.prisma.newsSource.update({ where: { id: source.id }, data: { lastFetchedAt: new Date() } });
+    await this.sourceRegistry.recordOutcome(source.connector, { success: true, changed: created > 0 });
     return { created };
   }
 
