@@ -346,7 +346,7 @@ export class DealsService {
     const items: { label: string; severity: 'critical' | 'warning' | 'info' }[] = [];
 
     if (status && status !== 'FAIBLE') {
-      for (const contributor of riskBreakdown.topContributors.slice(0, 2)) {
+      for (const contributor of riskBreakdown.triggered.slice(0, 2)) {
         items.push({ label: contributor.label, severity: severityForStatus(status) });
       }
     }

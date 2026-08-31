@@ -749,9 +749,13 @@ model RiskScoreSnapshot {
   dealId         String
   deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
-  qualityScore       Int
-  performanceScore   Int
-  ewsScore           Int
+  /// Nullable depuis le passage au score additif unique (v3.0) : ces 3
+  /// sous-scores n'existent plus conceptuellement, seul compositeScore reste
+  /// renseigné pour les nouvelles lignes. L'historique v2.1 garde ses
+  /// valeurs intactes — jamais réécrit rétroactivement (voir modelVersion).
+  qualityScore       Int?
+  performanceScore   Int?
+  ewsScore           Int?
   compositeScore     Int
   surveillanceStatus DealSurveillanceStatus
 

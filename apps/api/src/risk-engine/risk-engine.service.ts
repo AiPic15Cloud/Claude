@@ -10,10 +10,7 @@ import { computeDurationTargetAlert } from '../deals/duration-target.util';
 import { computeCheckpointHealth } from '../deals/checkpoint-health.util';
 import { computeGuaranteeExpiry } from '../guarantees/guarantee-expiry.util';
 import { computeNewsletterStatus } from '../deals/newsletter.util';
-import { computeQualityScore, QUALITY_INPUT_DEFINITIONS, type QualityScoreResult } from './quality-score.util';
-import { computePerformanceScore, PERFORMANCE_INPUT_DEFINITIONS, type PerformanceScoreResult, type CheckpointSnapshot } from './performance-score.util';
-import { computeEwsScore, EWS_INDICATOR_DEFINITIONS, type EwsScoreResult, type EwsCheckpointFields } from './ews-score.util';
-import { computeCompositeRisk, COMPOSITE_WEIGHTS } from './composite-risk.util';
+import { computeRiskScore, RISK_INDICATOR_DEFINITIONS, type CheckpointFields, type TriggeredIndicator } from './additive-risk.util';
 import { classifySurveillanceStatus, SURVEILLANCE_RANK } from './surveillance-status.util';
 import { classifyVelocity } from './risk-velocity.util';
 import { HARD_OVERRIDE_RULES } from './hard-override-rules';
@@ -34,9 +31,7 @@ export interface DealRiskProfile {
     trend: 'UP' | 'DOWN' | 'FLAT' | null;
     deltas: { d7: number | null; d30: number | null; d90: number | null };
   };
-  quality: QualityScoreResult | null;
-  performance: PerformanceScoreResult | null;
-  ews: EwsScoreResult | null;
+  triggered: TriggeredIndicator[];
   surveillance: {
     status: DealSurveillanceStatus | null;
     automaticStatus: DealSurveillanceStatus | null;
@@ -46,9 +41,15 @@ export interface DealRiskProfile {
   };
   cycleProjet: 'EN_COURS' | 'SORTIE' | 'REMBOURSEMENT' | 'CLOTURE';
   recoveryStatus: DealRecoveryStatus | null;
-  topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
   completeness: CompletenessResult | null;
   dataFreshness: DataFreshnessResult | null;
+  /**
+   * Explication de la couverture par garanties de rang 1, toujours renseignée
+   * (bonne ou mauvaise) — distincte de `triggered`, qui ne liste que les
+   * indicateurs dégradant le score. Nécessaire pour le header (A.3, ligne
+   * "Protection") qui doit décrire la protection même quand elle est bonne.
+   */
+  guaranteeProtection: string;
 }
 
 const DISCLAIMER =
@@ -94,29 +95,27 @@ interface RawCheckpoint {
   createdAt: Date;
 }
 
-function margeADate(c: RawCheckpoint | null): number | null {
-  if (!c) return null;
-  const reel = num(c.prixVenteReelADate);
-  const depenses = num(c.travauxDepensesADate);
-  return reel !== null && depenses !== null ? reel - depenses : null;
-}
-
 function pctDelta(from: number | null, to: number | null): number | null {
   if (from === null || from <= 0 || to === null) return null;
   return ((to - from) / from) * 100;
 }
 
+function describeGuaranteeCoverage(ratio: number | null): string {
+  if (ratio === null || ratio === 0) return 'Aucune garantie de premier rang active.';
+  return `Garanties de rang 1 couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.`;
+}
+
 /**
- * Moteur de surveillance ATLAS — Phase 1 de la refonte : trois scores
- * indépendants (Quality/Performance/EWS) plutôt qu'une moyenne pondérée
- * unique, une trajectoire historisée (RiskScoreSnapshot, jamais écrasée), un
- * statut de surveillance à 6 valeurs, et des hard overrides qu'aucun bon
- * score ne peut compenser mathématiquement. Le score composite (headline
- * "Risk X/100") réutilise les colonnes Deal.riskScore* existantes plutôt que
- * de les dupliquer — c'est la combinaison des 3 scores qui change, pas leur
- * point de stockage.
+ * Moteur de surveillance ATLAS — score additif unique (v3.0, spec "Le
+ * Traçotin" A.2) : un seul score transparent (liste d'indicateurs, chacun
+ * ajoutant des points fixes, somme plafonnée à 100) remplace l'ancien blend
+ * pondéré Quality (25%) / Performance (35%) / EWS (40%), sans perdre aucun
+ * des signaux déjà réels qu'il couvrait. Statut de surveillance à 4 paliers,
+ * une trajectoire historisée (RiskScoreSnapshot, jamais écrasée), et des hard
+ * overrides qu'aucun bon score ne peut compenser mathématiquement. Le score
+ * (headline "Risk X/100") réutilise les colonnes Deal.riskScore* existantes.
  *
- * Chaque score réutilise autant que possible les fonctions pures déjà en
+ * Chaque indicateur réutilise autant que possible les fonctions pures déjà en
  * production (computeDeadlineAlert, computeCheckpointHealth,
  * computeGuaranteeExpiry, computeNewsletterStatus, FinancialModelService)
  * plutôt que d'inventer une nouvelle logique de risque.
@@ -244,15 +243,13 @@ export class RiskEngineService implements OnApplicationBootstrap {
         computedAt: now.toISOString(),
         disclaimer: DISCLAIMER,
         composite: { score: null, previousScore: null, trend: null, deltas: { d7: null, d30: null, d90: null } },
-        quality: null,
-        performance: null,
-        ews: null,
+        triggered: [],
         surveillance: { status: null, automaticStatus: null, velocity: null, hardOverrides: [], analystOverride: null },
         cycleProjet,
         recoveryStatus: deal.recoveryStatus,
-        topContributors: [],
         completeness: null,
         dataFreshness: null,
+        guaranteeProtection: '',
       };
     }
 
@@ -279,9 +276,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
         : null,
     );
 
-    const toSnapshot = (c: RawCheckpoint | null): CheckpointSnapshot | null =>
-      c ? { pourcentageVendu: c.pourcentageVendu, margeADate: margeADate(c) } : null;
-    const toEwsFields = (c: RawCheckpoint | null): EwsCheckpointFields | null =>
+    const toCheckpointFields = (c: RawCheckpoint | null): CheckpointFields | null =>
       c
         ? {
             travauxBudgetInitial: num(c.travauxBudgetInitial),
@@ -336,15 +331,15 @@ export class RiskEngineService implements OnApplicationBootstrap {
     // pertinente, ni division par zéro ni 100% artificiel.
     const guaranteeCoverageRatio = crd > 0 ? rank1Sum / crd : null;
 
-    // ── Entrées financières (Quality/Performance) ───────────────────────
+    // ── Entrées financières (marge structurelle, dépendance bancaire) ───
     const synthesis = financial.synthesis;
-    let qualityMarginPct: number | null = null;
+    let marginPctForScoring: number | null = null;
     if (synthesis) {
       if (bpComparison.locked) {
         const margeLine = bpComparison.lines.find((l) => l.key === 'marge') as { initialPct?: number } | undefined;
-        qualityMarginPct = margeLine?.initialPct ?? synthesis.margePct;
+        marginPctForScoring = margeLine?.initialPct ?? synthesis.margePct;
       } else {
-        qualityMarginPct = synthesis.margePct;
+        marginPctForScoring = synthesis.margePct;
       }
     }
     const bank = synthesis?.bank;
@@ -356,30 +351,12 @@ export class RiskEngineService implements OnApplicationBootstrap {
       bankLoanShare = total > 0 ? bankLoanTotal / total : null;
     }
 
-    // ── Les 3 scores ─────────────────────────────────────────────────────
-    const quality = computeQualityScore({
-      marginPct: qualityMarginPct,
-      ltc: synthesis?.ratios.ltc ?? null,
-      ltv: synthesis?.ratios.ltv ?? null,
-      bankFinancingEnabled,
-      bankLoanShare,
-      guaranteeCoverageRatio,
-    });
-
-    const performance = computePerformanceScore({
-      marginAlert: bpComparison.marginAlert,
-      bpLocked: bpComparison.locked,
-      checkpointHealthLevel: checkpointHealth.level,
-      deltaPrixActualisePct,
-      latestCheckpoint: toSnapshot(latestRaw),
-      previousCheckpoint: toSnapshot(previousRaw),
-    });
-
-    const ews = computeEwsScore({
+    // ── Score additif unique (A.2, spec "Le Traçotin" v2) ────────────────
+    const { score: composite, triggered } = computeRiskScore({
       deadlineAlert,
       durationTargetAlert,
-      latestCheckpoint: toEwsFields(latestRaw),
-      previousCheckpoint: toEwsFields(previousRaw),
+      latestCheckpoint: toCheckpointFields(latestRaw),
+      previousCheckpoint: toCheckpointFields(previousRaw),
       daysSinceLastCheckpoint,
       guaranteeNonValideCount,
       guaranteeExpireBientotCount,
@@ -387,11 +364,18 @@ export class RiskEngineService implements OnApplicationBootstrap {
       porteurMonitoringStatus: deal.porteurMonitoringStatus,
       chantierSignaleArret: deal.chantierSignaleArret,
       marginAlert: bpComparison.marginAlert,
+      bpLocked: bpComparison.locked,
+      checkpointHealthLevel: checkpointHealth.level,
+      deltaPrixActualisePct,
       newsletterStatus: newsletter.status,
       environmentHazardCount,
+      marginPct: marginPctForScoring,
+      ltc: synthesis?.ratios.ltc ?? null,
+      ltv: synthesis?.ratios.ltv ?? null,
+      bankFinancingEnabled,
+      bankLoanShare,
+      guaranteeCoverageRatio,
     });
-
-    const composite = computeCompositeRisk(quality.score, performance.score, ews.score);
 
     // ── Hard overrides + override analyste + historique/vélocité ────────
     const overrideEval = await this.riskOverrides.evaluate(organizationId, dealId, deal.name, deal.reference, {
@@ -411,7 +395,6 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     const classification = classifySurveillanceStatus({
       compositeScore: composite,
-      ewsScore: ews.score,
       velocity,
       activeHardOverrideFloors: overrideEval.floors,
       analystOverrideStatus: activeDealOverride?.overrideStatus ?? null,
@@ -419,15 +402,15 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     const trend: 'UP' | 'DOWN' | 'FLAT' = previousScore === null || previousScore === composite ? 'FLAT' : previousScore < composite ? 'UP' : 'DOWN';
 
-    const topContributors = buildTopContributors(quality, performance, ews);
+    const topTriggered = [...triggered].sort((a, b) => b.points - a.points);
 
     if (persist) {
       await this.prisma.deal.update({
         where: { id: dealId },
         data: {
-          qualityScore: quality.score,
-          performanceScore: performance.score,
-          ewsScore: ews.score,
+          qualityScore: null,
+          performanceScore: null,
+          ewsScore: null,
           riskScorePrevious: previousScore,
           riskScore: composite,
           riskScoreUpdatedAt: now,
@@ -439,15 +422,10 @@ export class RiskEngineService implements OnApplicationBootstrap {
         organizationId,
         dealId,
         {
-          qualityScore: quality.score,
-          performanceScore: performance.score,
-          ewsScore: ews.score,
           compositeScore: composite,
           surveillanceStatus: classification.finalStatus,
           breakdown: {
-            quality,
-            performance,
-            ews,
+            triggered,
             hardOverrides: overrideEval.active.map((o) => o.ruleKey),
             analystOverride: activeDealOverride?.overrideStatus ?? null,
           } as unknown as Prisma.InputJsonValue,
@@ -455,7 +433,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
         trigger,
       );
 
-      await this.maybeAlert(organizationId, deal, deal.surveillanceStatus, classification.finalStatus, previousScore, composite, topContributors);
+      await this.maybeAlert(organizationId, deal, deal.surveillanceStatus, classification.finalStatus, previousScore, composite, topTriggered);
     }
 
     const completeness = computeCompleteness({
@@ -482,9 +460,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       computedAt: now.toISOString(),
       disclaimer: DISCLAIMER,
       composite: { score: composite, previousScore, trend: previousScore === null ? null : trend, deltas },
-      quality,
-      performance,
-      ews,
+      triggered: topTriggered,
       surveillance: {
         status: classification.finalStatus,
         automaticStatus: classification.automaticStatus,
@@ -501,23 +477,20 @@ export class RiskEngineService implements OnApplicationBootstrap {
       },
       cycleProjet,
       recoveryStatus: deal.recoveryStatus,
-      topContributors,
       completeness,
       dataFreshness,
+      guaranteeProtection: describeGuaranteeCoverage(guaranteeCoverageRatio),
     };
   }
 
   /** Méthodologie exposée en clair — lue depuis les mêmes sources que le calcul réel, jamais dupliquée. */
   getMethodology() {
     return {
-      quality: QUALITY_INPUT_DEFINITIONS,
-      performance: PERFORMANCE_INPUT_DEFINITIONS,
-      ews: EWS_INDICATOR_DEFINITIONS,
-      composite: { weights: COMPOSITE_WEIGHTS },
+      indicators: RISK_INDICATOR_DEFINITIONS,
       surveillanceBands: {
         FAIBLE: '0 à 25',
         SOUS_SURVEILLANCE: '26 à 50',
-        ELEVE: '51 à 100 (score seul) — ou en dessous en cas d\'escalade EWS/vélocité',
+        ELEVE: '51 à 100 (score seul) — ou en dessous en cas d\'escalade vélocité',
         CRITIQUE: 'jamais par le score seul — uniquement via un plancher dur (voir hardOverrideRules)',
       },
       velocityWindowDays: 90,
@@ -630,21 +603,4 @@ function computeCycleProjet(stage: string, repaid: boolean): 'EN_COURS' | 'SORTI
   if (stage === 'REMBOURSE' || repaid) return 'REMBOURSEMENT';
   if (stage === 'SUIVI') return 'SORTIE';
   return 'EN_COURS';
-}
-
-function buildTopContributors(
-  quality: QualityScoreResult,
-  performance: PerformanceScoreResult,
-  ews: EwsScoreResult,
-): { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[] {
-  const fromScore = (inputs: { label: string; value: number; weight: number }[], source: 'quality' | 'performance') =>
-    inputs.map((i) => ({ label: i.label, points: Math.round((100 - i.value) * i.weight), source }));
-
-  const all = [
-    ...fromScore(quality.inputs, 'quality'),
-    ...fromScore(performance.inputs, 'performance'),
-    ...ews.triggered.map((t) => ({ label: t.label, points: t.points, source: 'ews' as const })),
-  ];
-
-  return all.filter((c) => c.points > 0).sort((a, b) => b.points - a.points).slice(0, 5);
 }

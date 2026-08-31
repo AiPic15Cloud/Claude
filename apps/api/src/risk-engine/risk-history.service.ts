@@ -4,9 +4,6 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { RISK_MODEL_VERSION } from './risk-model-version';
 
 export interface SnapshotInput {
-  qualityScore: number;
-  performanceScore: number;
-  ewsScore: number;
   compositeScore: number;
   surveillanceStatus: DealSurveillanceStatus;
   breakdown: Prisma.InputJsonValue;
@@ -40,16 +37,11 @@ export class RiskHistoryService {
     const last = await this.prisma.riskScoreSnapshot.findFirst({
       where: { dealId },
       orderBy: { computedAt: 'desc' },
-      select: { qualityScore: true, performanceScore: true, ewsScore: true, compositeScore: true, surveillanceStatus: true },
+      select: { compositeScore: true, surveillanceStatus: true },
     });
 
     const unchanged =
-      last !== null &&
-      last.qualityScore === computed.qualityScore &&
-      last.performanceScore === computed.performanceScore &&
-      last.ewsScore === computed.ewsScore &&
-      last.compositeScore === computed.compositeScore &&
-      last.surveillanceStatus === computed.surveillanceStatus;
+      last !== null && last.compositeScore === computed.compositeScore && last.surveillanceStatus === computed.surveillanceStatus;
 
     if (unchanged) return;
 
@@ -57,9 +49,6 @@ export class RiskHistoryService {
       data: {
         organizationId,
         dealId,
-        qualityScore: computed.qualityScore,
-        performanceScore: computed.performanceScore,
-        ewsScore: computed.ewsScore,
         compositeScore: computed.compositeScore,
         surveillanceStatus: computed.surveillanceStatus,
         breakdown: computed.breakdown,
@@ -97,7 +86,7 @@ export class RiskHistoryService {
     return this.prisma.riskScoreSnapshot.findMany({
       where: { organizationId, dealId, computedAt: { gte: since } },
       orderBy: { computedAt: 'asc' },
-      select: { computedAt: true, compositeScore: true, qualityScore: true, performanceScore: true, ewsScore: true, surveillanceStatus: true },
+      select: { computedAt: true, compositeScore: true, surveillanceStatus: true },
     });
   }
 }
