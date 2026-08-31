@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Globe, Pencil, Plus, Trash2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { Globe, History, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +11,9 @@ import {
   useCreateCompetitorProject,
   useUpdateCompetitorProject,
   useDeleteCompetitorProject,
+  useCompetitorProjectEvents,
 } from '../hooks/use-competitor-projects';
-import { COMPETITOR_PROJECT_STATUS_LABELS, type CompetitorProject, type CompetitorProjectStatus } from '@/types';
+import { COMPETITOR_PROJECT_EVENT_LABELS, COMPETITOR_PROJECT_STATUS_LABELS, type CompetitorProject, type CompetitorProjectStatus } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -35,9 +38,11 @@ const EMPTY_FORM: FormState = { name: '', status: 'EN_COLLECTE', targetAmount: '
 
 export function CompetitorProjectsPanel({ entityId }: { entityId: string }) {
   const { data: projects = [], isLoading } = useCompetitorProjects(entityId);
+  const { data: events = [] } = useCompetitorProjectEvents(entityId);
   const createProject = useCreateCompetitorProject(entityId);
   const updateProject = useUpdateCompetitorProject(entityId);
   const deleteProject = useDeleteCompetitorProject(entityId);
+  const [showHistory, setShowHistory] = useState(false);
 
   const [quickName, setQuickName] = useState('');
   const [quickStatus, setQuickStatus] = useState<CompetitorProjectStatus>('EN_COLLECTE');
@@ -205,6 +210,27 @@ export function CompetitorProjectsPanel({ entityId }: { entityId: string }) {
             </div>
           </div>
         ),
+      )}
+
+      {events.length > 0 && (
+        <div className="mt-1 border-t border-border pt-2">
+          <button
+            onClick={() => setShowHistory((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <History className="h-3 w-3" /> {showHistory ? 'Masquer' : 'Voir'} l'historique ({events.length})
+          </button>
+          {showHistory && (
+            <div className="mt-1.5 flex flex-col gap-1">
+              {events.map((event) => (
+                <p key={event.id} className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{COMPETITOR_PROJECT_EVENT_LABELS[event.eventType]}</span> — {event.projectName} ·{' '}
+                  {formatDistanceToNow(new Date(event.occurredAt), { addSuffix: true, locale: fr })}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

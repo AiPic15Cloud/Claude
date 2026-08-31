@@ -1029,6 +1029,27 @@ export interface CompetitorProject {
   updatedAt: string;
 }
 
+export type CompetitorProjectEventType = 'PROJECT_DETECTED' | 'FUNDING_OPENED' | 'FUNDING_CLOSED' | 'PROJECT_REMOVED' | 'PROJECT_UPDATED';
+
+export const COMPETITOR_PROJECT_EVENT_LABELS: Record<CompetitorProjectEventType, string> = {
+  PROJECT_DETECTED: 'Projet détecté',
+  FUNDING_OPENED: 'Collecte ouverte',
+  FUNDING_CLOSED: 'Collecte clôturée',
+  PROJECT_REMOVED: 'Projet retiré',
+  PROJECT_UPDATED: 'Projet mis à jour',
+};
+
+export interface CompetitorProjectEvent {
+  id: string;
+  entityId: string;
+  projectId: string;
+  projectName: string;
+  eventType: CompetitorProjectEventType;
+  previousStatus?: CompetitorProjectStatus | null;
+  newStatus?: CompetitorProjectStatus | null;
+  occurredAt: string;
+}
+
 export interface DealEntityLink {
   id: string;
   dealId: string;
@@ -1084,6 +1105,37 @@ export const ARTICLE_CATEGORY_LABELS: Record<ArticleCategory, string> = {
   CONCURRENCE: 'Concurrence',
   AUTRE: 'Autre',
 };
+
+export type SourceHealth = 'OPERATIONAL' | 'DEGRADED' | 'BROKEN' | 'UNKNOWN';
+
+export const SOURCE_HEALTH_LABELS: Record<SourceHealth, string> = {
+  OPERATIONAL: 'Opérationnelle',
+  DEGRADED: 'Dégradée',
+  BROKEN: 'En panne',
+  UNKNOWN: 'Inconnue',
+};
+
+export type SourceApprovalStatus = 'APPROVED_FOR_COLLECTION' | 'PENDING_REVIEW';
+
+/** Source Registry (spec ATLAS v2, C.2/C.7) — un enregistrement par connecteur, partagé par tous les tenants. */
+export interface SourceRegistryEntry {
+  key: string;
+  label: string;
+  accessMethod: string;
+  termsReviewed: boolean;
+  reviewedAt?: string | null;
+  authenticationRequired: boolean;
+  approvalStatus: SourceApprovalStatus;
+  lastCheckedAt?: string | null;
+  lastSuccessAt?: string | null;
+  health: SourceHealth;
+  lastChangeAt?: string | null;
+}
+
+export interface SourceCoverage {
+  sources: SourceRegistryEntry[];
+  summary: { total: number; operational: number; degraded: number; broken: number };
+}
 
 export interface NewsSource {
   id: string;
