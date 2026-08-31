@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useExtendDeadline } from '../hooks/use-loan-lifecycle';
+import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
 import { ApiError } from '@/lib/api';
 
 interface ExtendDeadlineDialogProps {
@@ -14,21 +14,16 @@ interface ExtendDeadlineDialogProps {
   size?: 'sm' | 'default';
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
-
+/** Échéance de vote (process J-90/J-60/J-30/J-15, Deal.dateMax) — distincte de l'échéance contractuelle du prêt (Deal.endDate, voir LoanExtensionDialog). */
 export function ExtendDeadlineDialog({ dealId, dealName, currentDateMax, size = 'sm' }: ExtendDeadlineDialogProps) {
   const [open, setOpen] = useState(false);
   const [newDate, setNewDate] = useState('');
-  const [signatureDate, setSignatureDate] = useState(today());
-  const extendDeadline = useExtendDeadline(dealId);
+  const updateDeal = useUpdateDeal(dealId);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDate || !signatureDate) return;
-    extendDeadline.mutate(
-      { dateSignature: signatureDate, nouvelleDateEcheance: newDate },
-      { onSuccess: () => setOpen(false) },
-    );
+    if (!newDate) return;
+    updateDeal.mutate({ dateMax: newDate }, { onSuccess: () => setOpen(false) });
   };
 
   return (
@@ -41,7 +36,7 @@ export function ExtendDeadlineDialog({ dealId, dealName, currentDateMax, size = 
       </DialogTrigger>
       <DialogContent onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
-          <DialogTitle>Prolonger l'échéance — {dealName}</DialogTitle>
+          <DialogTitle>Prolonger l'échéance de vote — {dealName}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           {currentDateMax && (
@@ -50,21 +45,17 @@ export function ExtendDeadlineDialog({ dealId, dealName, currentDateMax, size = 
             </p>
           )}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="signatureDate">Date de signature de la prorogation</Label>
-            <Input id="signatureDate" type="date" value={signatureDate} onChange={(e) => setSignatureDate(e.target.value)} required />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="newDateMax">Nouvelle date d'échéance</Label>
+            <Label htmlFor="newDateMax">Nouvelle date max</Label>
             <Input id="newDateMax" type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} required />
           </div>
-          {extendDeadline.isError && (
+          {updateDeal.isError && (
             <p className="text-xs text-destructive">
-              {extendDeadline.error instanceof ApiError ? extendDeadline.error.message : 'Une erreur est survenue'}
+              {updateDeal.error instanceof ApiError ? updateDeal.error.message : 'Une erreur est survenue'}
             </p>
           )}
           <DialogFooter>
-            <Button type="submit" disabled={extendDeadline.isPending || !newDate || !signatureDate}>
-              {extendDeadline.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={updateDeal.isPending || !newDate}>
+              {updateDeal.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Confirmer la prolongation
             </Button>
           </DialogFooter>
