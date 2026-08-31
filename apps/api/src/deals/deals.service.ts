@@ -715,6 +715,11 @@ export class DealsService {
     return { ...deal, ...computeNewsletterStatus(deal.lastNewsletterDate, deal.newsletterTargetDays) };
   }
 
+  /** Horodatage de la dernière vérification réussie d'une source externe (section 6 "Le Traçotin") — jamais un facteur de risque, seulement un indicateur de fraîcheur pour DataFreshnessResult. */
+  async touchDataCheck(id: string, field: 'riskDataCheckedAt' | 'dpeCheckedAt') {
+    await this.prisma.deal.update({ where: { id }, data: { [field]: new Date() } });
+  }
+
   private async assertExists(organizationId: string, id: string) {
     const deal = await this.prisma.deal.findFirst({ where: { id, organizationId }, select: { id: true } });
     if (!deal) throw new NotFoundException('Opération introuvable');

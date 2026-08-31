@@ -21,6 +21,7 @@ import { RiskOverrideService } from './risk-override.service';
 import { RiskHistoryService } from './risk-history.service';
 import { computeCrd, sumRealizedRepayments } from '../deals/crd.util';
 import { computeCompleteness, type CompletenessResult } from './completeness.util';
+import { computeDataFreshness, type DataFreshnessResult } from './data-freshness.util';
 
 export interface DealRiskProfile {
   dealId: string;
@@ -47,6 +48,7 @@ export interface DealRiskProfile {
   recoveryStatus: DealRecoveryStatus | null;
   topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
   completeness: CompletenessResult | null;
+  dataFreshness: DataFreshnessResult | null;
 }
 
 const DISCLAIMER =
@@ -182,6 +184,10 @@ export class RiskEngineService implements OnApplicationBootstrap {
         newsletterTargetDays: true,
         lat: true,
         lng: true,
+        postcode: true,
+        porteurCheckedAt: true,
+        riskDataCheckedAt: true,
+        dpeCheckedAt: true,
         riskScore: true,
         riskScorePrevious: true,
         riskScoreAtClosure: true,
@@ -246,6 +252,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
         recoveryStatus: deal.recoveryStatus,
         topContributors: [],
         completeness: null,
+        dataFreshness: null,
       };
     }
 
@@ -460,6 +467,15 @@ export class RiskEngineService implements OnApplicationBootstrap {
       guarantees: deal.guarantees,
     });
 
+    const dataFreshness = computeDataFreshness({
+      hasSiren: deal.porteurSiren !== null,
+      porteurCheckedAt: deal.porteurCheckedAt,
+      hasCoords: deal.lat !== null && deal.lng !== null,
+      riskDataCheckedAt: deal.riskDataCheckedAt,
+      hasPostcode: deal.postcode !== null,
+      dpeCheckedAt: deal.dpeCheckedAt,
+    });
+
     return {
       dealId,
       suppressed: false,
@@ -487,6 +503,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       recoveryStatus: deal.recoveryStatus,
       topContributors,
       completeness,
+      dataFreshness,
     };
   }
 

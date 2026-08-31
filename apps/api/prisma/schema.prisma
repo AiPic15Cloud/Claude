@@ -430,6 +430,17 @@ model Deal {
   porteurSiren            String?
   porteurMonitoringStatus String?
 
+  // Fraîcheur des données externes (section 6 du brief "Le Traçotin") : date
+  // du dernier appel réussi à chaque source, indépendamment du fait que le
+  // résultat ait changé — alimente le score de confiance du dossier
+  // (data-freshness.util.ts). porteurCheckedAt couvre SIRENE+BODACC (toujours
+  // interrogées ensemble par CompanyMonitoringService.fetchStatus()),
+  // riskDataCheckedAt couvre Géorisques/IGN/Overpass (toujours interrogés
+  // ensemble par RiskDataService.getRiskProfile()), dpeCheckedAt couvre ADEME.
+  porteurCheckedAt  DateTime?
+  riskDataCheckedAt DateTime?
+  dpeCheckedAt      DateTime?
+
   createdById  String
   createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
   assignedToId String?
