@@ -20,6 +20,7 @@ import { HARD_OVERRIDE_RULES } from './hard-override-rules';
 import { RiskOverrideService } from './risk-override.service';
 import { RiskHistoryService } from './risk-history.service';
 import { computeCrd, sumRealizedRepayments } from '../deals/crd.util';
+import { computeCompleteness, type CompletenessResult } from './completeness.util';
 
 export interface DealRiskProfile {
   dealId: string;
@@ -45,6 +46,7 @@ export interface DealRiskProfile {
   cycleProjet: 'EN_COURS' | 'SORTIE' | 'REMBOURSEMENT' | 'CLOTURE';
   recoveryStatus: DealRecoveryStatus | null;
   topContributors: { label: string; points: number; source: 'quality' | 'performance' | 'ews' }[];
+  completeness: CompletenessResult | null;
 }
 
 const DISCLAIMER =
@@ -174,6 +176,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
         startDate: true,
         durationMonths: true,
         recoveryStatus: true,
+        porteurSiren: true,
         porteurMonitoringStatus: true,
         lastNewsletterDate: true,
         newsletterTargetDays: true,
@@ -242,6 +245,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
         cycleProjet,
         recoveryStatus: deal.recoveryStatus,
         topContributors: [],
+        completeness: null,
       };
     }
 
@@ -447,6 +451,15 @@ export class RiskEngineService implements OnApplicationBootstrap {
       await this.maybeAlert(organizationId, deal, deal.surveillanceStatus, classification.finalStatus, previousScore, composite, topContributors);
     }
 
+    const completeness = computeCompleteness({
+      hasFinancialModel: synthesis !== null,
+      bpLocked: bpComparison.locked,
+      daysSinceLastCheckpoint,
+      porteurSiren: deal.porteurSiren,
+      porteurMonitoringStatus: deal.porteurMonitoringStatus,
+      guarantees: deal.guarantees,
+    });
+
     return {
       dealId,
       suppressed: false,
@@ -473,6 +486,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       cycleProjet,
       recoveryStatus: deal.recoveryStatus,
       topContributors,
+      completeness,
     };
   }
 
