@@ -44,6 +44,7 @@ import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { DealPrintSheet } from './components/deal-print-sheet';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { FreshnessBadge } from '@/components/ui/freshness-badge';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -248,18 +249,40 @@ export function DossierPage() {
       )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Montant cible</p>
-            <p className="text-lg font-semibold tabular-nums">{formatCurrency(deal.amountTarget)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Collecté</p>
-            <p className="text-lg font-semibold tabular-nums">{formatCurrency(deal.amountRaised)}</p>
-          </CardContent>
-        </Card>
+        {isFinancedStage(deal.stage) ? (
+          <>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Collecté</p>
+                <p className="text-lg font-semibold tabular-nums">{formatCurrency(deal.amountRaised)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  Capital restant dû
+                  <InfoTooltip text="Le CRD suppose que chaque remboursement réalisé (non projeté) réduit le capital emprunté d'autant — les intérêts courus ne sont pas encore ventilés (Repayment ne distingue pas principal et intérêts). Les remboursements projetés ne sont jamais déduits." />
+                </p>
+                <p className="text-lg font-semibold tabular-nums">{formatCurrency(deal.crd ?? deal.amountRaised)}</p>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Montant cible</p>
+                <p className="text-lg font-semibold tabular-nums">{formatCurrency(deal.amountTarget)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Collecté</p>
+                <p className="text-lg font-semibold tabular-nums">{formatCurrency(deal.amountRaised)}</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Taux</p>
