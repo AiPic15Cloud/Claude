@@ -219,7 +219,7 @@ export function DocumentsPanel({
         <div>
           <CardTitle>Documents ({documents?.length ?? 0})</CardTitle>
           <CardDescription>
-            Pièces déposées sur le dossier — pris en compte dans le Score ATLAS. L'icône <Sparkles className="inline h-3 w-3" /> lance
+            Pièces déposées sur le dossier. L'icône <Sparkles className="inline h-3 w-3" /> lance
             une extraction financière automatique (PDF, Excel).
           </CardDescription>
         </div>

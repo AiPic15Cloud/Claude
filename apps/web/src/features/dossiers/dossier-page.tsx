@@ -19,7 +19,6 @@ import { useDealRisk } from './hooks/use-risk';
 import { useCreateCostLineItem } from './hooks/use-cost-line-items';
 import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
-import { ScoreBreakdownCard } from './components/score-breakdown-card';
 import { RiskAtlasCard } from './components/risk-atlas-card';
 import { ProjectCommandHeader } from './components/project-command-header';
 import { DealStageTimeline } from './components/deal-stage-timeline';
@@ -44,7 +43,7 @@ import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { DealPrintSheet } from './components/deal-print-sheet';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { FreshnessBadge } from '@/components/ui/freshness-badge';
-import { InfoTooltip } from '@/components/ui/info-tooltip';
+import { CrdDetailPopover } from './components/crd-detail-popover';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -60,7 +59,7 @@ export function DossierPage() {
   const guaranteeWarnings = guarantees.filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE');
   const deleteDeal = useDeleteDeal();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [activeTab, setActiveTab] = useState('score');
+  const [activeTab, setActiveTab] = useState('risk');
   const [financialPrefill, setFinancialPrefill] = useState<(Partial<FinancialModelFormValues> & { sourceDocumentId?: string }) | null>(null);
 
   const createCostLineItem = useCreateCostLineItem(id ?? '');
@@ -261,7 +260,7 @@ export function DossierPage() {
               <CardContent className="p-4">
                 <p className="flex items-center gap-1 text-xs text-muted-foreground">
                   Capital restant dû
-                  <InfoTooltip text="Intérêts calculés au prorata simple (taux annuel × jours écoulés / 365) sur le capital restant dû, imputés en priorité sur chaque remboursement réalisé avant le capital — ordre légal par défaut à défaut de tableau d'amortissement contractuel (art. 1342-10 du Code civil). Les remboursements projetés ne sont jamais déduits." />
+                  <CrdDetailPopover crdCapital={deal.crd ?? Number(deal.amountRaised)} crdInteretsCourus={deal.crdInteretsCourus} crdTotal={deal.crdTotal} />
                 </p>
                 <p className="text-lg font-semibold tabular-nums">
                   {formatCurrency(deal.crdTotal ?? deal.crd ?? deal.amountRaised)}
@@ -317,7 +316,6 @@ export function DossierPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="score">Score ATLAS</TabsTrigger>
           <TabsTrigger value="risk">Risque</TabsTrigger>
           <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
           <TabsTrigger value="tasks">Tâches ({dealTasks.filter((t) => !t.done).length})</TabsTrigger>
@@ -331,9 +329,6 @@ export function DossierPage() {
           <TabsTrigger value="assistant">Assistant IA</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="score">
-          <ScoreBreakdownCard dealId={deal.id} />
-        </TabsContent>
         <TabsContent value="risk">
           <RiskAtlasCard dealId={deal.id} />
         </TabsContent>

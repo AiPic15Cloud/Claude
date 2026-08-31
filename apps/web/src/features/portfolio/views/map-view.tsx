@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { StageBadge } from '../components/deal-badges';
 import { formatCurrency } from '@/lib/format';
-import type { Deal } from '@/types';
+import type { Deal, DealSurveillanceStatus } from '@/types';
 import { useThemeStore } from '@/store/theme.store';
 
 interface MapViewProps {
@@ -17,15 +17,15 @@ const FRANCE_CENTER: [number, number] = [46.6, 2.4];
 // Leaflet marker HTML is inserted into the live DOM, so var(--x) resolves
 // against the current theme just like any other CSS — no hardcoded hex,
 // no manual dark-mode branching.
-function scoreColor(score?: number | null): string {
-  if (score === null || score === undefined) return 'hsl(var(--muted-foreground))';
-  if (score >= 70) return 'hsl(var(--success))';
-  if (score >= 40) return 'hsl(var(--warning))';
+function surveillanceColor(status?: DealSurveillanceStatus | null): string {
+  if (!status) return 'hsl(var(--muted-foreground))';
+  if (status === 'FAIBLE') return 'hsl(var(--success))';
+  if (status === 'SOUS_SURVEILLANCE' || status === 'ELEVE') return 'hsl(var(--warning))';
   return 'hsl(var(--destructive))';
 }
 
-function buildIcon(score?: number | null) {
-  const color = scoreColor(score);
+function buildIcon(status?: DealSurveillanceStatus | null) {
+  const color = surveillanceColor(status);
   return L.divIcon({
     html: `<div style="width:14px;height:14px;border-radius:9999px;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
     className: '',
@@ -54,7 +54,7 @@ export function MapView({ deals, onSelectDeal }: MapViewProps) {
           <Marker
             key={deal.id}
             position={[Number(deal.lat), Number(deal.lng)]}
-            icon={buildIcon(deal.atlasScore)}
+            icon={buildIcon(deal.surveillanceStatus)}
             eventHandlers={{ click: () => onSelectDeal(deal.id) }}
           >
             <Popup>

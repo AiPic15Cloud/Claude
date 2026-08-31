@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { StageBadge, TypeBadge, ScoreBadge, RiskScoreBadge } from '../components/deal-badges';
+import { StageBadge, TypeBadge, RiskScoreBadge } from '../components/deal-badges';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -27,7 +27,6 @@ const COLUMNS: Column[] = [
   { key: 'city', label: 'Ville' },
   { key: 'amountTarget', label: 'Montant cible', sortable: true, align: 'right' },
   { key: 'amountRaised', label: 'Collecté', sortable: true, align: 'right' },
-  { key: 'atlasScore', label: 'Score ATLAS', sortable: true, align: 'right' },
   { key: 'riskScore', label: 'Risque', sortable: true, align: 'right' },
   { key: 'assignedTo', label: 'Assigné à' },
 ];
@@ -82,9 +81,6 @@ export function TableView({ deals, onSelectDeal, sortBy, sortOrder, onSort }: Ta
               <TableCell className="whitespace-nowrap text-muted-foreground">{deal.city ?? '—'}</TableCell>
               <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{formatCurrency(deal.amountTarget)}</TableCell>
               <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{formatCurrency(deal.amountRaised)}</TableCell>
-              <TableCell className="whitespace-nowrap text-right">
-                <ScoreBadge score={deal.atlasScore} />
-              </TableCell>
               <TableCell className="whitespace-nowrap text-right">
                 <RiskScoreBadge score={deal.riskScore} previousScore={deal.riskScorePrevious} />
               </TableCell>
