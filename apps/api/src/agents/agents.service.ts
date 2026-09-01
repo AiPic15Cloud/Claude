@@ -107,7 +107,7 @@ export class AgentsService {
 
     if (dto.documentId && dto.dealId) {
       const { buffer, mimeType, name } = await this.documents.getBuffer(organizationId, dto.dealId, dto.documentId);
-      const built = buildDocumentContentBlock(buffer, mimeType, name);
+      const built = await buildDocumentContentBlock(buffer, mimeType, name);
       if (!built.ok) throw new BadRequestException(built.error);
 
       const last = messages[messages.length - 1];
@@ -141,7 +141,7 @@ export class AgentsService {
       );
     }
 
-    const built = buildDocumentContentBlock(file.buffer, file.mimeType, file.name);
+    const built = await buildDocumentContentBlock(file.buffer, file.mimeType, file.name);
     if (!built.ok) throw new BadRequestException(built.error);
 
     const contextBlock = dto.dealId ? await this.buildDealContext(organizationId, dto.dealId) : null;
@@ -226,7 +226,7 @@ export class AgentsService {
     }
 
     const { buffer, mimeType, name } = await this.documents.getBuffer(organizationId, dealId, documentId);
-    const built = buildDocumentContentBlock(buffer, mimeType, name);
+    const built = await buildDocumentContentBlock(buffer, mimeType, name);
     if (!built.ok) throw new BadRequestException(built.error);
 
     const response = await this.client.messages.parse({
