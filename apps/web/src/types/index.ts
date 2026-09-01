@@ -447,6 +447,7 @@ export interface GuaranteeToRenew {
   description: string;
   endDate: string | null;
   validity: GuaranteeValidity;
+  invalidReason: GuaranteeInvalidReason;
   expiringSoon: boolean;
   daysToExpiry: number | null;
 }
@@ -548,6 +549,8 @@ export type LoginResult = AuthResponse | TwoFactorChallenge;
 export type GuaranteeType = 'HYPOTHEQUE' | 'FIDUCIE' | 'CAUTION' | 'GAGE' | 'NANTISSEMENT' | 'PRIVILEGE' | 'AUTRE';
 export type GuaranteeStatus = 'ACTIVE' | 'RELEASED' | 'DEFAULTED';
 export type GuaranteeValidity = 'VALIDE' | 'NON_VALIDE';
+/** Pourquoi une sûreté est NON_VALIDE (spec ATLAS v2, A.9) — purement informatif. */
+export type GuaranteeInvalidReason = 'EXPIREE' | 'DEFAUT_DE_FOND' | null;
 
 export const GUARANTEE_TYPE_LABELS: Record<GuaranteeType, string> = {
   HYPOTHEQUE: 'Hypothèque',
@@ -579,8 +582,12 @@ export interface Guarantee {
   status: GuaranteeStatus;
   endDate?: string | null;
   verifiedAt?: string | null;
-  // Calculés côté serveur à partir de endDate — jamais saisis directement.
+  /** Vice de fond signalé par un analyste (spec ATLAS v2, A.9) — jamais déduit d'une donnée existante. */
+  substantiveDefect: boolean;
+  substantiveDefectNote?: string | null;
+  // Calculés côté serveur à partir de endDate/substantiveDefect — jamais saisis directement.
   validity: GuaranteeValidity;
+  invalidReason: GuaranteeInvalidReason;
   expiringSoon: boolean;
   daysToExpiry: number | null;
   createdAt: string;
