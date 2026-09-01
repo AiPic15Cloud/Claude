@@ -227,6 +227,12 @@ export interface Deal {
   porteurCheckedAt?: string | null;
   riskDataCheckedAt?: string | null;
   dpeCheckedAt?: string | null;
+  esgMateriauxBasCarbone?: EsgAssessment | null;
+  esgGestionEauxPluviales?: string | null;
+  esgEmploisChantierEstimes?: number | null;
+  esgAccessibilite?: string | null;
+  esgConformiteReglementaire?: EsgAssessment | null;
+  esgNotes?: string | null;
   deadlineAlert?: DeadlineAlert;
   durationTargetAlert?: DurationTargetAlert;
   /** Un point Suivi cible a été enregistré assez récemment (depuis J-30 avant la durée cible) pour valider ce signal — la bannière correspondante disparaît de "Signaux & causes", sans effacer durationTargetAlert lui-même (toujours utilisé ailleurs, ex. score de risque). */
@@ -874,6 +880,14 @@ export interface FinancialModel {
   sensitivity: FinancialScenario[] | null;
   synthesis: FinancialSynthesis | null;
 }
+
+/** D.3 — dimension ESG (spec complémentaire), réponse à une case oui/non/inconnu. */
+export type EsgAssessment = 'OUI' | 'NON' | 'INCONNU';
+export const ESG_ASSESSMENT_LABELS: Record<EsgAssessment, string> = {
+  OUI: 'Oui',
+  NON: 'Non',
+  INCONNU: 'Inconnu',
+};
 
 /** D.2 — comparables internes (note d'investissement) : autres dossiers du portefeuille, même ville ou même typologie. */
 export interface ComparableDeal {
