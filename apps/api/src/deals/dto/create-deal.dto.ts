@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { DealType, DealRecoveryStatus } from '@prisma/client';
+import { DealType, DealRecoveryStatus, EsgAssessment } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -176,6 +176,43 @@ export class CreateDealDto {
   @IsOptional()
   @IsString()
   assignedToId?: string;
+
+  // Dimension ESG (D.3) — strictement additive et informative, sans lien
+  // avec le score de risque. DPE (ADEME) et transparence du porteur (SIREN)
+  // ne sont pas dupliqués ici, déjà disponibles ailleurs.
+  @ApiProperty({ enum: EsgAssessment, required: false, description: 'Présence de matériaux/techniques bas-carbone' })
+  @IsOptional()
+  @IsEnum(EsgAssessment)
+  esgMateriauxBasCarbone?: EsgAssessment;
+
+  @ApiProperty({ required: false, description: "Consommation d'eau / gestion des eaux pluviales, le cas échéant" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  esgGestionEauxPluviales?: string;
+
+  @ApiProperty({ required: false, description: "Nombre d'emplois chantier estimé" })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  esgEmploisChantierEstimes?: number;
+
+  @ApiProperty({ required: false, description: 'Accessibilité (PMR, mixité sociale si logement)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  esgAccessibilite?: string;
+
+  @ApiProperty({ enum: EsgAssessment, required: false, description: 'Conformité réglementaire (permis, autorisations)' })
+  @IsOptional()
+  @IsEnum(EsgAssessment)
+  esgConformiteReglementaire?: EsgAssessment;
+
+  @ApiProperty({ required: false, description: 'Notes ESG libres' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  esgNotes?: string;
 
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()
