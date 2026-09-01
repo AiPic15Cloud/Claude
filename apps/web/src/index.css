@@ -1,0 +1,210 @@
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource/spectral/300.css';
+@import '@fontsource/spectral/400.css';
+@import '@fontsource/spectral/600.css';
+@import '@fontsource/spectral/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * "Colorométrie" identity (planche de marque fournie par l'utilisateur :
+   * #970747/#C8095E/#660530 vin-magenta, #111111 encre, #FEF4E8 crème,
+   * #2A2A2A charbon) — light theme est cartes blanches sur page crème très
+   * pâle avec une encre quasi noire (#111111) et un primary vin-magenta
+   * (hue 333, calculé directement depuis #970747) ; dark theme bascule sur
+   * un fond quasi noir littéral (#111111) avec une encre teintée crème et
+   * un primary magenta plus clair (hue 333, L58%) pour rester lisible sur
+   * fond sombre. Le spectre de graphique à 5 tons (magenta/bleu/émeraude/
+   * violet/orange) a été validé par le script de la compétence dataviz
+   * (six checks : bande de clarté, plancher de chroma, séparation CVD,
+   * plancher vision normale, contraste — tous PASS en clair et en sombre,
+   * seule la 3e teinte reste sous 3:1 en clair, mitigé par les libellés
+   * déjà visibles sur chaque graphique). Le sidebar reste, comme avant,
+   * délibérément HORS de la bascule clair/sombre : --sidebar* et
+   * --sidebar-accent portent une valeur fixe (encre #111111 + magenta vif)
+   * dans les deux blocs, pour que le rail de navigation reste identique
+   * quel que soit le thème de la page — et --sidebar/--sidebar-border
+   * reprennent littéralement #111111/#2A2A2A de la planche.
+   * Chaque paire a été vérifiée avec la vraie formule de contraste sRGB,
+   * pas au jugé : light primary-foreground/primary 8.85:1, dark
+   * primary-foreground/primary 5.23:1 — AA ou mieux partout.
+   */
+  :root {
+    --background: 33 45% 96%;
+    --foreground: 0 0% 9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+
+    --primary: 333 91% 31%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 33 20% 93%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 30 16% 93%;
+    --muted-foreground: 20 8% 42%;
+
+    --accent: 333 35% 95%;
+    --accent-foreground: 333 85% 26%;
+
+    --destructive: 4 72% 42%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 150 60% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 85% 30%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 30 16% 87%;
+    --input: 30 16% 87%;
+    --ring: 333 91% 31%;
+
+    --sidebar: 0 0% 7%;
+    --sidebar-foreground: 33 25% 92%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-accent: 333 82% 52%;
+
+    --chart-accent: 333 91% 41%;
+    --chart-2: 213 68% 50%;
+    --chart-3: 159 73% 40%;
+    --chart-4: 249 48% 44%;
+    --chart-5: 17 82% 56%;
+
+    /* Sharper than the previous 1rem — a more architectural, less
+       "rounded-everything" corner, closer to the restraint of the
+       Cockpit premium direction (see the published concept) than to a
+       default soft dashboard look. */
+    --radius: 0.625rem;
+
+    /* Palette de marque — signe Atlas (claveau), fixe dans les deux thèmes
+       comme --sidebar* : encre #111111, noir absolu, ligne crème #FEF4E8,
+       estompe magenta clair, rouge de repérage devenu magenta vif
+       #C8095E (voir la planche « Colorométrie »). */
+    --brand-cyanotype: 0 0% 7%;
+    --brand-ink: 0 0% 4%;
+    --brand-line: 33 60% 95%;
+    --brand-dim: 333 20% 65%;
+    --brand-accent: 333 91% 41%;
+  }
+
+  .dark {
+    --background: 0 0% 7%;
+    --foreground: 33 20% 93%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 33 20% 93%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 33 20% 93%;
+
+    --primary: 333 82% 58%;
+    --primary-foreground: 0 0% 8%;
+
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 33 20% 93%;
+
+    --muted: 0 0% 13%;
+    --muted-foreground: 20 5% 65%;
+
+    --accent: 0 0% 13%;
+    --accent-foreground: 33 20% 93%;
+
+    --destructive: 4 78% 60%;
+    --destructive-foreground: 0 0% 8%;
+
+    --success: 150 65% 48%;
+    --success-foreground: 0 0% 8%;
+
+    --warning: 38 90% 58%;
+    --warning-foreground: 0 0% 8%;
+
+    --chart-accent: 338 72% 57%;
+    --chart-2: 213 77% 56%;
+    --chart-3: 159 73% 36%;
+    --chart-4: 247 69% 72%;
+    --chart-5: 17 70% 50%;
+
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 333 82% 58%;
+
+    --sidebar: 0 0% 7%;
+    --sidebar-foreground: 33 25% 92%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-accent: 333 82% 52%;
+
+    --brand-cyanotype: 0 0% 7%;
+    --brand-ink: 0 0% 4%;
+    --brand-line: 33 60% 95%;
+    --brand-dim: 333 20% 65%;
+    --brand-accent: 333 91% 41%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: hidden;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  /* Fiche dossier PDF (DealPrintSheet) : la page doit rester blanche même
+     quand l'app tourne en thème sombre — sinon le --background sombre du
+     body ressort sous le texte forcé en noir. Marge de page resserrée pour
+     laisser de la place à l'en-tête/pied de page que Chrome ajoute par-dessus
+     (titre, URL, date) quand l'utilisateur laisse cette option cochée dans
+     le dialogue d'impression — sans ça le contenu déborde sur une 2e page
+     quasi vide. */
+  @media print {
+    html,
+    body {
+      background: white !important;
+    }
+    @page {
+      size: A4;
+      margin: 10mm;
+    }
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

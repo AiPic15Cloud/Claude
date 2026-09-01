@@ -1,0 +1,354 @@
+import { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm, Controller } from 'react-hook-form';
+import { z } from 'zod';
+import { Loader2, Pencil } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
+import {
+  DEAL_RECOVERY_STATUS_LABELS,
+  DEAL_STAGE_LABELS,
+  DEAL_STAGES,
+  DEAL_STATUS_LABELS,
+  DEAL_TYPE_LABELS,
+  DEAL_TYPES,
+  type DealDetail,
+  type DealRecoveryStatus,
+  type DealStage,
+  type DealStatus,
+  type DealType,
+} from '@/types';
+import { ApiError } from '@/lib/api';
+import { formatCurrency } from '@/lib/format';
+
+const DEAL_STATUSES: DealStatus[] = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED'];
+const DEAL_RECOVERY_STATUSES: DealRecoveryStatus[] = ['RAS', 'AMIABLE', 'MISE_EN_DEMEURE', 'CONTENTIEUX', 'PROCEDURE_COLLECTIVE'];
+
+const schema = z.object({
+  name: z.string().min(2, 'Nom requis'),
+  type: z.enum(DEAL_TYPES as [DealType, ...DealType[]]),
+  stage: z.enum(DEAL_STAGES as [DealStage, ...DealStage[]]),
+  status: z.enum(['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED']),
+  amountTarget: z.coerce.number().positive('Montant requis'),
+  amountRaised: z.coerce.number().min(0),
+  interestRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
+  feesRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
+  durationMonths: z.coerce.number().int().positive().optional().or(z.literal(undefined)),
+  city: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  dateMin: z.string().optional(),
+  dateCible: z.string().optional(),
+  dateMax: z.string().optional(),
+  description: z.string().optional(),
+  repaid: z.boolean().optional(),
+  recoveryStatus: z.enum(DEAL_RECOVERY_STATUSES as [DealRecoveryStatus, ...DealRecoveryStatus[]]).optional(),
+  chantierSignaleArret: z.boolean().optional(),
+  porteurNom: z.string().optional(),
+  porteurSociete: z.string().optional(),
+  porteurAdresse: z.string().optional(),
+  porteurSiren: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^\d{9}$/.test(v), 'Le SIREN doit contenir exactement 9 chiffres.'),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+function toDateInput(value?: string | null) {
+  if (!value) return '';
+  return value.slice(0, 10);
+}
+
+export function EditDealDialog({ deal }: { deal: DealDetail }) {
+  const [open, setOpen] = useState(false);
+  const updateDeal = useUpdateDeal(deal.id);
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: deal.name,
+      type: deal.type,
+      stage: deal.stage,
+      status: deal.status,
+      amountTarget: Number(deal.amountTarget),
+      amountRaised: Number(deal.amountRaised),
+      interestRate: deal.interestRate ? Number(deal.interestRate) : undefined,
+      feesRate: deal.feesRate ? Number(deal.feesRate) : undefined,
+      durationMonths: deal.durationMonths ?? undefined,
+      city: deal.city ?? '',
+      startDate: toDateInput(deal.startDate),
+      endDate: toDateInput(deal.endDate),
+      dateMin: toDateInput(deal.dateMin),
+      dateCible: toDateInput(deal.dateCible),
+      dateMax: toDateInput(deal.dateMax),
+      description: deal.description ?? '',
+      repaid: deal.repaid,
+      recoveryStatus: deal.recoveryStatus,
+      chantierSignaleArret: deal.chantierSignaleArret ?? false,
+      porteurNom: deal.porteurNom ?? '',
+      porteurSociete: deal.porteurSociete ?? '',
+      porteurAdresse: deal.porteurAdresse ?? '',
+      porteurSiren: deal.porteurSiren ?? '',
+    },
+  });
+
+  const onSubmit = (values: FormValues) => {
+    updateDeal.mutate(values, { onSuccess: () => setOpen(false) });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Pencil className="h-3.5 w-3.5" />
+          Modifier
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Modifier l'opération</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="name">Nom de l'opération</Label>
+            <Input id="name" {...register('name')} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Type</Label>
+              <Controller
+                control={control}
+                name="type"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEAL_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {DEAL_TYPE_LABELS[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Étape</Label>
+              <Controller
+                control={control}
+                name="stage"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEAL_STAGES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {DEAL_STAGE_LABELS[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Statut</Label>
+              <Controller
+                control={control}
+                name="status"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEAL_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {DEAL_STATUS_LABELS[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="amountTarget">Montant cible (€)</Label>
+              <Input id="amountTarget" type="number" min={0} step={1000} {...register('amountTarget')} />
+              {errors.amountTarget && <p className="text-xs text-destructive">{errors.amountTarget.message}</p>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="amountRaised">Montant collecté (€)</Label>
+              <Input id="amountRaised" type="number" min={0} step={1000} {...register('amountRaised')} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="interestRate">Taux (%)</Label>
+              <Input id="interestRate" type="number" min={0} max={100} step={0.1} {...register('interestRate')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="feesRate">Fees (%)</Label>
+              <Input id="feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              {deal.feesAmount && Number(deal.feesAmount) > 0 && (
+                <p className="text-[11px] text-muted-foreground">= {formatCurrency(deal.feesAmount)} sur le collecté actuel</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="durationMonths">Durée (mois)</Label>
+              <Input id="durationMonths" type="number" min={1} step={1} {...register('durationMonths')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="city">Ville</Label>
+              <Input id="city" {...register('city')} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="startDate">Date de signature</Label>
+              <Input id="startDate" type="date" {...register('startDate')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="endDate">Échéance</Label>
+              <Input id="endDate" type="date" {...register('endDate')} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-foreground">Porteur de projet (relances, mise en demeure)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="porteurNom">Nom du contact</Label>
+                <Input id="porteurNom" {...register('porteurNom')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="porteurSociete">Société</Label>
+                <Input id="porteurSociete" {...register('porteurSociete')} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="porteurAdresse">Adresse postale</Label>
+              <Textarea id="porteurAdresse" rows={2} {...register('porteurAdresse')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="porteurSiren">SIREN (surveillance automatique)</Label>
+              <Input id="porteurSiren" placeholder="123456789" maxLength={9} {...register('porteurSiren')} />
+              {errors.porteurSiren && <p className="text-xs text-destructive">{errors.porteurSiren.message}</p>}
+              <p className="text-[11px] text-muted-foreground">
+                Si renseigné, Atlas vérifie quotidiennement (SIRENE + BODACC) qu'aucune procédure collective ou radiation n'a
+                été déclarée pour cette société, et crée une alerte critique le cas échéant.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-foreground">Échéance de vote (suivi J-90 / J-60 / J-30 / J-15)</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateMin">Date min</Label>
+                <Input id="dateMin" type="date" {...register('dateMin')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateCible">Date cible</Label>
+                <Input id="dateCible" type="date" {...register('dateCible')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="dateMax">Date max</Label>
+                <Input id="dateMax" type="date" {...register('dateMax')} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+            <Controller
+              control={control}
+              name="repaid"
+              render={({ field }) => (
+                <div className="flex items-center gap-2.5">
+                  <Switch checked={field.value} onCheckedChange={field.onChange} id="repaid" />
+                  <Label htmlFor="repaid" className="cursor-pointer font-normal">
+                    Remboursé (n'émet plus d'alerte d'échéance)
+                  </Label>
+                </div>
+              )}
+            />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="recoveryStatus">Statut de recouvrement</Label>
+              <Controller
+                control={control}
+                name="recoveryStatus"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="recoveryStatus">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEAL_RECOVERY_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {DEAL_RECOVERY_STATUS_LABELS[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <Controller
+              control={control}
+              name="chantierSignaleArret"
+              render={({ field }) => (
+                <div className="flex items-center gap-2.5">
+                  <Switch checked={field.value} onCheckedChange={field.onChange} id="chantierSignaleArret" />
+                  <Label htmlFor="chantierSignaleArret" className="cursor-pointer font-normal">
+                    Chantier signalé à l'arrêt (force le statut de surveillance à Distressed)
+                  </Label>
+                </div>
+              )}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" rows={3} {...register('description')} />
+          </div>
+
+          {updateDeal.isError && (
+            <p className="text-xs text-destructive">
+              {updateDeal.error instanceof ApiError ? updateDeal.error.message : 'Une erreur est survenue'}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="submit" disabled={updateDeal.isPending}>
+              {updateDeal.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

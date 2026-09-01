@@ -1,0 +1,9 @@
+<!-- Palette de marque (voir --brand-* dans index.css) : bleu cyanotype
+     #12233F, blanc calque #EAF2FB, rouge de repérage #E8613F. Valeurs en
+     dur ici car ce fichier est chargé hors document, sans accès aux
+     variables CSS de l'app. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#12233F"/>
+  <polygon points="20.5,7 43.6,7 55.1,57 37.8,57 32,49.3 26.3,57 8.9,57" fill="#EAF2FB"/>
+  <line x1="32" y1="9.9" x2="32" y2="48.4" stroke="#E8613F" stroke-width="3.5" stroke-linecap="round"/>
+</svg>

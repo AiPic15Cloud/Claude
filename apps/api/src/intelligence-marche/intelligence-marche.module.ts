@@ -1,0 +1,34 @@
+import { Module } from '@nestjs/common';
+import { IntelligenceMarcheService } from './intelligence-marche.service';
+import { MarketIndicatorsService } from './indicators.service';
+import { MarketDigestService } from './market-digest.service';
+import { DvfSearchService } from './dvf-search.service';
+import { IntelligenceMarcheController } from './intelligence-marche.controller';
+import { ConnectorRegistryService } from './connectors/connector-registry.service';
+import { DataGouvConnector } from './connectors/data-gouv.connector';
+import { DvfConnector } from './connectors/dvf.connector';
+import { GoogleNewsConnector } from './connectors/google-news.connector';
+import { PressRssConnector } from './connectors/press-rss.connector';
+import { ManualConnector } from './connectors/manual.connector';
+import { AlertsModule } from '../alerts/alerts.module';
+import { SearchModule } from '../search/search.module';
+import { SourceRegistryModule } from '../source-registry/source-registry.module';
+
+@Module({
+  imports: [AlertsModule, SearchModule, SourceRegistryModule],
+  providers: [
+    IntelligenceMarcheService,
+    MarketIndicatorsService,
+    MarketDigestService,
+    DvfSearchService,
+    ConnectorRegistryService,
+    DataGouvConnector,
+    DvfConnector,
+    GoogleNewsConnector,
+    PressRssConnector,
+    ManualConnector,
+  ],
+  controllers: [IntelligenceMarcheController],
+  exports: [IntelligenceMarcheService, MarketIndicatorsService],
+})
+export class IntelligenceMarcheModule {}

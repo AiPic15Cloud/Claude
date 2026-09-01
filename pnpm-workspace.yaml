@@ -1,0 +1,35 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+overrides:
+  # @nestjs/platform-express@10.4.22 pins an exact, vulnerable multer@2.0.2
+  # (DoS via deeply nested fields / resource exhaustion / incomplete cleanup —
+  # GHSA-72gw-mp4g-v24j, GHSA-v52c-386h-88mc, GHSA-xf7r-hgr6-v32p) as the
+  # actual instance behind FileInterceptor on the document-upload endpoint.
+  # Force every copy in the tree to the patched line until NestJS bumps it.
+  multer: ^2.3.0
+  # bcrypt's native-binary installer pulls @mapbox/node-pre-gyp > tar, stuck
+  # on an old line with a string of path-traversal/DoS advisories (only
+  # exercised during `pnpm install`, never at runtime — still cheap to clear).
+  tar: ^7.5.22
+  # Transitive under body-parser/express (query-string parsing) and
+  # @nestjs/config (object utilities) respectively — same-major patch bumps,
+  # no known usage of the vulnerable code paths in this app either way.
+  qs: ^6.16.0
+  lodash: ^4.18.1
+  # Same install-time-only bcrypt build chain as tar above (DoS via unbounded
+  # expansion, no reachable runtime code path in this app).
+  brace-expansion: ^1.1.18
+  # DoS when an invalid limit value silently disables body-parser's size cap —
+  # same-major patch, no behavior change for the valid limits this app sets.
+  body-parser: ^1.20.6
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  bcrypt: true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+minimumReleaseAgeExclude:
+  - qs@6.16.0
