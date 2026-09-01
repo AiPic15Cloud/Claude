@@ -48,6 +48,7 @@ import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { CrdDetailPopover } from './components/crd-detail-popover';
 import { RealizedPerformancePopover } from './components/realized-performance-popover';
 import { InvestmentNoteSheet } from './components/investment-note-sheet';
+import { EsgPanel } from './components/esg-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -367,6 +368,7 @@ export function DossierPage() {
           <TabsTrigger value="financial">Modèle financier</TabsTrigger>
           <TabsTrigger value="checkpoints">Suivi cible</TabsTrigger>
           <TabsTrigger value="entities">Intervenants</TabsTrigger>
+          <TabsTrigger value="esg">ESG</TabsTrigger>
           <TabsTrigger value="activity">Décisions</TabsTrigger>
           <TabsTrigger value="assistant">Assistant IA</TabsTrigger>
         </TabsList>
@@ -435,6 +437,9 @@ export function DossierPage() {
         </TabsContent>
         <TabsContent value="checkpoints">
           <CheckpointsPanel dealId={deal.id} />
+        </TabsContent>
+        <TabsContent value="esg">
+          <EsgPanel deal={deal} />
         </TabsContent>
         <TabsContent value="entities">
           <EntitiesPanel dealId={deal.id} />

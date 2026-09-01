@@ -29,7 +29,10 @@ export interface DpeResult {
 export function useDpe(dealId: string, hasPostcode: boolean) {
   return useQuery({
     queryKey: ['dpe', dealId],
-    queryFn: () => api.get<DpeResult>(`/deals/${dealId}/dpe`),
+    // "Aucun DPE trouvé" est un résultat normal (pas une absence de contenu) — l'API renvoie
+    // null, mais un corps vide se réduit à `undefined` côté client (cf. lib/api.ts), que
+    // react-query interdit explicitement de renvoyer depuis une queryFn. On le ramène à null.
+    queryFn: async () => (await api.get<DpeResult | null>(`/deals/${dealId}/dpe`)) ?? null,
     enabled: Boolean(dealId) && hasPostcode,
     staleTime: 60 * 60_000,
     retry: false,

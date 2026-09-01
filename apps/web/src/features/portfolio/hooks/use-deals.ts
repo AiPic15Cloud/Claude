@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Deal, DealDetail, DealKpis, DealReport, DealStage, DealStatus, DealType, PaginatedResult } from '@/types';
+import type { Deal, DealDetail, DealKpis, DealReport, DealStage, DealStatus, DealType, EsgAssessment, PaginatedResult } from '@/types';
 
 export interface DealsFilters {
   search?: string;
@@ -102,6 +102,12 @@ export interface UpdateDealPayload {
   dateMin?: string;
   dateCible?: string;
   dateMax?: string;
+  esgMateriauxBasCarbone?: EsgAssessment | null;
+  esgGestionEauxPluviales?: string | null;
+  esgEmploisChantierEstimes?: number | null;
+  esgAccessibilite?: string | null;
+  esgConformiteReglementaire?: EsgAssessment | null;
+  esgNotes?: string | null;
 }
 
 export function useUpdateDeal(dealId: string) {
