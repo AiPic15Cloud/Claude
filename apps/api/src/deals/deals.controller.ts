@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
 import { RiskDataService } from '../risk-data/risk-data.service';
@@ -103,6 +105,13 @@ export class DealsController {
   @Get(':id/loan-lifecycle')
   getLoanLifecycle(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.getLoanLifecycle(user.organizationId, id);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @Get(':id/export')
+  exportReport(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.dealsService.exportDealReport(user.organizationId, id);
   }
 
   @Post(':id/extend-deadline')

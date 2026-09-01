@@ -17,7 +17,7 @@ import { computeCheckpointHealth } from './checkpoint-health.util';
 import { withNoteImageUrls } from '../notes/note-image.util';
 import { StorageService } from '../common/storage/storage.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
-import { RiskEngineService } from '../risk-engine/risk-engine.service';
+import { RiskEngineService, DISCLAIMER } from '../risk-engine/risk-engine.service';
 import { FieldChangeService } from '../field-changes/field-change.service';
 import { GraphService } from '../graph/graph.service';
 import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
@@ -346,6 +346,55 @@ export class DealsService {
       durationTargetAlert,
       durationTargetValidated,
       checkpointHealth,
+    };
+  }
+
+  /**
+   * Export structuré par dossier (spec ATLAS v2, A.11) — pour alimenter un
+   * reporting fonds, pas un dump interne : réutilise findOne() (déjà tout
+   * calculé, CRD avec pénalité de retard inclus) mais n'en reforme qu'un
+   * sous-ensemble stable et documenté, en excluant ce qui n'a pas sa place
+   * face à un tiers (notes complètes, historique brut de checkpoints).
+   */
+  async exportDealReport(organizationId: string, id: string) {
+    const deal = await this.findOne(organizationId, id);
+    return {
+      reportVersion: 1,
+      generatedAt: new Date().toISOString(),
+      reference: deal.reference,
+      name: deal.name,
+      type: deal.type,
+      stage: deal.stage,
+      status: deal.status,
+      location: { city: deal.city, postcode: deal.postcode },
+      financials: {
+        amountTarget: Number(deal.amountTarget),
+        amountRaised: Number(deal.amountRaised),
+        interestRate: deal.interestRate ? Number(deal.interestRate) : null,
+        crdCapital: deal.crd,
+        crdInteretsCourus: deal.crdInteretsCourus,
+        crdTotal: deal.crdTotal,
+        crdJoursPenalisesRetard: deal.crdJoursPenalisesRetard,
+      },
+      dates: {
+        startDate: deal.startDate,
+        endDate: deal.endDate,
+        dateEcheanceInitiale: deal.dateEcheanceInitiale,
+        dateMax: deal.dateMax,
+      },
+      risk: {
+        score: deal.riskScore,
+        scorePrevious: deal.riskScorePrevious,
+        surveillanceStatus: deal.surveillanceStatus,
+      },
+      recovery: {
+        recoveryStatus: deal.recoveryStatus,
+        repaid: deal.repaid,
+      },
+      actions: {
+        openTasksCount: deal.tasks.filter((t) => !t.done && !t.cancelledAt).length,
+      },
+      disclaimer: DISCLAIMER,
     };
   }
 

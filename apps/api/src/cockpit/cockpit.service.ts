@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { DealsService } from '../deals/deals.service';
 import { ActivitiesService } from '../activities/activities.service';
-import { RiskEngineService } from '../risk-engine/risk-engine.service';
+import { RiskEngineService, DISCLAIMER } from '../risk-engine/risk-engine.service';
 import { computeDeadlineAlert } from '../deals/deadline.util';
 import { computeCrd } from '../deals/crd.util';
 
@@ -172,6 +172,33 @@ export class CockpitService {
       autoSummary,
       decisions,
       overdueTasks: { total: overdueTasksTotal, urgent: overdueTasksUrgent },
+    };
+  }
+
+  /**
+   * Export structuré portefeuille (spec ATLAS v2, A.11) — pour un reporting
+   * fonds/investisseur, pas le tableau de bord personnel de l'utilisateur
+   * courant : réutilise exactement les agrégats déjà calculés par
+   * DealsService.kpis() (distribution par palier de risque, concentration
+   * opérateur, exposition géographique, stress test) et les deux mêmes
+   * comptages de tâches en retard que summary(), mais exclut tous les
+   * widgets personnels (tâches du jour, alertes non lues, pipeline...) qui
+   * n'ont pas leur place dans un rapport destiné à un tiers.
+   */
+  async exportPortfolioReport(organizationId: string) {
+    const now = new Date();
+    const [kpis, overdueTasksTotal, overdueTasksUrgent] = await Promise.all([
+      this.dealsService.kpis(organizationId),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now } } }),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, priority: 'URGENT' } }),
+    ]);
+
+    return {
+      reportVersion: 1,
+      generatedAt: now.toISOString(),
+      kpis,
+      overdueTasks: { total: overdueTasksTotal, urgent: overdueTasksUrgent },
+      disclaimer: DISCLAIMER,
     };
   }
 
