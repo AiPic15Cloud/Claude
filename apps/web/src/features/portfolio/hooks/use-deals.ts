@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Deal, DealDetail, DealKpis, DealStage, DealStatus, DealType, PaginatedResult } from '@/types';
+import type { Deal, DealDetail, DealKpis, DealReport, DealStage, DealStatus, DealType, PaginatedResult } from '@/types';
 
 export interface DealsFilters {
   search?: string;
@@ -45,6 +45,13 @@ export function useDealKpis() {
   return useQuery({
     queryKey: ['deals', 'kpis'],
     queryFn: () => api.get<DealKpis>('/deals/kpis'),
+  });
+}
+
+/** Export structuré par dossier (spec ATLAS v2, A.11) — déclenché au clic, pas préchargé. */
+export function useExportDealReport(dealId: string) {
+  return useMutation({
+    mutationFn: () => api.get<DealReport>(`/deals/${dealId}/export`),
   });
 }
 

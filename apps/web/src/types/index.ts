@@ -374,6 +374,53 @@ export interface DealKpis {
   stressTest: StressTest;
 }
 
+/** Export structuré par dossier (spec ATLAS v2, A.11) — sous-ensemble stable destiné à un reporting fonds, distinct du payload complet de la fiche dossier. */
+export interface DealReport {
+  reportVersion: number;
+  generatedAt: string;
+  reference: string;
+  name: string;
+  type: DealType;
+  stage: DealStage;
+  status: string;
+  location: { city: string | null; postcode: string | null };
+  financials: {
+    amountTarget: number;
+    amountRaised: number;
+    interestRate: number | null;
+    crdCapital: number;
+    crdInteretsCourus: number | null;
+    crdTotal: number | null;
+    crdJoursPenalisesRetard: number | null;
+  };
+  dates: {
+    startDate: string | null;
+    endDate: string | null;
+    dateEcheanceInitiale: string | null;
+    dateMax: string | null;
+  };
+  risk: {
+    score: number | null;
+    scorePrevious: number | null;
+    surveillanceStatus: DealSurveillanceStatus | null;
+  };
+  recovery: {
+    recoveryStatus: string;
+    repaid: boolean;
+  };
+  actions: { openTasksCount: number };
+  disclaimer: string;
+}
+
+/** Export structuré portefeuille (spec ATLAS v2, A.11) — mêmes agrégats que le dashboard cockpit (DealKpis), emballés pour un reporting fonds. */
+export interface PortfolioReport {
+  reportVersion: number;
+  generatedAt: string;
+  kpis: DealKpis;
+  overdueTasks: { total: number; urgent: number };
+  disclaimer: string;
+}
+
 // Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — remplace le
 // stepper pipeline sur les dossiers déjà financés (FINANCE/SUIVI/REMBOURSE/
 // DEFAUT). Calculé côté API (loan-lifecycle.util.ts), jamais recalculé côté
