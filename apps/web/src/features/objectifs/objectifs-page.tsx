@@ -62,7 +62,7 @@ export function ObjectifsPage() {
         '% atteinte': isFuture ? null : pct,
       };
     });
-    exportToExcel(`atlas-objectifs-${year}.xlsx`, `Objectifs ${year}`, rows);
+    void exportToExcel(`atlas-objectifs-${year}.xlsx`, `Objectifs ${year}`, rows);
   };
 
   return (

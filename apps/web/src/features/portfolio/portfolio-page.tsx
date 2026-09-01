@@ -72,7 +72,7 @@ export function PortfolioPage() {
       'Score de risque': d.riskScore ?? null,
       Remboursé: d.repaid ? 'Oui' : 'Non',
     }));
-    exportToExcel(`atlas-portefeuille-${new Date().toISOString().slice(0, 10)}.xlsx`, 'Portefeuille', rows);
+    void exportToExcel(`atlas-portefeuille-${new Date().toISOString().slice(0, 10)}.xlsx`, 'Portefeuille', rows);
   };
 
   return (

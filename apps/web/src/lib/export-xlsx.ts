@@ -1,9 +1,25 @@
-import * as XLSX from 'xlsx';
+/**
+ * Génère un .xlsx côté client à partir de lignes déjà en mémoire — aucun
+ * aller-retour serveur nécessaire. exceljs est chargé dynamiquement (import()) :
+ * la bibliothèque pèse plusieurs centaines de Ko, inutile de l'inclure dans le
+ * bundle principal pour une action déclenchée seulement par 2 boutons d'export.
+ */
+export async function exportToExcel(filename: string, sheetName: string, rows: Record<string, string | number | null>[]) {
+  const { default: ExcelJS } = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(sheetName);
 
-/** Génère un .xlsx côté client à partir de lignes déjà en mémoire — aucun aller-retour serveur nécessaire. */
-export function exportToExcel(filename: string, sheetName: string, rows: Record<string, string | number | null>[]) {
-  const sheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
-  XLSX.writeFile(workbook, filename);
+  if (rows.length > 0) {
+    sheet.columns = Object.keys(rows[0]).map((key) => ({ header: key, key }));
+    sheet.addRows(rows);
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
