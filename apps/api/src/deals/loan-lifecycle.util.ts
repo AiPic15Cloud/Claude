@@ -29,6 +29,63 @@ export interface LoanLifecycleInput {
   terminal: LoanLifecycleTerminal | null;
 }
 
+export interface PostEcheanceSegment {
+  kind: Extract<LoanLifecycleSegmentKind, 'HORS_CONTRAT' | 'PROROGE'>;
+  start: Date;
+  end: Date;
+}
+
+/**
+ * Segments après l'échéance contractuelle initiale — hors-contrat (rouge) et
+ * prorogé (orange), en alternance selon les prorogations signées. Extrait de
+ * computeLoanLifecycle pour être réutilisé par le calcul d'intérêts du CRD
+ * (A.3ter) : la pénalité de retard ne s'applique que sur les jours
+ * réellement hors-contrat, jamais sur une période régularisée par
+ * prorogation. Un segment hors-contrat n'est jamais réécrit rétroactivement
+ * en prorogé par une prorogation suivante — un seul pli chronologique en
+ * avant, jamais de passe de correction du passé.
+ */
+export function computePostEcheanceSegments(
+  dateEcheanceInitiale: Date,
+  extensions: LoanExtensionInput[],
+  finDate: Date,
+): PostEcheanceSegment[] {
+  const segments: PostEcheanceSegment[] = [];
+  let cursor = dateEcheanceInitiale;
+  let echeanceCourante = dateEcheanceInitiale;
+
+  for (const ext of extensions) {
+    if (cursor.getTime() >= finDate.getTime()) break;
+
+    const isRattrapage = ext.dateSignature.getTime() > echeanceCourante.getTime();
+    if (isRattrapage) {
+      const segEnd = ext.dateSignature.getTime() < finDate.getTime() ? ext.dateSignature : finDate;
+      if (segEnd.getTime() > cursor.getTime()) {
+        segments.push({ kind: 'HORS_CONTRAT', start: cursor, end: segEnd });
+      }
+      cursor = segEnd;
+    }
+
+    if (cursor.getTime() >= finDate.getTime()) break;
+
+    const segEnd4 = ext.nouvelleDateEcheance.getTime() < finDate.getTime() ? ext.nouvelleDateEcheance : finDate;
+    if (segEnd4.getTime() > cursor.getTime()) {
+      segments.push({ kind: 'PROROGE', start: cursor, end: segEnd4 });
+    }
+    cursor = segEnd4;
+    echeanceCourante = ext.nouvelleDateEcheance;
+  }
+
+  // Rien signé, mais on dépasse la dernière échéance connue : le retard
+  // continue de courir en "hors contrat" jusqu'à finDate, sans attendre une
+  // prorogation pour rester honnête sur le dépassement réel.
+  if (cursor.getTime() < finDate.getTime()) {
+    segments.push({ kind: 'HORS_CONTRAT', start: cursor, end: finDate });
+  }
+
+  return segments;
+}
+
 export type LoanLifecycleResult =
   | { status: 'INSUFFICIENT_DATA' }
   | {
@@ -72,15 +129,11 @@ export function computeLoanLifecycle(input: LoanLifecycleInput, now: Date = new 
   }
 
   // Segment 2 — durée cible dépassée, toujours contractuellement normal.
-  let cursor = dateDureeCible;
   if (finDate.getTime() > dateDureeCible.getTime()) {
     const segment2End = dateEcheanceInitiale.getTime() < finDate.getTime() ? dateEcheanceInitiale : finDate;
     if (segment2End.getTime() > dateDureeCible.getTime()) {
       segments.push({ kind: 'DEPASSEMENT', start: dateDureeCible, end: segment2End });
     }
-    cursor = dateEcheanceInitiale.getTime() < finDate.getTime() ? dateEcheanceInitiale : finDate;
-  } else {
-    cursor = dateDureeCible;
   }
 
   // Segments 3/4 — un cycle hors-contrat (rouge, seulement si rattrapage) +
@@ -88,36 +141,7 @@ export function computeLoanLifecycle(input: LoanLifecycleInput, now: Date = new 
   // Une fois généré, un segment 3 rouge n'est jamais réécrit rétroactivement
   // en orange par une prorogation suivante — la fonction ne fait qu'un pli
   // chronologique en avant, jamais de passe de correction du passé.
-  let echeanceCourante = dateEcheanceInitiale;
-  for (const ext of extensions) {
-    if (cursor.getTime() >= finDate.getTime()) break;
-
-    const isRattrapage = ext.dateSignature.getTime() > echeanceCourante.getTime();
-    if (isRattrapage) {
-      const segment3End = ext.dateSignature.getTime() < finDate.getTime() ? ext.dateSignature : finDate;
-      if (segment3End.getTime() > cursor.getTime()) {
-        segments.push({ kind: 'HORS_CONTRAT', start: cursor, end: segment3End });
-      }
-      cursor = segment3End;
-    }
-
-    if (cursor.getTime() >= finDate.getTime()) break;
-
-    const segment4End = ext.nouvelleDateEcheance.getTime() < finDate.getTime() ? ext.nouvelleDateEcheance : finDate;
-    if (segment4End.getTime() > cursor.getTime()) {
-      segments.push({ kind: 'PROROGE', start: cursor, end: segment4End });
-    }
-    cursor = segment4End;
-    echeanceCourante = ext.nouvelleDateEcheance;
-  }
-
-  // Rien signé, mais on dépasse la dernière échéance connue : le retard
-  // continue de s'afficher en "hors contrat" jusqu'à aujourd'hui (ou la
-  // clôture), sans attendre une prorogation pour rester honnête sur le
-  // dépassement réel.
-  if (cursor.getTime() < finDate.getTime()) {
-    segments.push({ kind: 'HORS_CONTRAT', start: cursor, end: finDate });
-  }
+  segments.push(...computePostEcheanceSegments(dateEcheanceInitiale, extensions, finDate));
 
   const retardMs = Math.max(0, finDate.getTime() - dateDureeCible.getTime());
   const retardDays = Math.floor(retardMs / DAY_MS);

@@ -53,3 +53,22 @@ export function computeDurationTargetAlert(
   }
   return { level: 'RAS', targetDate, daysToTarget, stage: null, actionLabel: null };
 }
+
+/**
+ * Un "point" enregistré via Suivi cible (ProjectCheckpoint) après le début
+ * de la fenêtre d'alerte (J-30 avant la durée cible) vaut validation
+ * humaine de ce signal pour l'affichage dans "Signaux & causes" (spec ATLAS
+ * v2, A.3) — l'analyste a fait ce que l'alerte demandait. Ne modifie jamais
+ * le DurationTargetAlert lui-même : le Risk Engine continue de voir
+ * hasDurationOverdue tel quel, un point fait n'efface pas le fait objectif
+ * que le financement a dépassé sa durée cible.
+ */
+export function isDurationTargetValidatedByCheckpoint(
+  alert: DurationTargetAlert,
+  lastCheckpointAt: Date | null | undefined,
+): boolean {
+  if (!alert.targetDate || alert.stage === null || !lastCheckpointAt) return false;
+  const windowStart = new Date(alert.targetDate);
+  windowStart.setDate(windowStart.getDate() - 30);
+  return lastCheckpointAt.getTime() >= windowStart.getTime();
+}
