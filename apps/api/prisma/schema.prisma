@@ -134,6 +134,15 @@ enum DealSurveillanceStatus {
   CRITIQUE
 }
 
+// Réponse à une case ESG binaire "oui/non/inconnu" (D.3) — INCONNU est une
+// réponse explicite ("évalué, résultat indéterminé"), distincte de null
+// ("jamais renseigné") : les deux ne doivent jamais être confondues.
+enum EsgAssessment {
+  OUI
+  NON
+  INCONNU
+}
+
 enum GuaranteeStatus {
   ACTIVE
   RELEASED
@@ -454,6 +463,20 @@ model Deal {
   porteurCheckedAt  DateTime?
   riskDataCheckedAt DateTime?
   dpeCheckedAt      DateTime?
+
+  // Dimension ESG (spec complémentaire ATLAS "modules d'entraînement analyste
+  // investissement", D.3) — volontairement simple, à visée de familiarisation
+  // au vocabulaire ESG plutôt qu'un scoring normé (taxonomie européenne/SFDR).
+  // Champs strictement additifs et informatifs : aucun impact sur le score de
+  // risque (A.2) ni sur aucun calcul existant. La performance énergétique
+  // (DPE, via ADEME) et la transparence du porteur (SIREN/monitoring
+  // ci-dessus) ne sont pas dupliquées ici — déjà disponibles par ailleurs.
+  esgMateriauxBasCarbone     EsgAssessment?
+  esgGestionEauxPluviales    String?
+  esgEmploisChantierEstimes  Int?
+  esgAccessibilite           String?
+  esgConformiteReglementaire EsgAssessment?
+  esgNotes                   String?
 
   createdById  String
   createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
