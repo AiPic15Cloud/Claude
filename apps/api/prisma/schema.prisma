@@ -1,0 +1,1755 @@
+// ATLAS — Real Estate Intelligence Operating System
+// Prisma schema — foundation, Cockpit, Portefeuille, Dossiers, Score ATLAS,
+// Knowledge Graph, Cartographie, Intelligence Concurrentielle and
+// Intelligence Marché domain models. AI agents (module 9) read this data
+// but do not require schema of their own.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum DealType {
+  PROMOTION_IMMOBILIERE
+  DIVISION_PARCELLAIRE
+  DIVISION_FONCIERE
+  MISE_EN_COPROPRIETE
+  AMENAGEMENT_FONCIER
+  MARCHAND_DE_BIENS_AVEC_TRAVAUX
+  MARCHAND_DE_BIENS_SANS_TRAVAUX
+  REFINANCEMENT_FONDS_PROPRES
+  REFINANCEMENT_ACTIF
+  REFINANCEMENT_STOCK
+}
+
+/// Pipeline stage — drives the Kanban view in the Portefeuille module.
+enum DealStage {
+  SOURCING
+  ANALYSE
+  COMITE
+  MONTAGE
+  COLLECTE
+  FINANCE
+  SUIVI
+  REMBOURSE
+  DEFAUT
+}
+
+enum DealStatus {
+  ACTIVE
+  ON_HOLD
+  CLOSED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CommitteeStatus {
+  PAS_DE_COMITE
+  VALIDE
+  CONDITIONS_SUSPENSIVES
+  REFUSE
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum ActivityType {
+  DEAL_CREATED
+  DEAL_UPDATED
+  STAGE_CHANGED
+  RECOVERY_STATUS_CHANGED
+  NOTE_ADDED
+  DOCUMENT_ADDED
+  TASK_CREATED
+  TASK_COMPLETED
+  TAG_ADDED
+  TAG_REMOVED
+  GUARANTEE_ADDED
+  GUARANTEE_VERIFIED
+  FINANCIAL_MODEL_UPDATED
+  ENTITY_LINKED
+  CHECKPOINT_CREATED
+  RISK_OVERRIDE_TRIGGERED
+  ANALYST_OVERRIDE_SET
+  STATUS_CHANGED
+}
+
+enum GuaranteeType {
+  HYPOTHEQUE
+  FIDUCIE
+  CAUTION
+  GAGE
+  NANTISSEMENT
+  PRIVILEGE
+  AUTRE
+}
+
+// "Situation juridique" du dossier — RAS → aucun signal ; Amiable → échéance
+// dépassée sans réaction du porteur, encore en discussion ; Mise en demeure →
+// courrier formel envoyé, pas encore d'action judiciaire ; Contentieux →
+// action judiciaire engagée, avant toute procédure collective ; Procédure
+// collective → la société du porteur est elle-même en procédure. Renseigné
+// manuellement, aucune règle ne peut fiablement déduire ce jugement depuis
+// les autres champs (mais alimente aussi bien le facteur EWS "recouvrement"
+// que le hard override "procédure collective").
+enum DealRecoveryStatus {
+  RAS
+  AMIABLE
+  MISE_EN_DEMEURE
+  CONTENTIEUX
+  PROCEDURE_COLLECTIVE
+}
+
+// Statut de surveillance ATLAS — dérivé du score composite, de l'EWS et de la
+// vélocité (voir risk-engine/surveillance-status.util.ts), jamais saisi
+// manuellement sauf override analyste explicite (DealOverride). CRITIQUE
+// n'est jamais atteint par accumulation de points — seulement via un
+// déclencheur dur (hard override : procédure collective, échéance en
+// contentieux, garantie majeure expirée, chantier à l'arrêt).
+enum DealSurveillanceStatus {
+  FAIBLE
+  SOUS_SURVEILLANCE
+  ELEVE
+  CRITIQUE
+}
+
+enum GuaranteeStatus {
+  ACTIVE
+  RELEASED
+  DEFAULTED
+}
+
+/// Knowledge Graph node types — every entity the graph connects together.
+enum GraphEntityType {
+  PROMOTEUR
+  BANQUE
+  NOTAIRE
+  ARCHITECTE
+  COLLECTIVITE
+  INVESTISSEUR
+  PLATEFORME
+}
+
+/// The role a Knowledge Graph entity plays on a specific deal.
+enum DealEntityRole {
+  PROMOTEUR
+  BANQUE_FINANCEUR
+  NOTAIRE
+  ARCHITECTE
+  COLLECTIVITE
+  INVESTISSEUR
+  GARANT
+  AUTRE
+}
+
+enum GraphRelationType {
+  PARTENAIRE
+  FINANCEUR
+  CONSEIL
+  CONCURRENT
+  AUTRE
+}
+
+enum ArticleCategory {
+  TAUX
+  INFLATION
+  CONSTRUCTION
+  IMMOBILIER
+  LOGISTIQUE
+  COMMERCE
+  RESIDENTIEL
+  REGLEMENTATION
+  CONCURRENCE
+  AUTRE
+}
+
+// ── Core tenancy ───────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  deals              Deal[]
+  tags               Tag[]
+  alerts             Alert[]
+  graphEntities      GraphEntity[]
+  graphRelations     GraphRelation[]
+  newsSources        NewsSource[]
+  articles           Article[]
+  feesTargets        FeesTarget[]
+  pipelineEntries    PipelineEntry[]
+  competitorProjects CompetitorProject[]
+  tasks              Task[]
+  fieldChanges       FieldChange[]
+  dataValidations    DataValidation[]
+  riskScoreSnapshots RiskScoreSnapshot[]
+  riskOverrides      RiskOverride[]
+  dealOverrides      DealOverride[]
+  entities           Entity[]
+  relationships      Relationship[]
+  playbookInstances  PlaybookInstance[]
+
+  @@map("organizations")
+}
+
+// One row per year — the "objectif annuel" the Cockpit fees chart is
+// measured against.
+model FeesTarget {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  year         Int
+  targetAmount Decimal @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, year])
+  @@map("fees_targets")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  role           Role         @default(ANALYST)
+  avatarUrl      String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  twoFactorEnabled       Boolean  @default(false)
+  twoFactorSecret        String?
+  twoFactorRecoveryCodes String[] @default([])
+
+  createdDeals               Deal[]              @relation("DealCreatedBy")
+  assignedDeals              Deal[]              @relation("DealAssignedTo")
+  notes                      Note[]
+  documents                  Document[]
+  repayments                 Repayment[]
+  loanExtensions             LoanExtension[]
+  pipelineEntries            PipelineEntry[]
+  tasksAssigned              Task[]              @relation("TaskAssignee")
+  tasksCreated               Task[]              @relation("TaskCreatedBy")
+  tasksCancelled             Task[]              @relation("TaskCancelledBy")
+  activities                 Activity[]
+  refreshTokens              RefreshToken[]
+  competitorProjectsLogged   CompetitorProject[]
+  projectCheckpointsRecorded ProjectCheckpoint[]
+  agentMessages              AgentMessage[]
+  pushSubscriptions          PushSubscription[]
+  fieldChanges               FieldChange[]
+  dataValidations            DataValidation[]
+  financialAssumptionsLocked FinancialAssumption[]
+  dealOverridesCreated       DealOverride[]         @relation("DealOverrideCreatedBy")
+  dealOverridesCleared       DealOverride[]         @relation("DealOverrideClearedBy")
+  relationshipEvidence       Evidence[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+/// One row per browser/device that opted into push notifications — a user
+/// can have several (phone, laptop). Deleted on unsubscribe, or pruned by
+/// PushService when the push endpoint reports it's gone (410/404).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ── Portfolio domain ───────────────────────────────────────
+
+// Backs atomic reference-number generation (ATL-YYYY-NNNN). A read-then-
+// increment in application code races under concurrent creates — two
+// requests can read the same "last" value before either commits, then
+// both retry from that same stale reading. A single atomic SQL upsert
+// against this counter closes that race entirely, regardless of load.
+model ReferenceCounter {
+  organizationId String
+  year           Int
+  value          Int
+
+  @@id([organizationId, year])
+  @@map("reference_counters")
+}
+
+model Deal {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  reference   String     @unique
+  name        String
+  type        DealType
+  stage       DealStage  @default(SOURCING)
+  status      DealStatus @default(ACTIVE)
+  description String?
+
+  // Financials
+  amountTarget   Decimal  @db.Decimal(14, 2)
+  amountRaised   Decimal  @default(0) @db.Decimal(14, 2)
+  currency       String   @default("EUR")
+  interestRate   Decimal? @db.Decimal(5, 2)
+  durationMonths Int?
+
+  // Fees — feesRate is the input (%), feesAmount is always server-derived
+  // from feesRate × amountRaised, never accepted directly from a client.
+  feesRate   Decimal? @db.Decimal(5, 2)
+  feesAmount Decimal  @default(0) @db.Decimal(14, 2)
+
+  // Location
+  address  String?
+  city     String?
+  postcode String?
+  country  String   @default("FR")
+  lat      Decimal? @db.Decimal(9, 6)
+  lng      Decimal? @db.Decimal(9, 6)
+
+  // Risk Engine — score de risque dynamique (0 = aucun risque, 100 = risque
+  // maximal), recalculé à chaque événement pertinent (checkpoint, garantie,
+  // recouvrement, échéance, surveillance société) plutôt que sur un simple
+  // timer. riskScorePrevious ne garde que la valeur d'avant le dernier
+  // recalcul (pas un historique complet) — suffisant pour la flèche de
+  // tendance par dossier, mais ne peut pas honnêtement porter un delta
+  // "cette semaine" au niveau portefeuille une fois les recalculs
+  // événementiels multiples par jour ; une vraie table de snapshots
+  // horodatés serait nécessaire pour ça, en suivi séparé si besoin.
+  riskScore          Int?
+  riskScorePrevious  Int?
+  riskScoreUpdatedAt DateTime?
+
+  // Dernier score connu juste avant la clôture du dossier (repaid ou
+  // DEFAUT) — capturé une seule fois, jamais réécrit ensuite. Sert de base
+  // 100% réelle à la validation rétrospective du modèle (RiskEngineService
+  // .getModelValidation()) : rapprocher ce score du résultat effectif
+  // (remboursé vs défaut) plutôt que de calibrer les pondérations sans
+  // historique suffisant.
+  riskScoreAtClosure     Int?
+  riskScoreAtClosureDate DateTime?
+
+  // Risk Engine v2 (Phase 1) — trois scores indépendants qui alimentent le
+  // score composite ci-dessus (riskScore) plutôt que de le remplacer :
+  // qualité structurelle (stable), exécution réelle vs BP (dynamique), et
+  // signaux d'alerte précoce (le plus réactif). Voir risk-engine/*.util.ts.
+  qualityScore     Int?
+  performanceScore Int?
+  ewsScore         Int?
+
+  surveillanceStatus DealSurveillanceStatus?
+
+  // Réponse Phase 1 (délibérément manuelle) au "chantier abandonné" du
+  // brief — aucune donnée existante ne permet de le déduire de façon fiable
+  // sans risque de faux négatif ; un hard override le plafonne à CRITIQUE.
+  chantierSignaleArret   Boolean   @default(false)
+  chantierSignaleArretAt DateTime?
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  // Deadline tracking (échéance de vote) — dateMax drives the J-90/J-60/J-30/J-15
+  // escalation process; dateMin/dateCible are informational targets either
+  // side of it.
+  dateMin   DateTime?
+  dateCible DateTime?
+  dateMax   DateTime?
+
+  // Frise du cycle de vie du prêt (spec ATLAS v2, A.3bis) — dateEcheanceInitiale
+  // est posée une seule fois (à la création, ou rétroactivement à la valeur de
+  // dateMax lors de la toute première prorogation formelle) et n'est plus
+  // jamais réécrite ensuite, y compris par une prorogation : la frise doit
+  // toujours pouvoir mesurer l'écart réel par rapport à l'engagement contractuel
+  // d'origine. dateMax reste l'échéance courante (= dateEcheanceInitiale, ou la
+  // dernière prorogation de loanExtensions) et continue d'alimenter tel quel
+  // tout le reste de l'app (deadline-alerts, mise en demeure, cockpit).
+  dateEcheanceInitiale DateTime?
+
+  // repaid suppresses deadline-alert escalation entirely (a fully repaid
+  // deal shouldn't keep raising "échéance dépassée" once it's settled).
+  // recoveryStatus is an independent manual field — a deal can be repaid or
+  // active while also being flagged as in (pre-)litigation.
+  repaid         Boolean            @default(false)
+  recoveryStatus DealRecoveryStatus @default(RAS)
+
+  // Investor newsletter follow-up — lastNewsletterDate resets the countdown;
+  // status (À jour / À relancer / Critique) is derived from the elapsed days
+  // vs. newsletterTargetDays, not stored.
+  lastNewsletterDate   DateTime?
+  newsletterTargetDays Int       @default(45)
+
+  // Porteur de projet (recipient of relance/mise en demeure correspondence)
+  // — distinct from the property's own address above, which is the asset's
+  // location, not the operator's contact details.
+  porteurNom     String?
+  porteurSociete String?
+  porteurAdresse String?
+
+  // Surveillance de la société de projet — SIREN suivi quotidiennement via
+  // l'API Recherche d'Entreprises (data.gouv.fr) pour détecter une procédure
+  // collective ou une cessation d'activité. porteurMonitoringStatus est le
+  // dernier statut connu ('actif' / 'procedure_collective' / 'fermee'),
+  // comparé à chaque vérification pour n'alerter que sur un vrai changement
+  // plutôt qu'à chaque exécution du job.
+  porteurSiren            String?
+  porteurMonitoringStatus String?
+
+  // Fraîcheur des données externes (section 6 du brief "Le Traçotin") : date
+  // du dernier appel réussi à chaque source, indépendamment du fait que le
+  // résultat ait changé — alimente le score de confiance du dossier
+  // (data-freshness.util.ts). porteurCheckedAt couvre SIRENE+BODACC (toujours
+  // interrogées ensemble par CompanyMonitoringService.fetchStatus()),
+  // riskDataCheckedAt couvre Géorisques/IGN/Overpass (toujours interrogés
+  // ensemble par RiskDataService.getRiskProfile()), dpeCheckedAt couvre ADEME.
+  porteurCheckedAt  DateTime?
+  riskDataCheckedAt DateTime?
+  dpeCheckedAt      DateTime?
+
+  createdById  String
+  createdBy    User    @relation("DealCreatedBy", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
+
+  tags                       DealTag[]
+  notes                      Note[]
+  documents                  Document[]
+  tasks                      Task[]
+  activities                 Activity[]
+  alerts                     Alert[]
+  guarantees                 Guarantee[]
+  costLineItems              CostLineItem[]
+  saleLots                   SaleLot[]
+  financialAssumption        FinancialAssumption?
+  entityLinks                DealEntityLink[]
+  repayments                 Repayment[]
+  loanExtensions             LoanExtension[]
+  convertedFromPipelineEntry PipelineEntry?       @relation("PipelineConvertedDeal")
+  checkpoints                ProjectCheckpoint[]
+  agentMessages              AgentMessage[]
+  fieldChanges               FieldChange[]
+  dataValidations            DataValidation[]
+  riskScoreSnapshots         RiskScoreSnapshot[]
+  riskOverrides              RiskOverride[]
+  dealOverrides              DealOverride[]
+  /// Entité miroir dans le Knowledge Graph (type OPERATION) — voir Entity.mirrorsDealId.
+  entityMirror               Entity?
+  playbookInstances          PlaybookInstance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([stage])
+  @@index([type])
+  @@index([status])
+  @@map("deals")
+}
+
+model Tag {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String       @default("#6366f1")
+
+  deals DealTag[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, name])
+  @@map("tags")
+}
+
+model DealTag {
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, tagId])
+  @@map("deal_tags")
+}
+
+// A sourcing-stage entry — a deal file received and reviewed, before (or
+// instead of) becoming an actual Deal. Distinct from Deal because most
+// entries here are rejected and never enter the managed portfolio.
+model PipelineEntry {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  date      DateTime
+  operator  String
+  typology  String?
+  source    String?
+  amount    Decimal         @db.Decimal(14, 2)
+  margin    Decimal?        @db.Decimal(5, 2)
+  // ATLAS's own fee rate (%) negotiated on this dossier — distinct from
+  // `margin`, which is the underlying deal's profitability. Feeds the fees
+  // projection (below) per-dossier instead of falling back to the
+  // portfolio-wide average feesRate for every pipeline entry alike.
+  feesRate  Decimal?        @db.Decimal(5, 2)
+  committee CommitteeStatus @default(PAS_DE_COMITE)
+  decision  String?
+
+  // Set once this dossier has actually been turned into a live operation —
+  // the one-way link that lets the pipeline's conversion KPIs (and the fees
+  // projection) be grounded in real portfolio deals instead of guesswork.
+  convertedDealId String? @unique
+  convertedDeal   Deal?   @relation("PipelineConvertedDeal", fields: [convertedDealId], references: [id])
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([committee])
+  @@map("pipeline_entries")
+}
+
+// A repayment made to investors on a deal — either already paid (projected:
+// false) or a forward-looking estimate (projected: true) used for the
+// Cockpit's repayment forecast.
+model Repayment {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  amount    Decimal  @db.Decimal(14, 2)
+  date      DateTime
+  projected Boolean  @default(false)
+  note      String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("repayments")
+}
+
+// Une prorogation formelle de l'échéance du prêt (spec ATLAS v2, A.3bis) —
+// distincte d'une simple correction de dateMax via le PATCH générique du
+// deal : chaque entrée ici a sa propre date de signature (potentiellement
+// différente de la date de saisie) et sa nouvelle échéance, conservées dans
+// l'ordre pour reconstruire la frise (segments "hors contrat"/"prorogé").
+// Jamais mutée ni supprimée après création — c'est un historique, pas un état.
+model LoanExtension {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  dateSignature        DateTime
+  nouvelleDateEcheance DateTime
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("loan_extensions")
+}
+
+model Note {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User        @relation(fields: [authorId], references: [id])
+  content  String
+  images   NoteImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("notes")
+}
+
+model NoteImage {
+  id     String @id @default(cuid())
+  noteId String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  mimeType      String
+  storageKey    String
+  storageDriver String @default("local")
+
+  createdAt DateTime @default(now())
+
+  @@index([noteId])
+  @@map("note_images")
+}
+
+// État des lieux fait à la durée cible (et éventuellement au-delà, si le
+// dossier reste sous surveillance rapprochée) — un chargé d'affaires
+// enregistre un point à la fois, jamais modifié après coup, pour garder
+// l'historique des points successifs sur un même dossier plutôt qu'un
+// unique état toujours écrasé.
+model ProjectCheckpoint {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  recordedById String
+  recordedBy   User   @relation(fields: [recordedById], references: [id])
+
+  travauxBudgetInitial Decimal? @db.Decimal(14, 2)
+  travauxDepensesADate Decimal? @db.Decimal(14, 2)
+  travauxTermines      Boolean  @default(false)
+
+  commercialisationLancee Boolean  @default(false)
+  pourcentageVendu        Int?
+  prixVenteInitialPrevu   Decimal? @db.Decimal(14, 2)
+  // Objectif de prix revu par le porteur de projet (ex. baisse pour accélérer la
+  // commercialisation) — distinct de prixVenteReelADate qui reste les ventes
+  // effectivement réalisées à ce jour, potentiellement en deçà de cet objectif.
+  prixVenteActualise Decimal? @db.Decimal(14, 2)
+  prixVenteReelADate Decimal? @db.Decimal(14, 2)
+
+  atterrissagePrevu String?
+  notes             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("project_checkpoints")
+}
+
+// One row per turn of an Assistant IA conversation on a deal — including the
+// Devil's Advocate replies (agentKey "devil"), so both the agents' analyses
+// and the contradictory review survive navigation/reload instead of living
+// only in the browser tab's React state, and keep feeding the dossier's
+// analysis over time instead of being re-derived from scratch each session.
+model AgentMessage {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  /// Which agent persona produced (or received, for a user turn) this
+  /// message — e.g. "analyst", "legal", "devil".
+  agentKey String
+  role     String
+  content  String @db.Text
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("agent_messages")
+}
+
+model Document {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  name          String
+  mimeType      String
+  size          Int
+  storageKey    String
+  storageDriver String @default("local")
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  fieldChanges FieldChange[]
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("documents")
+}
+
+// Journal d'audit générique par champ — distinct d'Activity (fil narratif
+// lisible) : ici, chaque ligne est une valeur structurée avant/après,
+// interrogeable par champ, pour la gouvernance de la donnée (qui a changé
+// quoi, quand, et avec quel document à l'appui). entityType est une chaîne
+// libre plutôt qu'un enum pour ne pas exiger de migration à chaque nouvelle
+// surface auditée (aujourd'hui : 'Deal', 'FinancialAssumption').
+model FieldChange {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  entityType String
+  fieldKey   String
+  fieldLabel String
+
+  /// Stringifié pour affichage ; null = première valeur jamais renseignée.
+  oldValue String?
+  newValue String?
+
+  changedById String?
+  changedBy   User?   @relation(fields: [changedById], references: [id], onDelete: SetNull)
+
+  sourceDocumentId String?
+  sourceDocument   Document? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+
+  changedAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([dealId, entityType])
+  @@map("field_changes")
+}
+
+// Sign-off d'une seule personne (pas un maker-checker à deux) : atteste que
+// l'état actuel d'une entité sur ce dossier a été relu et confirmé, avec
+// horodatage. Une ligne = "validé, rien n'a changé depuis" — dès qu'un
+// nouveau FieldChange est écrit pour ce (dealId, entityType), la ligne est
+// supprimée (FieldChangeService.recordDiff) pour que "validé" ne mente
+// jamais sur l'état réel.
+model DataValidation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  entityType String // même convention que FieldChange.entityType
+
+  validatedById String
+  validatedBy   User     @relation(fields: [validatedById], references: [id], onDelete: Cascade)
+  validatedAt   DateTime @default(now())
+
+  @@unique([dealId, entityType])
+  @@map("data_validations")
+}
+
+/// Historique append-only de chaque recalcul de risque qui CHANGE le tuple de
+/// scores (voir risk-history.service.ts, condition d'écriture) — jamais
+/// écrasé, contrairement à Deal.riskScore/qualityScore/etc qui ne gardent que
+/// la dernière valeur connue. Alimente Δ7j/Δ30j/Δ90j, le graphique de
+/// trajectoire, et l'explicabilité (breakdown JSON = détail complet du calcul
+/// à cet instant, permet de comparer deux points dans le temps sans tout
+/// recalculer).
+model RiskScoreSnapshot {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  /// Nullable depuis le passage au score additif unique (v3.0) : ces 3
+  /// sous-scores n'existent plus conceptuellement, seul compositeScore reste
+  /// renseigné pour les nouvelles lignes. L'historique v2.1 garde ses
+  /// valeurs intactes — jamais réécrit rétroactivement (voir modelVersion).
+  qualityScore       Int?
+  performanceScore   Int?
+  ewsScore           Int?
+  compositeScore     Int
+  surveillanceStatus DealSurveillanceStatus
+
+  breakdown Json
+  trigger   String
+
+  /// Identifie la version des poids/seuils du Risk Engine qui a produit cette
+  /// ligne — sans ça, un changement futur de formule (Phase 2+) rendrait
+  /// l'historique ambigu sur quel modèle a calculé quel score.
+  modelVersion String @default("risk-engine-v2.1")
+
+  computedAt DateTime @default(now())
+
+  @@index([dealId, computedAt])
+  @@index([organizationId])
+  @@map("risk_score_snapshots")
+}
+
+/// Hard override objectif, piloté par règle (voir hard-override-rules.ts) —
+/// s'ouvre et se résout automatiquement à chaque recalcul selon que la
+/// condition déclenchante reste vraie ou non. Impose un plancher minimum sur
+/// le statut de surveillance qu'aucun bon score ne peut compenser
+/// mathématiquement. Distinct de DealOverride (jugement humain).
+model RiskOverride {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  ruleKey                   String
+  /// Texte de la règle figé au déclenchement — reste lisible et stable même
+  /// si le libellé de la règle change plus tard dans le code.
+  label                     String
+  minimumSurveillanceStatus DealSurveillanceStatus
+
+  active      Boolean   @default(true)
+  triggeredAt DateTime  @default(now())
+  resolvedAt  DateTime?
+
+  @@index([dealId, active])
+  @@index([organizationId])
+  @@map("risk_overrides")
+}
+
+/// Override analyste du statut de surveillance CALCULÉ — un jugement humain
+/// explicite, distinct de RiskOverride (règle objective) et de DataValidation
+/// (simple attestation que rien n'a changé). Reste actif tant qu'il n'est pas
+/// explicitement levé — le moteur automatique ne l'écrase jamais en silence.
+model DealOverride {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  automaticStatus DealSurveillanceStatus
+  overrideStatus  DealSurveillanceStatus
+  justification   String
+
+  createdById String
+  createdBy   User     @relation("DealOverrideCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  active      Boolean   @default(true)
+  clearedAt   DateTime?
+  clearedById String?
+  clearedBy   User?     @relation("DealOverrideClearedBy", fields: [clearedById], references: [id], onDelete: SetNull)
+
+  @@index([dealId, active])
+  @@index([organizationId])
+  @@map("deal_overrides")
+}
+
+model Task {
+  id     String  @id @default(cuid())
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  /// Set directly at creation (not derived from `deal`) so deal-less tasks
+  /// still carry a real tenant boundary — every query filters on this
+  /// column, never on "no deal means no scope" fallbacks.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title    String
+  done     Boolean   @default(false)
+  priority Priority  @default(MEDIUM)
+  dueDate  DateTime?
+
+  assigneeId  String
+  assignee    User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String
+  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  /// Spec ATLAS v2, A.10 — annulation = transition de statut, jamais une suppression de ligne : une action générée (par un analyste ou par un playbook) doit rester traçable a posteriori. `remove()` renseigne ces deux champs au lieu d'un DELETE ; les listes par défaut filtrent `cancelledAt: null`.
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelledBy   User?     @relation("TaskCancelledBy", fields: [cancelledById], references: [id])
+
+  /// Présente uniquement si cette tâche a été générée par un playbook (A.4) — le statut affiché à l'analyste reste `done`/`dueDate` ci-dessus, jamais un champ dupliqué côté playbook.
+  playbookActionItem PlaybookActionItem?
+
+  @@index([dealId])
+  @@index([organizationId])
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+model Activity {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type    ActivityType
+  message String
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("activities")
+}
+
+model Alert {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String?
+  deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  articleId      String?
+  article        Article?     @relation(fields: [articleId], references: [id], onDelete: SetNull)
+
+  severity AlertSeverity @default(INFO)
+  title    String
+  message  String
+  read     Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([read])
+  @@map("alerts")
+}
+
+// ── Dossiers: guarantees & financial model ────────────────
+
+model Guarantee {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  type        GuaranteeType
+  description String
+  amount      Decimal         @db.Decimal(14, 2)
+  rank        Int             @default(1)
+  status      GuaranteeStatus @default(ACTIVE)
+
+  // Applies to HYPOTHEQUE / FIDUCIE / CAUTION — other guarantee types don't
+  // carry a renewal deadline. Drives both the "Valide / Non valide" state
+  // (computed, not stored — see guarantee-expiry.util.ts) and the 6-month
+  // renewal warning/notification.
+  endDate DateTime?
+
+  /// Dernière vérification par un analyste (spec ATLAS v2, A.5 —
+  /// "statut de chaque sûreté vérifié dans les 30 derniers jours ?").
+  /// Distinct d'endDate : une sûreté peut être valide sur le papier mais
+  /// jamais recontrôlée récemment.
+  verifiedAt DateTime?
+
+  /// Vice de fond (spec ATLAS v2, A.9) — mauvais rang enregistré, signature
+  /// manquante, vice de forme... jamais déductible d'une donnée existante,
+  /// un analyste doit le constater explicitement (note obligatoire). Rend
+  /// la sûreté NON_VALIDE même si endDate est encore dans le futur — voir
+  /// guarantee-expiry.util.ts.
+  substantiveDefect     Boolean @default(false)
+  substantiveDefectNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("guarantees")
+}
+
+/// Inputs for the deal's financial model. Sensitivity scenarios (± on
+/// selling price and construction cost) are computed on the fly from these
+/// assumptions rather than stored, so they always reflect the latest input.
+// Modèle financier v2 (Phase 1) — reconstruit à partir du classeur d'audit
+// réel de l'utilisateur (Foncier / Travaux / Honoraires techniques / Autres
+// frais / Financement LPB / Financement bancaire), plutôt que le triptyque
+// surface×coût/m²×prix/m² d'origine. Les postes "Travaux" sont libres (voir
+// CostLineItem) — confirmé par l'utilisateur, pas des champs fixes.
+model FinancialAssumption {
+  id     String @id @default(cuid())
+  dealId String @unique
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  surfaceSqm         Decimal  @db.Decimal(10, 2)
+  sellingPricePerSqm Decimal  @db.Decimal(10, 2)
+  targetMarginPct    Decimal? @db.Decimal(5, 2)
+  notes              String?
+
+  // Foncier
+  landPrice  Decimal? @db.Decimal(14, 2)
+  notaryFees Decimal? @db.Decimal(14, 2)
+
+  // Honoraires techniques — structure fixe (confirmée telle quelle dans le classeur d'audit)
+  diagnosticsCost   Decimal? @db.Decimal(14, 2)
+  insuranceCost     Decimal? @db.Decimal(14, 2)
+  propertyTaxCost   Decimal? @db.Decimal(14, 2)
+  surveyStudiesCost Decimal? @db.Decimal(14, 2)
+
+  // Autres frais — les frais LPB (garantie/intérêts/fees) sont calculés, jamais saisis ici.
+  // agencyFees et referralFees sont deux commissions distinctes (agence immobilière vs
+  // apporteur d'affaires) — toutes deux à 0 par défaut si aucun frais.
+  agencyFees   Decimal? @db.Decimal(14, 2)
+  referralFees Decimal? @db.Decimal(14, 2)
+  bankMiscFees Decimal? @db.Decimal(14, 2)
+
+  // Financement LPB — la collecte/le taux/la durée cible réutilisent
+  // Deal.amountTarget/interestRate/durationMonths, pas de doublon de saisie.
+  lpbFeesPctHT         Decimal? @db.Decimal(5, 2)
+  lpbTvaApplicable     Boolean  @default(false)
+  lpbTvaRatePct        Decimal? @db.Decimal(5, 2)
+  lpbDurationMinMonths Int?
+  lpbDurationMaxMonths Int?
+  // Simulation "et si le projet est en retard" : +5 points sur le taux LPB
+  // utilisé pour calculer les intérêts sur durée cible — sert à mesurer
+  // l'impact financier réel d'un dépassement plutôt qu'à documenter un fait.
+  latePenaltyApplied Boolean @default(false)
+
+  // Financement bancaire (optionnel, distinct de LPB) — activé dès qu'un nom de banque est renseigné
+  bankName               String?
+  bankLoanAcquisition    Decimal? @db.Decimal(14, 2)
+  bankLoanAccompagnement Decimal? @db.Decimal(14, 2)
+  bankInterestRatePct    Decimal? @db.Decimal(5, 2)
+  bankFileFees           Decimal? @db.Decimal(14, 2)
+  bankGuaranteeFees      Decimal? @db.Decimal(14, 2)
+
+  // BP initial figé — copie gelée des totaux calculés (Foncier, Travaux,
+  // Honoraires, financement, marge, sensibilité) au moment où l'utilisateur
+  // clique "Figer le BP initial", une fois sa saisie terminée. Tant que
+  // baselineLockedAt est null, aucune comparaison initial/actualisé n'est
+  // affichée — évite qu'un champ encore vide en cours de saisie (donc à sa
+  // valeur par défaut) soit pris à tort pour le "point de départ" réel.
+  baselineSnapshot   Json?
+  baselineLockedAt   DateTime?
+  baselineLockedById String?
+  baselineLockedBy   User?     @relation(fields: [baselineLockedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("financial_assumptions")
+}
+
+// Postes de coût libres — aujourd'hui uniquement les "Travaux" (l'utilisateur
+// les saisit ligne par ligne dans son classeur réel, pas via des champs
+// fixes). `category` prévoit l'extension à d'autres postes plus tard, non
+// exploitée pour l'instant.
+model CostLineItem {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  category  String
+  label     String
+  amount    Decimal @db.Decimal(14, 2)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId, category])
+  @@map("cost_line_items")
+}
+
+/// Grille de commercialisation lot par lot — remplace le prix de vente moyen
+/// (sellingPricePerSqm × surfaceSqm) par la somme des prix réels/prévisionnels
+/// de chaque lot dès qu'au moins un lot est saisi (FinancialModelService).
+/// Un prix moyen peut masquer qu'un projet n'est viable que si certains lots
+/// se vendent au-dessus du marché — la grille rend ce risque visible.
+model SaleLot {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  label      String
+  surfaceSqm Decimal @db.Decimal(10, 2)
+  salePrice  Decimal @db.Decimal(14, 2)
+  // Statut de commercialisation du lot — string libre (pas un enum Prisma)
+  // pour rester cohérent avec CostLineItem.category : validé côté DTO
+  // (@IsIn), pas de migration nécessaire si un statut s'ajoute plus tard.
+  // Valeurs : EN_VENTE | OFFRE | PROMESSE_COMPROMIS | RESERVATION | VENDU
+  status     String  @default("EN_VENTE")
+  sortOrder  Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("sale_lots")
+}
+
+// ── Knowledge Graph ────────────────────────────────────────
+
+/// A node in the Knowledge Graph: promoteur, banque, notaire, architecte,
+/// collectivité, investisseur or plateforme. Type-specific attributes
+/// (e.g. a platform's category or founding year) live in `metadata`.
+model GraphEntity {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type        GraphEntityType
+  name        String
+  description String?
+  website     String?
+  city        String?
+  /// City-centroid coordinates (not street-level) — used by the Cartographie module.
+  lat         Decimal?        @db.Decimal(9, 6)
+  lng         Decimal?        @db.Decimal(9, 6)
+  metadata    Json?
+
+  /// Person to contact at this entity (e.g. the porteur de projet themselves,
+  /// or the relationship manager at a bank/notaire) — distinct from `name`,
+  /// which is the organization/company name.
+  contactName String?
+  email       String?
+  phone       String?
+
+  /// SIREN du porteur (pertinent surtout pour type=PROMOTEUR) — permet de
+  /// rapprocher automatiquement cette entité du champ texte libre
+  /// Deal.porteurSiren (voir DealsService/GraphService.autoLinkPromoteurBySiren).
+  siren String?
+
+  dealLinks              DealEntityLink[]
+  relationsFrom          GraphRelation[]          @relation("RelationFrom")
+  relationsTo            GraphRelation[]          @relation("RelationTo")
+  articles               ArticleEntityLink[]
+  competitorProjects     CompetitorProject[]
+  competitorProjectEvents CompetitorProjectEvent[]
+  platformStatsSnapshots PlatformStatsSnapshot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, siren])
+  @@index([organizationId])
+  @@index([type])
+  @@map("graph_entities")
+}
+
+/// Links a deal to a Knowledge Graph entity with a specific role
+/// (e.g. this deal's promoteur, or its notaire).
+model DealEntityLink {
+  id       String         @id @default(cuid())
+  dealId   String
+  deal     Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  entityId String
+  entity   GraphEntity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  role     DealEntityRole
+
+  createdAt DateTime @default(now())
+
+  @@unique([dealId, entityId, role])
+  @@index([entityId])
+  @@map("deal_entity_links")
+}
+
+/// An edge between two Knowledge Graph entities (e.g. a promoteur partnered
+/// with a bank, or two platforms are direct competitors).
+model GraphRelation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  fromEntityId String
+  fromEntity   GraphEntity @relation("RelationFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntityId   String
+  toEntity     GraphEntity @relation("RelationTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+
+  type  GraphRelationType
+  label String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([fromEntityId])
+  @@index([toEntityId])
+  @@map("graph_relations")
+}
+
+// ── Knowledge Graph v2 (spec ATLAS v2, B.2) — fondation ────────────────
+//
+// Coexiste avec GraphEntity/GraphRelation/DealEntityLink ci-dessus le temps
+// de la transition : le graphe visuel (graph.service.ts, graph-page.tsx)
+// continue de tourner sur l'ancien modèle jusqu'à ce que B.3 (requêtes
+// déterministes) vienne consommer celui-ci. Chaque GraphEntity/GraphRelation
+// existant est migré ici (même id, traçabilité directe) — jamais supprimé.
+
+enum EntityType {
+  PROMOTEUR
+  BANQUE
+  NOTAIRE
+  ARCHITECTE
+  COLLECTIVITE
+  INVESTISSEUR
+  PLATEFORME
+  /// Miroir d'un Deal — absent de l'ancien GraphEntityType, permet à une
+  /// Relationship de pointer nativement vers une opération (ex. "caution
+  /// partagée entre Opération X et Opération Y", B.3).
+  OPERATION
+}
+
+/// Portfolio = contreparties réelles liées à des opérations LPB (+ les Deals
+/// eux-mêmes) ; Market = veille concurrentielle. Champ explicite plutôt que
+/// deux graphes séparés, pour permettre le croisement futur (B.8) sans
+/// dupliquer l'infrastructure.
+enum EntityDomain {
+  PORTFOLIO
+  MARKET
+}
+
+/// Niveau de couverture relationnelle (section 0.2 de la spec) — jamais
+/// "aucun lien détecté" sans préciser le niveau de complétude de la
+/// documentation elle-même.
+enum RelationshipCoverage {
+  UNKNOWN
+  PARTIAL
+  SUBSTANTIAL
+  VERIFIED
+}
+
+model Entity {
+  /// Pas de @default(cuid()) : les entités migrées réutilisent l'id
+  /// GraphEntity d'origine, les miroirs de deal utilisent `deal_<dealId>`
+  /// (dérivable sans table de mapping), les nouvelles entités reçoivent un
+  /// cuid généré côté service.
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type        EntityType
+  domain      EntityDomain @default(PORTFOLIO)
+  name        String
+  description String?
+  metadata    Json?
+
+  coverage RelationshipCoverage @default(UNKNOWN)
+
+  /// Non-null uniquement pour les entités miroir d'un Deal (type OPERATION).
+  mirrorsDealId String? @unique
+  mirrorsDeal   Deal?   @relation(fields: [mirrorsDealId], references: [id], onDelete: Cascade)
+
+  identifiers       EntityIdentifier[]
+  aliases           EntityAlias[]
+  relationshipsFrom Relationship[]     @relation("RelFrom")
+  relationshipsTo   Relationship[]     @relation("RelTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, domain])
+  @@index([type])
+  @@map("entities")
+}
+
+enum EntityIdentifierType {
+  SIREN
+  SIRET
+  RCS
+  AUTRE
+}
+
+model EntityIdentifier {
+  id         String               @id @default(cuid())
+  entityId   String
+  entity     Entity               @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  type       EntityIdentifierType
+  value      String
+  /// Dernière vérification (SIRENE/BODACC) — alimente le badge de fraîcheur (0.3).
+  verifiedAt DateTime?
+
+  @@unique([entityId, type, value])
+  @@index([type, value])
+  @@map("entity_identifiers")
+}
+
+/// Variantes de nom observées pour une entité (ex. raison sociale abrégée,
+/// nom commercial différent du nom légal) — jamais fusionnées automatiquement
+/// avec le nom canonique.
+model EntityAlias {
+  id       String  @id @default(cuid())
+  entityId String
+  entity   Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  alias    String
+  source   String?
+
+  @@index([entityId])
+  @@map("entity_aliases")
+}
+
+/// Taxonomie des types de relation — table plutôt qu'enum Prisma pour pouvoir
+/// en ajouter sans migration. Seed fixe pour l'instant (pas d'UI d'admin) :
+/// voir entity-graph.seed dans EntityGraphModule.
+model RelationshipType {
+  key         String  @id
+  label       String
+  /// Catégorie de filtre pour le graphe visuel (B.7) : Financial/Legal/Ownership/Guarantees/Projects/Autre.
+  category    String
+  description String?
+
+  relationships Relationship[]
+
+  @@map("relationship_types")
+}
+
+enum RelationshipStatus {
+  ACTIVE
+  ENDED
+  DISPUTED
+}
+
+/// Niveau de preuve d'une relation — jamais une simple affirmation traitée
+/// comme un fait vérifié.
+enum EvidenceLevel {
+  DECLARED
+  DOCUMENTED
+  OFFICIAL
+}
+
+model Relationship {
+  /// Pas de @default(cuid()) : les relations migrées réutilisent l'id GraphRelation d'origine.
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  sourceEntityId String
+  sourceEntity   Entity @relation("RelFrom", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntityId String
+  targetEntity   Entity @relation("RelTo", fields: [targetEntityId], references: [id], onDelete: Cascade)
+
+  typeKey String
+  type    RelationshipType @relation(fields: [typeKey], references: [key])
+
+  startedAt   DateTime?
+  endedAt     DateTime?
+  amount      Decimal?  @db.Decimal(14, 2)
+  percentage  Decimal?  @db.Decimal(5, 2)
+  /// 0-100 — poids de ce lien pour une future analyse de contagion (B.4/B.5, pas construite ici).
+  criticality Int       @default(0)
+
+  status     RelationshipStatus   @default(ACTIVE)
+  confidence RelationshipCoverage @default(UNKNOWN)
+  verifiedAt DateTime?
+
+  evidence Evidence[]
+  events   RelationshipEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([sourceEntityId])
+  @@index([targetEntityId])
+  @@index([typeKey])
+  @@map("relationships")
+}
+
+model Evidence {
+  id             String       @id @default(cuid())
+  relationshipId String
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  level     EvidenceLevel
+  source    String
+  reference String?
+  note      String?
+
+  /// Nullable : une preuve migrée depuis l'ancien GraphRelation n'a pas
+  /// d'auteur réel — jamais attribuée à quelqu'un qui ne l'a pas créée.
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([relationshipId])
+  @@map("relationship_evidence")
+}
+
+enum RelationshipEventType {
+  CREATED
+  AMOUNT_CHANGED
+  PERCENTAGE_CHANGED
+  STATUS_CHANGED
+  CONFIDENCE_CHANGED
+  EVIDENCE_ADDED
+  ENDED
+}
+
+/// Colonnes typées (avant/après) plutôt qu'un JSON générique — un
+/// RelationshipEvent ne couvre que les champs qui changent réellement dans la
+/// vie d'une relation.
+model RelationshipEvent {
+  id             String       @id @default(cuid())
+  relationshipId String
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  eventType RelationshipEventType
+
+  previousAmount     Decimal?              @db.Decimal(14, 2)
+  newAmount          Decimal?              @db.Decimal(14, 2)
+  previousPercentage Decimal?              @db.Decimal(5, 2)
+  newPercentage      Decimal?              @db.Decimal(5, 2)
+  previousStatus     RelationshipStatus?
+  newStatus          RelationshipStatus?
+  previousConfidence RelationshipCoverage?
+  newConfidence      RelationshipCoverage?
+
+  note String?
+
+  occurredAt DateTime @default(now())
+
+  @@index([relationshipId])
+  @@map("relationship_events")
+}
+
+// ── Playbooks (spec ATLAS v2, A.4 / A.7) ───────────────────────────────
+//
+// Un seul playbook codé en dur dans ce lot : "procédure_collective_ouverte"
+// (voir apps/api/src/playbooks/procedure-collective.playbook.ts). Bibliothèque
+// étendue par type d'événement = NEXT, pas construite ici.
+
+enum PlaybookEventType {
+  PROCEDURE_COLLECTIVE_OUVERTE
+}
+
+/// Une instance par (dossier, type d'événement) — jamais recréée deux fois
+/// pour le même dossier, quel que soit le signal qui l'a déclenchée
+/// (recoveryStatus manuel ou détection BODACC automatique).
+model PlaybookInstance {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  eventType PlaybookEventType
+
+  /// 'recovery_status_manuel' | 'surveillance_bodacc_auto' — traçabilité, sans incidence fonctionnelle.
+  triggerSource String
+  triggeredAt   DateTime @default(now())
+
+  /// Ancre des délais légaux (ex. date_publication_BODACC) — par défaut
+  /// triggeredAt, corrigeable ensuite par l'analyste (recalcule alors les
+  /// échéances des actions pas encore faites, jamais celles déjà cochées).
+  anchorDate DateTime
+
+  actions PlaybookActionItem[]
+
+  @@unique([dealId, eventType])
+  @@index([organizationId])
+  @@map("playbook_instances")
+}
+
+/// Adossée à une Task existante plutôt que de dupliquer un statut : le
+/// statut affiché (à faire / fait / en retard) se dérive directement de
+/// Task.done et Task.dueDate — zéro désynchronisation possible, zéro
+/// nouvelle UI de complétion (l'onglet Tâches existant suffit).
+model PlaybookActionItem {
+  id                 String           @id @default(cuid())
+  playbookInstanceId String
+  playbookInstance   PlaybookInstance @relation(fields: [playbookInstanceId], references: [id], onDelete: Cascade)
+
+  /// Clé stable de l'action dans le playbook (ex. "declaration_creance").
+  key String
+
+  bloquant Boolean @default(false)
+
+  /// Garde-fou de la spec (A.4) : une action à conséquence juridique/
+  /// financière significative est proposée par le système mais jamais
+  /// marquée "faite" par lui — toujours vrai dans ce lot, exposé pour que
+  /// le futur workflow d'approbation (A.10) ait une donnée à consommer.
+  requiresHumanValidation Boolean @default(true)
+
+  taskId String @unique
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([playbookInstanceId, key])
+  @@index([playbookInstanceId])
+  @@map("playbook_action_items")
+}
+
+enum CompetitorProjectStatus {
+  A_VENIR
+  EN_COLLECTE
+  CLOTURE
+}
+
+/// Manually logged by an analyst against a competitor PLATEFORME entity —
+/// there's no automated feed for a competitor's live/upcoming project
+/// listing (their "app" is behind a login, and scraping an authenticated
+/// competitor account is out of scope), so this is deliberately a fast,
+/// low-friction manual log rather than a sync target.
+model CompetitorProject {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityId       String
+  entity         GraphEntity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  name         String
+  status       CompetitorProjectStatus @default(EN_COLLECTE)
+  targetAmount Decimal?                @db.Decimal(14, 2)
+  expectedDate DateTime?
+  url          String?
+  note         String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([entityId])
+  @@map("competitor_projects")
+}
+
+enum CompetitorProjectEventType {
+  PROJECT_DETECTED
+  FUNDING_OPENED
+  FUNDING_CLOSED
+  PROJECT_REMOVED
+  PROJECT_UPDATED
+}
+
+/// Historique d'un CompetitorProject (spec ATLAS v2, C.3 — vocabulaire
+/// d'événements minimal). Colonnes dénormalisées (entityId, projectName)
+/// plutôt qu'une FK stricte vers CompetitorProject : PROJECT_REMOVED doit
+/// rester consultable après la suppression de la ligne qu'il décrit.
+model CompetitorProjectEvent {
+  id             String                     @id @default(cuid())
+  entityId       String
+  entity         GraphEntity                @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  projectId      String
+  projectName    String
+  eventType      CompetitorProjectEventType
+  previousStatus CompetitorProjectStatus?
+  newStatus      CompetitorProjectStatus?
+  occurredAt     DateTime                   @default(now())
+
+  @@index([entityId])
+  @@map("competitor_project_events")
+}
+
+// ── Intelligence Marché: news pipeline ─────────────────────
+
+enum SourceHealth {
+  OPERATIONAL
+  DEGRADED
+  BROKEN
+  UNKNOWN
+}
+
+enum SourceApprovalStatus {
+  APPROVED_FOR_COLLECTION
+  PENDING_REVIEW
+}
+
+/// Source Registry (spec ATLAS v2, C.2) — un enregistrement par connecteur
+/// (pas par organisation, pas par NewsSource : plusieurs NewsSource peuvent
+/// partager le même connecteur, ex. 9 lignes utilisent google-news-rss).
+/// Aucune source ne doit collecter avant que son statut soit
+/// APPROVED_FOR_COLLECTION — la conformité/santé d'une source externe est
+/// un fait sur la source elle-même, pas sur le tenant qui la consulte
+/// (même principe que RelationshipType, clé globale sans organizationId).
+model SourceRegistryEntry {
+  key                    String               @id
+  label                  String
+  accessMethod           String
+  termsReviewed          Boolean              @default(false)
+  reviewedAt             DateTime?
+  authenticationRequired Boolean              @default(false)
+  approvalStatus         SourceApprovalStatus @default(PENDING_REVIEW)
+
+  // Source Monitor (C.3)
+  lastCheckedAt DateTime?
+  lastSuccessAt DateTime?
+  health        SourceHealth @default(UNKNOWN)
+  lastChangeAt  DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("source_registry_entries")
+}
+
+/// Un instantané par synchronisation réussie ET changée (spec C.3 : "ne
+/// jamais écraser l'état précédent"). GraphEntity.metadata reste la vue
+/// "état courant" déjà lue par PlatformStatsPanel — ce modèle porte
+/// l'historique que la mise à jour en place ne conservait pas.
+model PlatformStatsSnapshot {
+  id         String      @id @default(cuid())
+  entityId   String
+  entity     GraphEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  metadata   Json
+  observedAt DateTime    @default(now())
+
+  @@index([entityId, observedAt])
+  @@map("platform_stats_snapshots")
+}
+
+/// A configured source for the market-intelligence pipeline. `connector`
+/// names the ingestion strategy — a registered code connector (e.g.
+/// "data-gouv-dvf") or "manual" for analyst-entered items.
+model NewsSource {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name          String
+  connector     String
+  url           String?
+  active        Boolean   @default(true)
+  lastFetchedAt DateTime?
+
+  articles Article[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, name])
+  @@map("news_sources")
+}
+
+model Article {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceId       String
+  source         NewsSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  title       String
+  summary     String?
+  url         String?
+  category    ArticleCategory @default(AUTRE)
+  publishedAt DateTime
+  /// Hash of title+url used to deduplicate re-fetched items across runs.
+  dedupeHash  String          @unique
+  priority    Priority        @default(MEDIUM)
+
+  entities ArticleEntityLink[]
+  alerts   Alert[]
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([publishedAt])
+  @@map("articles")
+}
+
+model ArticleEntityLink {
+  id        String      @id @default(cuid())
+  articleId String
+  article   Article     @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  entityId  String
+  entity    GraphEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, entityId])
+  @@map("article_entity_links")
+}
+
+// ── Pilote Market Intelligence Engine (spec ATLAS v2, C.1-C.3) ─────────────
+
+enum ProjectObservationStatus {
+  A_VENIR
+  EN_COLLECTE
+  CLOTURE
+  RETIRE
+}
+
+/// Observation automatisée d'un projet individuel sur une plateforme externe
+/// (spec C.3) — distinct de CompetitorProject, qui est un constat manuel
+/// d'analyste sans flux automatisé (schema.prisma, voir CompetitorProject).
+/// Global, pas d'organizationId : une observation de marché est un fait
+/// externe, pas une donnée par tenant — même doctrine que
+/// SourceRegistryEntry.
+model ProjectObservation {
+  id             String                   @id @default(cuid())
+  sourceKey      String
+  platform       String
+  projectName    String
+  projectUrl     String
+  operatorRaw    String?
+  amountTarget   Decimal?                 @db.Decimal(14, 2)
+  ratePct        Decimal?                 @db.Decimal(5, 2)
+  durationMonths Int?
+  /// Catégorie telle qu'affichée par la source — jamais écrasée par la normalisation (spec C.4).
+  sourceCategory String?
+  /// Segment ATLAS normalisé (best-effort) — null si aucune correspondance de confiance suffisante.
+  atlasSegment      String?
+  mappingConfidence String?
+  location          String?
+  status            ProjectObservationStatus @default(EN_COLLECTE)
+  observedAt        DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  snapshots ProjectObservationSnapshot[]
+
+  @@unique([sourceKey, projectUrl])
+  @@index([sourceKey])
+  @@map("project_observations")
+}
+
+/// Un instantané par synchronisation ayant détecté un changement (spec C.3 :
+/// "ne jamais écraser l'état précédent") — même pattern que
+/// PlatformStatsSnapshot, appliqué ici à l'observation avant écrasement.
+model ProjectObservationSnapshot {
+  id            String             @id @default(cuid())
+  observationId String
+  observation   ProjectObservation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  data          Json
+  observedAt    DateTime           @default(now())
+
+  @@index([observationId, observedAt])
+  @@map("project_observation_snapshots")
+}
+
+/// Historique d'une ProjectObservation — réutilise le vocabulaire
+/// d'événements de CompetitorProjectEvent (même enum), pas une redéfinition.
+/// Colonnes dénormalisées (sourceKey/projectUrl/projectName) plutôt qu'une FK
+/// stricte : PROJECT_REMOVED doit rester consultable même après suppression
+/// de l'observation qu'il décrit.
+model ProjectObservationEvent {
+  id             String                     @id @default(cuid())
+  sourceKey      String
+  projectUrl     String
+  projectName    String
+  eventType      CompetitorProjectEventType
+  previousStatus ProjectObservationStatus?
+  newStatus      ProjectObservationStatus?
+  occurredAt     DateTime                   @default(now())
+
+  @@index([sourceKey])
+  @@map("project_observation_events")
+}

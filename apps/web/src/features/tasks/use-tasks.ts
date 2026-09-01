@@ -1,0 +1,70 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import type { Task } from '@/types';
+
+/** Tâches d'un dossier — pour le calibrage de la charge par projet (onglet Tâches de la fiche dossier). */
+export function useDealTasks(dealId: string) {
+  return useQuery({
+    queryKey: ['tasks', 'deal', dealId],
+    queryFn: () => api.get<Task[]>(`/deals/${dealId}/tasks`),
+    enabled: !!dealId,
+  });
+}
+
+export function useToggleTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, done }: { id: string; done: boolean }) => api.patch<Task>(`/tasks/${id}`, { done }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+export function useCreateTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { title: string; dueDate?: string; priority?: Task['priority']; dealId?: string }) =>
+      api.post<Task>('/tasks', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+export function useUpdateTaskPriority() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, priority }: { id: string; priority: Task['priority'] }) =>
+      api.patch<Task>(`/tasks/${id}`, { priority }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; title?: string; dueDate?: string; priority?: Task['priority'] }) =>
+      api.patch<Task>(`/tasks/${id}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/tasks/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
