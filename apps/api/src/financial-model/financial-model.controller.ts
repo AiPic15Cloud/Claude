@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { FinancialModelService } from './financial-model.service';
 import { UpsertFinancialAssumptionDto } from './dto/upsert-financial-assumption.dto';
+import { ComputeScenariosDto } from './dto/compute-scenarios.dto';
 
 @ApiTags('financial-model')
 @ApiBearerAuth()
@@ -25,6 +26,11 @@ export class FinancialModelController {
   @Post('lock-baseline')
   lockBaseline(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string) {
     return this.financialModelService.lockBaseline(user.organizationId, dealId, user.id);
+  }
+
+  @Post('scenarios')
+  computeScenarios(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Body() dto: ComputeScenariosDto) {
+    return this.financialModelService.computeScenarios(user.organizationId, dealId, dto);
   }
 
   @Put()
