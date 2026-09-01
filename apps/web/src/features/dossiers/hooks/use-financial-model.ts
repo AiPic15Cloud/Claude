@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { BpComparison, FinancialModel } from '@/types';
+import type { BpComparison, FinancialModel, ScenarioComputation, ScenarioDeltas, ScenarioAxisVariable } from '@/types';
 
 export function useFinancialModel(dealId: string) {
   return useQuery({
@@ -71,6 +71,21 @@ export function useLockBaseline(dealId: string) {
       queryClient.setQueryData(['financial-model', dealId], data);
       queryClient.invalidateQueries({ queryKey: ['financial-model', dealId, 'bp-comparison'] });
     },
+  });
+}
+
+export interface ComputeScenariosPayload {
+  custom?: ScenarioDeltas;
+  matrixRowVariable?: ScenarioAxisVariable;
+  matrixRowValues?: number[];
+  matrixColVariable?: ScenarioAxisVariable;
+  matrixColValues?: number[];
+}
+
+/** D.1 — recalcul à la demande (scénario personnalisé et/ou matrice croisée) ; les 3 scénarios prédéfinis sont toujours renvoyés. */
+export function useComputeScenarios(dealId: string) {
+  return useMutation({
+    mutationFn: (payload: ComputeScenariosPayload) => api.post<ScenarioComputation>(`/deals/${dealId}/financial-model/scenarios`, payload),
   });
 }
 
