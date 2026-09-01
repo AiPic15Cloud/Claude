@@ -47,6 +47,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { CrdDetailPopover } from './components/crd-detail-popover';
 import { RealizedPerformancePopover } from './components/realized-performance-popover';
+import { InvestmentNoteSheet } from './components/investment-note-sheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -65,6 +66,7 @@ export function DossierPage() {
   const canValidate = useCanValidate();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [activeTab, setActiveTab] = useState('risk');
+  const [investmentNoteOpen, setInvestmentNoteOpen] = useState(false);
   const [financialPrefill, setFinancialPrefill] = useState<(Partial<FinancialModelFormValues> & { sourceDocumentId?: string }) | null>(null);
 
   const createCostLineItem = useCreateCostLineItem(id ?? '');
@@ -148,6 +150,7 @@ export function DossierPage() {
             <Button size="sm" variant="outline" onClick={() => window.print()}>
               <Printer className="h-3.5 w-3.5" /> Exporter en PDF
             </Button>
+            <InvestmentNoteSheet dealId={id ?? ''} deal={deal} onOpenChange={setInvestmentNoteOpen} />
             <Button
               size="sm"
               variant="outline"
@@ -451,7 +454,7 @@ export function DossierPage() {
         </TabsContent>
       </Tabs>
     </div>
-    <DealPrintSheet deal={deal} guarantees={guarantees} />
+    {!investmentNoteOpen && <DealPrintSheet deal={deal} guarantees={guarantees} />}
     </>
   );
 }

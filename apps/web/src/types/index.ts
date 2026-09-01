@@ -875,6 +875,20 @@ export interface FinancialModel {
   synthesis: FinancialSynthesis | null;
 }
 
+/** D.2 — comparables internes (note d'investissement) : autres dossiers du portefeuille, même ville ou même typologie. */
+export interface ComparableDeal {
+  id: string;
+  reference: string;
+  name: string;
+  type: DealType;
+  city: string | null;
+  amountTarget: string;
+  interestRate: string | null;
+  stage: DealStage;
+  riskScore: number | null;
+  repaid: boolean;
+}
+
 /** D.4 — indicateur de valorisation réalisé (TRI/multiple), calculé sur les remboursements réels. */
 export interface RealizedPerformance {
   triRealisePct: number | null;
