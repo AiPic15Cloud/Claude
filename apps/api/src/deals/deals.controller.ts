@@ -115,6 +115,11 @@ export class DealsController {
     return this.marketPrice.search(user.organizationId, id, query.typology);
   }
 
+  @Get(':id/comparables')
+  getComparables(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.dealsService.findComparables(user.organizationId, id);
+  }
+
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')
   @Get(':id/export')

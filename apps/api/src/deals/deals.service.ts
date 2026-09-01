@@ -958,6 +958,40 @@ export class DealsService {
     });
   }
 
+  /**
+   * D.2 — comparables internes ("Analyse de marché" de la note d'investissement) :
+   * autres dossiers du portefeuille de même typologie ou de même ville, jamais
+   * une recherche sémantique sur le graphe (hors périmètre) — une requête
+   * directe sur des champs déjà indexés (city, type), rien de plus.
+   */
+  async findComparables(organizationId: string, id: string, take = 5) {
+    const deal = await this.assertExists(organizationId, id);
+    const current = await this.prisma.deal.findUnique({ where: { id: deal.id }, select: { city: true, type: true } });
+    if (!current) return [];
+
+    return this.prisma.deal.findMany({
+      where: {
+        organizationId,
+        id: { not: id },
+        OR: [current.city ? { city: current.city } : undefined, { type: current.type }].filter(Boolean) as object[],
+      },
+      select: {
+        id: true,
+        reference: true,
+        name: true,
+        type: true,
+        city: true,
+        amountTarget: true,
+        interestRate: true,
+        stage: true,
+        riskScore: true,
+        repaid: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+  }
+
   private async assertExists(organizationId: string, id: string) {
     const deal = await this.prisma.deal.findFirst({ where: { id, organizationId }, select: { id: true } });
     if (!deal) throw new NotFoundException('Opération introuvable');
