@@ -7,6 +7,7 @@ import { useGuarantees, useDeleteGuarantee, useMarkGuaranteeVerified } from '../
 import { GuaranteeFormDialog } from './guarantee-form-dialog';
 import { RenewGuaranteeDialog } from './renew-guarantee-dialog';
 import { SubstantiveDefectDialog } from './substantive-defect-dialog';
+import { useCanValidate } from '@/features/auth/use-auth';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { GUARANTEE_STATUS_LABELS, GUARANTEE_TYPE_LABELS, type GuaranteeStatus } from '@/types';
 
@@ -20,6 +21,7 @@ export function GuaranteesPanel({ dealId }: { dealId: string }) {
   const { data: guarantees = [], isLoading } = useGuarantees(dealId);
   const deleteGuarantee = useDeleteGuarantee(dealId);
   const markVerified = useMarkGuaranteeVerified(dealId);
+  const canValidate = useCanValidate();
 
   return (
     <Card>
@@ -70,7 +72,13 @@ export function GuaranteesPanel({ dealId }: { dealId: string }) {
               <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
                 <span className="text-sm font-semibold tabular-nums">{formatCurrency(g.amount)}</span>
                 {g.status === 'ACTIVE' && (
-                  <Button variant="outline" size="sm" onClick={() => markVerified.mutate(g.id)} disabled={markVerified.isPending}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => markVerified.mutate(g.id)}
+                    disabled={markVerified.isPending || !canValidate}
+                    title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
+                  >
                     <ShieldCheck className="h-3.5 w-3.5" /> Marquer comme vérifiée
                   </Button>
                 )}

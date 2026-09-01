@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToggleTask, useCreateTask, useUpdateTaskPriority } from '@/features/tasks/use-tasks';
 import { EditTaskDialog } from '@/features/tasks/edit-task-dialog';
+import { useCanValidate } from '@/features/auth/use-auth';
 import { ExpandCardButton } from './expand-card-button';
 import { PRIORITY_LABELS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
@@ -63,6 +64,7 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd, 
   const toggleTask = useToggleTask();
   const createTask = useCreateTask();
   const updatePriority = useUpdateTaskPriority();
+  const canValidate = useCanValidate();
   const [newTitle, setNewTitle] = useState('');
   const [newDueDate, setNewDueDate] = useState(todayIso());
   const [newPriority, setNewPriority] = useState<Task['priority']>('MEDIUM');
@@ -81,11 +83,14 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd, 
       <div className="flex items-start gap-2">
         <button
           onClick={() => toggleTask.mutate({ id: task.id, done: !task.done })}
+          disabled={!canValidate}
           className={cn(
             'mt-0.5 h-4 w-4 shrink-0 rounded border transition-colors',
             task.done ? 'border-primary bg-primary' : 'border-input bg-background hover:border-primary',
+            !canValidate && 'cursor-not-allowed opacity-50',
           )}
           aria-label={task.done ? 'Marquer comme non fait' : 'Marquer comme fait'}
+          title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
         />
         <p
           className={cn(
