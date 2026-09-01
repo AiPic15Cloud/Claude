@@ -147,7 +147,7 @@ export function DossierPage() {
               <CheckpointHealthBadge health={deal.checkpointHealth} />
             </div>
           </div>
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
             <Button size="sm" variant="outline" onClick={() => window.print()}>
               <Printer className="h-3.5 w-3.5" /> Exporter en PDF
             </Button>
