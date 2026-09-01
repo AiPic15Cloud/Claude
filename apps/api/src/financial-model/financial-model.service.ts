@@ -4,6 +4,8 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { FieldChangeService } from '../field-changes/field-change.service';
 import { UpsertFinancialAssumptionDto } from './dto/upsert-financial-assumption.dto';
+import { ComputeScenariosDto } from './dto/compute-scenarios.dto';
+import { computeScenario, computeSensitivityMatrix, PREDEFINED_SCENARIOS, type ScenarioBaseInputs } from './scenario-sensitivity.util';
 
 const FINANCIAL_FIELD_LABELS: Record<string, string> = {
   surfaceSqm: 'Surface',
@@ -545,6 +547,59 @@ export class FinancialModelService {
       marginAlert: FinancialModelService.computeMarginAlert(snap.margePct, current.synthesis.margePct),
       disclaimer: `BP initial figé le ${new Date(assumption.baselineLockedAt).toLocaleDateString('fr-FR')}. Tout écart provient d'une modification réelle survenue après cette date — cliquez à nouveau sur « Figer le BP initial » pour redémarrer le suivi à partir d'aujourd'hui.`,
     };
+  }
+
+  /**
+   * D.1 — Sensibilité de scénario. Reconstruit les mêmes briques que
+   * buildResponse() (coût de revient, prix de vente, financement) mais
+   * paramétrées par des deltas de scénario au lieu des valeurs stockées —
+   * le scénario "Central" (deltas nuls) doit donc reproduire la marge
+   * actuelle à l'arrondi près. Aucune nouvelle donnée de base requise :
+   * tout part de l'hypothèse financière déjà saisie.
+   */
+  async computeScenarios(organizationId: string, dealId: string, dto: ComputeScenariosDto) {
+    const deal = await this.assertDeal(organizationId, dealId);
+    const assumption = await this.prisma.financialAssumption.findUnique({ where: { dealId } });
+    if (!assumption) return { hasData: false, central: null, pessimiste: null, optimiste: null, custom: null, matrix: null };
+
+    const num = FinancialModelService.num;
+    const current = await this.buildResponse(organizationId, dealId, deal, assumption);
+    // Champs financement bancaire recalculés depuis l'hypothèse brute (mêmes primitives que
+    // computeFinancingFees) plutôt que lus sur current.synthesis.bank : ce champ est un type
+    // union enabled:true/false que TypeScript ne parvient pas à discriminer une fois traversé
+    // l'inférence de retour de buildResponse(), il donnerait `number | undefined` sur loanTotal.
+    const bankEnabled = Boolean(assumption.bankName);
+    const bankLoanTotal = bankEnabled ? num(assumption.bankLoanAcquisition) + num(assumption.bankLoanAccompagnement) : 0;
+
+    const base: ScenarioBaseInputs = {
+      surface: current.assumption.surfaceSqm,
+      prixDeVenteBase: current.synthesis.prixDeVente,
+      foncierTotal: current.synthesis.foncierTotal,
+      travauxTotalBase: current.synthesis.travauxTotal,
+      honorairesTechniquesTotal: current.synthesis.honorairesTechniquesTotal,
+      autresFraisHorsFinancement: current.synthesis.agencyFees + current.synthesis.referralFees + current.synthesis.bankMiscFees,
+      collecteLpb: current.synthesis.lpb.collecte,
+      tauxEffectifBaseLpb: current.synthesis.lpb.tauxPctEffectif,
+      dureeCibleBaseMonths: current.synthesis.lpb.dureeCibleMonths,
+      lpbFeesTTC: current.synthesis.lpb.feesTTC,
+      lpbGuaranteeFeesEstimate: current.synthesis.lpb.guaranteeFeesEstimate,
+      bankEnabled,
+      bankLoanTotal,
+      bankRatePct: current.assumption.bankInterestRatePct,
+      bankFixedFees: bankEnabled ? num(assumption.bankGuaranteeFees) + num(assumption.bankFileFees) * 1.2 : 0,
+    };
+
+    const central = computeScenario(base, PREDEFINED_SCENARIOS.central, 'Central');
+    const pessimiste = computeScenario(base, PREDEFINED_SCENARIOS.pessimiste, 'Pessimiste');
+    const optimiste = computeScenario(base, PREDEFINED_SCENARIOS.optimiste, 'Optimiste');
+    const custom = dto.custom ? computeScenario(base, dto.custom, 'Personnalisé') : null;
+
+    const matrix =
+      dto.matrixRowVariable && dto.matrixRowValues && dto.matrixColVariable && dto.matrixColValues
+        ? computeSensitivityMatrix(base, dto.matrixRowVariable, dto.matrixRowValues, dto.matrixColVariable, dto.matrixColValues)
+        : null;
+
+    return { hasData: true, central, pessimiste, optimiste, custom, matrix };
   }
 
   /**
