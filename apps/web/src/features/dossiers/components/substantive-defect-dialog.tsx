@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useMarkSubstantiveDefect } from '../hooks/use-guarantees';
+import { useCanValidate } from '@/features/auth/use-auth';
 import { ApiError } from '@/lib/api';
 import { GUARANTEE_TYPE_LABELS, type Guarantee } from '@/types';
 
@@ -24,6 +25,7 @@ export function SubstantiveDefectDialog({ dealId, guarantee }: SubstantiveDefect
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState(guarantee.substantiveDefectNote ?? '');
   const markSubstantiveDefect = useMarkSubstantiveDefect(dealId);
+  const canValidate = useCanValidate();
 
   if (guarantee.substantiveDefect) {
     return (
@@ -34,7 +36,8 @@ export function SubstantiveDefectDialog({ dealId, guarantee }: SubstantiveDefect
           e.stopPropagation();
           markSubstantiveDefect.mutate({ id: guarantee.id, flagged: false });
         }}
-        disabled={markSubstantiveDefect.isPending}
+        disabled={markSubstantiveDefect.isPending || !canValidate}
+        title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
       >
         {markSubstantiveDefect.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldOff className="h-3.5 w-3.5" />}
         Lever le défaut de fond
@@ -54,7 +57,13 @@ export function SubstantiveDefectDialog({ dealId, guarantee }: SubstantiveDefect
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" onClick={(e) => e.stopPropagation()}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={(e) => e.stopPropagation()}
+          disabled={!canValidate}
+          title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
+        >
           <ShieldAlert className="h-3.5 w-3.5" />
           Signaler un défaut de fond
         </Button>

@@ -15,6 +15,7 @@ import {
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { useDealRisk, useRecomputeRisk, useRiskHistory, useSetAnalystOverride, useClearAnalystOverride } from '../hooks/use-risk';
+import { useCanValidate } from '@/features/auth/use-auth';
 import { RiskMethodologySheet } from './risk-methodology-sheet';
 import { RiskTrajectoryChart } from './risk-trajectory-chart';
 import { SurveillanceStatusBadge } from '@/features/portfolio/components/deal-badges';
@@ -109,6 +110,7 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
   const { data: history, isLoading: historyLoading } = useRiskHistory(dealId);
   const clearOverride = useClearAnalystOverride(dealId);
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+  const canValidate = useCanValidate();
 
   if (isLoading || !data) {
     return (
@@ -184,7 +186,13 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
               <div className="flex items-center gap-1.5 text-sm font-medium text-warning">
                 <Lock className="h-4 w-4" /> Statut forcé par un analyste
               </div>
-              <Button variant="ghost" size="sm" onClick={() => clearOverride.mutate()} disabled={clearOverride.isPending}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => clearOverride.mutate()}
+                disabled={clearOverride.isPending || !canValidate}
+                title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
+              >
                 {clearOverride.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 Lever l'override
               </Button>
@@ -235,7 +243,13 @@ export function RiskAtlasCard({ dealId }: { dealId: string }) {
               <InfoTooltip text="Vitesse de dégradation ou d'amélioration du score composite sur 90 jours. Une détérioration rapide pèse plus lourd qu'un risque stable, même à score égal." />
             </span>
           </p>
-          <Button variant="ghost" size="sm" onClick={() => setOverrideDialogOpen(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setOverrideDialogOpen(true)}
+            disabled={!canValidate}
+            title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
+          >
             Forcer le statut
           </Button>
         </div>

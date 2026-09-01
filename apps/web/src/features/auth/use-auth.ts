@@ -111,6 +111,12 @@ export function useChangePassword() {
   });
 }
 
+/** Spec ATLAS v2, A.10 — séparation des rôles : un VIEWER peut tout consulter mais ne valide jamais une action ou un statut proposé par le système. */
+export function useCanValidate() {
+  const role = useAuthStore((s) => s.user?.role);
+  return role === 'ADMIN' || role === 'ANALYST';
+}
+
 export function useCurrentUser() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const setUser = useAuthStore((s) => s.setUser);
