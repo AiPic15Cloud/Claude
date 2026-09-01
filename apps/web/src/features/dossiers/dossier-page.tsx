@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Trash2, Loader2, Printer } from 'lucide-react';
+import { ArrowLeft, MapPin, Trash2, Loader2, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useDeal, useDeleteDeal } from '@/features/portfolio/hooks/use-deals';
+import { useDeal, useDeleteDeal, useExportDealReport } from '@/features/portfolio/hooks/use-deals';
+import { useCanValidate } from '@/features/auth/use-auth';
+import { exportToJson } from '@/lib/export-json';
 import {
   StageBadge,
   TypeBadge,
@@ -58,6 +60,8 @@ export function DossierPage() {
   const { data: riskProfile } = useDealRisk(id ?? '');
   const guaranteeWarnings = guarantees.filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE');
   const deleteDeal = useDeleteDeal();
+  const exportReport = useExportDealReport(id ?? '');
+  const canValidate = useCanValidate();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [activeTab, setActiveTab] = useState('risk');
   const [financialPrefill, setFinancialPrefill] = useState<(Partial<FinancialModelFormValues> & { sourceDocumentId?: string }) | null>(null);
@@ -142,6 +146,19 @@ export function DossierPage() {
           <div className="flex items-center gap-2 print:hidden">
             <Button size="sm" variant="outline" onClick={() => window.print()}>
               <Printer className="h-3.5 w-3.5" /> Exporter en PDF
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={exportReport.isPending || !canValidate}
+              title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
+              onClick={() =>
+                exportReport.mutate(undefined, {
+                  onSuccess: (report) => exportToJson(`${deal.reference}-export.json`, report),
+                })
+              }
+            >
+              {exportReport.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Export JSON
             </Button>
             <EditDealDialog deal={deal} />
             {confirmingDelete && (
