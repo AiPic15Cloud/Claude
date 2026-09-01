@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { TasksService } from '../tasks/tasks.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { ContagionService } from '../entity-graph/contagion.service';
 import { PROCEDURE_COLLECTIVE_ACTIONS } from './procedure-collective.playbook';
 
 const DAY_MS = 86_400_000;
@@ -28,6 +29,7 @@ export class PlaybooksService {
     private readonly prisma: PrismaService,
     private readonly tasks: TasksService,
     private readonly alerts: AlertsService,
+    private readonly contagion: ContagionService,
   ) {}
 
   async listForDeal(organizationId: string, dealId: string) {
@@ -79,6 +81,11 @@ export class PlaybooksService {
     }
 
     this.logger.log(`Playbook "procédure collective ouverte" déclenché pour le dossier ${deal.reference} (source: ${triggerSource}).`);
+
+    // Contagion niveau 1 (spec ATLAS v2, B.4) — uniquement au premier
+    // déclenchement réel (on est passé le early-return d'idempotence
+    // ci-dessus), jamais réévalué sur un no-op.
+    await this.contagion.checkContagion(organizationId, dealId, 'Procédure collective ouverte');
   }
 
   /**

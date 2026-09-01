@@ -19,6 +19,7 @@ import { RiskHistoryService } from './risk-history.service';
 import { computeCrd, sumRealizedRepayments } from '../deals/crd.util';
 import { computeCompleteness, type CompletenessResult } from './completeness.util';
 import { computeDataFreshness, type DataFreshnessResult } from './data-freshness.util';
+import { ContagionService } from '../entity-graph/contagion.service';
 
 export interface DealRiskProfile {
   dealId: string;
@@ -122,6 +123,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
     private readonly financialModel: FinancialModelService,
     private readonly riskOverrides: RiskOverrideService,
     private readonly riskHistory: RiskHistoryService,
+    private readonly contagion: ContagionService,
   ) {}
 
   onApplicationBootstrap() {
@@ -581,6 +583,13 @@ export class RiskEngineService implements OnApplicationBootstrap {
       title = `Risque : entrée en zone ${newStatus} — ${deal.reference} (${dateSuffix})`;
       message = `${deal.name} (${exposition}) : statut passé de ${previousStatus} à ${newStatus}, score de ${previousScore ?? '—'} à ${newScore}/100${topLabels ? `, tiré par ${topLabels}` : ''}.`;
       severity = newStatus === 'CRITIQUE' ? 'CRITICAL' : 'WARNING';
+      // Contagion niveau 1 (spec ATLAS v2, B.4) — uniquement sur l'entrée
+      // effective en zone CRITIQUE, pas à chaque recalcul ni sur une
+      // dégradation moindre. Alerte distincte de celle ci-dessous (titre
+      // différent), pas de fusion.
+      if (newStatus === 'CRITIQUE') {
+        await this.contagion.checkContagion(organizationId, deal.id, 'Entrée en zone CRITIQUE');
+      }
     } else if (SURVEILLANCE_RANK[newStatus] < SURVEILLANCE_RANK[previousStatus]) {
       title = `Risque : retour en zone ${newStatus} — ${deal.reference} (${dateSuffix})`;
       message = `${deal.name} (${exposition}) : statut redescendu de ${previousStatus} à ${newStatus}.`;
