@@ -4,9 +4,17 @@ import type { MarketPriceTypology, SourcePriceResult } from './market-price.type
 
 const logger = new Logger('SitePriceConnector');
 
+export interface SitePriceQueryContext {
+  query: string;
+  /** Code postal résolu du dossier (ou de l'arrondissement) — certains sites en ont besoin dans l'URL, d'autres non. */
+  postcode: string | null;
+  typology: MarketPriceTypology;
+}
+
 export interface SitePriceSiteConfig {
   source: string;
-  buildUrl(query: string, typology: MarketPriceTypology): string;
+  /** Async autorisé : certains sites identifient une commune par code INSEE plutôt que par un slug de nom (cf. insee-resolver.util.ts). */
+  buildUrl(context: SitePriceQueryContext): string | Promise<string>;
 }
 
 /**
@@ -16,11 +24,7 @@ export interface SitePriceSiteConfig {
  * structure de page non reconnue) dégrade toujours vers "non disponible",
  * jamais vers une valeur inventée ou une source silencieusement omise.
  */
-export async function fetchSitePrice(
-  config: SitePriceSiteConfig,
-  query: string,
-  typology: MarketPriceTypology,
-): Promise<SourcePriceResult> {
+export async function fetchSitePrice(config: SitePriceSiteConfig, context: SitePriceQueryContext): Promise<SourcePriceResult> {
   const unavailable = (error: string): SourcePriceResult => ({
     source: config.source,
     available: false,
@@ -32,7 +36,7 @@ export async function fetchSitePrice(
 
   let url: string;
   try {
-    url = config.buildUrl(query, typology);
+    url = await config.buildUrl(context);
   } catch (error) {
     return unavailable(`URL de recherche non construite : ${(error as Error).message}`);
   }
@@ -46,20 +50,20 @@ export async function fetchSitePrice(
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      logger.warn(`${config.source} a répondu HTTP ${res.status} pour "${query}"`);
+      logger.warn(`${config.source} a répondu HTTP ${res.status} pour "${context.query}" (${url})`);
       return unavailable(`HTTP ${res.status}`);
     }
 
     const html = await res.text();
     const range = extractPriceRange(html);
     if (!range) {
-      logger.warn(`${config.source} : structure de page non reconnue pour "${query}" — sélecteurs à vérifier.`);
+      logger.warn(`${config.source} : structure de page non reconnue pour "${context.query}" — sélecteurs à vérifier.`);
       return unavailable("Ce site n'a pas pu être interrogé, réessayer ou vérifier manuellement.");
     }
 
     return { source: config.source, available: true, ...range };
   } catch (error) {
-    logger.warn(`${config.source} : échec de la requête pour "${query}" — ${(error as Error).message}`);
+    logger.warn(`${config.source} : échec de la requête pour "${context.query}" — ${(error as Error).message}`);
     return unavailable((error as Error).message);
   }
 }

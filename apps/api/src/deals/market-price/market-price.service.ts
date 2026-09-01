@@ -30,10 +30,9 @@ export class MarketPriceService {
     });
 
     const { query, arrondissementPostcode } = resolveMarketSearchLocation(deal.city, deal.postcode);
+    const context = { query, postcode: arrondissementPostcode ?? deal.postcode, typology };
 
-    const settled = await Promise.allSettled(
-      MARKET_PRICE_SITE_CONFIGS.map((config) => fetchSitePrice(config, query, typology)),
-    );
+    const settled = await Promise.allSettled(MARKET_PRICE_SITE_CONFIGS.map((config) => fetchSitePrice(config, context)));
     const sources: SourcePriceResult[] = settled.map((result, i) =>
       result.status === 'fulfilled'
         ? result.value
