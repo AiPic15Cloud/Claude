@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { GuaranteesService } from './guarantees.service';
 import { UpsertGuaranteeDto } from './dto/upsert-guarantee.dto';
@@ -37,11 +39,15 @@ export class GuaranteesController {
     return this.guaranteesService.update(user.organizationId, dealId, id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id/verify')
   markVerified(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Param('id') id: string) {
     return this.guaranteesService.markVerified(user.organizationId, dealId, id, user.id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id/substantive-defect')
   markSubstantiveDefect(
     @CurrentUser() user: AuthenticatedUser,

@@ -46,6 +46,7 @@ export class TasksService {
   async findAllForOrganization(organizationId: string, userId: string, query: QueryTasksDto) {
     const where: Prisma.TaskWhereInput = {
       organizationId,
+      cancelledAt: null,
       ...(query.scope !== 'all' ? { assigneeId: userId } : {}),
       ...(query.done !== undefined ? { done: query.done === 'true' } : {}),
       ...(query.priority ? { priority: query.priority } : {}),
@@ -66,14 +67,14 @@ export class TasksService {
     const deal = await this.prisma.deal.findFirst({ where: { id: dealId, organizationId } });
     if (!deal) throw new NotFoundException('Opération introuvable');
     return this.prisma.task.findMany({
-      where: { dealId, organizationId },
+      where: { dealId, organizationId, cancelledAt: null },
       include: { assignee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
       orderBy: [{ done: 'asc' }, { dueDate: 'asc' }],
     });
   }
 
   async update(organizationId: string, id: string, userId: string, dto: UpdateTaskDto) {
-    const task = await this.prisma.task.findFirst({ where: { id, organizationId } });
+    const task = await this.prisma.task.findFirst({ where: { id, organizationId, cancelledAt: null } });
     if (!task) throw new NotFoundException('Tâche introuvable');
 
     const wasIncomplete = !task.done;
@@ -96,10 +97,18 @@ export class TasksService {
     return updated;
   }
 
-  async remove(organizationId: string, id: string) {
-    const task = await this.prisma.task.findFirst({ where: { id, organizationId } });
+  /**
+   * Spec ATLAS v2, A.10 — audit trail : une action générée (par un
+   * analyste ou par un playbook) ne doit jamais être effacée sans
+   * laisser de trace. Annuler une tâche est une transition de statut,
+   * jamais un DELETE — la ligne reste en base avec qui l'a annulée et
+   * quand, elle disparaît seulement des listes actives (cf. filtres
+   * `cancelledAt: null` ci-dessus).
+   */
+  async remove(organizationId: string, id: string, userId: string) {
+    const task = await this.prisma.task.findFirst({ where: { id, organizationId, cancelledAt: null } });
     if (!task) throw new NotFoundException('Tâche introuvable');
-    await this.prisma.task.delete({ where: { id } });
+    await this.prisma.task.update({ where: { id }, data: { cancelledAt: new Date(), cancelledById: userId } });
   }
 
   /**
@@ -116,7 +125,7 @@ export class TasksService {
   async escalateOverdueUrgentTasks() {
     const now = new Date();
     const overdue = await this.prisma.task.findMany({
-      where: { priority: 'URGENT', done: false, dueDate: { lt: now } },
+      where: { priority: 'URGENT', done: false, cancelledAt: null, dueDate: { lt: now } },
       select: { id: true, title: true, dueDate: true, dealId: true, organizationId: true },
     });
 

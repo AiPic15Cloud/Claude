@@ -54,19 +54,20 @@ export class CockpitService {
         where: {
           assigneeId: userId,
           done: false,
+          cancelledAt: null,
           dueDate: { gte: startOfDay(now), lte: endOfDay(now) },
         },
         include: { deal: { select: { id: true, name: true, reference: true } } },
         orderBy: { priority: 'desc' },
       }),
       this.prisma.task.findMany({
-        where: { assigneeId: userId, done: false, priority: { in: ['HIGH', 'URGENT'] } },
+        where: { assigneeId: userId, done: false, cancelledAt: null, priority: { in: ['HIGH', 'URGENT'] } },
         include: { deal: { select: { id: true, name: true, reference: true } } },
         orderBy: { dueDate: 'asc' },
         take: 10,
       }),
       this.prisma.task.findMany({
-        where: { assigneeId: userId, done: false, dueDate: { gte: startOfDay(now), lte: in7Days } },
+        where: { assigneeId: userId, done: false, cancelledAt: null, dueDate: { gte: startOfDay(now), lte: in7Days } },
         include: { deal: { select: { id: true, name: true, reference: true } } },
         orderBy: { dueDate: 'asc' },
         take: 20,
@@ -119,8 +120,8 @@ export class CockpitService {
       // l'utilisateur courant (todayTasks/priorityTasks/agendaTasks
       // ci-dessus sont personnels) : un agrégat "portefeuille" doit compter
       // les tâches en retard de tout le monde.
-      this.prisma.task.count({ where: { organizationId, done: false, dueDate: { lt: now } } }),
-      this.prisma.task.count({ where: { organizationId, done: false, dueDate: { lt: now }, priority: 'URGENT' } }),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now } } }),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, priority: 'URGENT' } }),
     ]);
 
     const decisions = await this.buildDecisions(organizationId, riskDeals);

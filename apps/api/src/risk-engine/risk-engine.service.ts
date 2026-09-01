@@ -55,7 +55,10 @@ export interface DealRiskProfile {
 
 const DISCLAIMER =
   'Risk Engine ATLAS — score de risque propriétaire, calculé de façon transparente à partir des données du dossier. ' +
-  "Ce n'est pas une notation financière officielle et ne remplace pas le jugement d'un analyste.";
+  "Ce n'est pas une notation financière officielle et ne remplace pas le jugement d'un analyste. " +
+  "ATLAS n'est pas un prestataire de services d'investissement (PSI) et ne fournit aucun conseil en investissement réglementé : " +
+  "cet indicateur est un outil d'aide à la décision interne, et toute décision d'engagement ou de recouvrement reste de la " +
+  'responsabilité du comité/analyste habilité.';
 
 const METHODOLOGY_DISCLAIMER =
   "Ces pondérations sont une grille experte interne (jugement métier sur l'importance relative de chaque signal), pas un modèle calibré " +
