@@ -48,33 +48,43 @@ export class MarketObservationsService {
   async syncAll() {
     let totalObserved = 0;
     for (const config of PILOT_SOURCE_CONFIGS) {
-      await this.ensureRegistryEntry(config);
-      const result = await fetchPilotSource(config);
+      // Un incident sur une source (erreur DB, écriture concurrente) ne doit
+      // jamais interrompre la synchronisation des 4 autres — même résilience
+      // par source que PlatformsSyncService, qui isole chaque source de la
+      // même façon.
+      try {
+        await this.ensureRegistryEntry(config);
+        const result = await fetchPilotSource(config);
 
-      if (!result.success) {
-        await this.sourceRegistry.recordOutcome(config.key, { success: false });
-        continue;
-      }
-      if (result.observations.length === 0) {
-        // Page accessible mais rien de reconnu — jamais interprété comme "tous les projets ont disparu".
-        await this.sourceRegistry.recordOutcome(config.key, { success: true, degraded: true });
-        continue;
-      }
+        if (!result.success) {
+          await this.sourceRegistry.recordOutcome(config.key, { success: false });
+          continue;
+        }
+        if (result.observations.length === 0) {
+          // Page accessible mais rien de reconnu — jamais interprété comme "tous les projets ont disparu".
+          await this.sourceRegistry.recordOutcome(config.key, { success: true, degraded: true });
+          continue;
+        }
 
-      const changed = await this.applyObservations(config, result.observations);
-      await this.sourceRegistry.recordOutcome(config.key, { success: true, changed });
-      totalObserved += result.observations.length;
+        const changed = await this.applyObservations(config, result.observations);
+        await this.sourceRegistry.recordOutcome(config.key, { success: true, changed });
+        totalObserved += result.observations.length;
+      } catch (error) {
+        this.logger.error(`Échec de synchronisation pour ${config.label}: ${(error as Error).message}`);
+        await this.sourceRegistry.recordOutcome(config.key, { success: false }).catch(() => undefined);
+      }
     }
     this.logger.log(`Synchronisation pilote terminée — ${totalObserved} observation(s) au total sur ${PILOT_SOURCE_CONFIGS.length} source(s).`);
     return { totalObserved, sources: PILOT_SOURCE_CONFIGS.length };
   }
 
+  /** upsert plutôt que check-then-create : le cron (toutes les 6h) et un déclenchement manuel peuvent s'exécuter en concurrence sur le tout premier passage, avant qu'aucune ligne n'existe encore pour cette clé. */
   private async ensureRegistryEntry(config: PilotSourceConfig): Promise<void> {
-    const existing = await this.prisma.sourceRegistryEntry.findUnique({ where: { key: config.key } });
-    if (existing) return;
     // Autorisation déjà confirmée par l'utilisateur pour ces 5 sources avant construction du pilote.
-    await this.prisma.sourceRegistryEntry.create({
-      data: {
+    await this.prisma.sourceRegistryEntry.upsert({
+      where: { key: config.key },
+      update: {},
+      create: {
         key: config.key,
         label: config.label,
         accessMethod: 'scraping',
@@ -183,24 +193,31 @@ export class MarketObservationsService {
       });
     }
 
+    // RETIRE plutôt qu'une suppression définitive : la ligne cascaderait sur
+    // ses ProjectObservationSnapshot (onDelete: Cascade) et effacerait
+    // l'historique que ce module a précisément pour but de conserver (spec
+    // C.3, "ne jamais écraser l'état précédent"). Filtré sur status != RETIRE
+    // pour ne déclencher PROJECT_REMOVED qu'une fois, pas à chaque
+    // synchronisation tant que le projet reste absent du listing.
     const staleObservations = await this.prisma.projectObservation.findMany({
-      where: { sourceKey: config.key, projectUrl: { notIn: seenUrls } },
+      where: { sourceKey: config.key, projectUrl: { notIn: seenUrls }, status: { not: 'RETIRE' } },
       select: { id: true, projectUrl: true, projectName: true, status: true },
     });
     for (const stale of staleObservations) {
       await this.prisma.projectObservationEvent.create({
-        data: { sourceKey: config.key, projectUrl: stale.projectUrl, projectName: stale.projectName, eventType: 'PROJECT_REMOVED', previousStatus: stale.status },
+        data: { sourceKey: config.key, projectUrl: stale.projectUrl, projectName: stale.projectName, eventType: 'PROJECT_REMOVED', previousStatus: stale.status, newStatus: 'RETIRE' },
       });
-      await this.prisma.projectObservation.delete({ where: { id: stale.id } });
+      await this.prisma.projectObservation.update({ where: { id: stale.id }, data: { status: 'RETIRE' } });
       changed = true;
     }
 
     return changed;
   }
 
+  /** RETIRE exclu par défaut (projets disparus du listing source, conservés pour l'historique) — sauf demande explicite du statut RETIRE. */
   async list(filters: { sourceKey?: string; status?: ProjectObservationStatus }) {
     return this.prisma.projectObservation.findMany({
-      where: { sourceKey: filters.sourceKey, status: filters.status },
+      where: { sourceKey: filters.sourceKey, status: filters.status ?? { not: 'RETIRE' } },
       orderBy: [{ observedAt: 'desc' }],
     });
   }

@@ -19,8 +19,9 @@ const MAX_PLAUSIBLE_RATE = 25;
 const MIN_PLAUSIBLE_DURATION_MONTHS = 1;
 const MAX_PLAUSIBLE_DURATION_MONTHS = 120;
 
+/** Points et espaces traités comme des séparateurs de milliers (convention européenne), une virgule éventuelle comme séparateur décimal — gère "1.500.000", "1 500 000" et "9,5" sans les confondre. */
 function numberInRange(value: unknown, min: number, max: number): number | null {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.replace(',', '.').replace(/[^\d.]/g, '')) : NaN;
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.replace(/[\s.]/g, '').replace(',', '.').replace(/[^\d.]/g, '')) : NaN;
   return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
 
