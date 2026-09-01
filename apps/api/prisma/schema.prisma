@@ -1678,3 +1678,78 @@ model ArticleEntityLink {
   @@unique([articleId, entityId])
   @@map("article_entity_links")
 }
+
+// ── Pilote Market Intelligence Engine (spec ATLAS v2, C.1-C.3) ─────────────
+
+enum ProjectObservationStatus {
+  A_VENIR
+  EN_COLLECTE
+  CLOTURE
+  RETIRE
+}
+
+/// Observation automatisée d'un projet individuel sur une plateforme externe
+/// (spec C.3) — distinct de CompetitorProject, qui est un constat manuel
+/// d'analyste sans flux automatisé (schema.prisma, voir CompetitorProject).
+/// Global, pas d'organizationId : une observation de marché est un fait
+/// externe, pas une donnée par tenant — même doctrine que
+/// SourceRegistryEntry.
+model ProjectObservation {
+  id             String                   @id @default(cuid())
+  sourceKey      String
+  platform       String
+  projectName    String
+  projectUrl     String
+  operatorRaw    String?
+  amountTarget   Decimal?                 @db.Decimal(14, 2)
+  ratePct        Decimal?                 @db.Decimal(5, 2)
+  durationMonths Int?
+  /// Catégorie telle qu'affichée par la source — jamais écrasée par la normalisation (spec C.4).
+  sourceCategory String?
+  /// Segment ATLAS normalisé (best-effort) — null si aucune correspondance de confiance suffisante.
+  atlasSegment      String?
+  mappingConfidence String?
+  location          String?
+  status            ProjectObservationStatus @default(EN_COLLECTE)
+  observedAt        DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  snapshots ProjectObservationSnapshot[]
+
+  @@unique([sourceKey, projectUrl])
+  @@index([sourceKey])
+  @@map("project_observations")
+}
+
+/// Un instantané par synchronisation ayant détecté un changement (spec C.3 :
+/// "ne jamais écraser l'état précédent") — même pattern que
+/// PlatformStatsSnapshot, appliqué ici à l'observation avant écrasement.
+model ProjectObservationSnapshot {
+  id            String             @id @default(cuid())
+  observationId String
+  observation   ProjectObservation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  data          Json
+  observedAt    DateTime           @default(now())
+
+  @@index([observationId, observedAt])
+  @@map("project_observation_snapshots")
+}
+
+/// Historique d'une ProjectObservation — réutilise le vocabulaire
+/// d'événements de CompetitorProjectEvent (même enum), pas une redéfinition.
+/// Colonnes dénormalisées (sourceKey/projectUrl/projectName) plutôt qu'une FK
+/// stricte : PROJECT_REMOVED doit rester consultable même après suppression
+/// de l'observation qu'il décrit.
+model ProjectObservationEvent {
+  id             String                     @id @default(cuid())
+  sourceKey      String
+  projectUrl     String
+  projectName    String
+  eventType      CompetitorProjectEventType
+  previousStatus ProjectObservationStatus?
+  newStatus      ProjectObservationStatus?
+  occurredAt     DateTime                   @default(now())
+
+  @@index([sourceKey])
+  @@map("project_observation_events")
+}
