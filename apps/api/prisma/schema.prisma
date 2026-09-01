@@ -258,6 +258,7 @@ model User {
   pipelineEntries            PipelineEntry[]
   tasksAssigned              Task[]              @relation("TaskAssignee")
   tasksCreated               Task[]              @relation("TaskCreatedBy")
+  tasksCancelled             Task[]              @relation("TaskCancelledBy")
   activities                 Activity[]
   refreshTokens              RefreshToken[]
   competitorProjectsLogged   CompetitorProject[]
@@ -894,6 +895,11 @@ model Task {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
+
+  /// Spec ATLAS v2, A.10 — annulation = transition de statut, jamais une suppression de ligne : une action générée (par un analyste ou par un playbook) doit rester traçable a posteriori. `remove()` renseigne ces deux champs au lieu d'un DELETE ; les listes par défaut filtrent `cancelledAt: null`.
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelledBy   User?     @relation("TaskCancelledBy", fields: [cancelledById], references: [id])
 
   /// Présente uniquement si cette tâche a été générée par un playbook (A.4) — le statut affiché à l'analyste reste `done`/`dueDate` ci-dessus, jamais un champ dupliqué côté playbook.
   playbookActionItem PlaybookActionItem?

@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PlaybooksService } from './playbooks.service';
 import { UpdateAnchorDateDto } from './dto/update-anchor-date.dto';
@@ -17,6 +19,8 @@ export class PlaybooksController {
     return this.playbooks.listForDeal(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':instanceId/anchor-date')
   updateAnchorDate(
     @CurrentUser() user: AuthenticatedUser,

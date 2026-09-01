@@ -157,7 +157,7 @@ export class PlaybooksService {
   async escalateOverdueBlockingActions() {
     const now = new Date();
     const overdue = await this.prisma.playbookActionItem.findMany({
-      where: { bloquant: true, task: { done: false, dueDate: { lt: now } } },
+      where: { bloquant: true, task: { done: false, cancelledAt: null, dueDate: { lt: now } } },
       include: {
         task: { select: { id: true, title: true, dueDate: true, dealId: true } },
         playbookInstance: { select: { organizationId: true, dealId: true, deal: { select: { reference: true, name: true } } } },

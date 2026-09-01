@@ -927,7 +927,7 @@ export class DealsService {
       if (daysSince === null || daysSince < deal.newsletterTargetDays) continue;
 
       const existing = await this.prisma.task.findFirst({
-        where: { dealId: deal.id, title: NEWSLETTER_TASK_TITLE, done: false },
+        where: { dealId: deal.id, title: NEWSLETTER_TASK_TITLE, done: false, cancelledAt: null },
         select: { id: true },
       });
       if (existing) continue;
