@@ -23,6 +23,7 @@ import { GraphService } from '../graph/graph.service';
 import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
 import { PlaybooksService } from '../playbooks/playbooks.service';
 import { computeCrd, computeCrdDetailed } from './crd.util';
+import { computeRealizedPerformance } from './realized-performance.util';
 import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
 import { computeLoanLifecycle, type LoanLifecycleTerminal } from './loan-lifecycle.util';
 import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
@@ -335,12 +336,19 @@ export class DealsService {
       new Date(),
       { dateEcheanceInitiale: deal.dateEcheanceInitiale ?? deal.endDate, extensions: loanExtensions },
     );
+    const realizedPerformance = computeRealizedPerformance(
+      Number(deal.amountRaised),
+      deal.startDate,
+      deal.interestRate ? Number(deal.interestRate) : null,
+      realizedRepayments.map((r) => ({ date: r.date, amount: Number(r.amount) })),
+    );
     return {
       ...deal,
       crd: crdDetailed.crdCapital,
       crdInteretsCourus: crdDetailed.crdInteretsCourus,
       crdTotal: crdDetailed.crdTotal,
       crdJoursPenalisesRetard: crdDetailed.joursPenalisesRetard,
+      realizedPerformance,
       notes,
       deadlineAlert,
       durationTargetAlert,
