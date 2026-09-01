@@ -19,6 +19,7 @@ import { FinancialSynthesisCard } from './financial-synthesis-card';
 import { BpComparisonCard } from './bp-comparison-card';
 import { SensitivityComparisonCard } from './sensitivity-comparison-card';
 import { MarketPriceSheet } from './market-price-sheet';
+import { ScenarioSensitivitySheet } from './scenario-sensitivity-sheet';
 import { formatCurrency } from '@/lib/format';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
 import { cn } from '@/lib/utils';
@@ -238,6 +239,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
           <CardTitle>Hypothèses</CardTitle>
           <div className="flex items-center gap-2">
             <MarketPriceSheet dealId={dealId} />
+            <ScenarioSensitivitySheet dealId={dealId} />
             {data?.assumption && <ValidationBadge dealId={dealId} entityType="FinancialAssumption" />}
             {data?.assumption && confirmingDeleteModel && (
               <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmingDeleteModel(false)}>

@@ -873,6 +873,50 @@ export interface FinancialModel {
   synthesis: FinancialSynthesis | null;
 }
 
+/** D.1 — module de sensibilité de scénario (investissement fonds). */
+export interface ScenarioDeltas {
+  tauxDeltaPts?: number;
+  dureeDeltaMonths?: number;
+  prixSortiePctDelta?: number;
+  travauxPctDelta?: number;
+  delaiCommercialisationMonths?: number;
+}
+
+export type ScenarioAxisVariable = keyof ScenarioDeltas;
+
+export interface ScenarioResult {
+  label: string;
+  deltas: Required<ScenarioDeltas>;
+  tauxEffectifPct: number;
+  dureeCibleMonths: number;
+  dureeEffectiveMonths: number;
+  prixDeVente: number;
+  coutDeRevient: number;
+  marge: number;
+  margePct: number;
+  pointMortTotal: number;
+  pointMortPerSqm: number | null;
+  multipleCapital: number | null;
+  triAnnuelPct: number | null;
+}
+
+export interface SensitivityMatrix {
+  rowVariable: ScenarioAxisVariable;
+  colVariable: ScenarioAxisVariable;
+  rowValues: number[];
+  colValues: number[];
+  cells: ScenarioResult[][];
+}
+
+export interface ScenarioComputation {
+  hasData: boolean;
+  central: ScenarioResult | null;
+  pessimiste: ScenarioResult | null;
+  optimiste: ScenarioResult | null;
+  custom: ScenarioResult | null;
+  matrix: SensitivityMatrix | null;
+}
+
 export interface ProjectCheckpoint {
   id: string;
   dealId: string;
