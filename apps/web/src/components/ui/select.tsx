@@ -14,7 +14,11 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'relative flex h-9 w-full items-center justify-between overflow-hidden rounded-full border border-input/70 bg-background/60 px-4 py-1 text-sm shadow-sm backdrop-blur-md transition-colors before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-b before:from-white/25 before:to-transparent before:opacity-70 before:content-[""] focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:before:from-white/5',
+      // [&>span] cible le span rendu par SelectValue : Radix ignore silencieusement tout
+      // className qu'on lui passe directement (voir SelectValue2 dans @radix-ui/react-select),
+      // donc un libellé long ne peut être tronqué qu'en ciblant ce span depuis l'extérieur —
+      // sans ça il passe en 2 lignes et déborde verticalement du pill (hauteur fixe h-9).
+      'relative flex h-9 w-full items-center justify-between gap-2 overflow-hidden rounded-full border border-input/70 bg-background/60 px-4 py-1 text-sm shadow-sm backdrop-blur-md transition-colors before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-b before:from-white/25 before:to-transparent before:opacity-70 before:content-[""] focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:before:from-white/5 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>span]:text-left',
       className,
     )}
     {...props}

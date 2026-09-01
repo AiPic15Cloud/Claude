@@ -156,11 +156,11 @@ export function ScenarioSensitivitySheet({ dealId }: { dealId: string }) {
                     ))}
                   </div>
 
-                  <div className="mt-3 flex items-end gap-3">
-                    <div className="flex flex-col gap-1">
+                  <div className="mt-3 flex flex-wrap items-end gap-3">
+                    <div className="flex min-w-[9rem] flex-1 flex-col gap-1 sm:min-w-0 sm:flex-none">
                       <Label className="text-[11px] text-muted-foreground">Matrice — ligne</Label>
                       <Select value={rowVariable} onValueChange={(v) => setRowVariable(v as ScenarioAxisVariable)}>
-                        <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {(Object.keys(AXIS_LABELS) as ScenarioAxisVariable[]).map((key) => (
                             <SelectItem key={key} value={key}>{AXIS_LABELS[key]}</SelectItem>
@@ -168,10 +168,10 @@ export function ScenarioSensitivitySheet({ dealId }: { dealId: string }) {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex min-w-[9rem] flex-1 flex-col gap-1 sm:min-w-0 sm:flex-none">
                       <Label className="text-[11px] text-muted-foreground">Matrice — colonne</Label>
                       <Select value={colVariable} onValueChange={(v) => setColVariable(v as ScenarioAxisVariable)}>
-                        <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {(Object.keys(AXIS_LABELS) as ScenarioAxisVariable[]).map((key) => (
                             <SelectItem key={key} value={key}>{AXIS_LABELS[key]}</SelectItem>
