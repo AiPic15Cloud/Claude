@@ -1246,6 +1246,56 @@ export interface SourceCoverage {
   summary: { total: number; operational: number; degraded: number; broken: number };
 }
 
+/** Pilote Market Intelligence Engine (spec ATLAS v2, C.1-C.3) — observation automatisée d'un projet individuel sur une source pilote. */
+export type ProjectObservationStatus = 'A_VENIR' | 'EN_COLLECTE' | 'CLOTURE' | 'RETIRE';
+
+export const PROJECT_OBSERVATION_STATUS_LABELS: Record<ProjectObservationStatus, string> = {
+  A_VENIR: 'À venir',
+  EN_COLLECTE: 'En collecte',
+  CLOTURE: 'Clôturé',
+  RETIRE: 'Retiré',
+};
+
+export interface ProjectObservation {
+  id: string;
+  sourceKey: string;
+  platform: string;
+  projectName: string;
+  projectUrl: string;
+  operatorRaw: string | null;
+  amountTarget: number | null;
+  ratePct: number | null;
+  durationMonths: number | null;
+  sourceCategory: string | null;
+  atlasSegment: string | null;
+  mappingConfidence: string | null;
+  location: string | null;
+  status: ProjectObservationStatus;
+  observedAt: string;
+  updatedAt: string;
+}
+
+export type MarketObservationEventType = 'PROJECT_DETECTED' | 'FUNDING_OPENED' | 'FUNDING_CLOSED' | 'PROJECT_REMOVED' | 'PROJECT_UPDATED';
+
+export const MARKET_OBSERVATION_EVENT_LABELS: Record<MarketObservationEventType, string> = {
+  PROJECT_DETECTED: 'Projet détecté',
+  FUNDING_OPENED: 'Collecte ouverte',
+  FUNDING_CLOSED: 'Collecte clôturée',
+  PROJECT_REMOVED: 'Projet retiré',
+  PROJECT_UPDATED: 'Projet mis à jour',
+};
+
+export interface MarketObservationEvent {
+  id: string;
+  sourceKey: string;
+  projectUrl: string;
+  projectName: string;
+  eventType: MarketObservationEventType;
+  previousStatus: ProjectObservationStatus | null;
+  newStatus: ProjectObservationStatus | null;
+  occurredAt: string;
+}
+
 export interface NewsSource {
   id: string;
   organizationId: string;
