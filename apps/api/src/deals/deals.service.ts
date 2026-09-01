@@ -10,7 +10,7 @@ import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
 import { computeDeadlineAlert } from './deadline.util';
-import { computeDurationTargetAlert } from './duration-target.util';
+import { computeDurationTargetAlert, isDurationTargetValidatedByCheckpoint } from './duration-target.util';
 import { computeNewsletterStatus } from './newsletter.util';
 import { buildMiseEnDemeure } from './mise-en-demeure.util';
 import { computeCheckpointHealth } from './checkpoint-health.util';
@@ -317,24 +317,34 @@ export class DealsService {
     const notes = await Promise.all(deal.notes.map((note) => withNoteImageUrls(note, this.storage)));
     const deadlineAlert = computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal));
     const durationTargetAlert = computeDurationTargetAlert(deal.startDate, deal.durationMonths, new Date(), isDealClosed(deal));
+    const durationTargetValidated = isDurationTargetValidatedByCheckpoint(durationTargetAlert, deal.checkpoints[0]?.createdAt ?? null);
     const realizedRepayments = await this.prisma.repayment.findMany({
       where: { dealId: id, projected: false },
       select: { date: true, amount: true },
+    });
+    const loanExtensions = await this.prisma.loanExtension.findMany({
+      where: { dealId: id },
+      orderBy: { dateSignature: 'asc' },
+      select: { dateSignature: true, nouvelleDateEcheance: true },
     });
     const crdDetailed = computeCrdDetailed(
       Number(deal.amountRaised),
       deal.interestRate ? Number(deal.interestRate) : null,
       deal.startDate,
       realizedRepayments.map((r) => ({ date: r.date, amount: Number(r.amount) })),
+      new Date(),
+      { dateEcheanceInitiale: deal.dateEcheanceInitiale ?? deal.endDate, extensions: loanExtensions },
     );
     return {
       ...deal,
       crd: crdDetailed.crdCapital,
       crdInteretsCourus: crdDetailed.crdInteretsCourus,
       crdTotal: crdDetailed.crdTotal,
+      crdJoursPenalisesRetard: crdDetailed.joursPenalisesRetard,
       notes,
       deadlineAlert,
       durationTargetAlert,
+      durationTargetValidated,
       checkpointHealth,
     };
   }
