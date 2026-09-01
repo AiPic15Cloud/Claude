@@ -209,6 +209,8 @@ export interface Deal {
   crdTotal?: number | null;
   /** Jours d'intérêts courus au taux majoré de pénalité de retard (+5 pts) depuis le déblocage des fonds — 0 si jamais hors-contrat, null si l'échéance contractuelle n'est pas connue. */
   crdJoursPenalisesRetard?: number | null;
+  /** D.4 — TRI/multiple réalisés à partir des remboursements réels (jamais projetés). */
+  realizedPerformance?: RealizedPerformance;
   startDate?: string | null;
   endDate?: string | null;
   dateMin?: string | null;
@@ -871,6 +873,16 @@ export interface FinancialModel {
   valuation: FinancialScenario | null;
   sensitivity: FinancialScenario[] | null;
   synthesis: FinancialSynthesis | null;
+}
+
+/** D.4 — indicateur de valorisation réalisé (TRI/multiple), calculé sur les remboursements réels. */
+export interface RealizedPerformance {
+  triRealisePct: number | null;
+  multipleCapital: number | null;
+  totalPercu: number;
+  dureeReelleDetentionMois: number | null;
+  tauxContractuelPct: number | null;
+  ecartTriVsContractuelPts: number | null;
 }
 
 /** D.1 — module de sensibilité de scénario (investissement fonds). */

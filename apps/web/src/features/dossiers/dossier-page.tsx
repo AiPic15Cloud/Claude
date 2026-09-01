@@ -46,6 +46,7 @@ import { DealPrintSheet } from './components/deal-print-sheet';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { CrdDetailPopover } from './components/crd-detail-popover';
+import { RealizedPerformancePopover } from './components/realized-performance-popover';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -325,6 +326,20 @@ export function DossierPage() {
             <p className="text-lg font-semibold">{deal.endDate ? formatDate(deal.endDate) : '—'}</p>
           </CardContent>
         </Card>
+        {deal.realizedPerformance && deal.realizedPerformance.triRealisePct !== null && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                TRI réalisé
+                <RealizedPerformancePopover performance={deal.realizedPerformance} />
+              </p>
+              <p className="text-lg font-semibold tabular-nums">{deal.realizedPerformance.triRealisePct}%</p>
+              <p className="text-[11px] text-muted-foreground">
+                Multiple {deal.realizedPerformance.multipleCapital?.toFixed(2)}x
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {isFinancedStage(deal.stage) ? (
