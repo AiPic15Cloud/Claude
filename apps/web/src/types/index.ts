@@ -207,6 +207,8 @@ export interface Deal {
   crdInteretsCourus?: number | null;
   /** crd + crdInteretsCourus — null si crdInteretsCourus est null. */
   crdTotal?: number | null;
+  /** Jours d'intérêts courus au taux majoré de pénalité de retard (+5 pts) depuis le déblocage des fonds — 0 si jamais hors-contrat, null si l'échéance contractuelle n'est pas connue. */
+  crdJoursPenalisesRetard?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   dateMin?: string | null;
@@ -225,6 +227,8 @@ export interface Deal {
   dpeCheckedAt?: string | null;
   deadlineAlert?: DeadlineAlert;
   durationTargetAlert?: DurationTargetAlert;
+  /** Un point Suivi cible a été enregistré assez récemment (depuis J-30 avant la durée cible) pour valider ce signal — la bannière correspondante disparaît de "Signaux & causes", sans effacer durationTargetAlert lui-même (toujours utilisé ailleurs, ex. score de risque). */
+  durationTargetValidated?: boolean;
   checkpointHealth?: CheckpointHealth;
   createdById: string;
   createdBy?: UserSummary;

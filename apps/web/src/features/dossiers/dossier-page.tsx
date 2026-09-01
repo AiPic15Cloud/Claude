@@ -170,7 +170,9 @@ export function DossierPage() {
 
       <ProjectCommandHeader deal={deal} guaranteeWarnings={guaranteeWarnings} tasks={dealTasks} onOpenTasks={() => setActiveTab('tasks')} />
 
-      {(deal.deadlineAlert?.level !== 'RAS' || deal.durationTargetAlert?.level !== 'RAS' || guaranteeWarnings.length > 0) && (
+      {(deal.deadlineAlert?.level !== 'RAS' ||
+        (deal.durationTargetAlert?.level !== 'RAS' && !deal.durationTargetValidated) ||
+        guaranteeWarnings.length > 0) && (
       <div className="flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signaux &amp; causes</h2>
 
@@ -195,7 +197,7 @@ export function DossierPage() {
         </div>
       )}
 
-      {deal.durationTargetAlert && deal.durationTargetAlert.level !== 'RAS' && (
+      {deal.durationTargetAlert && deal.durationTargetAlert.level !== 'RAS' && !deal.durationTargetValidated && (
         <div
           className={cn(
             'flex flex-wrap items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
@@ -260,7 +262,12 @@ export function DossierPage() {
               <CardContent className="p-4">
                 <p className="flex items-center gap-1 text-xs text-muted-foreground">
                   Capital restant dû
-                  <CrdDetailPopover crdCapital={deal.crd ?? Number(deal.amountRaised)} crdInteretsCourus={deal.crdInteretsCourus} crdTotal={deal.crdTotal} />
+                  <CrdDetailPopover
+                    crdCapital={deal.crd ?? Number(deal.amountRaised)}
+                    crdInteretsCourus={deal.crdInteretsCourus}
+                    crdTotal={deal.crdTotal}
+                    joursPenalisesRetard={deal.crdJoursPenalisesRetard}
+                  />
                 </p>
                 <p className="text-lg font-semibold tabular-nums">
                   {formatCurrency(deal.crdTotal ?? deal.crd ?? deal.amountRaised)}
