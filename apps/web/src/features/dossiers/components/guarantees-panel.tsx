@@ -6,6 +6,7 @@ import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { useGuarantees, useDeleteGuarantee, useMarkGuaranteeVerified } from '../hooks/use-guarantees';
 import { GuaranteeFormDialog } from './guarantee-form-dialog';
 import { RenewGuaranteeDialog } from './renew-guarantee-dialog';
+import { SubstantiveDefectDialog } from './substantive-defect-dialog';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { GUARANTEE_STATUS_LABELS, GUARANTEE_TYPE_LABELS, type GuaranteeStatus } from '@/types';
 
@@ -42,9 +43,13 @@ export function GuaranteesPanel({ dealId }: { dealId: string }) {
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-sm font-medium">{GUARANTEE_TYPE_LABELS[g.type]}</span>
                     <Badge variant={STATUS_VARIANT[g.status]}>{GUARANTEE_STATUS_LABELS[g.status]}</Badge>
-                    {g.endDate && (
+                    {(g.endDate || g.invalidReason === 'DEFAUT_DE_FOND') && (
                       <Badge variant={g.validity === 'VALIDE' ? 'success' : 'destructive'}>
-                        {g.validity === 'VALIDE' ? 'Valide' : 'Non valide'}
+                        {g.validity === 'VALIDE'
+                          ? 'Valide'
+                          : g.invalidReason === 'DEFAUT_DE_FOND'
+                            ? 'Non valide (défaut de fond)'
+                            : 'Non valide (expirée)'}
                       </Badge>
                     )}
                     {g.expiringSoon && (
@@ -56,6 +61,9 @@ export function GuaranteesPanel({ dealId }: { dealId: string }) {
                   </div>
                   <p className="text-xs text-muted-foreground">{g.description}</p>
                   {g.endDate && <p className="text-xs text-muted-foreground">Fin : {formatDate(g.endDate)}</p>}
+                  {g.substantiveDefect && g.substantiveDefectNote && (
+                    <p className="text-xs text-destructive">Défaut de fond : {g.substantiveDefectNote}</p>
+                  )}
                   {g.status === 'ACTIVE' && <FreshnessBadge checkedAt={g.verifiedAt} label="Vérifiée" />}
                 </div>
               </div>
@@ -67,6 +75,7 @@ export function GuaranteesPanel({ dealId }: { dealId: string }) {
                   </Button>
                 )}
                 {needsRenewal && <RenewGuaranteeDialog dealId={dealId} guarantee={g} />}
+                <SubstantiveDefectDialog dealId={dealId} guarantee={g} />
                 <GuaranteeFormDialog dealId={dealId} guarantee={g} />
                 <Button variant="ghost" size="icon" onClick={() => deleteGuarantee.mutate(g.id)}>
                   <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />

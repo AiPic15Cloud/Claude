@@ -45,6 +45,16 @@ export function useMarkGuaranteeVerified(dealId: string) {
   });
 }
 
+/** Spec ATLAS v2, A.9 — vice de fond, jamais déduit d'une donnée existante : note obligatoire pour signaler, aucune pour lever. */
+export function useMarkSubstantiveDefect(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, flagged, note }: { id: string; flagged: boolean; note?: string }) =>
+      api.patch<Guarantee>(`/deals/${dealId}/guarantees/${id}/substantive-defect`, { flagged, note }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] }),
+  });
+}
+
 export function useDeleteGuarantee(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
