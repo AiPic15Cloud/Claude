@@ -6,6 +6,8 @@ interface CrdDetailPopoverProps {
   crdCapital: number;
   crdInteretsCourus: number | null | undefined;
   crdTotal: number | null | undefined;
+  /** Jours d'intérêts calculés au taux majoré de pénalité de retard — 0 si jamais hors-contrat, null/undefined si non calculable. */
+  joursPenalisesRetard?: number | null;
 }
 
 /**
@@ -14,7 +16,7 @@ interface CrdDetailPopoverProps {
  * (ouvert au clic) plutôt qu'un tooltip au survol, pour rester consultable
  * sur un poste tactile et laisser le temps de lire la décomposition.
  */
-export function CrdDetailPopover({ crdCapital, crdInteretsCourus, crdTotal }: CrdDetailPopoverProps) {
+export function CrdDetailPopover({ crdCapital, crdInteretsCourus, crdTotal, joursPenalisesRetard }: CrdDetailPopoverProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -46,10 +48,18 @@ export function CrdDetailPopover({ crdCapital, crdInteretsCourus, crdTotal }: Cr
             </span>
           </div>
         </div>
+        {joursPenalisesRetard != null && joursPenalisesRetard > 0 && (
+          <p className="mt-2 text-xs font-medium text-destructive">
+            Dont {joursPenalisesRetard} jour{joursPenalisesRetard > 1 ? 's' : ''} au taux majoré de pénalité de
+            retard (+5 pts) — dossier hors-contrat sur cette période.
+          </p>
+        )}
         <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
           Intérêts calculés au prorata simple (taux annuel × jours écoulés / 365) sur le capital restant dû, imputés
           en priorité sur chaque remboursement réalisé avant le capital — ordre légal par défaut à défaut de tableau
-          d'amortissement contractuel (art. 1342-10 du Code civil). Les remboursements projetés ne sont jamais
+          d'amortissement contractuel (art. 1342-10 du Code civil). Toute journée courue au-delà de l'échéance
+          contractuelle actuelle (hors durée cible dépassée, contractuellement normale) est majorée de 5 points de
+          taux jusqu'à régularisation par prorogation ou remboursement. Les remboursements projetés ne sont jamais
           déduits.
         </p>
       </PopoverContent>

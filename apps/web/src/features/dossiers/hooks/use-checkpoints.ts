@@ -26,7 +26,11 @@ export function useCreateCheckpoint(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateCheckpointPayload) => api.post<ProjectCheckpoint>(`/deals/${dealId}/checkpoints`, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['checkpoints', dealId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checkpoints', dealId] });
+      // checkpointHealth et durationTargetValidated (spec ATLAS v2, A.3) sont calculés dans la réponse de la fiche dossier, pas dans celle-ci — sans cette invalidation, la bannière "Durée cible dépassée" de Signaux & causes reste affichée jusqu'au prochain rechargement.
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
+    },
   });
 }
 
@@ -38,6 +42,7 @@ export function useUpdateCheckpoint(dealId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checkpoints', dealId] });
       queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
     },
   });
 }
