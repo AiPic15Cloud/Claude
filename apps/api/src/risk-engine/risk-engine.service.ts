@@ -199,7 +199,10 @@ export class RiskEngineService implements OnApplicationBootstrap {
             createdAt: true,
           },
         },
-        guarantees: { where: { status: 'ACTIVE' }, select: { type: true, endDate: true, verifiedAt: true, amount: true, rank: true } },
+        guarantees: {
+          where: { status: 'ACTIVE' },
+          select: { type: true, endDate: true, verifiedAt: true, amount: true, rank: true, substantiveDefect: true },
+        },
         repayments: { where: { projected: false }, select: { amount: true, projected: true } },
       },
     });
@@ -306,7 +309,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
 
     for (const g of deal.guarantees) {
       if (g.rank === 1) rank1Sum += Number(g.amount);
-      const expiry = computeGuaranteeExpiry(g.type, g.endDate, now, false);
+      const expiry = computeGuaranteeExpiry(g.type, g.endDate, g.substantiveDefect, now, false);
       if (expiry.validity === 'NON_VALIDE') {
         guaranteeNonValideCount += 1;
         const sharePct = amountRaised > 0 ? Number(g.amount) / amountRaised : 0;

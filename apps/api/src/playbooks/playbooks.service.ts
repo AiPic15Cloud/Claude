@@ -5,6 +5,7 @@ import { TasksService } from '../tasks/tasks.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { ContagionService } from '../entity-graph/contagion.service';
 import { PROCEDURE_COLLECTIVE_ACTIONS } from './procedure-collective.playbook';
+import { isDansPeriodeSuspecte } from './periode-suspecte.util';
 
 const DAY_MS = 86_400_000;
 
@@ -82,6 +83,8 @@ export class PlaybooksService {
 
     this.logger.log(`Playbook "procédure collective ouverte" déclenché pour le dossier ${deal.reference} (source: ${triggerSource}).`);
 
+    await this.alertPeriodeSuspecte(organizationId, dealId, deal.reference, anchorDate);
+
     // Contagion niveau 1 (spec ATLAS v2, B.4) — uniquement au premier
     // déclenchement réel (on est passé le early-return d'idempotence
     // ci-dessus), jamais réévalué sur un no-op.
@@ -112,6 +115,36 @@ export class PlaybooksService {
     }
 
     return this.prisma.playbookInstance.findUniqueOrThrow({ where: { id: instance.id }, include: PLAYBOOK_INCLUDE });
+  }
+
+  /**
+   * Période suspecte (spec ATLAS v2, A.9) — complète l'action de checklist
+   * "vérifier_periode_suspecte_suretes" avec le calcul réel plutôt que de
+   * laisser l'analyste croiser les dates à la main. Silence total si aucune
+   * sûreté ne tombe dans la fenêtre — jamais une alerte fabriquée à vide.
+   * date de référence = updatedAt (reflète aussi bien une création qu'une
+   * prorogation ultérieure du même enregistrement — aucun historique de
+   * renouvellement n'existe dans le modèle actuel).
+   */
+  private async alertPeriodeSuspecte(organizationId: string, dealId: string, reference: string, anchorDate: Date): Promise<void> {
+    const guarantees = await this.prisma.guarantee.findMany({
+      where: { dealId },
+      select: { description: true, type: true, updatedAt: true },
+    });
+    const suspectes = guarantees.filter((g) => isDansPeriodeSuspecte(g.updatedAt, anchorDate));
+    if (suspectes.length === 0) return;
+
+    const title = `Période suspecte à vérifier — ${reference}`;
+    const existing = await this.prisma.alert.findFirst({ where: { organizationId, dealId, title } });
+    if (existing) return;
+
+    const detail = suspectes.map((g) => `${g.description} (${g.type}, ${g.updatedAt.toLocaleDateString('fr-FR')})`).join(' · ');
+    await this.alerts.create(organizationId, {
+      title,
+      message: `Sûreté(s) prise(s) ou modifiée(s) dans les mois précédant l'ouverture de la procédure, potentiellement annulables au titre de la période suspecte (à confirmer avec un avocat spécialisé) : ${detail}.`,
+      severity: 'WARNING',
+      dealId,
+    });
   }
 
   /**

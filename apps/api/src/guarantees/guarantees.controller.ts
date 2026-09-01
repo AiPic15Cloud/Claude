@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { GuaranteesService } from './guarantees.service';
 import { UpsertGuaranteeDto } from './dto/upsert-guarantee.dto';
+import { MarkSubstantiveDefectDto } from './dto/mark-substantive-defect.dto';
 
 @ApiTags('guarantees')
 @ApiBearerAuth()
@@ -39,6 +40,16 @@ export class GuaranteesController {
   @Patch(':id/verify')
   markVerified(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Param('id') id: string) {
     return this.guaranteesService.markVerified(user.organizationId, dealId, id, user.id);
+  }
+
+  @Patch(':id/substantive-defect')
+  markSubstantiveDefect(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('dealId') dealId: string,
+    @Param('id') id: string,
+    @Body() dto: MarkSubstantiveDefectDto,
+  ) {
+    return this.guaranteesService.markSubstantiveDefect(user.organizationId, dealId, id, user.id, dto.flagged, dto.note);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

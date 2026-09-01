@@ -968,6 +968,14 @@ model Guarantee {
   /// jamais recontrôlée récemment.
   verifiedAt DateTime?
 
+  /// Vice de fond (spec ATLAS v2, A.9) — mauvais rang enregistré, signature
+  /// manquante, vice de forme... jamais déductible d'une donnée existante,
+  /// un analyste doit le constater explicitement (note obligatoire). Rend
+  /// la sûreté NON_VALIDE même si endDate est encore dans le futur — voir
+  /// guarantee-expiry.util.ts.
+  substantiveDefect     Boolean @default(false)
+  substantiveDefectNote String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

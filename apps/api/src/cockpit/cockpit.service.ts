@@ -107,6 +107,7 @@ export class CockpitService {
           description: true,
           endDate: true,
           dealId: true,
+          substantiveDefect: true,
           deal: { select: { name: true, reference: true } },
         },
       }),
@@ -139,7 +140,7 @@ export class CockpitService {
         type: g.type,
         description: g.description,
         endDate: g.endDate,
-        ...computeGuaranteeExpiry(g.type, g.endDate),
+        ...computeGuaranteeExpiry(g.type, g.endDate, g.substantiveDefect),
       }))
       .filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE')
       .sort((a, b) => (a.daysToExpiry ?? -Infinity) - (b.daysToExpiry ?? -Infinity));
