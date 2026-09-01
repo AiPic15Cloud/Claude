@@ -6,6 +6,7 @@ import { GeocodingBackfillService } from './geocoding-backfill.service';
 import { DeadlineAlertsService } from './deadline-alerts.service';
 import { DurationTargetAlertsService } from './duration-target-alerts.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
+import { MarketPriceService } from './market-price/market-price.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { SearchModule } from '../search/search.module';
 import { AlertsModule } from '../alerts/alerts.module';
@@ -32,7 +33,15 @@ import { PlaybooksModule } from '../playbooks/playbooks.module';
     EntityGraphModule,
     PlaybooksModule,
   ],
-  providers: [DealsService, GeocodingService, GeocodingBackfillService, DeadlineAlertsService, DurationTargetAlertsService, CompanyMonitoringService],
+  providers: [
+    DealsService,
+    GeocodingService,
+    GeocodingBackfillService,
+    DeadlineAlertsService,
+    DurationTargetAlertsService,
+    CompanyMonitoringService,
+    MarketPriceService,
+  ],
   controllers: [DealsController],
   exports: [DealsService],
 })
