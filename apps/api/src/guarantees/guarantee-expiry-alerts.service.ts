@@ -42,6 +42,7 @@ export class GuaranteeExpiryAlertsService implements OnApplicationBootstrap {
         description: true,
         endDate: true,
         dealId: true,
+        substantiveDefect: true,
         deal: { select: { organizationId: true, name: true, reference: true } },
       },
     });
@@ -51,7 +52,7 @@ export class GuaranteeExpiryAlertsService implements OnApplicationBootstrap {
       try {
         if (!isExpirableGuaranteeType(guarantee.type)) continue;
 
-        const expiry = computeGuaranteeExpiry(guarantee.type, guarantee.endDate);
+        const expiry = computeGuaranteeExpiry(guarantee.type, guarantee.endDate, guarantee.substantiveDefect);
         // Non-expiring, or expiring but outside the 6-month window: nothing to raise.
         // Once truly expired (NON_VALIDE) we still want a notification — that's
         // the point where the collateral has actually lapsed.

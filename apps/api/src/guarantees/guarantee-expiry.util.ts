@@ -2,8 +2,12 @@ import { GuaranteeType } from '@prisma/client';
 
 export type GuaranteeValidity = 'VALIDE' | 'NON_VALIDE';
 
+/** Pourquoi une sûreté est NON_VALIDE (spec ATLAS v2, A.9) — purement informatif, n'affecte aucun consommateur existant du booléen validity. */
+export type GuaranteeInvalidReason = 'EXPIREE' | 'DEFAUT_DE_FOND' | null;
+
 export interface GuaranteeExpiry {
   validity: GuaranteeValidity;
+  invalidReason: GuaranteeInvalidReason;
   // null when there's no endDate to warn about, or the type doesn't carry
   // a renewal deadline (only HYPOTHEQUE / FIDUCIE / CAUTION do).
   expiringSoon: boolean;
@@ -30,21 +34,36 @@ export function isExpirableGuaranteeType(type: GuaranteeType): boolean {
  * guarantee is a decision about a deal still being worked, so once the
  * deal itself is closed out there's nothing left to prompt regardless of
  * the calendar date — same closed-deal condition as isDealClosed().
+ *
+ * `hasSubstantiveDefect` (spec ATLAS v2, A.9) — un vice de fond constaté par
+ * un analyste (Guarantee.substantiveDefect) rend la sûreté NON_VALIDE même
+ * si endDate est encore dans le futur : un défaut juridique n'attend pas le
+ * calendrier. Priorité : suppressed > défaut de fond > date.
  */
 export function computeGuaranteeExpiry(
   type: GuaranteeType,
   endDate: Date | null | undefined,
+  hasSubstantiveDefect = false,
   now: Date = new Date(),
   suppressed = false,
 ): GuaranteeExpiry {
-  if (suppressed || !isExpirableGuaranteeType(type) || !endDate) {
-    return { validity: 'VALIDE', expiringSoon: false, daysToExpiry: null };
+  if (suppressed) {
+    return { validity: 'VALIDE', invalidReason: null, expiringSoon: false, daysToExpiry: null };
+  }
+
+  if (hasSubstantiveDefect) {
+    const daysToExpiry = endDate ? Math.ceil((endDate.getTime() - now.getTime()) / 86_400_000) : null;
+    return { validity: 'NON_VALIDE', invalidReason: 'DEFAUT_DE_FOND', expiringSoon: false, daysToExpiry };
+  }
+
+  if (!isExpirableGuaranteeType(type) || !endDate) {
+    return { validity: 'VALIDE', invalidReason: null, expiringSoon: false, daysToExpiry: null };
   }
 
   const daysToExpiry = Math.ceil((endDate.getTime() - now.getTime()) / 86_400_000);
   if (daysToExpiry <= 0) {
-    return { validity: 'NON_VALIDE', expiringSoon: false, daysToExpiry };
+    return { validity: 'NON_VALIDE', invalidReason: 'EXPIREE', expiringSoon: false, daysToExpiry };
   }
 
-  return { validity: 'VALIDE', expiringSoon: daysToExpiry <= WARNING_WINDOW_DAYS, daysToExpiry };
+  return { validity: 'VALIDE', invalidReason: null, expiringSoon: daysToExpiry <= WARNING_WINDOW_DAYS, daysToExpiry };
 }

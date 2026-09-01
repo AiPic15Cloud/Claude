@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Guarantee } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
@@ -8,7 +8,7 @@ import { UpsertGuaranteeDto } from './dto/upsert-guarantee.dto';
 import { computeGuaranteeExpiry } from './guarantee-expiry.util';
 
 function attachExpiry<T extends Guarantee>(guarantee: T, dealClosed: boolean) {
-  return { ...guarantee, ...computeGuaranteeExpiry(guarantee.type, guarantee.endDate, new Date(), dealClosed) };
+  return { ...guarantee, ...computeGuaranteeExpiry(guarantee.type, guarantee.endDate, guarantee.substantiveDefect, new Date(), dealClosed) };
 }
 
 @Injectable()
@@ -76,6 +76,34 @@ export class GuaranteesService {
     if (!guarantee) throw new NotFoundException('Garantie introuvable');
     const updated = await this.prisma.guarantee.update({ where: { id }, data: { verifiedAt: new Date() } });
     await this.activities.log(dealId, userId, 'GUARANTEE_VERIFIED', `Garantie vérifiée : ${updated.description} (${updated.type})`);
+    await this.recomputeRisk(organizationId, dealId);
+    return attachExpiry(updated, isDealClosed(deal));
+  }
+
+  /**
+   * Vice de fond (spec ATLAS v2, A.9) — un constat juridique, jamais
+   * déductible d'une donnée existante : note obligatoire, traçable, et
+   * toujours une bascule explicite (jamais fondue dans l'upsert générique).
+   * Rend la sûreté NON_VALIDE indépendamment de sa date d'échéance dès le
+   * prochain recalcul (voir guarantee-expiry.util.ts).
+   */
+  async markSubstantiveDefect(organizationId: string, dealId: string, id: string, userId: string, flagged: boolean, note?: string) {
+    if (flagged && !note?.trim()) throw new BadRequestException('Une note est requise pour signaler un défaut de fond.');
+    const deal = await this.assertDeal(organizationId, dealId);
+    const guarantee = await this.prisma.guarantee.findFirst({ where: { id, dealId } });
+    if (!guarantee) throw new NotFoundException('Garantie introuvable');
+    const updated = await this.prisma.guarantee.update({
+      where: { id },
+      data: { substantiveDefect: flagged, substantiveDefectNote: flagged ? note!.trim() : null },
+    });
+    await this.activities.log(
+      dealId,
+      userId,
+      'DEAL_UPDATED',
+      flagged
+        ? `Vice de fond signalé sur la garantie : ${updated.description} (${updated.type}) — ${note!.trim()}`
+        : `Vice de fond levé sur la garantie : ${updated.description} (${updated.type})`,
+    );
     await this.recomputeRisk(organizationId, dealId);
     return attachExpiry(updated, isDealClosed(deal));
   }
