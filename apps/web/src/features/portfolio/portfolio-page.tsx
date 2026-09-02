@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, Printer, Loader2 } from 'lucide-react';
 import { KpiBar } from './components/kpi-bar';
+import { PortfolioOverviewCard } from './components/portfolio-overview-card';
 import { FiltersBar } from './components/filters-bar';
 import { ViewSwitcher, type PortfolioView } from './components/view-switcher';
 import { CreateDealDialog } from './components/create-deal-dialog';
@@ -108,6 +109,8 @@ export function PortfolioPage() {
       />
 
       <KpiBar />
+
+      <PortfolioOverviewCard />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <FiltersBar filters={filters} onChange={setFilters} />

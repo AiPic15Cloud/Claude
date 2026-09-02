@@ -16,6 +16,8 @@ import { ValidationBadge } from './validation-badge';
 import { CostLineItemsEditor } from './cost-line-items-editor';
 import { SaleLotsEditor } from './sale-lots-editor';
 import { FinancialSynthesisCard } from './financial-synthesis-card';
+import { CovenantsCard } from './covenants-card';
+import type { Covenants } from '@/types';
 import { BpComparisonCard } from './bp-comparison-card';
 import { SensitivityComparisonCard } from './sensitivity-comparison-card';
 import { MarketPriceSheet } from './market-price-sheet';
@@ -61,6 +63,8 @@ const schema = z.object({
   bankInterestRatePct: optionalNumber(),
   bankFileFees: optionalNumber(),
   bankGuaranteeFees: optionalNumber(),
+  resultatOperationnelEstime: optionalNumber(),
+  fluxTresorerieDisponibleEstime: optionalNumber(),
 });
 export type FinancialModelFormValues = z.infer<typeof schema>;
 type FormValues = FinancialModelFormValues;
@@ -73,9 +77,11 @@ interface FinancialModelPanelProps {
   /** Values proposed by the BP extraction — applied once, then the parent should clear it via onPrefillApplied. */
   prefill?: (Partial<FormValues> & { sourceDocumentId?: string }) | null;
   onPrefillApplied?: () => void;
+  /** F.3 — LTV/ICR/DSCR, calculés côté fiche dossier (CRD + type d'opération), pas ici. */
+  covenants?: Covenants;
 }
 
-export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMonths, prefill, onPrefillApplied }: FinancialModelPanelProps) {
+export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMonths, prefill, onPrefillApplied, covenants }: FinancialModelPanelProps) {
   const { data, isLoading } = useFinancialModel(dealId);
   const { data: bpComparison } = useBpComparison(dealId);
   const save = useSaveFinancialModel(dealId);
@@ -188,6 +194,8 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
         bankInterestRatePct: data.assumption.bankInterestRatePct ?? '',
         bankFileFees: data.assumption.bankFileFees ?? '',
         bankGuaranteeFees: data.assumption.bankGuaranteeFees ?? '',
+        resultatOperationnelEstime: data.assumption.resultatOperationnelEstime ?? '',
+        fluxTresorerieDisponibleEstime: data.assumption.fluxTresorerieDisponibleEstime ?? '',
         // '' n'est pas assignable au type number|undefined résolu par zod (FormValues est le
         // type de SORTIE, après coercition) — mais c'est bien la forme attendue par register()
         // avant soumission, et le preprocess du schéma la retraite normalement au submit suivant.
@@ -499,6 +507,31 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               </div>
             </section>
 
+            <section className="flex flex-col gap-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Covenants — ICR / DSCR (optionnel)</h3>
+              <p className="text-xs text-muted-foreground">
+                Le LTV se calcule automatiquement (CRD / valeur de sortie visée, voir Synthèse &amp; ratios) — aucune
+                saisie nécessaire. ICR et DSCR ont un sens surtout pour un actif à revenu récurrent ; à évaluer au cas
+                par cas pour du marchand de biens à cycle court, laisser vide sinon.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="resultatOperationnelEstime">Résultat opérationnel estimé (€)</Label>
+                  <Input id="resultatOperationnelEstime" type="number" step="any" min={0} {...register('resultatOperationnelEstime')} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="fluxTresorerieDisponibleEstime">Flux de trésorerie disponible estimé (€)</Label>
+                  <Input
+                    id="fluxTresorerieDisponibleEstime"
+                    type="number"
+                    step="any"
+                    min={0}
+                    {...register('fluxTresorerieDisponibleEstime')}
+                  />
+                </div>
+              </div>
+            </section>
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="notes">Notes</Label>
               <Textarea id="notes" rows={2} {...register('notes')} />
@@ -513,6 +546,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
 
       <div className="flex flex-col gap-4">
         {data?.synthesis && <FinancialSynthesisCard synthesis={data.synthesis} />}
+        {covenants && <CovenantsCard covenants={covenants} />}
         {bpComparison && <BpComparisonCard dealId={dealId} comparison={bpComparison} />}
 
         {bpComparison?.locked && bpComparison.sensitivity ? (

@@ -211,6 +211,12 @@ export interface Deal {
   crdJoursPenalisesRetard?: number | null;
   /** D.4 — TRI/multiple réalisés à partir des remboursements réels (jamais projetés). */
   realizedPerformance?: RealizedPerformance;
+  /** F.3 — LTV/ICR/DSCR calculés à partir du CRD et du modèle financier. */
+  covenants?: Covenants;
+  /** F.2 — déclencheur "Perte" du dashboard portefeuille, décision manuelle de l'analyste. */
+  perteDefinitiveActee?: boolean;
+  perteDefinitiveNote?: string | null;
+  perteDefinitiveDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   dateMin?: string | null;
@@ -393,6 +399,21 @@ export interface DealKpis {
   /** Top 8 villes par CRD cumulé ; 'Non renseignée' regroupée sous une entrée distincte. */
   exposureByCity: CityExposureEntry[];
   stressTest: StressTest;
+}
+
+/**
+ * Dashboard portefeuille agrégé (spec ATLAS v2, module MARKO F.2) —
+ * "Actif" = stage SUIVI uniquement (sous-ensemble plus étroit que
+ * DealKpis.activeDeals, qui couvre tous les stades du statut ACTIVE).
+ * Volontairement sans bloc "Objectif Sortie (24 mois)" ni TRI sous
+ * "Actif" — ni l'un ni l'autre n'a de calcul défini par la spec.
+ */
+export interface PortfolioOverview {
+  actif: { count: number; totalCrd: number };
+  perte: { count: number; totalCrd: number };
+  sortiRembourse: { count: number; totalAmount: number; triMoyenPct: number | null };
+  scoreRisqueMoyenPondere: number | null;
+  repartitionParPalier: Record<string, { count: number; crd: number }>;
 }
 
 /** Export structuré par dossier (spec ATLAS v2, A.11) — sous-ensemble stable destiné à un reporting fonds, distinct du payload complet de la fiche dossier. */
@@ -775,6 +796,9 @@ export interface FinancialAssumption {
   bankInterestRatePct: number | null;
   bankFileFees: number | null;
   bankGuaranteeFees: number | null;
+  /** Covenants ICR/DSCR (spec ATLAS v2, module MARKO F.3) — saisie manuelle. */
+  resultatOperationnelEstime: number | null;
+  fluxTresorerieDisponibleEstime: number | null;
 }
 
 export interface CostLineItem {
@@ -924,6 +948,19 @@ export interface RealizedPerformance {
   dureeReelleDetentionMois: number | null;
   tauxContractuelPct: number | null;
   ecartTriVsContractuelPts: number | null;
+}
+
+/** F.3 — ratios de covenant (LTV directement applicable ; ICR/DSCR nécessitent une saisie manuelle, pertinence à juger au cas par cas). */
+export interface Covenants {
+  ltvPct: number | null;
+  ltvThresholdPct: number;
+  ltvBreached: boolean | null;
+  icr: number | null;
+  icrThreshold: number;
+  icrBreached: boolean | null;
+  dscr: number | null;
+  dscrThreshold: number;
+  dscrBreached: boolean | null;
 }
 
 /** D.1 — module de sensibilité de scénario (investissement fonds). */

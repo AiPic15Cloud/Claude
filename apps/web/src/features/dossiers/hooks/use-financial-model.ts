@@ -42,6 +42,9 @@ export interface FinancialAssumptionPayload {
   bankInterestRatePct?: number;
   bankFileFees?: number;
   bankGuaranteeFees?: number;
+  /** Covenants ICR/DSCR (spec ATLAS v2, module MARKO F.3) — saisie manuelle. */
+  resultatOperationnelEstime?: number;
+  fluxTresorerieDisponibleEstime?: number;
   /** Document du dossier qui justifie ces valeurs (ex. un BP analysé par l'IA) — tracé dans l'historique des valeurs. */
   sourceDocumentId?: string;
 }
