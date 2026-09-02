@@ -61,6 +61,17 @@ enum Priority {
   URGENT
 }
 
+/// Typage de tâche (spec ATLAS v2, F.1) — pour le regroupement/filtrage
+/// dans la vue Kanban transversale, distinct de la priorité (Priority).
+enum TaskType {
+  REPORTING
+  FINANCE
+  JURIDIQUE
+  COMMERCIALISATION
+  SUIVI_CIBLE
+  AUTRE
+}
+
 enum CommitteeStatus {
   PAS_DE_COMITE
   VALIDE
@@ -909,6 +920,20 @@ model Task {
   done     Boolean   @default(false)
   priority Priority  @default(MEDIUM)
   dueDate  DateTime?
+
+  /// Typage de tâche (spec ATLAS v2, F.1) — attribué par défaut par le
+  /// moteur de règles/playbooks selon la nature de la tâche générée,
+  /// modifiable par l'analyste pour les tâches manuelles.
+  typeTache TaskType @default(AUTRE)
+
+  /// Deuxième champ ajouté par rapport à l'estimation initiale de la spec
+  /// F.1 ("ajout d'un seul champ") : le modèle existant n'avait qu'un
+  /// booléen `done`, pas de distinction "à faire" / "en cours" — nécessaire
+  /// pour un vrai Kanban à 3 colonnes plutôt qu'un état "en cours" fictif
+  /// déduit d'une heuristique (ex. échéance proche) qui ne refléterait rien
+  /// de réel. Purement manuel (l'analyste bascule une tâche qu'il a
+  /// commencée) ; `done` reste la seule source de vérité pour "Terminé".
+  inProgress Boolean @default(false)
 
   assigneeId  String
   assignee    User   @relation("TaskAssignee", fields: [assigneeId], references: [id])

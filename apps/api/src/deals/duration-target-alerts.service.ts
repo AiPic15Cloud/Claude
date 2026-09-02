@@ -112,6 +112,7 @@ export class DurationTargetAlertsService implements OnApplicationBootstrap {
       priority: stageConfig.priority,
       dueDate: new Date().toISOString().slice(0, 10),
       assigneeId,
+      typeTache: 'SUIVI_CIBLE',
     });
   }
 }

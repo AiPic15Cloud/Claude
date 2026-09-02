@@ -79,6 +79,7 @@ export class ContagionService {
       priority: 'URGENT',
       dueDate: new Date(Date.now() + 3 * DAY_MS).toISOString().slice(0, 10),
       assigneeId,
+      typeTache: 'SUIVI_CIBLE',
     });
 
     this.logger.log(`Signal de contagion détecté pour le dossier ${deal.reference} (${reason}).`);

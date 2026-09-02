@@ -33,6 +33,7 @@ export class TasksService {
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
         assigneeId: dto.assigneeId ?? userId,
         createdById: userId,
+        typeTache: dto.typeTache,
       },
       include: { deal: { select: { id: true, name: true, reference: true } } },
     });
@@ -51,6 +52,7 @@ export class TasksService {
       ...(query.done !== undefined ? { done: query.done === 'true' } : {}),
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.dueBefore ? { dueDate: { lte: new Date(query.dueBefore) } } : {}),
+      ...(query.typeTache ? { typeTache: query.typeTache } : {}),
     };
 
     return this.prisma.task.findMany({
@@ -87,6 +89,11 @@ export class TasksService {
         assigneeId: dto.assigneeId,
         done: dto.done,
         completedAt: dto.done === true && wasIncomplete ? new Date() : dto.done === false ? null : undefined,
+        typeTache: dto.typeTache,
+        // Une tâche marquée terminée sort de la colonne "En cours" — sinon
+        // elle réapparaîtrait dans cette colonne si jamais rouverte plus
+        // tard, avec un état "en cours" qui n'aurait plus de sens.
+        inProgress: dto.done === true ? false : dto.inProgress,
       },
       include: { deal: { select: { id: true, name: true, reference: true } } },
     });
