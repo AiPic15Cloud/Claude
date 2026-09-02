@@ -12,8 +12,16 @@
  *   deviné initialement.
  * - Homunity : idem, sous-domaine `app.homunity.com/fr/nos-projets`.
  * - ClubFunding, Fundimmo : le chemin deviné initialement est confirmé.
- * - Raizers : aucune page de listing n'a pu être localisée même par
- *   recherche indexée — URL ci-dessous reste une hypothèse non confirmée.
+ * - Raizers : la première URL essayée (`www.raizers.com/fr/projets`)
+ *   n'a jamais pu être confirmée et échouait systématiquement (source
+ *   en panne, pas seulement dégradée — échec de connexion, pas une page
+ *   vide). Recherche indexée (02/09/2026) : le domaine réel est
+ *   `raizers.com` sans `www`, avec une page d'investissement à
+ *   `/investir` (ex. liens indexés `raizers.com/investir`,
+ *   `raizers.com/en/`) — corrigé ci-dessous. Reste non revérifié en
+ *   conditions réelles (accès direct toujours bloqué depuis cet
+ *   environnement), donc toujours une hypothèse, mais mieux étayée
+ *   que l'URL précédente.
  * Le parsing de contenu (JSON-LD / RSC Next.js) reste non vérifié pour
  * les 5 sources dans tous les cas — seule l'existence/forme de l'URL a pu
  * être confirmée, jamais le contenu réel de la page.
@@ -38,5 +46,5 @@ export const PILOT_SOURCE_CONFIGS: PilotSourceConfig[] = [
   { key: 'pilot-clubfunding', label: 'ClubFunding (pilote)', platform: 'ClubFunding', listingUrl: 'https://www.clubfunding.fr/projets' },
   { key: 'pilot-homunity', label: 'Homunity (pilote)', platform: 'Homunity', listingUrl: 'https://app.homunity.com/fr/nos-projets' },
   { key: 'pilot-fundimmo', label: 'Fundimmo (pilote)', platform: 'Fundimmo', listingUrl: 'https://www.fundimmo.com/projets' },
-  { key: 'pilot-raizers', label: 'Raizers (pilote)', platform: 'Raizers', listingUrl: 'https://www.raizers.com/fr/projets' },
+  { key: 'pilot-raizers', label: 'Raizers (pilote)', platform: 'Raizers', listingUrl: 'https://raizers.com/investir' },
 ];
