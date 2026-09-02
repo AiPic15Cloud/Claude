@@ -4,16 +4,11 @@ import {
   BUSINESS_MODEL_LABELS,
   VERIFICATION_STATUS_LABELS,
   VERIFICATION_STATUS_VARIANT,
+  DYNAMISM_LABELS,
   type PlatformMetadata,
 } from '../platform-metadata';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
-
-function riskRateVariant(pct: number): 'success' | 'warning' | 'destructive' {
-  if (pct < 5) return 'success';
-  if (pct < 15) return 'warning';
-  return 'destructive';
-}
 
 function scoreVariant(score: number): 'success' | 'warning' | 'destructive' {
   if (score >= 60) return 'success';
@@ -106,10 +101,20 @@ export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | 
         ))}
       </div>
 
-      {metadata.externalScore != null && (
-        <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2">
-          <span className="text-xs text-muted-foreground">Score externe (baromètre-crowdfunding)</span>
-          <Badge variant={scoreVariant(metadata.externalScore)}>{Math.round(metadata.externalScore)}/100</Badge>
+      {(metadata.externalScore != null || metadata.dynamism) && (
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+          {metadata.externalScore != null && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Score externe (baromètre-crowdfunding)</span>
+              <Badge variant={scoreVariant(metadata.externalScore)}>{Math.round(metadata.externalScore)}/100</Badge>
+            </div>
+          )}
+          {metadata.dynamism && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Dynamisme (baromètre-crowdfunding)</span>
+              <Badge variant="outline">{DYNAMISM_LABELS[metadata.dynamism] ?? metadata.dynamism}</Badge>
+            </div>
+          )}
         </div>
       )}
       {metadata.lastReportDate && (
