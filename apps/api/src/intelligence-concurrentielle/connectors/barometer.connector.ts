@@ -1,4 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { parseRssFeed, type FeedItem } from './barometer-rss.util';
+
+export type PlatformDynamism = 'CROISSANCE' | 'STABLE' | 'RALENTISSEMENT';
 
 export interface CompetitorStats {
   name: string;
@@ -14,6 +17,7 @@ export interface CompetitorStats {
   qualityScore?: number;
   lastReportDate?: string;
   averageLoanDuration?: number;
+  dynamism?: PlatformDynamism;
 }
 
 interface RawPlatform {
@@ -30,9 +34,16 @@ interface RawPlatform {
   quality?: { score?: unknown };
   lastReportDate?: unknown;
   averageLoanDuration?: unknown;
+  // Nom de clé non confirmé (cf. doc en tête de fichier) — plusieurs
+  // candidats plausibles essayés à la lecture, jamais une seule supposition.
+  dynamism?: unknown;
+  dynamisme?: unknown;
+  trend?: unknown;
+  momentum?: unknown;
 }
 
 const SOURCE_URL = 'https://www.barometre-crowdfunding.com/platforms';
+const FEED_URL = 'https://www.barometre-crowdfunding.com/feed.xml';
 
 /**
  * https://www.barometre-crowdfunding.com/platforms is a Next.js app — the
@@ -85,12 +96,37 @@ export class BarometerConnector {
           qualityScore: numberOrUndefined(p.quality?.score),
           lastReportDate: typeof p.lastReportDate === 'string' ? p.lastReportDate.replace(/^\$D/, '') : undefined,
           averageLoanDuration: numberOrUndefined(p.averageLoanDuration),
+          dynamism: normalizeDynamism(p.dynamism ?? p.dynamisme ?? p.trend ?? p.momentum),
         }));
 
       this.logger.log(`Barometer RSC payload returned ${stats.length} platform(s).`);
       return stats;
     } catch (error) {
       this.logger.warn(`Barometer fetch failed: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Flux RSS/Atom du baromètre (spec ATLAS v2, E.4) — signale les mises à
+   * jour d'indicateurs par plateforme, canal plus stable qu'un scraping HTML
+   * répété. Format exact non vérifié depuis cet environnement (accès direct
+   * bloqué) : parseRssFeed gère RSS 2.0 et Atom sans supposer lequel des
+   * deux le site utilise réellement.
+   */
+  async fetchFeedItems(): Promise<FeedItem[]> {
+    try {
+      const res = await fetch(FEED_URL, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const xml = await res.text();
+      const items = parseRssFeed(xml);
+      this.logger.log(`Barometer RSS feed returned ${items.length} item(s).`);
+      return items;
+    } catch (error) {
+      this.logger.warn(`Barometer RSS feed fetch failed: ${(error as Error).message}`);
       return [];
     }
   }
@@ -162,4 +198,13 @@ export class BarometerConnector {
 
 function numberOrUndefined(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/** Ne retourne un dynamisme que sur mot-clé sans ambiguïté — jamais une valeur par défaut inventée. */
+function normalizeDynamism(raw: unknown): PlatformDynamism | undefined {
+  const text = typeof raw === 'string' ? raw.toLowerCase() : typeof raw === 'number' ? (raw > 0 ? 'up' : raw < 0 ? 'down' : 'flat') : '';
+  if (['croissance', 'growing', 'growth', 'increasing', 'up'].some((k) => text.includes(k))) return 'CROISSANCE';
+  if (['stable', 'flat', 'steady'].some((k) => text.includes(k))) return 'STABLE';
+  if (['ralentissement', 'decreasing', 'declining', 'slowdown', 'down'].some((k) => text.includes(k))) return 'RALENTISSEMENT';
+  return undefined;
 }
