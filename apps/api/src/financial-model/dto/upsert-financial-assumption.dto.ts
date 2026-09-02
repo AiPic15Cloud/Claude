@@ -154,4 +154,16 @@ export class UpsertFinancialAssumptionDto {
   @IsOptional()
   @IsString()
   sourceDocumentId?: string;
+
+  // Covenants ICR/DSCR (spec ATLAS v2, module MARKO F.3) — saisie manuelle,
+  // pertinence à juger au cas par cas (cf. covenant.util.ts).
+  @ApiProperty({ required: false, description: 'Résultat opérationnel estimé — numérateur ICR.' })
+  @IsOptional()
+  @IsNumber()
+  resultatOperationnelEstime?: number;
+
+  @ApiProperty({ required: false, description: 'Flux de trésorerie disponible estimé — numérateur DSCR.' })
+  @IsOptional()
+  @IsNumber()
+  fluxTresorerieDisponibleEstime?: number;
 }

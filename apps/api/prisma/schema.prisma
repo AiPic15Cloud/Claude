@@ -442,6 +442,18 @@ model Deal {
   repaid         Boolean            @default(false)
   recoveryStatus DealRecoveryStatus @default(RAS)
 
+  // Déclencheur "Perte" du dashboard portefeuille agrégé (spec ATLAS v2,
+  // module MARKO F.2) — délibérément manuel, comme chantierSignaleArret
+  // ci-dessus : "liquidation judiciaire prononcée + délai de recouvrement
+  // épuisé" reste un jugement de l'analyste (quel délai ? quelle preuve
+  // d'épuisement ?), pas une règle automatisable sans risque de faux
+  // positif/négatif sur un critère juridique. Distinct de `recoveryStatus`
+  // (procédure en cours) : ceci acte une perte définitive, pas un simple
+  // statut de recouvrement.
+  perteDefinitiveActee Boolean   @default(false)
+  perteDefinitiveNote  String?
+  perteDefinitiveDate  DateTime?
+
   // Investor newsletter follow-up — lastNewsletterDate resets the countdown;
   // status (À jour / À relancer / Critique) is derived from the elapsed days
   // vs. newsletterTargetDays, not stored.
@@ -1054,6 +1066,16 @@ model FinancialAssumption {
   sellingPricePerSqm Decimal  @db.Decimal(10, 2)
   targetMarginPct    Decimal? @db.Decimal(5, 2)
   notes              String?
+
+  // Covenants ICR/DSCR (spec ATLAS v2, module MARKO F.3) — saisie manuelle
+  // uniquement : aucune collecte automatique de résultat opérationnel ou de
+  // trésorerie n'existe dans ATLAS, et la spec elle-même réserve la
+  // pertinence de ces deux ratios pour du marchand de biens à cycle court
+  // sans revenu d'exploitation récurrent pendant la détention. LTV n'a pas
+  // besoin de champ dédié : il se déduit de CRD + surfaceSqm×sellingPricePerSqm
+  // ci-dessus (cf. covenant.util.ts).
+  resultatOperationnelEstime     Decimal? @db.Decimal(14, 2)
+  fluxTresorerieDisponibleEstime Decimal? @db.Decimal(14, 2)
 
   // Foncier
   landPrice  Decimal? @db.Decimal(14, 2)

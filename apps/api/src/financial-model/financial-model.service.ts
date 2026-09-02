@@ -33,6 +33,8 @@ const FINANCIAL_FIELD_LABELS: Record<string, string> = {
   bankInterestRatePct: 'Financement bancaire — taux',
   bankFileFees: 'Financement bancaire — frais de dossier',
   bankGuaranteeFees: 'Financement bancaire — frais de garantie',
+  resultatOperationnelEstime: 'Covenants — résultat opérationnel estimé (ICR)',
+  fluxTresorerieDisponibleEstime: 'Covenants — flux de trésorerie disponible estimé (DSCR)',
 };
 
 const LATE_PENALTY_RATE_POINTS = 5;
@@ -467,6 +469,9 @@ export class FinancialModelService {
         bankInterestRatePct: assumption.bankInterestRatePct !== null ? Number(assumption.bankInterestRatePct) : null,
         bankFileFees: assumption.bankFileFees !== null ? Number(assumption.bankFileFees) : null,
         bankGuaranteeFees: assumption.bankGuaranteeFees !== null ? Number(assumption.bankGuaranteeFees) : null,
+        resultatOperationnelEstime: assumption.resultatOperationnelEstime !== null ? Number(assumption.resultatOperationnelEstime) : null,
+        fluxTresorerieDisponibleEstime:
+          assumption.fluxTresorerieDisponibleEstime !== null ? Number(assumption.fluxTresorerieDisponibleEstime) : null,
       },
       travauxItems: travauxItems.map((item) => ({ id: item.id, label: item.label, amount: Number(item.amount), sortOrder: item.sortOrder })),
       honorairesTechniquesItems: honorairesTechniquesItems.map((item) => ({ id: item.id, label: item.label, amount: Number(item.amount), sortOrder: item.sortOrder })),

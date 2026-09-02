@@ -5,6 +5,7 @@ import { GeocodingService } from './geocoding.service';
 import { GeocodingBackfillService } from './geocoding-backfill.service';
 import { DeadlineAlertsService } from './deadline-alerts.service';
 import { DurationTargetAlertsService } from './duration-target-alerts.service';
+import { CovenantAlertsService } from './covenant-alerts.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
 import { MarketPriceService } from './market-price/market-price.service';
 import { ActivitiesModule } from '../activities/activities.module';
@@ -39,6 +40,7 @@ import { PlaybooksModule } from '../playbooks/playbooks.module';
     GeocodingBackfillService,
     DeadlineAlertsService,
     DurationTargetAlertsService,
+    CovenantAlertsService,
     CompanyMonitoringService,
     MarketPriceService,
   ],

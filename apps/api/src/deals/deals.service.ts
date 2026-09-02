@@ -24,6 +24,7 @@ import { EntityMirrorService } from '../entity-graph/entity-mirror.service';
 import { PlaybooksService } from '../playbooks/playbooks.service';
 import { computeCrd, computeCrdDetailed } from './crd.util';
 import { computeRealizedPerformance } from './realized-performance.util';
+import { computeCovenants } from './covenant.util';
 import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
 import { computeLoanLifecycle, type LoanLifecycleTerminal } from './loan-lifecycle.util';
 import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
@@ -342,6 +343,22 @@ export class DealsService {
       deal.interestRate ? Number(deal.interestRate) : null,
       realizedRepayments.map((r) => ({ date: r.date, amount: Number(r.amount) })),
     );
+    const financialAssumption = await this.prisma.financialAssumption.findUnique({
+      where: { dealId: id },
+      select: { surfaceSqm: true, sellingPricePerSqm: true, resultatOperationnelEstime: true, fluxTresorerieDisponibleEstime: true },
+    });
+    const valeurSortieVisee = financialAssumption
+      ? Number(financialAssumption.surfaceSqm) * Number(financialAssumption.sellingPricePerSqm)
+      : null;
+    const covenants = computeCovenants({
+      dealType: deal.type,
+      crdTotal: crdDetailed.crdTotal,
+      crdInteretsCourus: crdDetailed.crdInteretsCourus,
+      valeurSortieVisee,
+      resultatOperationnelEstime: financialAssumption?.resultatOperationnelEstime != null ? Number(financialAssumption.resultatOperationnelEstime) : null,
+      fluxTresorerieDisponibleEstime:
+        financialAssumption?.fluxTresorerieDisponibleEstime != null ? Number(financialAssumption.fluxTresorerieDisponibleEstime) : null,
+    });
     return {
       ...deal,
       crd: crdDetailed.crdCapital,
@@ -349,6 +366,7 @@ export class DealsService {
       crdTotal: crdDetailed.crdTotal,
       crdJoursPenalisesRetard: crdDetailed.joursPenalisesRetard,
       realizedPerformance,
+      covenants,
       notes,
       deadlineAlert,
       durationTargetAlert,
@@ -771,6 +789,101 @@ export class DealsService {
   }
 
   /**
+   * Dashboard portefeuille agrégé (spec ATLAS v2, module MARKO F.2) —
+   * combine score de risque (A.2), CRD (A.3ter), statut de remboursement
+   * (A.3bis) et TRI/multiple réalisé (D.4). Distinct de kpis() ci-dessus
+   * (A.8, scope status:ACTIVE tous stades confondus) : ici "Actif" est le
+   * sous-ensemble plus étroit du stage SUIVI, comme demandé par la spec.
+   *
+   * Omis par rapport à la maquette ASCII de la spec : le bloc "Objectif
+   * Sortie (24 mois)" et un TRI sous "Actif" — ni l'un ni l'autre n'a de
+   * calcul défini dans la section "Sources des données" de la spec (qui
+   * fait autorité sur la maquette, elle-même explicitement provisoire —
+   * "à tester et adapter après rédaction"). Les afficher aurait exigé
+   * d'inventer une définition, contraire à la doctrine de la section 0.
+   */
+  async portfolioOverview(organizationId: string) {
+    const [actifDeals, perteDeals, sortiDeals] = await Promise.all([
+      this.prisma.deal.findMany({
+        where: { organizationId, stage: 'SUIVI' },
+        select: { id: true, amountRaised: true, riskScore: true, surveillanceStatus: true },
+      }),
+      this.prisma.deal.findMany({
+        where: { organizationId, perteDefinitiveActee: true },
+        select: { id: true, amountRaised: true },
+      }),
+      this.prisma.deal.findMany({
+        where: { organizationId, repaid: true },
+        select: { id: true, amountRaised: true, startDate: true, interestRate: true },
+      }),
+    ]);
+
+    const allDealIds = [...actifDeals, ...perteDeals, ...sortiDeals].map((d) => d.id);
+    const realizedSums = await this.prisma.repayment.groupBy({
+      by: ['dealId'],
+      where: { dealId: { in: allDealIds }, projected: false },
+      _sum: { amount: true },
+    });
+    const realizedTotalByDeal = new Map(realizedSums.map((r) => [r.dealId, Number(r._sum.amount ?? 0)]));
+    const crdOf = (d: { id: string; amountRaised: Prisma.Decimal | number }) =>
+      computeCrd(Number(d.amountRaised), realizedTotalByDeal.get(d.id) ?? 0);
+
+    // Actif (stage SUIVI)
+    const actifTotalCrd = actifDeals.reduce((sum, d) => sum + crdOf(d), 0);
+    const scoredDeals = actifDeals.filter((d) => d.riskScore != null);
+    const scoreWeightSum = scoredDeals.reduce((sum, d) => sum + crdOf(d), 0);
+    const scoreRisqueMoyenPondere =
+      scoreWeightSum > 0
+        ? Math.round(scoredDeals.reduce((sum, d) => sum + d.riskScore! * crdOf(d), 0) / scoreWeightSum)
+        : null;
+
+    const TIERS = ['FAIBLE', 'SOUS_SURVEILLANCE', 'ELEVE', 'CRITIQUE', 'NON_CALCULE'] as const;
+    const repartitionParPalier: Record<string, { count: number; crd: number }> = {};
+    for (const tier of TIERS) repartitionParPalier[tier] = { count: 0, crd: 0 };
+    for (const d of actifDeals) {
+      const tier = d.surveillanceStatus ?? 'NON_CALCULE';
+      repartitionParPalier[tier].count += 1;
+      repartitionParPalier[tier].crd += crdOf(d);
+    }
+
+    // Perte (décision manuelle de l'analyste — cf. Deal.perteDefinitiveActee)
+    const perteTotalCrd = perteDeals.reduce((sum, d) => sum + crdOf(d), 0);
+
+    // Sorti / Remboursé — TRI moyen non pondéré sur les dossiers où il a pu être calculé
+    // (D.4 renvoie null si aucun remboursement réalisé, ou chronologie incohérente).
+    const sortiRepayments = await this.prisma.repayment.findMany({
+      where: { dealId: { in: sortiDeals.map((d) => d.id) }, projected: false },
+      select: { dealId: true, date: true, amount: true },
+    });
+    const repaymentsByDeal = new Map<string, { date: Date; amount: number }[]>();
+    for (const r of sortiRepayments) {
+      const list = repaymentsByDeal.get(r.dealId) ?? [];
+      list.push({ date: r.date, amount: Number(r.amount) });
+      repaymentsByDeal.set(r.dealId, list);
+    }
+    const sortiTotalAmount = sortiDeals.reduce((sum, d) => sum + Number(d.amountRaised), 0);
+    const sortiTris = sortiDeals
+      .map((d) =>
+        computeRealizedPerformance(
+          Number(d.amountRaised),
+          d.startDate,
+          d.interestRate != null ? Number(d.interestRate) : null,
+          repaymentsByDeal.get(d.id) ?? [],
+        ).triRealisePct,
+      )
+      .filter((tri): tri is number => tri !== null);
+    const triMoyenSortiPct = sortiTris.length > 0 ? Math.round((sortiTris.reduce((s, v) => s + v, 0) / sortiTris.length) * 10) / 10 : null;
+
+    return {
+      actif: { count: actifDeals.length, totalCrd: Math.round(actifTotalCrd) },
+      perte: { count: perteDeals.length, totalCrd: Math.round(perteTotalCrd) },
+      sortiRembourse: { count: sortiDeals.length, totalAmount: Math.round(sortiTotalAmount), triMoyenPct: triMoyenSortiPct },
+      scoreRisqueMoyenPondere,
+      repartitionParPalier,
+    };
+  }
+
+  /**
    * Combine grille de risque et Knowledge Graph (spec ATLAS v2, A.8) —
    * borné aux opérateurs déjà sélectionnés dans le top 5, pas une
    * réécriture de l'algorithme de regroupement (qui reste par SIREN,
@@ -996,6 +1109,33 @@ export class DealsService {
     const deal = await this.prisma.deal.findFirst({ where: { id, organizationId }, select: { id: true } });
     if (!deal) throw new NotFoundException('Opération introuvable');
     return deal;
+  }
+
+  /**
+   * Déclencheur "Perte" du dashboard portefeuille agrégé (spec ATLAS v2,
+   * F.2) — délibérément une décision manuelle de l'analyste, jamais une
+   * règle automatique (cf. commentaire sur le champ dans schema.prisma).
+   * Même exigence qu'GuaranteesService.markSubstantiveDefect : une note est
+   * obligatoire pour acter la perte, jamais pour la lever.
+   */
+  async markPerteDefinitive(organizationId: string, id: string, userId: string, flagged: boolean, note?: string) {
+    if (flagged && !note?.trim()) throw new BadRequestException('Une note est requise pour acter une perte définitive.');
+    await this.assertExists(organizationId, id);
+    const updated = await this.prisma.deal.update({
+      where: { id },
+      data: {
+        perteDefinitiveActee: flagged,
+        perteDefinitiveNote: flagged ? note!.trim() : null,
+        perteDefinitiveDate: flagged ? new Date() : null,
+      },
+    });
+    await this.activities.log(
+      id,
+      userId,
+      'DEAL_UPDATED',
+      flagged ? `Perte définitive actée — ${note!.trim()}` : 'Perte définitive levée',
+    );
+    return updated;
   }
 
   /**

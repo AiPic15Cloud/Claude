@@ -15,6 +15,7 @@ import { QueryDealsDto } from './dto/query-deals.dto';
 import { ChangeStageDto } from './dto/change-stage.dto';
 import { SetTagsDto } from './dto/set-tags.dto';
 import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
+import { MarkPerteDefinitiveDto } from './dto/mark-perte-definitive.dto';
 
 @ApiTags('deals')
 @ApiBearerAuth()
@@ -36,6 +37,11 @@ export class DealsController {
   @Get('kpis')
   kpis(@CurrentUser() user: AuthenticatedUser) {
     return this.dealsService.kpis(user.organizationId);
+  }
+
+  @Get('portfolio-overview')
+  portfolioOverview(@CurrentUser() user: AuthenticatedUser) {
+    return this.dealsService.portfolioOverview(user.organizationId);
   }
 
   @Get('newsletters')
@@ -103,6 +109,13 @@ export class DealsController {
   @Patch(':id/newsletter')
   pingNewsletter(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.pingNewsletter(user.organizationId, id, user.id);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @Patch(':id/perte-definitive')
+  markPerteDefinitive(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: MarkPerteDefinitiveDto) {
+    return this.dealsService.markPerteDefinitive(user.organizationId, id, user.id, dto.flagged, dto.note);
   }
 
   @Get(':id/loan-lifecycle')
