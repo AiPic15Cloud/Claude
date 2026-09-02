@@ -8,7 +8,9 @@ import type { RawObservationStatus, RawProjectObservation } from './project-obse
  * plusieurs plateformes de crowdfunding immobilier). Un extracteur
  * "confiant" par site serait de l'invention — celui-ci reste générique
  * (JSON-LD standard SEO, puis technique RSC Next.js déjà éprouvée par
- * barometer.connector.ts) et ne retourne jamais une observation inventée :
+ * barometer.connector.ts, puis <script id="__NEXT_DATA__"> — le pattern
+ * Next.js Pages Router, très répandu et distinct des chunks RSC de l'App
+ * Router déjà couverts) et ne retourne jamais une observation inventée :
  * si aucun tableau plausible n'est trouvé, retourne un tableau vide.
  */
 
@@ -75,7 +77,7 @@ function mapCandidate(record: Record<string, unknown>): RawProjectObservation | 
 }
 
 export function extractProjectObservations(html: string): RawProjectObservation[] {
-  return extractFromJsonLd(html) ?? extractFromNextRscChunks(html) ?? [];
+  return extractFromJsonLd(html) ?? extractFromNextRscChunks(html) ?? extractFromNextData(html) ?? [];
 }
 
 /** schema.org ItemList/Product — pratique SEO courante sur les pages de listing d'opportunités d'investissement. */
@@ -148,6 +150,55 @@ function extractFromNextRscChunks(html: string): RawProjectObservation[] | null 
     } catch {
       // Continue avec le marqueur suivant.
     }
+  }
+  return null;
+}
+
+/**
+ * <script id="__NEXT_DATA__" type="application/json"> — le mécanisme
+ * d'hydratation du Next.js Pages Router (par opposition aux chunks RSC de
+ * l'App Router, gérés par extractFromNextRscChunks ci-dessus). Contrairement
+ * au JSON-LD, cette charge utile n'a pas de forme standardisée : la
+ * recherche se fait donc par plausibilité de contenu (findPlausibleArray),
+ * pas par nom de clé connu.
+ */
+function extractFromNextData(html: string): RawProjectObservation[] | null {
+  const match = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!match) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+  const items = findPlausibleArray(parsed);
+  if (!items) return null;
+  const mapped = items.map((item) => (item && typeof item === 'object' ? mapCandidate(item as Record<string, unknown>) : null)).filter((v): v is RawProjectObservation => v !== null);
+  return mapped.length > 0 ? mapped : null;
+}
+
+/**
+ * Recherche en profondeur le premier tableau dont au moins 2 éléments se
+ * mappent en observation plausible (nom + URL identifiables via
+ * mapCandidate) — nécessaire ici car __NEXT_DATA__, contrairement au
+ * JSON-LD, n'a aucune structure standard à cibler par nom de clé. Le seuil
+ * de 2 évite de confondre un objet incident isolé (ex. l'utilisateur
+ * connecté) avec une vraie liste de projets.
+ */
+function findPlausibleArray(node: unknown, depth = 0): unknown[] | null {
+  if (depth > 6 || node === null || typeof node !== 'object') return null;
+  if (Array.isArray(node)) {
+    const plausibleCount = node.filter((item) => item && typeof item === 'object' && mapCandidate(item as Record<string, unknown>) !== null).length;
+    if (plausibleCount >= 2) return node;
+    for (const item of node) {
+      const found = findPlausibleArray(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  for (const value of Object.values(node as Record<string, unknown>)) {
+    const found = findPlausibleArray(value, depth + 1);
+    if (found) return found;
   }
   return null;
 }
