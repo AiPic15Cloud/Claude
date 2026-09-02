@@ -8,6 +8,8 @@ import { usePlatforms, useSyncPlatforms, useApplyWatchlist } from './hooks/use-p
 import { useSourceCoverage } from '@/features/intelligence-marche/hooks/use-market-intelligence';
 import { EntityDrawer } from '@/features/knowledge-graph/components/entity-drawer';
 import { CreateEntityDialog } from '@/features/knowledge-graph/components/create-entity-dialog';
+import { MarketBenchmarkCard } from './components/market-benchmark-card';
+import { computeMarketBenchmark } from './market-benchmark.util';
 import {
   CATEGORY_LABELS,
   BUSINESS_MODEL_LABELS,
@@ -52,6 +54,8 @@ export function PlatformsPage() {
           </>
         }
       />
+
+      {!isLoading && platforms.length > 0 && <MarketBenchmarkCard benchmark={computeMarketBenchmark(platforms)} />}
 
       {watchlist.data && (
         <p className="text-xs text-muted-foreground">
