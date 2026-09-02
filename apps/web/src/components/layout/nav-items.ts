@@ -11,6 +11,7 @@ import {
   BookUser,
   Network,
   Radio,
+  KanbanSquare,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,6 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Pipeline', path: '/pipeline', icon: GitBranch },
   { label: 'Objectifs', path: '/objectifs', icon: Target },
   { label: 'Remboursements', path: '/remboursements', icon: Wallet },
+  { label: 'Tâches', path: '/tasks', icon: KanbanSquare },
   { label: 'Répertoire', path: '/repertoire', icon: BookUser },
   { label: 'Marché', path: '/market', icon: Globe2 },
   { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar },
