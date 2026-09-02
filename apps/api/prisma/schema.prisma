@@ -1622,6 +1622,12 @@ model SourceRegistryEntry {
   health        SourceHealth @default(UNKNOWN)
   lastChangeAt  DateTime?
 
+  /// Curseur de fraîcheur pour une source consommée en flux RSS/Atom (spec
+  /// ATLAS v2, E.4) — horodatage du plus récent item déjà traité, pour
+  /// détecter une nouvelle entrée sans dépendre d'un identifiant de flux
+  /// particulier. Null pour toute source qui n'est pas consommée ainsi.
+  lastRssItemAt DateTime?
+
   updatedAt DateTime @updatedAt
 
   @@map("source_registry_entries")

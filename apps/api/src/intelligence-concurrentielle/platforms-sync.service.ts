@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SourceRegistryService } from '../source-registry/source-registry.service';
 import { BarometerConnector } from './connectors/barometer.connector';
@@ -59,6 +60,7 @@ export class PlatformsSyncService {
         lastReportDate: stat.lastReportDate ?? null,
         averageLoanDuration: stat.averageLoanDuration ?? null,
         externalScore: stat.qualityScore ?? null,
+        dynamism: stat.dynamism ?? null,
       };
 
       const existing = await this.prisma.graphEntity.findFirst({
@@ -131,5 +133,42 @@ export class PlatformsSyncService {
 
     this.logger.log(`Applied the competitive-watch list to ${applied} platform(s).`);
     return { applied };
+  }
+
+  /**
+   * Consommation événementielle du flux RSS/Atom (spec ATLAS v2, E.4) plutôt
+   * qu'une interrogation périodique arbitraire : on ne resynchronise
+   * réellement (fetchCompetitorStats, coûteux et déjà idempotent/diffé) que
+   * lorsque le flux signale une nouvelle mise à jour depuis la dernière
+   * observée. Le curseur est un horodatage (`lastRssItemAt`), pas un id
+   * d'item — le format exact du flux n'a pas pu être vérifié depuis cet
+   * environnement (accès direct bloqué), donc rien de plus spécifique n'est
+   * supposé fiable. Toutes les organisations sont resynchronisées : la
+   * donnée du baromètre est externe et identique pour tous les tenants,
+   * seule sa matérialisation dans le Knowledge Graph est par organisation.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async checkBarometerFeed(): Promise<void> {
+    const items = await this.barometer.fetchFeedItems();
+    if (items.length === 0) return;
+
+    const newest = items.reduce<Date | null>((max, item) => (item.pubDate && (!max || item.pubDate > max) ? item.pubDate : max), null);
+    if (!newest) return;
+
+    const entry = await this.prisma.sourceRegistryEntry.findUnique({ where: { key: BAROMETER_SOURCE_KEY } });
+    const lastSeen = entry?.lastRssItemAt ?? null;
+    if (lastSeen && newest <= lastSeen) return;
+
+    this.logger.log(`Barometer RSS: nouvelle mise à jour détectée (${newest.toISOString()}) — resynchronisation.`);
+    const organizations = await this.prisma.organization.findMany({ select: { id: true } });
+    for (const org of organizations) {
+      await this.syncFromBarometer(org.id).catch((error) =>
+        this.logger.error(`Échec de resynchronisation baromètre (org ${org.id}): ${(error as Error).message}`),
+      );
+    }
+
+    await this.prisma.sourceRegistryEntry
+      .updateMany({ where: { key: BAROMETER_SOURCE_KEY }, data: { lastRssItemAt: newest } })
+      .catch(() => undefined);
   }
 }
