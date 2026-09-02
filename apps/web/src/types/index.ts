@@ -271,13 +271,26 @@ export interface Note {
   updatedAt: string;
 }
 
+export type TaskType = 'REPORTING' | 'FINANCE' | 'JURIDIQUE' | 'COMMERCIALISATION' | 'SUIVI_CIBLE' | 'AUTRE';
+
+export const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  REPORTING: 'Reporting',
+  FINANCE: 'Finance',
+  JURIDIQUE: 'Juridique',
+  COMMERCIALISATION: 'Commercialisation',
+  SUIVI_CIBLE: 'Suivi cible',
+  AUTRE: 'Autre',
+};
+
 export interface Task {
   id: string;
   dealId?: string | null;
   deal?: { id: string; name: string; reference: string } | null;
   title: string;
   done: boolean;
+  inProgress: boolean;
   priority: Priority;
+  typeTache: TaskType;
   dueDate?: string | null;
   assigneeId: string;
   assignee?: UserSummary;
