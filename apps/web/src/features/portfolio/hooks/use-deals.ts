@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Deal, DealDetail, DealKpis, DealReport, DealStage, DealStatus, DealType, EsgAssessment, PaginatedResult } from '@/types';
+import type { Deal, DealDetail, DealKpis, DealReport, DealStage, DealStatus, DealType, EsgAssessment, PaginatedResult, PortfolioOverview } from '@/types';
 
 export interface DealsFilters {
   search?: string;
@@ -45,6 +45,14 @@ export function useDealKpis() {
   return useQuery({
     queryKey: ['deals', 'kpis'],
     queryFn: () => api.get<DealKpis>('/deals/kpis'),
+  });
+}
+
+/** Dashboard portefeuille agrégé (spec ATLAS v2, module MARKO F.2). */
+export function usePortfolioOverview() {
+  return useQuery({
+    queryKey: ['deals', 'portfolio-overview'],
+    queryFn: () => api.get<PortfolioOverview>('/deals/portfolio-overview'),
   });
 }
 
@@ -199,6 +207,20 @@ export function useDeleteNote() {
       api.delete(`/deals/${dealId}/notes/${noteId}`),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['deals', 'detail', variables.dealId] });
+    },
+  });
+}
+
+/** Déclencheur "Perte" du dashboard portefeuille (spec ATLAS v2, F.2) — décision manuelle de l'analyste, note obligatoire pour acter. */
+export function useMarkPerteDefinitive(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ flagged, note }: { flagged: boolean; note?: string }) =>
+      api.patch<Deal>(`/deals/${dealId}/perte-definitive`, { flagged, note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', 'portfolio-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
     },
   });
 }

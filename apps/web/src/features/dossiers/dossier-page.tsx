@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Trash2, Loader2, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDeal, useDeleteDeal, useExportDealReport } from '@/features/portfolio/hooks/use-deals';
@@ -48,6 +49,7 @@ import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { CrdDetailPopover } from './components/crd-detail-popover';
 import { RealizedPerformancePopover } from './components/realized-performance-popover';
 import { InvestmentNoteSheet } from './components/investment-note-sheet';
+import { PerteDefinitiveDialog } from './components/perte-definitive-dialog';
 import { EsgPanel } from './components/esg-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError } from '@/lib/api';
@@ -133,6 +135,7 @@ export function DossierPage() {
               <RepaidBadge repaid={deal.repaid} stage={deal.stage} />
               <RecoveryStatusBadge status={deal.recoveryStatus} />
               <PorteurMonitoringBadge status={deal.porteurMonitoringStatus} />
+              {deal.perteDefinitiveActee && <Badge variant="destructive">Perte définitive actée</Badge>}
             </div>
             <h1 className="font-display mt-1 text-xl font-semibold tracking-tight">{deal.name}</h1>
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
@@ -166,6 +169,7 @@ export function DossierPage() {
               {exportReport.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Export JSON
             </Button>
             <EditDealDialog deal={deal} />
+            <PerteDefinitiveDialog deal={deal} />
             {confirmingDelete && (
               <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)}>
                 Annuler
@@ -433,6 +437,7 @@ export function DossierPage() {
             dealDurationMonths={deal.durationMonths ?? null}
             prefill={financialPrefill}
             onPrefillApplied={() => setFinancialPrefill(null)}
+            covenants={deal.covenants}
           />
         </TabsContent>
         <TabsContent value="checkpoints">
