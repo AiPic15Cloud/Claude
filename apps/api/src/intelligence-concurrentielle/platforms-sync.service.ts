@@ -35,6 +35,14 @@ export class PlatformsSyncService {
     for (const stat of stats) {
       // The barometer publishes its own documented, rule-based quality score —
       // use it directly rather than approximating one from a subset of fields.
+      // Stored as `externalScore` (never `atlasScore`, cf. principe 0.4 de la
+      // spec ATLAS v2) : c'est un score tiers, jamais un score Atlas natif —
+      // le nommage lui-même doit rendre la confusion impossible, pas
+      // seulement l'affichage.
+      const riskRatePct =
+        stat.riskAmount != null && stat.totalFunded != null && stat.totalFunded > 0
+          ? Math.round((stat.riskAmount / stat.totalFunded) * 1000) / 10
+          : null;
       const metadata = {
         source: 'barometre-crowdfunding.com',
         fetchedAt: new Date().toISOString(),
@@ -45,11 +53,12 @@ export class PlatformsSyncService {
         capitalReimbursed: stat.capitalReimbursed ?? null,
         projectCountReimbursed: stat.projectCountReimbursed ?? null,
         riskAmount: stat.riskAmount ?? null,
+        riskRatePct,
         riskProjects: stat.riskProjects ?? null,
         capitalInDefault: stat.capitalInDefault ?? null,
         lastReportDate: stat.lastReportDate ?? null,
         averageLoanDuration: stat.averageLoanDuration ?? null,
-        atlasScore: stat.qualityScore ?? null,
+        externalScore: stat.qualityScore ?? null,
       };
 
       const existing = await this.prisma.graphEntity.findFirst({

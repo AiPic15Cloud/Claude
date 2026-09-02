@@ -8,11 +8,15 @@ export interface PlatformMetadata {
   capitalReimbursed?: number | null;
   projectCountReimbursed?: number | null;
   riskAmount?: number | null;
+  riskRatePct?: number | null;
   riskProjects?: number | null;
   capitalInDefault?: number | null;
   lastReportDate?: string | null;
   averageLoanDuration?: number | null;
-  atlasScore?: number | null;
+  // Score du baromètre-crowdfunding.com, jamais un score Atlas natif (cf.
+  // principe 0.4 de la spec ATLAS v2) — toujours affiché avec son
+  // attribution explicite ("Score externe"), jamais comme "Score" seul.
+  externalScore?: number | null;
   // Manually-tracked competitive-watch fields — distinct from `category`
   // (the barometer's sector taxonomy above) because it answers a different
   // question: does this platform sell fractional/rental ownership, or is it
