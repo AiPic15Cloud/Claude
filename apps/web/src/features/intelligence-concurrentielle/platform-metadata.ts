@@ -17,6 +17,7 @@ export interface PlatformMetadata {
   // principe 0.4 de la spec ATLAS v2) — toujours affiché avec son
   // attribution explicite ("Score externe"), jamais comme "Score" seul.
   externalScore?: number | null;
+  dynamism?: 'CROISSANCE' | 'STABLE' | 'RALENTISSEMENT' | null;
   // Manually-tracked competitive-watch fields — distinct from `category`
   // (the barometer's sector taxonomy above) because it answers a different
   // question: does this platform sell fractional/rental ownership, or is it
@@ -54,4 +55,10 @@ export const VERIFICATION_STATUS_VARIANT: Record<string, 'success' | 'warning' |
   LIQUIDE: 'destructive',
   REDRESSEMENT: 'destructive',
   A_VERIFIER: 'warning',
+};
+
+export const DYNAMISM_LABELS: Record<string, string> = {
+  CROISSANCE: 'Croissance',
+  STABLE: 'Stable',
+  RALENTISSEMENT: 'Ralentissement',
 };
