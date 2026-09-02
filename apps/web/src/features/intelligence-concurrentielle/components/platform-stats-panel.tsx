@@ -9,16 +9,16 @@ import {
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
+function riskRateVariant(pct: number): 'success' | 'warning' | 'destructive' {
+  if (pct < 5) return 'success';
+  if (pct < 15) return 'warning';
+  return 'destructive';
+}
+
 function scoreVariant(score: number): 'success' | 'warning' | 'destructive' {
   if (score >= 60) return 'success';
   if (score >= 35) return 'warning';
   return 'destructive';
-}
-
-function scoreLabel(score: number): string {
-  if (score >= 60) return 'Bon';
-  if (score >= 35) return 'Moyen';
-  return 'À surveiller';
 }
 
 export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | null | undefined }) {
@@ -65,6 +65,14 @@ export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | 
       value: formatCurrency(metadata.riskAmount),
       warn: metadata.riskAmount > 0,
     },
+    // Champ distinct du score composite ci-dessous — jamais fusionnés en un
+    // seul chiffre (cf. cas Koregraf : statut plateforme, taux de risque et
+    // score composite sont 3 informations différentes, spec ATLAS v2 E.3).
+    metadata.riskRatePct != null && {
+      label: 'Taux de risque',
+      value: `${metadata.riskRatePct.toFixed(1)}%`,
+      warn: metadata.riskRatePct > 0,
+    },
     metadata.riskProjects != null && { label: 'Projets à risque', value: String(metadata.riskProjects) },
     metadata.capitalInDefault != null &&
       metadata.capitalInDefault > 0 && { label: 'Pertes définitives', value: formatCurrency(metadata.capitalInDefault), warn: true },
@@ -83,12 +91,9 @@ export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | 
             {VERIFICATION_STATUS_LABELS[metadata.verificationStatus] ?? metadata.verificationStatus}
           </Badge>
         )}
+        {/* Statut plateforme (ouverte/fermée) — champ distinct du taux de risque et du score
+            composite ci-dessous, jamais fusionnés en un seul chiffre (cas Koregraf, E.3). */}
         {metadata.isTerminated && <Badge variant="destructive">Plateforme fermée</Badge>}
-        {metadata.atlasScore != null && (
-          <Badge variant={scoreVariant(metadata.atlasScore)}>
-            Score {Math.round(metadata.atlasScore)}/100 · {scoreLabel(metadata.atlasScore)}
-          </Badge>
-        )}
       </div>
       {metadata.verificationNote && <p className="text-xs text-muted-foreground">{metadata.verificationNote}</p>}
 
@@ -101,10 +106,14 @@ export function PlatformStatsPanel({ metadata }: { metadata: PlatformMetadata | 
         ))}
       </div>
 
+      {metadata.externalScore != null && (
+        <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2">
+          <span className="text-xs text-muted-foreground">Score externe (baromètre-crowdfunding)</span>
+          <Badge variant={scoreVariant(metadata.externalScore)}>{Math.round(metadata.externalScore)}/100</Badge>
+        </div>
+      )}
       {metadata.lastReportDate && (
-        <p className="text-xs text-muted-foreground">
-          Dernier rapport publié le {formatDate(metadata.lastReportDate)} — source : barometre-crowdfunding.com
-        </p>
+        <p className="text-xs text-muted-foreground">Dernière mise à jour : {formatDate(metadata.lastReportDate)}</p>
       )}
     </div>
   );

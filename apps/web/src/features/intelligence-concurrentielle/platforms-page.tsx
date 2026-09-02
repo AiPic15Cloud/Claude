@@ -91,9 +91,12 @@ export function PlatformsPage() {
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
                       {meta.category && <Badge variant="outline">{CATEGORY_LABELS[meta.category] ?? meta.category}</Badge>}
                       {meta.isTerminated && <Badge variant="destructive">Fermée</Badge>}
-                      {meta.atlasScore != null && (
-                        <Badge variant={meta.atlasScore >= 60 ? 'success' : meta.atlasScore >= 35 ? 'warning' : 'destructive'}>
-                          Score {Math.round(meta.atlasScore)}
+                      {meta.externalScore != null && (
+                        <Badge
+                          variant={meta.externalScore >= 60 ? 'success' : meta.externalScore >= 35 ? 'warning' : 'destructive'}
+                          title="Score externe — baromètre-crowdfunding.com, jamais un score Atlas natif"
+                        >
+                          Externe {Math.round(meta.externalScore)}
                         </Badge>
                       )}
                     </div>
