@@ -75,6 +75,7 @@ export class PlaybooksService {
         priority: action.bloquant ? 'URGENT' : 'HIGH',
         dueDate: dueDate.toISOString().slice(0, 10),
         assigneeId,
+        typeTache: 'JURIDIQUE',
       });
       await this.prisma.playbookActionItem.create({
         data: { playbookInstanceId: instance.id, key: action.key, bloquant: action.bloquant, taskId: task.id },

@@ -7,4 +7,9 @@ export class UpdateTaskDto extends PartialType(CreateTaskDto) {
   @IsOptional()
   @IsBoolean()
   done?: boolean;
+
+  @ApiProperty({ required: false, description: 'Bascule manuelle "en cours" pour la vue Kanban (F.1) — sans effet sur `done`.' })
+  @IsOptional()
+  @IsBoolean()
+  inProgress?: boolean;
 }

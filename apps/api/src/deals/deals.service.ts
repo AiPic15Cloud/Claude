@@ -1040,6 +1040,7 @@ export class DealsService {
         priority: 'HIGH',
         dueDate: new Date().toISOString().slice(0, 10),
         assigneeId,
+        typeTache: 'REPORTING',
       });
       created += 1;
     }

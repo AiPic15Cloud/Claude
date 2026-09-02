@@ -1,0 +1,8 @@
+-- CreateEnum
+CREATE TYPE "TaskType" AS ENUM ('REPORTING', 'FINANCE', 'JURIDIQUE', 'COMMERCIALISATION', 'SUIVI_CIBLE', 'AUTRE');
+
+-- AlterTable
+ALTER TABLE "tasks" ADD COLUMN     "inProgress" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "typeTache" "TaskType" NOT NULL DEFAULT 'AUTRE';
+
+

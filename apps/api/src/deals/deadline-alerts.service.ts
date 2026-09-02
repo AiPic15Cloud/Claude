@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import type { TaskType } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { TasksService } from '../tasks/tasks.service';
@@ -14,13 +15,16 @@ const TASK_TITLE_PREFIX = 'Suivi échéance';
 
 const STAGE_TASK: Record<
   Exclude<DeadlineAlert['stage'], null>,
-  { title: string; priority: 'MEDIUM' | 'HIGH' | 'URGENT'; escalateToAdmin: boolean }
+  { title: string; priority: 'MEDIUM' | 'HIGH' | 'URGENT'; escalateToAdmin: boolean; typeTache: TaskType }
 > = {
-  J90: { title: 'Demander des infos au porteur (anticiper un vote)', priority: 'MEDIUM', escalateToAdmin: false },
-  J60: { title: 'Dernière relance au porteur avant transfert interne', priority: 'HIGH', escalateToAdmin: false },
-  J30: { title: 'Dossier à transférer — mail de pression (délai 1 semaine)', priority: 'URGENT', escalateToAdmin: true },
-  J15: { title: 'Dernier délai — drafter la newsletter de vote', priority: 'URGENT', escalateToAdmin: true },
-  CONTENTIEUX: { title: 'Échéance dépassée — passage en contentieux', priority: 'URGENT', escalateToAdmin: true },
+  // Recouvrement amiable (relances, transfert interne) : FINANCE. Le
+  // passage en contentieux bascule en JURIDIQUE — c'est un changement de
+  // nature de tâche, pas seulement d'urgence (spec ATLAS v2, F.1).
+  J90: { title: 'Demander des infos au porteur (anticiper un vote)', priority: 'MEDIUM', escalateToAdmin: false, typeTache: 'FINANCE' },
+  J60: { title: 'Dernière relance au porteur avant transfert interne', priority: 'HIGH', escalateToAdmin: false, typeTache: 'FINANCE' },
+  J30: { title: 'Dossier à transférer — mail de pression (délai 1 semaine)', priority: 'URGENT', escalateToAdmin: true, typeTache: 'FINANCE' },
+  J15: { title: 'Dernier délai — drafter la newsletter de vote', priority: 'URGENT', escalateToAdmin: true, typeTache: 'FINANCE' },
+  CONTENTIEUX: { title: 'Échéance dépassée — passage en contentieux', priority: 'URGENT', escalateToAdmin: true, typeTache: 'JURIDIQUE' },
 };
 
 /**
@@ -149,6 +153,7 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
       priority: stageConfig.priority,
       dueDate: new Date().toISOString().slice(0, 10),
       assigneeId,
+      typeTache: stageConfig.typeTache,
     });
   }
 }

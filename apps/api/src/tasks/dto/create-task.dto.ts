@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Priority } from '@prisma/client';
+import { Priority, TaskType } from '@prisma/client';
 import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateTaskDto {
@@ -27,4 +27,9 @@ export class CreateTaskDto {
   @IsOptional()
   @IsString()
   assigneeId?: string;
+
+  @ApiProperty({ enum: TaskType, required: false, description: 'Defaults to AUTRE' })
+  @IsOptional()
+  @IsEnum(TaskType)
+  typeTache?: TaskType;
 }
