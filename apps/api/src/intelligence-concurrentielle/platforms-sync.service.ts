@@ -146,20 +146,45 @@ export class PlatformsSyncService {
    * supposé fiable. Toutes les organisations sont resynchronisées : la
    * donnée du baromètre est externe et identique pour tous les tenants,
    * seule sa matérialisation dans le Knowledge Graph est par organisation.
+   *
+   * Repli en cas d'indisponibilité du flux (priorisation NEXT de la spec
+   * E) : la spec propose un "fallback HTML sur les pages /platforms/[nom]"
+   * — mais contrairement à la page de listing (`/platforms`, dont le format
+   * RSC a pu être confirmé sur une capture réelle, cf. barometer.connector.ts),
+   * l'URL et la structure de ces pages individuelles n'ont jamais pu être
+   * observées depuis cet environnement (accès direct bloqué) : les
+   * construire à l'aveugle serait un pur pari, pas un fallback fiable.
+   * Repli retenu à la place, qui répond au même besoin (ne pas laisser la
+   * synchronisation dépendre indéfiniment d'un flux RSS en panne) sans
+   * inventer de sélecteurs non vérifiés : si le flux ne répond rien
+   * (indisponible ou vide) alors qu'aucune resynchronisation n'a réussi
+   * depuis plus de RSS_FALLBACK_STALENESS_MS, on relance quand même
+   * fetchCompetitorStats() (déjà vérifié, idempotent/diffé) via ce même
+   * cron plutôt que d'attendre un clic manuel sur "Actualiser".
    */
+  private static readonly RSS_FALLBACK_STALENESS_MS = 24 * 60 * 60_000;
+
   @Cron(CronExpression.EVERY_HOUR)
   async checkBarometerFeed(): Promise<void> {
     const items = await this.barometer.fetchFeedItems();
-    if (items.length === 0) return;
+    const entry = await this.prisma.sourceRegistryEntry.findUnique({ where: { key: BAROMETER_SOURCE_KEY } });
 
     const newest = items.reduce<Date | null>((max, item) => (item.pubDate && (!max || item.pubDate > max) ? item.pubDate : max), null);
-    if (!newest) return;
-
-    const entry = await this.prisma.sourceRegistryEntry.findUnique({ where: { key: BAROMETER_SOURCE_KEY } });
     const lastSeen = entry?.lastRssItemAt ?? null;
-    if (lastSeen && newest <= lastSeen) return;
+    const rssHasNewItem = newest !== null && (!lastSeen || newest > lastSeen);
 
-    this.logger.log(`Barometer RSS: nouvelle mise à jour détectée (${newest.toISOString()}) — resynchronisation.`);
+    if (!rssHasNewItem) {
+      const staleSince = entry?.lastSuccessAt ?? null;
+      const isStale = !staleSince || Date.now() - staleSince.getTime() > PlatformsSyncService.RSS_FALLBACK_STALENESS_MS;
+      if (items.length === 0 && isStale) {
+        this.logger.warn('Barometer RSS indisponible ou vide et dernière synchronisation réussie trop ancienne — repli sur une resynchronisation directe.');
+      } else {
+        return;
+      }
+    } else {
+      this.logger.log(`Barometer RSS: nouvelle mise à jour détectée (${newest!.toISOString()}) — resynchronisation.`);
+    }
+
     const organizations = await this.prisma.organization.findMany({ select: { id: true } });
     for (const org of organizations) {
       await this.syncFromBarometer(org.id).catch((error) =>
@@ -167,8 +192,10 @@ export class PlatformsSyncService {
       );
     }
 
-    await this.prisma.sourceRegistryEntry
-      .updateMany({ where: { key: BAROMETER_SOURCE_KEY }, data: { lastRssItemAt: newest } })
-      .catch(() => undefined);
+    if (newest) {
+      await this.prisma.sourceRegistryEntry
+        .updateMany({ where: { key: BAROMETER_SOURCE_KEY }, data: { lastRssItemAt: newest } })
+        .catch(() => undefined);
+    }
   }
 }
