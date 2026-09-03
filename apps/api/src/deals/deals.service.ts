@@ -5,6 +5,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { MeilisearchService } from '../search/meilisearch.service';
 import { TasksService } from '../tasks/tasks.service';
+import { AlertsService } from '../alerts/alerts.service';
 import { GeocodingService } from './geocoding.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
@@ -25,6 +26,7 @@ import { PlaybooksService } from '../playbooks/playbooks.service';
 import { computeCrd, computeCrdDetailed } from './crd.util';
 import { computeRealizedPerformance } from './realized-performance.util';
 import { computeCovenants } from './covenant.util';
+import { computeEsgCompleteness } from './esg-completeness.util';
 import { isMonitoringSuppressedByStatus } from './deal-consistency.util';
 import { computeLoanLifecycle, type LoanLifecycleTerminal } from './loan-lifecycle.util';
 import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
@@ -56,6 +58,7 @@ export class DealsService {
     private readonly search: MeilisearchService,
     private readonly geocoding: GeocodingService,
     private readonly tasks: TasksService,
+    private readonly alerts: AlertsService,
     private readonly storage: StorageService,
     private readonly riskEngine: RiskEngineService,
     private readonly fieldChanges: FieldChangeService,
@@ -359,6 +362,7 @@ export class DealsService {
       fluxTresorerieDisponibleEstime:
         financialAssumption?.fluxTresorerieDisponibleEstime != null ? Number(financialAssumption.fluxTresorerieDisponibleEstime) : null,
     });
+    const esgCompleteness = computeEsgCompleteness(deal);
     return {
       ...deal,
       crd: crdDetailed.crdCapital,
@@ -367,6 +371,7 @@ export class DealsService {
       crdJoursPenalisesRetard: crdDetailed.joursPenalisesRetard,
       realizedPerformance,
       covenants,
+      esgCompleteness,
       notes,
       deadlineAlert,
       durationTargetAlert,
@@ -629,6 +634,11 @@ export class DealsService {
       if (linked) await this.activities.log(id, userId, 'ENTITY_LINKED', 'Porteur lié automatiquement via SIREN');
     }
 
+    if (stageChanged && (deal.stage === 'COMITE' || deal.stage === 'SUIVI')) {
+      await this.checkEsgCompletenessGate(organizationId, deal)
+        .catch((err) => this.logger.error(`Échec du contrôle de complétude ESG pour le deal ${id}`, err instanceof Error ? err.stack : err));
+    }
+
     return {
       ...deal,
       deadlineAlert: computeDeadlineAlert(deal.dateMax, new Date(), isDealClosed(deal)),
@@ -638,6 +648,50 @@ export class DealsService {
 
   async changeStage(organizationId: string, id: string, userId: string, stage: Prisma.DealUpdateInput['stage']) {
     return this.update(organizationId, id, userId, { stage } as UpdateDealDto);
+  }
+
+  private static readonly ESG_COMPLETENESS_ALERT_THRESHOLD_PCT = 50;
+
+  /**
+   * Garde-fou de complétude ESG (D.3, "modules d'entraînement analyste
+   * investissement") : un dossier qui entre en Comité ou en Suivi avec un
+   * bloc ESG en dessous du seuil déclenche un rappel — même principe déjà
+   * acté ailleurs ("franchissement de seuil = tâche automatique"), appliqué
+   * ici à la qualité de la documentation plutôt qu'à un risque financier.
+   * Dédupliquée par titre exact comme les autres alertes du module (cf.
+   * DurationTargetAlertsService) : ne recrée rien tant que le rappel
+   * précédent n'a pas été traité.
+   */
+  private async checkEsgCompletenessGate(
+    organizationId: string,
+    deal: { id: string; reference: string; name: string; stage: string; assignedToId: string | null; createdById: string } & Parameters<typeof computeEsgCompleteness>[0],
+  ) {
+    const completeness = computeEsgCompleteness(deal);
+    if (completeness.pct >= DealsService.ESG_COMPLETENESS_ALERT_THRESHOLD_PCT) return;
+
+    const alertTitle = `Complétude ESG insuffisante — ${deal.reference}`;
+    const existingAlert = await this.prisma.alert.findFirst({ where: { organizationId, dealId: deal.id, title: alertTitle } });
+    if (!existingAlert) {
+      await this.alerts.create(organizationId, {
+        title: alertTitle,
+        message: `${deal.name} — bloc ESG rempli à ${completeness.pct}% (${completeness.filled}/${completeness.total}) à l'entrée en ${deal.stage}. Compléter la documentation dans l'onglet ESG.`,
+        severity: 'WARNING',
+        dealId: deal.id,
+      });
+    }
+
+    const taskTitle = `Compléter la documentation ESG — ${deal.reference}`;
+    const existingTask = await this.prisma.task.findFirst({ where: { dealId: deal.id, title: taskTitle, done: false } });
+    if (!existingTask) {
+      const assigneeId = deal.assignedToId ?? deal.createdById;
+      await this.tasks.create(organizationId, assigneeId, {
+        title: taskTitle,
+        dealId: deal.id,
+        priority: 'LOW',
+        assigneeId,
+        typeTache: 'REPORTING',
+      });
+    }
   }
 
   async setTags(organizationId: string, id: string, userId: string, tagIds: string[]) {
@@ -803,7 +857,7 @@ export class DealsService {
    * d'inventer une définition, contraire à la doctrine de la section 0.
    */
   async portfolioOverview(organizationId: string) {
-    const [actifDeals, perteDeals, sortiDeals] = await Promise.all([
+    const [actifDeals, perteDeals, sortiDeals, esgDeals] = await Promise.all([
       this.prisma.deal.findMany({
         where: { organizationId, stage: 'SUIVI' },
         select: { id: true, amountRaised: true, riskScore: true, surveillanceStatus: true },
@@ -815,6 +869,16 @@ export class DealsService {
       this.prisma.deal.findMany({
         where: { organizationId, repaid: true },
         select: { id: true, amountRaised: true, startDate: true, interestRate: true },
+      }),
+      this.prisma.deal.findMany({
+        where: { organizationId, status: 'ACTIVE' },
+        select: {
+          esgMateriauxBasCarbone: true,
+          esgGestionEauxPluviales: true,
+          esgEmploisChantierEstimes: true,
+          esgAccessibilite: true,
+          esgConformiteReglementaire: true,
+        },
       }),
     ]);
 
@@ -874,12 +938,23 @@ export class DealsService {
       .filter((tri): tri is number => tri !== null);
     const triMoyenSortiPct = sortiTris.length > 0 ? Math.round((sortiTris.reduce((s, v) => s + v, 0) / sortiTris.length) * 10) / 10 : null;
 
+    // Complétude ESG moyenne du portefeuille (D.3) — non pondérée par exposition,
+    // volontairement : contrairement au score de risque, ce taux mesure un effort
+    // de documentation personnel, pas une exposition financière à pondérer par CRD.
+    // Purement informatif/suivi (cf. commentaire esg-completeness.util.ts) — jamais
+    // un indicateur de qualité d'actif, à ne pas confondre avec scoreRisqueMoyenPondere.
+    const esgCompletenessMoyennePct =
+      esgDeals.length > 0
+        ? Math.round((esgDeals.reduce((sum, d) => sum + computeEsgCompleteness(d).pct, 0) / esgDeals.length) * 10) / 10
+        : null;
+
     return {
       actif: { count: actifDeals.length, totalCrd: Math.round(actifTotalCrd) },
       perte: { count: perteDeals.length, totalCrd: Math.round(perteTotalCrd) },
       sortiRembourse: { count: sortiDeals.length, totalAmount: Math.round(sortiTotalAmount), triMoyenPct: triMoyenSortiPct },
       scoreRisqueMoyenPondere,
       repartitionParPalier,
+      esgCompletenessMoyenne: { pct: esgCompletenessMoyennePct, count: esgDeals.length },
     };
   }
 
