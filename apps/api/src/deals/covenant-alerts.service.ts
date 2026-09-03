@@ -90,22 +90,40 @@ export class CovenantAlertsService {
         if (breaches.length === 0) continue;
 
         const title = `${TASK_TITLE_PREFIX} — ${deal.reference}`;
-        const existingAlert = await this.prisma.alert.findFirst({ where: { organizationId: deal.organizationId, dealId: deal.id, title } });
-        if (existingAlert) continue;
-
         const message = breaches.join(' · ');
-        await this.alerts.create(deal.organizationId, { title, message, severity: 'CRITICAL', dealId: deal.id });
 
-        const assigneeId = deal.assignedToId ?? deal.createdById;
-        await this.tasks.create(deal.organizationId, assigneeId, {
-          title,
-          dealId: deal.id,
-          priority: 'URGENT',
-          dueDate: new Date().toISOString().slice(0, 10),
-          assigneeId,
-          typeTache: 'FINANCE',
+        // Contrairement à la durée cible (monotone : une fois dépassée, le
+        // seul retour à la normale possible est une prorogation qui change
+        // le calcul lui-même), un covenant peut se rétablir (remboursement)
+        // puis se rompre de nouveau plus tard (nouveau tirage, dévalorisation,
+        // ratio différent) — dédupliquer par titre pour toujours aurait
+        // rendu muet tout nouveau franchissement une fois la toute première
+        // alerte créée, même des semaines après sa lecture. On ne déduplique
+        // donc que contre une alerte non lue : une fois acquittée, un
+        // contrôle ultérieur qui trouve encore (ou de nouveau) une rupture
+        // recrée une alerte.
+        const existingAlert = await this.prisma.alert.findFirst({
+          where: { organizationId: deal.organizationId, dealId: deal.id, title, read: false },
         });
-        created += 1;
+        if (!existingAlert) {
+          await this.alerts.create(deal.organizationId, { title, message, severity: 'CRITICAL', dealId: deal.id });
+          created += 1;
+        }
+
+        // Même logique côté tâche, mais sur son propre statut (done) plutôt
+        // que celui de l'alerte — les deux ont des cycles de vie distincts.
+        const existingTask = await this.prisma.task.findFirst({ where: { dealId: deal.id, title, done: false } });
+        if (!existingTask) {
+          const assigneeId = deal.assignedToId ?? deal.createdById;
+          await this.tasks.create(deal.organizationId, assigneeId, {
+            title,
+            dealId: deal.id,
+            priority: 'URGENT',
+            dueDate: new Date().toISOString().slice(0, 10),
+            assigneeId,
+            typeTache: 'FINANCE',
+          });
+        }
       } catch (err) {
         this.logger.error(`Échec du contrôle de covenant pour le deal ${deal.id}`, err instanceof Error ? err.stack : err);
       }
