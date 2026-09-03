@@ -857,9 +857,15 @@ export class DealsService {
    * d'inventer une définition, contraire à la doctrine de la section 0.
    */
   async portfolioOverview(organizationId: string) {
+    // perteDefinitiveActee est un jugement manuel et terminal de l'analyste,
+    // indépendant du stage/de repaid — sans exclusion explicite, un dossier
+    // acté en perte alors qu'il est resté en stage SUIVI (ou marqué repaid
+    // par ailleurs) apparaîtrait à la fois dans "Actif"/"Sorti" et dans
+    // "Perte", comptant son CRD/montant deux fois dans les totaux agrégés.
+    // "Perte" prévaut toujours sur les deux autres compteurs.
     const [actifDeals, perteDeals, sortiDeals, esgDeals] = await Promise.all([
       this.prisma.deal.findMany({
-        where: { organizationId, stage: 'SUIVI' },
+        where: { organizationId, stage: 'SUIVI', perteDefinitiveActee: false },
         select: { id: true, amountRaised: true, riskScore: true, surveillanceStatus: true },
       }),
       this.prisma.deal.findMany({
@@ -867,7 +873,7 @@ export class DealsService {
         select: { id: true, amountRaised: true },
       }),
       this.prisma.deal.findMany({
-        where: { organizationId, repaid: true },
+        where: { organizationId, repaid: true, perteDefinitiveActee: false },
         select: { id: true, amountRaised: true, startDate: true, interestRate: true },
       }),
       this.prisma.deal.findMany({
