@@ -135,17 +135,26 @@ export function computeCrdDetailed(
   let outstanding = amountRaised;
   let lastEventDate = startDate;
   let totalPenalizedDays = 0;
+  // Intérêts déjà courus à la date d'un remboursement mais non couverts par
+  // celui-ci (remboursement partiel/en procédure inférieur aux intérêts dus
+  // sur la période) — sans ce cumul, la part non payée disparaissait
+  // purement et simplement du calcul au lieu de rester une créance
+  // d'intérêts impayés (jamais recapitalisée sur le capital ni recalculée
+  // à intérêts composés, conformément à la méthode "intérêts simples"
+  // documentée ci-dessus).
+  let interestArrears = 0;
 
   for (const repayment of sorted) {
     const { interest, penalizedDays } = accrueInterest(outstanding, interestRatePct, lastEventDate, repayment.date, horsContratSegments ?? []);
     totalPenalizedDays += penalizedDays;
     const partInterets = Math.min(repayment.amount, interest);
     const partCapital = repayment.amount - partInterets;
+    interestArrears += interest - partInterets;
     outstanding = Math.max(0, outstanding - partCapital);
     lastEventDate = repayment.date;
   }
 
-  const { interest: crdInteretsCourus, penalizedDays: courusPenalizedDays } = accrueInterest(
+  const { interest: crdInteretsCourusPeriode, penalizedDays: courusPenalizedDays } = accrueInterest(
     outstanding,
     interestRatePct,
     lastEventDate,
@@ -153,6 +162,7 @@ export function computeCrdDetailed(
     horsContratSegments ?? [],
   );
   totalPenalizedDays += courusPenalizedDays;
+  const crdInteretsCourus = crdInteretsCourusPeriode + interestArrears;
 
   return {
     crdCapital: outstanding,
