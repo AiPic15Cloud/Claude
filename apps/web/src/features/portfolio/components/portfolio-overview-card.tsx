@@ -81,6 +81,25 @@ export function PortfolioOverviewCard() {
           </div>
         </CardContent>
       </Card>
+
+      {data.esgCompletenessMoyenne.count > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              Complétude ESG moyenne du portefeuille ({data.esgCompletenessMoyenne.count} dossier
+              {data.esgCompletenessMoyenne.count > 1 ? 's' : ''} actif{data.esgCompletenessMoyenne.count > 1 ? 's' : ''})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              {data.esgCompletenessMoyenne.pct !== null ? `${data.esgCompletenessMoyenne.pct}%` : 'Non calculable'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Suivi personnel de la documentation ESG (D.3) — jamais un indicateur de qualité d'actif.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -77,6 +78,22 @@ export function EsgPanel({ deal }: { deal: Deal }) {
         Familiarisation au vocabulaire ESG (transition énergétique, mission "due diligence ESG interne") — ce n'est pas
         un scoring normé (taxonomie européenne/SFDR) et n'a aucun impact sur le score de risque ATLAS.
       </p>
+
+      {deal.esgCompleteness && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border p-3">
+          <Badge variant={deal.esgCompleteness.pct >= 50 ? 'secondary' : 'warning'}>
+            Complétude ESG : {deal.esgCompleteness.filled}/{deal.esgCompleteness.total}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            Environnement {deal.esgCompleteness.environnement.filled}/{deal.esgCompleteness.environnement.total} · Social{' '}
+            {deal.esgCompleteness.social.filled}/{deal.esgCompleteness.social.total} · Gouvernance{' '}
+            {deal.esgCompleteness.gouvernance.filled}/{deal.esgCompleteness.gouvernance.total}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            — mesure l'effort de documentation, jamais la qualité de l'actif.
+          </span>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

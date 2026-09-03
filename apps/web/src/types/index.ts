@@ -213,6 +213,8 @@ export interface Deal {
   realizedPerformance?: RealizedPerformance;
   /** F.3 — LTV/ICR/DSCR calculés à partir du CRD et du modèle financier. */
   covenants?: Covenants;
+  /** D.3 — recalculée à chaque lecture à partir des 5 champs ESG éditables (esg-completeness.util.ts). */
+  esgCompleteness?: EsgCompleteness;
   /** F.2 — déclencheur "Perte" du dashboard portefeuille, décision manuelle de l'analyste. */
   perteDefinitiveActee?: boolean;
   perteDefinitiveNote?: string | null;
@@ -414,6 +416,8 @@ export interface PortfolioOverview {
   sortiRembourse: { count: number; totalAmount: number; triMoyenPct: number | null };
   scoreRisqueMoyenPondere: number | null;
   repartitionParPalier: Record<string, { count: number; crd: number }>;
+  /** D.3 — moyenne non pondérée sur les dossiers actifs (tous stades) ; suivi personnel, jamais un indicateur de qualité d'actif. */
+  esgCompletenessMoyenne: { pct: number | null; count: number };
 }
 
 /** Export structuré par dossier (spec ATLAS v2, A.11) — sous-ensemble stable destiné à un reporting fonds, distinct du payload complet de la fiche dossier. */
@@ -951,6 +955,16 @@ export interface RealizedPerformance {
 }
 
 /** F.3 — ratios de covenant (LTV directement applicable ; ICR/DSCR nécessitent une saisie manuelle, pertinence à juger au cas par cas). */
+/** D.3 — complétude du bloc ESG : mesure l'effort de documentation, jamais la qualité de l'actif. */
+export interface EsgCompleteness {
+  filled: number;
+  total: number;
+  pct: number;
+  environnement: { filled: number; total: number };
+  social: { filled: number; total: number };
+  gouvernance: { filled: number; total: number };
+}
+
 export interface Covenants {
   ltvPct: number | null;
   ltvThresholdPct: number;
