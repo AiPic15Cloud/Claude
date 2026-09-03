@@ -151,9 +151,23 @@ export class MarketObservationsService {
       });
 
       if (!existing) {
-        await this.prisma.projectObservation.create({
-          data: { sourceKey: config.key, projectUrl: obs.projectUrl, ...newComparable },
-        });
+        try {
+          await this.prisma.projectObservation.create({
+            data: { sourceKey: config.key, projectUrl: obs.projectUrl, ...newComparable },
+          });
+        } catch (error) {
+          // Le cron (EVERY_6_HOURS) et une synchronisation manuelle
+          // (/market-observations/sync) peuvent se chevaucher sur la même
+          // source : les deux lisent `existing === null` avant que l'un des
+          // deux n'insère. Sans ce filet, la violation de la contrainte
+          // unique (sourceKey, projectUrl) remontait telle quelle et faisait
+          // échouer tout syncAll() pour cette source — y compris le nettoyage
+          // des observations disparues (RETIRE) plus loin dans cette
+          // méthode. Une autre exécution a déjà créé cette observation :
+          // rien de plus à faire ici pour cet item.
+          if ((error as { code?: string })?.code === 'P2002') continue;
+          throw error;
+        }
         await this.prisma.projectObservationEvent.create({
           data: { sourceKey: config.key, projectUrl: obs.projectUrl, projectName: obs.projectName, eventType: 'PROJECT_DETECTED', newStatus: status },
         });
