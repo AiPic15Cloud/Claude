@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsIn, IsNumber, IsOptional, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsNumber, IsOptional, ValidateNested } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import type { SensitivityAxisVariable } from '../scenario-sensitivity.util';
 
@@ -54,6 +54,12 @@ export class ComputeScenariosDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
+  // Borne la taille de la matrice croisée (rowValues × colValues, cf.
+  // computeSensitivityMatrix) — sans plafond, un corps de requête de
+  // quelques Ko suffit à générer des millions de cellules et bloquer le
+  // event loop Node pour toutes les organisations, pas seulement l'auteur
+  // de la requête.
+  @ArrayMaxSize(25)
   @IsNumber({}, { each: true })
   matrixRowValues?: number[];
 
@@ -66,6 +72,7 @@ export class ComputeScenariosDto {
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(25)
   @IsNumber({}, { each: true })
   matrixColValues?: number[];
 }
