@@ -17,7 +17,39 @@ export class PlatformsSyncService {
     private readonly sourceRegistry: SourceRegistryService,
   ) {}
 
+  /**
+   * syncFromBarometer et applyWatchlist lisent-puis-écrivent sur les mêmes
+   * GraphEntity(organizationId, PLATEFORME, name) sans contrainte unique en
+   * base pour les départager (relevé lors du bilan complet) — le cron
+   * horaire (avec son repli hors-RSS), un clic sur "Actualiser" et un clic
+   * sur "Charger la liste de veille" peuvent en théorie se chevaucher pour
+   * la même organisation et créer deux fiches identiques. ATLAS tourne en
+   * instance unique (pas de réplicas configurés sur Railway), donc un
+   * verrou en mémoire par organisation suffit à fermer complètement cette
+   * course, sans migration ni risque de casser la création manuelle de
+   * fiches ailleurs dans le Knowledge Graph (qui, elle, autorise
+   * légitimement deux entités de même nom).
+   */
+  private readonly orgLocks = new Map<string, Promise<unknown>>();
+
+  private withOrgLock<T>(organizationId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.orgLocks.get(organizationId) ?? Promise.resolve();
+    const run = previous.then(fn, fn);
+    this.orgLocks.set(
+      organizationId,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  }
+
   async syncFromBarometer(organizationId: string) {
+    return this.withOrgLock(organizationId, () => this.syncFromBarometerLocked(organizationId));
+  }
+
+  private async syncFromBarometerLocked(organizationId: string) {
     let stats;
     try {
       stats = await this.barometer.fetchCompetitorStats();
@@ -104,6 +136,10 @@ export class PlatformsSyncService {
   // already on the entity (e.g. barometer stats), same merge pattern as
   // syncFromBarometer above.
   async applyWatchlist(organizationId: string) {
+    return this.withOrgLock(organizationId, () => this.applyWatchlistLocked(organizationId));
+  }
+
+  private async applyWatchlistLocked(organizationId: string) {
     let applied = 0;
     for (const entry of COMPETITOR_WATCHLIST) {
       const metadata = {
