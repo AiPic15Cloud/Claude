@@ -28,12 +28,40 @@ export class RiskHistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Deux recalculs de risque concurrents sur le même dossier (ex. deux
+   * déclencheurs indépendants qui se produisent au même instant) peuvent
+   * tous deux lire le même dernier snapshot, tous deux le trouver
+   * "inchangé=false" et tous deux insérer — dupliquant une ligne dans
+   * l'historique append-only (relevé lors du bilan complet). ATLAS tourne
+   * en instance unique (pas de réplicas Railway), donc un verrou en
+   * mémoire par dossier suffit à fermer cette course sans migration.
+   */
+  private readonly dealLocks = new Map<string, Promise<unknown>>();
+
+  private withDealLock<T>(dealId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.dealLocks.get(dealId) ?? Promise.resolve();
+    const run = previous.then(fn, fn);
+    this.dealLocks.set(
+      dealId,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  }
+
+  /**
    * N'insère un snapshot que si le tuple de scores/statut a réellement
    * changé depuis le dernier — sinon le filet de sécurité 6h sur tous les
    * dossiers actifs gonflerait la table sans information nouvelle, même
    * logique que maybeAlert() qui ne fait rien si rien n'a changé.
    */
   async maybeSnapshot(organizationId: string, dealId: string, computed: SnapshotInput, trigger: string): Promise<void> {
+    return this.withDealLock(dealId, () => this.maybeSnapshotLocked(organizationId, dealId, computed, trigger));
+  }
+
+  private async maybeSnapshotLocked(organizationId: string, dealId: string, computed: SnapshotInput, trigger: string): Promise<void> {
     const last = await this.prisma.riskScoreSnapshot.findFirst({
       where: { dealId },
       orderBy: { computedAt: 'desc' },
