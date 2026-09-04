@@ -21,8 +21,52 @@ export class CompetitorProjectsService {
     });
   }
 
+  /** Fenêtre de protection contre un double envoi du formulaire (double-clic passé outre le bouton désactivé, ou renvoi réseau) — pas une déduplication métier permanente : deux projets homonymes créés à des moments différents restent tous les deux légitimes. */
+  private static readonly DUPLICATE_SUBMIT_WINDOW_MS = 10_000;
+
+  // Même principe que PlatformsSyncService/RiskHistoryService : un verrou en
+  // mémoire par fiche ferme la fenêtre de course qui subsisterait entre la
+  // lecture du "doublon récent" ci-dessous et l'insertion elle-même si deux
+  // requêtes arrivaient vraiment simultanément (second onglet, par ex.).
+  private readonly entityLocks = new Map<string, Promise<unknown>>();
+
+  private withEntityLock<T>(entityId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.entityLocks.get(entityId) ?? Promise.resolve();
+    const run = previous.then(fn, fn);
+    this.entityLocks.set(
+      entityId,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  }
+
   async create(organizationId: string, entityId: string, userId: string, dto: CreateCompetitorProjectDto) {
     await this.assertEntity(organizationId, entityId);
+    return this.withEntityLock(entityId, () => this.createLocked(organizationId, entityId, userId, dto));
+  }
+
+  private async createLocked(organizationId: string, entityId: string, userId: string, dto: CreateCompetitorProjectDto) {
+    // CompetitorProject n'a pas de contrainte unique — saisie manuelle, sans
+    // flux automatisé (cf. schema.prisma). Le seul risque de doublon vient
+    // d'un double envoi du même formulaire ; le bouton est déjà désactivé
+    // pendant l'envoi côté client (competitor-projects-panel.tsx), mais ça
+    // ne couvre pas un renvoi réseau ou un second onglet. Un projet du même
+    // nom déjà créé sur cette fiche dans les toutes dernières secondes est
+    // renvoyé tel quel plutôt que dupliqué.
+    const recentDuplicate = await this.prisma.competitorProject.findFirst({
+      where: {
+        entityId,
+        name: { equals: dto.name, mode: 'insensitive' },
+        createdAt: { gte: new Date(Date.now() - CompetitorProjectsService.DUPLICATE_SUBMIT_WINDOW_MS) },
+      },
+      include: { createdBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recentDuplicate) return recentDuplicate;
+
     const project = await this.prisma.competitorProject.create({
       data: {
         organizationId,
