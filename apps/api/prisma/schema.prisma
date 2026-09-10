@@ -233,6 +233,10 @@ model Organization {
   entities           Entity[]
   relationships      Relationship[]
   playbookInstances  PlaybookInstance[]
+  economicGroups     EconomicGroup[]
+  legalEvents        LegalEvent[]
+  financialEvents    FinancialEvent[]
+  contagionSignals   ContagionSignal[]
 
   @@map("organizations")
 }
@@ -530,6 +534,7 @@ model Deal {
   /// Entité miroir dans le Knowledge Graph (type OPERATION) — voir Entity.mirrorsDealId.
   entityMirror               Entity?
   playbookInstances          PlaybookInstance[]
+  contagionSignals           ContagionSignal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1288,6 +1293,12 @@ enum EntityType {
   /// Relationship de pointer nativement vers une opération (ex. "caution
   /// partagée entre Opération X et Opération Y", B.3).
   OPERATION
+  /// Personne physique (dirigeant, associé, bénéficiaire effectif) — spec
+  /// Market Relationship & Contagion Intelligence V2, §5.1. Première classe
+  /// au même titre qu'une société : peut porter ses propres Relationship
+  /// (MANAGES/BENEFICIAL_OWNER_OF/SHAREHOLDER_OF → Company) plutôt que
+  /// n'exister qu'en tant qu'attribut texte (GraphEntity.contactName).
+  PERSON
 }
 
 /// Portfolio = contreparties réelles liées à des opérations LPB (+ les Deals
@@ -1334,6 +1345,10 @@ model Entity {
   aliases           EntityAlias[]
   relationshipsFrom Relationship[]     @relation("RelFrom")
   relationshipsTo   Relationship[]     @relation("RelTo")
+  groupMemberships  EconomicGroupMember[]
+  legalEvents       LegalEvent[]
+  financialEvents   FinancialEvent[]
+  contagionSignals  ContagionSignal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1429,7 +1444,22 @@ model Relationship {
   criticality Int       @default(0)
 
   status     RelationshipStatus   @default(ACTIVE)
+  /// Niveau de couverture documentaire — sert aussi de statut de
+  /// vérification (spec V2 §5.3 "verification_status") : UNKNOWN/PARTIAL
+  /// tant qu'aucune source ne confirme le lien, VERIFIED une fois recoupé.
   confidence RelationshipCoverage @default(UNKNOWN)
+  /// Score numérique 0-100 (spec V2 §5.3 "confidence_score") — distinct de
+  /// `confidence` : ce dernier est un palier de preuve documentaire,
+  /// celui-ci une estimation continue (ex. Entity Resolution peut poser 60
+  /// sur un rapprochement nom+ville sans preuve documentée du tout, avant
+  /// même le premier palier de `confidence`).
+  confidenceScore Int?
+  /// Date d'observation du lien lui-même (spec V2 §5.3 "observed_at"),
+  /// distincte de `Evidence.createdAt` (date d'ajout d'une preuve en base)
+  /// et de `verifiedAt` (dernière vérification) — ex. une relation
+  /// reconstruite à partir d'un acte notarié observe la date de l'acte, pas
+  /// la date à laquelle Atlas l'a saisie.
+  observedAt DateTime?
   verifiedAt DateTime?
 
   evidence Evidence[]
@@ -1500,6 +1530,193 @@ model RelationshipEvent {
 
   @@index([relationshipId])
   @@map("relationship_events")
+}
+
+// ── Market Relationship & Contagion Intelligence V2 ────────────────────
+//
+// Étend le Knowledge Graph v2 ci-dessus plutôt que de dupliquer un modèle
+// parallèle : EconomicGroup rend le "groupe économique" traversable en
+// plusieurs sauts (jusqu'ici uniquement inféré à un saut via
+// RelationshipType.GROUPE_ECONOMIQUE, voir EntityIntelligenceService).
+// LegalEvent/FinancialEvent donnent un journal d'événements par entité (la
+// détection BODACC existante de CompanyMonitoringService n'écrivait jusque
+// là qu'un Alert, sans trace structurée). ContagionSignal persiste enfin ce
+// que ContagionService ne faisait que calculer à la volée.
+
+/// Le groupe économique Atlas est un objet analytique, jamais présenté
+/// comme un groupe juridique officiel (spec V2 §7.2) — coexiste avec
+/// RelationshipType.GROUPE_ECONOMIQUE (edges pairwise, toujours valides)
+/// plutôt que de le remplacer : ce modèle ajoute la clôture transitive
+/// (membership explicite) sans invalider les relations déjà saisies.
+model EconomicGroup {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  members EconomicGroupMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("economic_groups")
+}
+
+model EconomicGroupMember {
+  id      String        @id @default(cuid())
+  groupId String
+  group   EconomicGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  entityId String
+  entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  /// Libre (ex. "Holding", "Filiale", "Dirigeant commun") — table plutôt
+  /// qu'enum, même choix que RelationshipType.category pour ne pas migrer à
+  /// chaque nouveau motif de rattachement.
+  role     String?
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  @@unique([groupId, entityId])
+  @@index([entityId])
+  @@map("economic_group_members")
+}
+
+enum LegalEventType {
+  REDRESSEMENT_JUDICIAIRE
+  LIQUIDATION_JUDICIAIRE
+  SAUVEGARDE
+  DISSOLUTION
+  RADIATION
+  CHANGEMENT_DIRIGEANT
+  CHANGEMENT_CONTROLE
+  AUTRE
+}
+
+/// Journal d'événements juridiques par entité (spec V2 §9) — sourcé et
+/// horodaté, jamais assimilé automatiquement à un défaut du projet analysé
+/// (ContagionSignal fait cette évaluation séparément).
+model LegalEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  entityId String
+  entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  type   LegalEventType
+  source String
+  reference String?
+  note   String?
+
+  /// Date de l'événement lui-même (ex. date de publication BODACC) —
+  /// distincte de detectedAt si Atlas l'apprend après coup.
+  occurredAt DateTime?
+  detectedAt DateTime @default(now())
+
+  contagionSignals ContagionSignal[]
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([entityId])
+  @@map("legal_events")
+}
+
+enum FinancialEventType {
+  NOUVELLE_LEVEE
+  PROROGATION
+  RETARD
+  DEFAUT
+  REMBOURSEMENT
+  AUTRE
+}
+
+/// Journal d'événements financiers par entité (spec V2 §9) — distinct de
+/// RelationshipEvent, qui ne couvre que les changements de champs d'une
+/// Relationship précise, pas un événement au niveau de l'entité elle-même.
+model FinancialEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  entityId String
+  entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  type      FinancialEventType
+  amount    Decimal?           @db.Decimal(14, 2)
+  source    String
+  reference String?
+  note      String?
+
+  occurredAt DateTime?
+  detectedAt DateTime @default(now())
+
+  contagionSignals ContagionSignal[]
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([entityId])
+  @@map("financial_events")
+}
+
+/// Classe de lien entre l'entité affectée par un événement et le projet
+/// analysé (spec V2 §7.2, table "Classe de lien") — détermine la force par
+/// défaut du signal, jamais une propagation mécanique.
+enum ContagionProximity {
+  DIRECT
+  CONTROLE_GROUPE
+  OPERATEUR
+  HISTORIQUE
+}
+
+enum ContagionSignalStatus {
+  OPEN
+  ACKNOWLEDGED
+  DISMISSED
+}
+
+/// Persiste ce que ContagionService calculait déjà sans le stocker (spec V2
+/// §10) — un signal a son propre cycle de vie (OPEN → ACKNOWLEDGED/DISMISSED)
+/// indépendant de l'Alert/Task qu'il déclenche éventuellement.
+model ContagionSignal {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  /// Entité affectée par l'événement d'origine — pas nécessairement la
+  /// société de projet elle-même (spec V2 §10.2, exemple Jean DUPONT).
+  sourceEntityId String
+  sourceEntity   Entity @relation(fields: [sourceEntityId], references: [id], onDelete: Cascade)
+
+  legalEventId     String?
+  legalEvent       LegalEvent?     @relation(fields: [legalEventId], references: [id], onDelete: SetNull)
+  financialEventId String?
+  financialEvent   FinancialEvent? @relation(fields: [financialEventId], references: [id], onDelete: SetNull)
+
+  proximity             ContagionProximity
+  /// Explicite plutôt qu'implicite dans le texte — spec V2 §10.2 : "la
+  /// contagion directe au projet n'est pas démontrée" doit rester une
+  /// donnée structurée, filtrable, pas seulement une phrase.
+  contagionDemonstrated Boolean            @default(false)
+  additionalExposure    Decimal?           @db.Decimal(14, 2)
+  explanation           String
+
+  status     ContagionSignalStatus @default(OPEN)
+  createdAt  DateTime              @default(now())
+  resolvedAt DateTime?
+
+  @@index([organizationId])
+  @@index([dealId])
+  @@index([sourceEntityId])
+  @@map("contagion_signals")
 }
 
 // ── Playbooks (spec ATLAS v2, A.4 / A.7) ───────────────────────────────

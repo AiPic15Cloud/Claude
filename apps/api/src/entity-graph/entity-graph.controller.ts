@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -7,9 +7,13 @@ import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-use
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RelationshipsService } from './relationships.service';
 import { EntityIntelligenceService } from './entity-intelligence.service';
+import { GroupBuilderService } from './group-builder.service';
+import { LegalEventsService } from './legal-events.service';
+import { EntityResolutionService } from './entity-resolution.service';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
 import { AddEvidenceDto } from './dto/add-evidence.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
+import { ResolveCompanyDto } from './dto/resolve-company.dto';
 
 /**
  * Fondation du Knowledge Graph v2 (B.2) — distinct de /graph (ancien modèle
@@ -26,6 +30,9 @@ export class EntityGraphController {
   constructor(
     private readonly relationships: RelationshipsService,
     private readonly intelligence: EntityIntelligenceService,
+    private readonly groupBuilder: GroupBuilderService,
+    private readonly legalEvents: LegalEventsService,
+    private readonly entityResolution: EntityResolutionService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -65,5 +72,40 @@ export class EntityGraphController {
   @Patch('relationships/:id')
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateRelationshipDto) {
     return this.relationships.update(user.organizationId, id, dto);
+  }
+
+  /** Clôture transitive du groupe économique (spec V2 §16 "Group Builder") — lecture live, jamais la table matérialisée seule. */
+  @Get('entities/:id/economic-group')
+  async getEconomicGroup(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    await this.relationships.assertEntity(user.organizationId, id);
+    const memberIds = await this.groupBuilder.getGroupEntityIds(user.organizationId, id);
+    if (memberIds.size === 0) return { members: [] };
+    const members = await this.prisma.entity.findMany({
+      where: { id: { in: [...memberIds] }, organizationId: user.organizationId },
+      select: { id: true, name: true, type: true },
+    });
+    return { members };
+  }
+
+  /** Journal des événements juridiques (spec V2 §9) — RJ/LJ/sauvegarde détectés via BODACC ou saisis manuellement. */
+  @Get('entities/:id/legal-events')
+  async listLegalEvents(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    await this.relationships.assertEntity(user.organizationId, id);
+    return this.legalEvents.list(user.organizationId, id);
+  }
+
+  /** Recherche externe par dénomination (recherche-entreprises.api.gouv.fr) — propose des candidats SIREN, n'écrit rien. */
+  @Get('entity-resolution/search')
+  searchCompanies(@Query('name') name: string, @Query('city') city?: string) {
+    if (!name?.trim()) return [];
+    return this.entityResolution.searchExternalCandidates(name.trim(), city?.trim());
+  }
+
+  /** Entity Resolution Engine (spec V2 §7.1) — résout ou crée l'entité canonique, jamais de fusion automatique sur candidats ambigus. */
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @Post('entity-resolution/companies')
+  resolveCompany(@CurrentUser() user: AuthenticatedUser, @Body() dto: ResolveCompanyDto) {
+    return this.entityResolution.resolveCompany(user.organizationId, dto);
   }
 }

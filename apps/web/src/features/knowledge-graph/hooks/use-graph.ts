@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { EntitySummary, EvidenceLevel, GraphEntity, GraphEntityDetail, GraphEntityType, GraphPayload, RelationshipTypeOption } from '@/types';
+import type {
+  EntitySummary,
+  EvidenceLevel,
+  GraphEntity,
+  GraphEntityDetail,
+  GraphEntityType,
+  GraphPayload,
+  LegalEvent,
+  RelationshipTypeOption,
+} from '@/types';
 
 export function useGraph(types?: GraphEntityType[]) {
   const query = types?.length ? `?types=${types.join(',')}` : '';
@@ -81,6 +90,15 @@ export function useEntitySummary(entityId: string | null) {
   return useQuery({
     queryKey: ['entity-summary', entityId],
     queryFn: () => api.get<EntitySummary>(`/entities/${entityId}/summary`),
+    enabled: Boolean(entityId),
+  });
+}
+
+/** Market Relationship & Contagion Intelligence V2, §9 — journal d'événements juridiques (BODACC, saisie manuelle). */
+export function useEntityLegalEvents(entityId: string | null) {
+  return useQuery({
+    queryKey: ['entity-legal-events', entityId],
+    queryFn: () => api.get<LegalEvent[]>(`/entities/${entityId}/legal-events`),
     enabled: Boolean(entityId),
   });
 }

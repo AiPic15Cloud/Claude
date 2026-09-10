@@ -1,10 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { nanoid } from 'nanoid';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateRelationshipDto } from './dto/create-relationship.dto';
 import { AddEvidenceDto } from './dto/add-evidence.dto';
 import { UpdateRelationshipDto } from './dto/update-relationship.dto';
+import { GroupBuilderService } from './group-builder.service';
+
+const GROUP_RELATIONSHIP_TYPE = 'GROUPE_ECONOMIQUE';
 
 const RELATIONSHIP_INCLUDE = {
   type: true,
@@ -25,7 +28,12 @@ const RELATIONSHIP_INCLUDE = {
  */
 @Injectable()
 export class RelationshipsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(RelationshipsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groupBuilder: GroupBuilderService,
+  ) {}
 
   async assertEntity(organizationId: string, id: string) {
     const entity = await this.prisma.entity.findFirst({ where: { id, organizationId } });
@@ -58,7 +66,7 @@ export class RelationshipsService {
     if (!type) throw new NotFoundException(`Type de relation inconnu : ${dto.typeKey}`);
 
     const id = nanoid();
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       await tx.relationship.create({
         data: {
           id,
@@ -86,6 +94,16 @@ export class RelationshipsService {
 
       return tx.relationship.findUniqueOrThrow({ where: { id }, include: RELATIONSHIP_INCLUDE });
     });
+    // Hors transaction : matérialise l'EconomicGroup pour l'affichage (spec V2
+    // §16 "Group Builder") — jamais la source de vérité, les calculs
+    // d'exposition/contagion retraversent toujours GroupBuilderService en
+    // direct. Best-effort, ne doit jamais faire échouer la création du lien.
+    if (dto.typeKey === GROUP_RELATIONSHIP_TYPE) {
+      await this.groupBuilder
+        .materializeGroup(organizationId, dto.sourceEntityId)
+        .catch((err) => this.logger.error('Échec de la matérialisation du groupe économique', err instanceof Error ? err.stack : err));
+    }
+    return created;
   }
 
   async addEvidence(organizationId: string, userId: string, relationshipId: string, dto: AddEvidenceDto) {

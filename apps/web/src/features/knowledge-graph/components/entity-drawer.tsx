@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom';
-import { Globe, Mail, MapPin, Phone, User, TriangleAlert } from 'lucide-react';
+import { Globe, Mail, MapPin, Phone, User, TriangleAlert, Scale } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useEntity, useEntitySummary } from '../hooks/use-graph';
+import { useEntity, useEntityLegalEvents, useEntitySummary } from '../hooks/use-graph';
 import { CreateEntityDialog } from './create-entity-dialog';
 import { CreateRelationshipDialog } from './create-relationship-dialog';
 import { CompetitorProjectsPanel } from '@/features/intelligence-concurrentielle/components/competitor-projects-panel';
 import { PlatformStatsPanel } from '@/features/intelligence-concurrentielle/components/platform-stats-panel';
 import type { PlatformMetadata } from '@/features/intelligence-concurrentielle/platform-metadata';
-import { DEAL_ENTITY_ROLE_LABELS, GRAPH_ENTITY_TYPE_LABELS, RELATIONSHIP_COVERAGE_LABELS } from '@/types';
+import { DEAL_ENTITY_ROLE_LABELS, GRAPH_ENTITY_TYPE_LABELS, LEGAL_EVENT_TYPE_LABELS, RELATIONSHIP_COVERAGE_LABELS } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 interface EntityDrawerProps {
@@ -21,6 +21,7 @@ interface EntityDrawerProps {
 export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
   const { data: entity, isLoading } = useEntity(entityId);
   const { data: summary } = useEntitySummary(entityId);
+  const { data: legalEvents } = useEntityLegalEvents(entityId);
 
   return (
     <Sheet open={Boolean(entityId)} onOpenChange={(open) => !open && onClose()}>
@@ -189,6 +190,30 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {legalEvents && legalEvents.length > 0 && (
+                <div>
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <Scale className="h-3.5 w-3.5" />
+                    Événements juridiques ({legalEvents.length})
+                  </h3>
+                  <div className="flex flex-col gap-1.5">
+                    {legalEvents.map((event) => (
+                      <div key={event.id} className="flex flex-col gap-1 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="destructive">{LEGAL_EVENT_TYPE_LABELS[event.type]}</Badge>
+                          <span className="text-muted-foreground">{formatDate(event.detectedAt)}</span>
+                        </div>
+                        <span className="text-muted-foreground">
+                          Source : {event.source}
+                          {event.reference ? ` (${event.reference})` : ''}
+                        </span>
+                        {event.note && <span className="text-muted-foreground">{event.note}</span>}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
