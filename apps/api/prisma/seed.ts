@@ -11,6 +11,7 @@ import {
   GuaranteeType,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { COMPETITOR_WATCHLIST } from '../src/intelligence-concurrentielle/competitor-watchlist';
 
 const prisma = new PrismaClient();
@@ -76,7 +77,14 @@ function randomInt(min: number, max: number): number {
 async function main() {
   console.log('Seeding ATLAS database…');
 
-  const passwordHash = await bcrypt.hash('REDACTED-PASSWORD', 12);
+  // Never hardcode a real credential here — this script (and its output) is
+  // committed to git. SEED_ADMIN_PASSWORD lets an operator pin a known
+  // password for a reproducible demo; without it, a random one is generated
+  // and printed once below (upsert's `update: {}` means it only takes effect
+  // on the very first run, same as the admin identity itself).
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@atlas-capital.demo';
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD ?? crypto.randomBytes(9).toString('base64url');
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
 
   const organization = await prisma.organization.upsert({
     where: { slug: 'atlas-capital' },
@@ -86,13 +94,13 @@ async function main() {
 
   const [admin, analyst1, analyst2] = await Promise.all([
     prisma.user.upsert({
-      where: { email: 'REDACTED-EMAIL@atlas-capital.demo' },
+      where: { email: adminEmail },
       update: {},
       create: {
-        email: 'REDACTED-EMAIL@atlas-capital.demo',
+        email: adminEmail,
         passwordHash,
-        firstName: 'Nick',
-        lastName: 'Banza',
+        firstName: 'Admin',
+        lastName: 'Atlas',
         role: 'ADMIN',
         organizationId: organization.id,
       },
@@ -513,7 +521,12 @@ async function main() {
   }
 
   console.log('Seed terminé.');
-  console.log('Connexion de démonstration : REDACTED-EMAIL@atlas-capital.demo / REDACTED-PASSWORD');
+  console.log(`Connexion de démonstration : ${adminEmail} / ${seedPassword}`);
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.log(
+      'Mot de passe généré aléatoirement (SEED_ADMIN_PASSWORD non défini) — notez-le, il ne sera pas réaffiché.',
+    );
+  }
 }
 
 main()
