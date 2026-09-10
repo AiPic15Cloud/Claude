@@ -14,6 +14,13 @@ export const SURVEILLANCE_RANK: Record<DealSurveillanceStatus, number> = {
   SOUS_SURVEILLANCE: 1,
   ELEVE: 2,
   CRITIQUE: 3,
+  // Valeurs historiques retirées (voir le commentaire sur l'enum côté
+  // schema.prisma) — jamais produites ni comparées en pratique aujourd'hui,
+  // présentes uniquement pour que ce Record reste total sur le type Prisma.
+  // Rang identique à leur équivalent actuel ("OUTPERFORMING rejoint FAIBLE",
+  // migration 20260830195946_surveillance_status_4_paliers).
+  OUTPERFORMING: 0,
+  RECOVERY: 1,
 };
 
 // Plafond du scoring pur : le score composite et son escalade EWS/vélocité ne
