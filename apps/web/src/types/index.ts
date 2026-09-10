@@ -57,13 +57,23 @@ export const DEAL_RECOVERY_STATUS_DESCRIPTIONS: Record<DealRecoveryStatus, strin
   PROCEDURE_COLLECTIVE: 'Procédure collective (redressement ou liquidation judiciaire) ouverte chez le porteur.',
 };
 
-export type DealSurveillanceStatus = 'FAIBLE' | 'SOUS_SURVEILLANCE' | 'ELEVE' | 'CRITIQUE';
+/**
+ * OUTPERFORMING/RECOVERY : valeurs retirées du modèle live (migration
+ * 20260830195946_surveillance_status_4_paliers) mais que l'historique de
+ * trajectoire (RiskTrajectoryPoint, jamais réécrit) peut encore renvoyer pour
+ * un point antérieur à cette date — jamais pour Deal.surveillanceStatus
+ * lui-même (toujours l'une des 4 valeurs courantes). Ne jamais proposer ces
+ * deux valeurs dans un sélecteur ou un nouveau statut.
+ */
+export type DealSurveillanceStatus = 'FAIBLE' | 'SOUS_SURVEILLANCE' | 'ELEVE' | 'CRITIQUE' | 'OUTPERFORMING' | 'RECOVERY';
 
 export const DEAL_SURVEILLANCE_STATUS_LABELS: Record<DealSurveillanceStatus, string> = {
   FAIBLE: 'Faible',
   SOUS_SURVEILLANCE: 'Sous surveillance',
   ELEVE: 'Élevé',
   CRITIQUE: 'Critique',
+  OUTPERFORMING: 'Faible (historique)',
+  RECOVERY: 'Sous surveillance (historique)',
 };
 
 /** Textes d'aide affichés au survol des badges de statut de surveillance — calculé par le Risk Engine, indépendant de l'étape du projet ou du recouvrement. */
@@ -72,6 +82,8 @@ export const DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS: Record<DealSurveillanceStatu
   SOUS_SURVEILLANCE: 'Premier niveau de vigilance — au moins un signal mérite un suivi renforcé, sans dégradation confirmée.',
   ELEVE: "Dégradation objective constatée sur plusieurs facteurs — score élevé, mais pas (encore) de fait dur avéré.",
   CRITIQUE: "Difficulté matérielle avérée (procédure collective, échéance en contentieux, garantie majeure expirée...) — jamais atteint par le seul score, toujours un fait constaté.",
+  OUTPERFORMING: "Ancien palier, équivalent à Faible — visible uniquement sur un point de trajectoire antérieur au 30/08/2026.",
+  RECOVERY: "Ancien palier, équivalent à Sous surveillance — visible uniquement sur un point de trajectoire antérieur au 30/08/2026.",
 };
 
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';

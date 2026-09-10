@@ -82,6 +82,10 @@ const SURVEILLANCE_STATUS_VARIANT: Record<DealSurveillanceStatus, 'success' | 'w
   SOUS_SURVEILLANCE: 'warning',
   ELEVE: 'warning',
   CRITIQUE: 'destructive',
+  // Valeurs historiques (voir DealSurveillanceStatus) — jamais sur
+  // Deal.surveillanceStatus lui-même, uniquement un point de trajectoire ancien.
+  OUTPERFORMING: 'success',
+  RECOVERY: 'warning',
 };
 
 /** Statut de surveillance ATLAS (Risk Engine v2) — remplace à terme la seule lecture de RiskScoreBadge sur les vues portefeuille. */

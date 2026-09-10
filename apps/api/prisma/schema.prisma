@@ -132,6 +132,20 @@ enum DealSurveillanceStatus {
   SOUS_SURVEILLANCE
   ELEVE
   CRITIQUE
+  /// Valeurs retirées du modèle par la migration
+  /// 20260830195946_surveillance_status_4_paliers — Deal.surveillanceStatus
+  /// (l'état live) a été migré vers les 4 valeurs ci-dessus à ce moment-là et
+  /// se réauto-corrige à chaque recalcul, donc plus jamais produit ni relu en
+  /// pratique. RiskScoreSnapshot est en revanche append-only ("jamais
+  /// réécrit", même migration) : d'anciennes lignes d'historique portent
+  /// encore ces deux valeurs. Sans elles ici, Prisma refuse de désérialiser
+  /// ces lignes (`Value 'OUTPERFORMING' not found in enum...`), qui plantait
+  /// RiskHistoryService à chaque nouveau snapshot sur un dossier ayant un
+  /// historique antérieur à cette date. Ne jamais réutiliser ces valeurs dans
+  /// du code applicatif nouveau — elles n'existent que pour pouvoir relire
+  /// l'historique existant.
+  OUTPERFORMING
+  RECOVERY
 }
 
 enum GuaranteeStatus {
