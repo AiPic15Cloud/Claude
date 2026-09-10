@@ -44,6 +44,14 @@ export class ContagionService {
     private readonly tasks: TasksService,
   ) {}
 
+  /** Lecture légère pour le Risk Engine (additive-risk.util.ts) — seuls proximity/contagionDemonstrated comptent pour le score, pas l'explication ni les entités liées. */
+  async listOpenForDeal(organizationId: string, dealId: string) {
+    return this.prisma.contagionSignal.findMany({
+      where: { organizationId, dealId, status: 'OPEN' },
+      select: { proximity: true, contagionDemonstrated: true },
+    });
+  }
+
   async listForDeal(organizationId: string, dealId: string) {
     return this.prisma.contagionSignal.findMany({
       where: { organizationId, dealId },

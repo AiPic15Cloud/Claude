@@ -350,6 +350,11 @@ export class RiskEngineService implements OnApplicationBootstrap {
       bankLoanShare = total > 0 ? bankLoanTotal / total : null;
     }
 
+    // Signaux de contagion ouverts (Market Relationship & Contagion
+    // Intelligence V2, §11) — factuel : lus tels quels, jamais recalculés
+    // ici (le calcul de proximité/démonstration reste dans ContagionService).
+    const contagionSignals = await this.contagion.listOpenForDeal(organizationId, dealId);
+
     // ── Score additif unique (A.2, spec "Le Traçotin" v2) ────────────────
     const { score: composite, triggered } = computeRiskScore({
       deadlineAlert,
@@ -374,6 +379,7 @@ export class RiskEngineService implements OnApplicationBootstrap {
       bankFinancingEnabled,
       bankLoanShare,
       guaranteeCoverageRatio,
+      contagionSignals,
     });
 
     // ── Hard overrides + override analyste + historique/vélocité ────────

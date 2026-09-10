@@ -74,6 +74,8 @@ export interface RiskScoreParams {
   bankLoanShare: number | null;
   /** Somme des garanties actives de rang 1 / CRD, 0+. */
   guaranteeCoverageRatio: number | null;
+  /** Signaux de contagion ouverts (Market Relationship & Contagion Intelligence V2, §10-11) — jamais fondu avec RECOUVREMENT/PORTEUR, qui couvrent le porteur du dossier lui-même, pas son écosystème. */
+  contagionSignals: { proximity: 'DIRECT' | 'CONTROLE_GROUPE' | 'OPERATEUR' | 'HISTORIQUE'; contagionDemonstrated: boolean }[];
 }
 
 const REPORTING_STALE_DAYS = 60; // fixe en Phase 1 — cadence configurable par dossier en Phase 4
@@ -121,6 +123,7 @@ export const RISK_INDICATOR_DEFINITIONS: RiskIndicatorDefinition[] = [
   { key: 'CHANTIER_SIGNALE_ARRET', label: 'Chantier signalé à l’arrêt', maxPoints: 30, rationale: "Signal manuel de l'analyste — aucune donnée existante ne permet de détecter un chantier à l'arrêt de façon fiable." },
   { key: 'NEWSLETTER', label: 'Communication investisseurs', maxPoints: 8, rationale: 'Signal indirect et volontairement à faible poids — ce n’est pas un indicateur de risque opérationnel direct.' },
   { key: 'RISQUE_ENVIRONNEMENTAL', label: 'Risques environnementaux', maxPoints: 6, rationale: 'Structurel et rarement le facteur déclencheur à l’échéance du financement — poids faible et indicatif.' },
+  { key: 'CONTAGION', label: 'Contagion via le groupe économique', maxPoints: 25, rationale: "Un événement juridique/financier sur une entité liée (groupe économique) dégrade le risque opérateur même sans lien direct démontré avec ce dossier — poids faible (8 pts) tant que la contagion n'est pas démontrée, fort (25 pts) si elle l'est (garantie croisée ou lien direct)." },
 ];
 
 export function computeRiskScore(params: RiskScoreParams): RiskScoreResult {
@@ -152,6 +155,7 @@ export function computeRiskScore(params: RiskScoreParams): RiskScoreResult {
   pushChantierArret(triggered, params.chantierSignaleArret);
   pushNewsletter(triggered, params.newsletterStatus);
   pushEnvironnement(triggered, params.environmentHazardCount);
+  pushContagion(triggered, params.contagionSignals);
 
   const rawTotal = triggered.reduce((sum, t) => sum + t.points, 0);
   return { score: Math.max(0, Math.min(100, rawTotal)), triggered };
@@ -376,4 +380,25 @@ function pushEnvironnement(out: TriggeredIndicator[], hazardCount: number | null
   if (hazardCount === null) return;
   if (hazardCount >= 2) out.push({ key: 'RISQUE_ENVIRONNEMENTAL', label: 'Risques environnementaux cumulés', points: 6, explanation: 'Plusieurs risques environnementaux identifiés (inondation, sismique).' });
   else if (hazardCount === 1) out.push({ key: 'RISQUE_ENVIRONNEMENTAL', label: 'Risque environnemental identifié', points: 3, explanation: 'Un risque environnemental identifié.' });
+}
+
+/** Un seul indicateur agrégé — un dossier avec plusieurs signaux ouverts (rare) est déjà capté par le pire des deux niveaux, pas une somme qui pourrait dominer artificiellement le score sur un simple nombre de liens. */
+function pushContagion(out: TriggeredIndicator[], signals: RiskScoreParams['contagionSignals']) {
+  if (signals.length === 0) return;
+  const demonstrated = signals.filter((s) => s.contagionDemonstrated);
+  if (demonstrated.length > 0) {
+    out.push({
+      key: 'CONTAGION_DEMONTREE',
+      label: 'Contagion démontrée depuis une entité liée',
+      points: 25,
+      explanation: `${demonstrated.length} signal(aux) de contagion démontré(s) (lien direct ou garantie croisée) depuis une entité du groupe économique.`,
+    });
+    return;
+  }
+  out.push({
+    key: 'CONTAGION_GROUPE',
+    label: 'Signal de contagion non démontré (groupe économique)',
+    points: 8,
+    explanation: `${signals.length} événement(s) sur une entité du groupe économique, sans garantie croisée ni lien direct démontré à ce jour.`,
+  });
 }

@@ -22,6 +22,7 @@ import { useCreateCostLineItem } from './hooks/use-cost-line-items';
 import { useDealTasks } from '@/features/tasks/use-tasks';
 import { TaskListCard } from '@/features/cockpit/components/task-list-card';
 import { RiskAtlasCard } from './components/risk-atlas-card';
+import { ContagionSignalsCard } from './components/contagion-signals-card';
 import { ProjectCommandHeader } from './components/project-command-header';
 import { DealStageTimeline } from './components/deal-stage-timeline';
 import { LoanLifecycleTimeline } from './components/loan-lifecycle-timeline';
@@ -353,8 +354,9 @@ export function DossierPage() {
           <TabsTrigger value="assistant">Assistant IA</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="risk">
+        <TabsContent value="risk" className="flex flex-col gap-4">
           <RiskAtlasCard dealId={deal.id} />
+          <ContagionSignalsCard dealId={deal.id} />
         </TabsContent>
         <TabsContent value="notes">
           <NotesPanel dealId={deal.id} notes={deal.notes} />

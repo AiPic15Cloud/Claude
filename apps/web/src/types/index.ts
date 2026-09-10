@@ -1160,6 +1160,67 @@ export interface EntitySummary {
   distressedLinked: { id: string; name: string; reason: string }[];
 }
 
+/** Market Relationship & Contagion Intelligence V2, §9 — journal d'événements juridiques par entité. */
+export type LegalEventType =
+  | 'REDRESSEMENT_JUDICIAIRE'
+  | 'LIQUIDATION_JUDICIAIRE'
+  | 'SAUVEGARDE'
+  | 'DISSOLUTION'
+  | 'RADIATION'
+  | 'CHANGEMENT_DIRIGEANT'
+  | 'CHANGEMENT_CONTROLE'
+  | 'AUTRE';
+
+export const LEGAL_EVENT_TYPE_LABELS: Record<LegalEventType, string> = {
+  REDRESSEMENT_JUDICIAIRE: 'Redressement judiciaire',
+  LIQUIDATION_JUDICIAIRE: 'Liquidation judiciaire',
+  SAUVEGARDE: 'Procédure de sauvegarde',
+  DISSOLUTION: 'Dissolution',
+  RADIATION: 'Radiation',
+  CHANGEMENT_DIRIGEANT: 'Changement de dirigeant',
+  CHANGEMENT_CONTROLE: 'Changement de contrôle',
+  AUTRE: 'Autre événement juridique',
+};
+
+export interface LegalEvent {
+  id: string;
+  entityId: string;
+  type: LegalEventType;
+  source: string;
+  reference?: string | null;
+  note?: string | null;
+  occurredAt?: string | null;
+  detectedAt: string;
+  createdAt: string;
+}
+
+/** Market Relationship & Contagion Intelligence V2, §10 — classe de lien entre l'entité affectée et le dossier analysé. */
+export type ContagionProximity = 'DIRECT' | 'CONTROLE_GROUPE' | 'OPERATEUR' | 'HISTORIQUE';
+
+export const CONTAGION_PROXIMITY_LABELS: Record<ContagionProximity, string> = {
+  DIRECT: 'Direct (porteur du dossier)',
+  CONTROLE_GROUPE: 'Groupe économique',
+  OPERATEUR: 'Opérateur commun',
+  HISTORIQUE: 'Lien historique',
+};
+
+export type ContagionSignalStatus = 'OPEN' | 'ACKNOWLEDGED' | 'DISMISSED';
+
+export interface ContagionSignal {
+  id: string;
+  dealId: string;
+  sourceEntity: { id: string; name: string };
+  legalEvent: LegalEvent | null;
+  financialEvent: { id: string; type: string } | null;
+  proximity: ContagionProximity;
+  contagionDemonstrated: boolean;
+  additionalExposure?: string | null;
+  explanation: string;
+  status: ContagionSignalStatus;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
 export type CompetitorProjectStatus = 'A_VENIR' | 'EN_COLLECTE' | 'CLOTURE';
 
 export const COMPETITOR_PROJECT_STATUS_LABELS: Record<CompetitorProjectStatus, string> = {
