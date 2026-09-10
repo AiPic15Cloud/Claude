@@ -13,6 +13,20 @@ const GRAPH_ENTITY_TYPE_TO_ENTITY_TYPE: Record<GraphEntityType, EntityType> = {
   PLATEFORME: 'PLATEFORME',
 };
 
+/// Sens inverse — PERSON et OPERATION n'ont volontairement aucun équivalent
+/// v1 (une personne physique ou le miroir d'un Deal ne peuvent pas être une
+/// contrepartie DealEntityLink) : createEntityGraphMirror devient un no-op
+/// pour ces deux types plutôt que de forcer un mapping qui n'a pas de sens.
+const ENTITY_TYPE_TO_GRAPH_ENTITY_TYPE: Partial<Record<EntityType, GraphEntityType>> = {
+  PROMOTEUR: 'PROMOTEUR',
+  BANQUE: 'BANQUE',
+  NOTAIRE: 'NOTAIRE',
+  ARCHITECTE: 'ARCHITECTE',
+  COLLECTIVITE: 'COLLECTIVITE',
+  INVESTISSEUR: 'INVESTISSEUR',
+  PLATEFORME: 'PLATEFORME',
+};
+
 /**
  * Miroirs Entity (Knowledge Graph v2) — deux familles distinctes, même
  * mécanisme :
@@ -77,5 +91,20 @@ export class EntityMirrorService {
 
   async deleteGraphEntityMirror(id: string): Promise<void> {
     await this.prisma.entity.deleteMany({ where: { id } });
+  }
+
+  /**
+   * Sens inverse de createGraphEntityMirror — pour une Entity créée
+   * directement côté v2 (Entity Resolution Engine, Market Relationship &
+   * Contagion Intelligence V2 §7.1) qui doit rester reliable à un Deal via
+   * DealEntityLink, lequel référence toujours GraphEntity (v1), jamais
+   * Entity directement. No-op pour PERSON/OPERATION (voir
+   * ENTITY_TYPE_TO_GRAPH_ENTITY_TYPE) — ces entités ne peuvent
+   * structurellement pas porter un rôle DealEntityRole.
+   */
+  async createEntityGraphMirror(organizationId: string, entity: { id: string; type: EntityType; name: string }): Promise<void> {
+    const graphType = ENTITY_TYPE_TO_GRAPH_ENTITY_TYPE[entity.type];
+    if (!graphType) return;
+    await this.prisma.graphEntity.create({ data: { id: entity.id, organizationId, type: graphType, name: entity.name } });
   }
 }

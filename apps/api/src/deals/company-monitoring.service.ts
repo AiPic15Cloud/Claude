@@ -4,6 +4,8 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import { PlaybooksService } from '../playbooks/playbooks.service';
+import { fetchSirenAdminStatus, fetchSirenProcedureCollective } from '../common/siren/siren-resolver.util';
+import { LegalEventsService } from '../entity-graph/legal-events.service';
 
 type MonitoringStatus = 'actif' | 'procedure_collective' | 'fermee';
 
@@ -15,16 +17,6 @@ interface MonitoredDeal {
   porteurSiren: string | null;
   porteurSociete: string | null;
   porteurMonitoringStatus: string | null;
-}
-
-interface SearchResult {
-  siren?: string;
-  nom_complet?: string;
-  etat_administratif?: string;
-}
-
-interface SearchResponse {
-  results?: SearchResult[];
 }
 
 /**
@@ -61,6 +53,7 @@ export class CompanyMonitoringService {
     private readonly alerts: AlertsService,
     private readonly riskEngine: RiskEngineService,
     private readonly playbooks: PlaybooksService,
+    private readonly legalEvents: LegalEventsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -128,6 +121,9 @@ export class CompanyMonitoringService {
           await this.playbooks
             .triggerProcedureCollective(deal.organizationId, deal.id, 'surveillance_bodacc_auto')
             .catch((err) => this.logger.error(`Échec du déclenchement du playbook procédure collective pour le deal ${deal.id}`, err instanceof Error ? err.stack : err));
+          await this.recordLegalEventAndEvaluateContagion(deal).catch((err) =>
+            this.logger.error(`Échec de l'enregistrement de l'événement juridique pour le deal ${deal.id}`, err instanceof Error ? err.stack : err),
+          );
         }
       } else if (deal.porteurMonitoringStatus === 'procedure_collective' || deal.porteurMonitoringStatus === 'fermee') {
         // Retour à un statut sain après une alerte précédente — vaut la peine d'être noté, sans réveiller le téléphone.
@@ -152,62 +148,32 @@ export class CompanyMonitoringService {
   }
 
   private async fetchStatus(siren: string): Promise<MonitoringStatus | null> {
-    const [adminStatus, hasProcedureCollective] = await Promise.all([
-      this.fetchAdminStatus(siren),
-      this.fetchHasProcedureCollective(siren),
+    const [adminStatus, procedureCollective] = await Promise.all([
+      fetchSirenAdminStatus(siren),
+      fetchSirenProcedureCollective(siren),
     ]);
 
-    if (hasProcedureCollective) return 'procedure_collective';
+    if (procedureCollective.hasProcedureCollective) return 'procedure_collective';
     return adminStatus;
   }
 
-  private async fetchAdminStatus(siren: string): Promise<'actif' | 'fermee' | null> {
-    try {
-      const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(siren)}&per_page=1`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
-      if (!res.ok) {
-        const preview = await res.text().catch(() => '');
-        this.logger.warn(`Recherche d'entreprises responded ${res.status} for SIREN ${siren}: ${preview.slice(0, 300)}`);
-        return null;
-      }
-      const json = (await res.json()) as SearchResponse;
-      const result = json.results?.find((r) => r.siren === siren) ?? json.results?.[0];
-      if (!result) {
-        this.logger.warn(`Recherche d'entreprises returned no result for SIREN ${siren}: ${JSON.stringify(json).slice(0, 300)}`);
-        return null;
-      }
+  /**
+   * Journalise l'événement juridique (spec Market Relationship & Contagion
+   * Intelligence V2, §9) et déclenche l'évaluation de contagion sur le
+   * groupe économique du porteur — jusqu'ici la détection BODACC ne
+   * produisait qu'un Alert, sans trace structurée ni propagation au-delà du
+   * dossier concerné.
+   */
+  private async recordLegalEventAndEvaluateContagion(deal: MonitoredDeal): Promise<void> {
+    if (!deal.porteurSiren) return;
+    const link = await this.prisma.dealEntityLink.findFirst({ where: { dealId: deal.id, role: 'PROMOTEUR' }, select: { entityId: true } });
+    if (!link) return;
 
-      if (result.etat_administratif !== undefined && result.etat_administratif !== 'A') return 'fermee';
-      if (result.etat_administratif === undefined) {
-        this.logger.warn(`Recherche d'entreprises result for SIREN ${siren} has unexpected shape: ${JSON.stringify(result).slice(0, 300)}`);
-        return null;
-      }
-      return 'actif';
-    } catch (error) {
-      this.logger.warn(`Recherche d'entreprises fetch failed for SIREN ${siren}: ${(error as Error).message}`);
-      return null;
-    }
-  }
-
-  /** BODACC — voir le commentaire de classe. familleavis === "collective" est confirmé par log réel. */
-  private async fetchHasProcedureCollective(siren: string): Promise<boolean> {
-    try {
-      const url = `https://bodacc-datadila.opendatasoft.com/api/records/1.0/search/?dataset=annonces-commerciales&q=registre:${encodeURIComponent(siren)}&rows=20`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
-      if (!res.ok) {
-        const preview = await res.text().catch(() => '');
-        this.logger.warn(`BODACC responded ${res.status} for SIREN ${siren}: ${preview.slice(0, 300)}`);
-        return false;
-      }
-      const json = (await res.json()) as { records?: { fields?: { familleavis?: string } }[] };
-      if (!Array.isArray(json.records)) {
-        this.logger.warn(`BODACC unexpected shape for SIREN ${siren}: ${JSON.stringify(json).slice(0, 300)}`);
-        return false;
-      }
-      return json.records.some((r) => r.fields?.familleavis === 'collective');
-    } catch (error) {
-      this.logger.warn(`BODACC fetch failed for SIREN ${siren}: ${(error as Error).message}`);
-      return false;
-    }
+    const { labels } = await fetchSirenProcedureCollective(deal.porteurSiren);
+    await this.legalEvents.recordFromBodacc(deal.organizationId, link.entityId, {
+      siren: deal.porteurSiren,
+      labels,
+      reason: `Surveillance quotidienne — ${deal.reference}`,
+    });
   }
 }
