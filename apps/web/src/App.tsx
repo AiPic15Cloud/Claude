@@ -18,6 +18,8 @@ import { MarchePage } from '@/features/intelligence-marche/marche-page';
 import { MarketObservationsPage } from '@/features/market-observations/market-observations-page';
 import { AgentsPage } from '@/features/agents/agents-page';
 import { ProfilePage } from '@/features/auth/profile-page';
+import { FractionalPortfolioPage } from '@/features/fractional/fractional-portfolio-page';
+import { FractionalProjectPage } from '@/features/fractional/fractional-project-page';
 
 export default function App() {
   return (
@@ -31,6 +33,8 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/cockpit" element={<CockpitPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/fractional" element={<FractionalPortfolioPage />} />
+          <Route path="/fractional/:id" element={<FractionalProjectPage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
           <Route path="/objectifs" element={<ObjectifsPage />} />
           <Route path="/remboursements" element={<RemboursementsPage />} />

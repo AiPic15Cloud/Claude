@@ -251,6 +251,10 @@ model Organization {
   legalEvents        LegalEvent[]
   financialEvents    FinancialEvent[]
   contagionSignals   ContagionSignal[]
+  fractionalProjects FractionalProject[]
+  platformProfiles   PlatformFractionalProfile[]
+  rentIndexSeries    RentIndexSeries[]
+  marketComparables  MarketComparablePool[]
 
   @@map("organizations")
 }
@@ -309,6 +313,7 @@ model User {
   dealOverridesCreated       DealOverride[]         @relation("DealOverrideCreatedBy")
   dealOverridesCleared       DealOverride[]         @relation("DealOverrideClearedBy")
   relationshipEvidence       Evidence[]
+  fractionalProjectsCreated  FractionalProject[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2059,4 +2064,387 @@ model ProjectObservationEvent {
 
   @@index([sourceKey])
   @@map("project_observation_events")
+}
+
+// ── Fractionné — Underwriting institutionnel (spec V3.0 + patch V3.2) ──────
+//
+// Périmètre P0 (Fondation + Underwriting + Fractionné, roadmap spec §28) :
+// modèle de données du dossier, sources/uses, baux + Lease Security Engine,
+// CAPEX, valorisation, profil plateforme versionné, structure véhicule,
+// données de marché partagées (RentIndexSeries/MarketComparablePool, patch
+// V3.2 §2). Explicitement DIFFÉRÉ à un lot ultérieur (P1/P2 du même
+// roadmap) : Tenant Covenant Intelligence, DD Technique/ESG détaillée,
+// Stress Testing Engine, IC Engine complet (hard stops/conditions/workflow
+// d'approbation), Investment Memory (Actuals/Outcome/Performance
+// Attribution/Comparable/Learning Engine). La provenance par donnée (spec
+// §3, un objet metadata complet par champ) est simplifiée en P0 à des
+// champs source/asOfDate/confidence au niveau de l'objet plutôt que par
+// valeur individuelle — des centaines de champs avec provenance dédiée
+// chacun n'est pas tractable pour un premier lot fonctionnel.
+
+enum FractionalProjectStatus {
+  ANALYSE
+  STRUCTURATION
+  VALIDATION_PLATEFORME
+  COLLECTE
+  ACQUISITION
+  EXPLOITATION
+  SORTIE
+  REFUSE
+  ABANDONNE
+}
+
+enum FractionalAssumptionScenario {
+  BASE
+  BEAR
+  SEVERE
+  CUSTOM
+}
+
+enum FractionalIndexationType {
+  ILC
+  ILAT
+  IRL
+  ICC
+  AUTRE
+}
+
+enum FractionalLeaseRenewalStatus {
+  SIGNE
+  EN_COURS
+  TACITE
+  DEPASSE
+  CONTESTE
+}
+
+enum FractionalLeaseSecurityStatus {
+  SECURED
+  WATCH
+  SECURE_BEFORE_ACQUISITION
+  EXCLUDE_FROM_SECURED_YIELD
+}
+
+enum FractionalCapexResponsable {
+  PROPRIETAIRE
+  LOCATAIRE
+}
+
+enum FractionalValuationMethod {
+  CAPITALISATION
+  DCF
+  COMPARABLE_SALES
+  COST_REPLACEMENT
+  EXTERNAL_APPRAISAL
+}
+
+enum FractionalVehicleInstrumentType {
+  OBLIGATION
+  ACTION
+  AUTRE
+}
+
+enum RentIndexType {
+  ILC
+  ILAT
+  IRL
+  ICC
+}
+
+enum MarketComparableType {
+  LOYER
+  VENTE
+}
+
+/// Fractionné — entité de premier niveau, pas une variante de Deal (patch
+/// V3.2 §1) : logique économique différente (participation/exploitation,
+/// sortie en plus-value, waterfall investisseur) d'un dossier LPB (créance).
+/// Visibilité scopée à son créateur (createdById) — jamais remontée dans le
+/// Cockpit organisationnel ni un reporting visible par d'autres utilisateurs
+/// de l'organisation (hypothèse posée par défaut par le patch V3.2 §1,
+/// gouvernance à reconfirmer si elle doit être différente).
+model FractionalProject {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  name      String
+  reference String                  @unique
+  status    FractionalProjectStatus @default(ANALYSE)
+
+  /// Regroupe les scénarios de périmètre d'un même dossier physique (ex.
+  /// Meyzieu "parc seul" / "terrain" / "ensemble", spec §22) — chaque
+  /// périmètre est un FractionalProject séparé partageant ce groupKey, pour
+  /// ne jamais mélanger loyers/prix/rendement entre périmètres (règle
+  /// explicite du DoD §27).
+  groupKey       String?
+  perimeterLabel String?
+
+  address  String?
+  city     String?
+  postcode String?
+  country  String  @default("FR")
+
+  notes String?
+
+  sourcesUses      FractionalSourcesUses?
+  assumptionSets   FractionalAssumptionSet[]
+  leases           FractionalLease[]
+  capexItems       FractionalCapexItem[]
+  valuations       FractionalValuation[]
+  vehicleStructure FractionalVehicleStructure?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([createdById])
+  @@index([groupKey])
+  @@map("fractional_projects")
+}
+
+/// Hypothèses Base/Bear/Severe/Custom versionnées (spec §0 "AssumptionSet",
+/// P0-Fondation). values porte les paramètres de scénario libres (taux de
+/// vacance, croissance loyers, exit yield...) en JSON plutôt qu'une colonne
+/// par paramètre : la liste varie par scénario/évolution du moteur sans
+/// migration à chaque ajout.
+model FractionalAssumptionSet {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  scenario FractionalAssumptionScenario
+  version  Int                           @default(1)
+  label    String?
+  values   Json
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, scenario])
+  @@map("fractional_assumption_sets")
+}
+
+/// Sources & Uses de l'acquisition (spec §5) — un seul jeu de valeurs par
+/// dossier (le scénario Base) ; les variantes Bear/Severe passent par
+/// FractionalAssumptionSet plutôt que de dupliquer ces colonnes.
+model FractionalSourcesUses {
+  id        String            @id @default(cuid())
+  projectId String            @unique
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  prixNetVendeur        Decimal @db.Decimal(14, 2)
+  droitsNotaire         Decimal @default(0) @db.Decimal(14, 2)
+  honoraires            Decimal @default(0) @db.Decimal(14, 2)
+  travauxInitiaux       Decimal @default(0) @db.Decimal(14, 2)
+  capexDiffereReserve   Decimal @default(0) @db.Decimal(14, 2)
+  fraisPlateformeEntree Decimal @default(0) @db.Decimal(14, 2)
+  reserveVacance        Decimal @default(0) @db.Decimal(14, 2)
+  reserveTravaux        Decimal @default(0) @db.Decimal(14, 2)
+  reserveTresorerie     Decimal @default(0) @db.Decimal(14, 2)
+
+  collecteMontant Decimal @default(0) @db.Decimal(14, 2)
+  sponsorEquity   Decimal @default(0) @db.Decimal(14, 2)
+  detteEventuelle Decimal @default(0) @db.Decimal(14, 2)
+  autresSources   Decimal @default(0) @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("fractional_sources_uses")
+}
+
+/// Bail normalisé (spec §7/§24) — porte les données contractuelles brutes.
+/// Le statut de sécurisation (SECURED/WATCH/...) n'est volontairement pas
+/// stocké ici : lease-security.util.ts le recalcule à la lecture à partir de
+/// ces champs + de la matérialité du dossier, pour ne jamais laisser un
+/// statut en cache devenir incohérent avec les données sources.
+model FractionalLease {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  tenantName String
+  lotLabel   String?
+  surfaceM2  Decimal? @db.Decimal(10, 2)
+
+  dateEffet  DateTime
+  dateTerme  DateTime
+  breakDates Json?
+
+  loyerFacialAnnuel Decimal  @db.Decimal(14, 2)
+  ervAnnuel         Decimal? @db.Decimal(14, 2)
+
+  indexation              FractionalIndexationType @default(AUTRE)
+  indexationCapPct        Decimal?                 @db.Decimal(5, 2)
+  indexationFloorPct      Decimal?                 @db.Decimal(5, 2)
+  prochaineDateIndexation DateTime?
+
+  franchiseMois       Decimal @default(0) @db.Decimal(5, 2)
+  chargesRecuperables Boolean @default(true)
+
+  depotGarantieMontant Decimal? @db.Decimal(14, 2)
+
+  statutRenouvellement            FractionalLeaseRenewalStatus @default(SIGNE)
+  restrictionsCessionSousLocation String?
+  repartitionTravaux               String?
+  impayesNotes                     String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("fractional_leases")
+}
+
+model FractionalCapexItem {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  annee       Int
+  montant     Decimal                    @db.Decimal(14, 2)
+  nature      String
+  responsable FractionalCapexResponsable @default(PROPRIETAIRE)
+  notes       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@map("fractional_capex_items")
+}
+
+model FractionalValuation {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  method     FractionalValuationMethod
+  value      Decimal                   @db.Decimal(14, 2)
+  capRatePct Decimal?                  @db.Decimal(5, 2)
+  asOfDate   DateTime
+  source     String?
+  notes      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@map("fractional_valuations")
+}
+
+/// Règles commerciales d'une plateforme de fractionnement (Tantiem,
+/// LPB-like…), versionnées et datées — jamais codées en dur dans le moteur
+/// (spec §16.1 / critère d'acceptation §26.29). Portée organisation, pas
+/// projet : plusieurs FractionalProject référencent le même profil actif à
+/// une date donnée via leur FractionalVehicleStructure.
+model PlatformFractionalProfile {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  platformName  String
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  minNetInvestorYieldPct Decimal @db.Decimal(5, 2)
+  targetHoldPeriodMonths Int?
+  eligibleLocations      String?
+  strategyConstraints    String?
+
+  acquisitionFeePct           Decimal @default(0) @db.Decimal(5, 2)
+  annualManagementFeePct      Decimal @default(0) @db.Decimal(5, 2)
+  incomeShareInvestorPct      Decimal @db.Decimal(5, 2)
+  capitalGainShareInvestorPct Decimal @db.Decimal(5, 2)
+
+  appraisalRule String?
+  earlyExitRule String?
+
+  source     String?
+  confidence String?
+
+  vehicleStructures FractionalVehicleStructure[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("platform_fractional_profiles")
+}
+
+model FractionalVehicleStructure {
+  id        String            @id @default(cuid())
+  projectId String            @unique
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  platformProfileId String?
+  platformProfile   PlatformFractionalProfile? @relation(fields: [platformProfileId], references: [id], onDelete: SetNull)
+
+  spvName         String?
+  instrumentType  FractionalVehicleInstrumentType @default(OBLIGATION)
+  nominal         Decimal?                        @db.Decimal(14, 2)
+  maturity        DateTime?
+  amortization    String?
+  governanceNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([platformProfileId])
+  @@map("fractional_vehicle_structures")
+}
+
+/// Séries d'indices de référence (ILC/ILAT/IRL/ICC) — table partagée au
+/// niveau organisation, jamais dupliquée par dossier (patch V3.2 §2 : comble
+/// l'angle mort "un projet ne doit jamais ressaisir l'historique des
+/// indices"). Alimentée par import trimestriel (source INSEE).
+model RentIndexSeries {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  indexType RentIndexType
+  period    String // ex. "2026-T2"
+  value     Decimal        @db.Decimal(10, 4)
+  cagr5y    Decimal?       @db.Decimal(6, 3)
+  cagr10y   Decimal?       @db.Decimal(6, 3)
+  asOfDate  DateTime
+  source    String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, indexType, period])
+  @@index([organizationId, indexType])
+  @@map("rent_index_series")
+}
+
+/// Pool de comparables marché scopé par zone géographique, jamais par
+/// dossier (patch V3.2 §2) — alimenté par le scraper marché existant
+/// (annonces) et par import DVF (ventes notariées) ; addedByProjectId trace
+/// un comparable ponctuel ajouté manuellement depuis un dossier, qui rejoint
+/// néanmoins le pool géographique plutôt que de rester une donnée isolée.
+model MarketComparablePool {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  commune String
+  secteur String?
+  type    MarketComparableType
+
+  valeurM2         Decimal? @db.Decimal(10, 2)
+  yieldPct         Decimal? @db.Decimal(5, 2)
+  surfaceM2        Decimal? @db.Decimal(10, 2)
+  asOfDate         DateTime
+  source           String
+  addedByProjectId String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, commune])
+  @@map("market_comparable_pool")
 }

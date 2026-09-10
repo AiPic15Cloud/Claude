@@ -1589,3 +1589,260 @@ export interface FinancialExtraction {
   sourceDocument: string;
   documentId: string;
 }
+
+// ── Fractionné — Underwriting institutionnel (spec V3.0 + patch V3.2) ──────
+// Onglet Atlas de premier niveau, distinct du Pipeline/Portefeuille LPB
+// (patch V3.2 §1) — voir apps/api/src/fractional/ pour le détail du
+// périmètre P0 livré et des lots différés (P1/P2).
+
+export type FractionalProjectStatus =
+  | 'ANALYSE'
+  | 'STRUCTURATION'
+  | 'VALIDATION_PLATEFORME'
+  | 'COLLECTE'
+  | 'ACQUISITION'
+  | 'EXPLOITATION'
+  | 'SORTIE'
+  | 'REFUSE'
+  | 'ABANDONNE';
+
+export const FRACTIONAL_PROJECT_STATUS_LABELS: Record<FractionalProjectStatus, string> = {
+  ANALYSE: 'Analyse',
+  STRUCTURATION: 'Structuration',
+  VALIDATION_PLATEFORME: 'Validation plateforme',
+  COLLECTE: 'Collecte',
+  ACQUISITION: 'Acquisition',
+  EXPLOITATION: 'Exploitation',
+  SORTIE: 'Sortie',
+  REFUSE: 'Refusé',
+  ABANDONNE: 'Abandonné',
+};
+
+export type FractionalIndexationType = 'ILC' | 'ILAT' | 'IRL' | 'ICC' | 'AUTRE';
+export type FractionalLeaseRenewalStatus = 'SIGNE' | 'EN_COURS' | 'TACITE' | 'DEPASSE' | 'CONTESTE';
+export const FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS: Record<FractionalLeaseRenewalStatus, string> = {
+  SIGNE: 'Signé',
+  EN_COURS: 'En cours',
+  TACITE: 'Tacite',
+  DEPASSE: 'Dépassé',
+  CONTESTE: 'Contesté',
+};
+
+export type FractionalCapexResponsable = 'PROPRIETAIRE' | 'LOCATAIRE';
+export type FractionalValuationMethod = 'CAPITALISATION' | 'DCF' | 'COMPARABLE_SALES' | 'COST_REPLACEMENT' | 'EXTERNAL_APPRAISAL';
+export const FRACTIONAL_VALUATION_METHOD_LABELS: Record<FractionalValuationMethod, string> = {
+  CAPITALISATION: 'Capitalisation',
+  DCF: 'DCF',
+  COMPARABLE_SALES: 'Comparables (ventes)',
+  COST_REPLACEMENT: 'Coût de remplacement',
+  EXTERNAL_APPRAISAL: 'Expertise indépendante',
+};
+export type FractionalVehicleInstrumentType = 'OBLIGATION' | 'ACTION' | 'AUTRE';
+export type FractionalAssumptionScenario = 'BASE' | 'BEAR' | 'SEVERE' | 'CUSTOM';
+
+export interface FractionalProject {
+  id: string;
+  organizationId: string;
+  createdById: string;
+  name: string;
+  reference: string;
+  status: FractionalProjectStatus;
+  groupKey?: string | null;
+  perimeterLabel?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  country: string;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { leases: number; capexItems: number; valuations: number };
+}
+
+export interface FractionalSourcesUses {
+  id: string;
+  projectId: string;
+  prixNetVendeur: number;
+  droitsNotaire: number;
+  honoraires: number;
+  travauxInitiaux: number;
+  capexDiffereReserve: number;
+  fraisPlateformeEntree: number;
+  reserveVacance: number;
+  reserveTravaux: number;
+  reserveTresorerie: number;
+  collecteMontant: number;
+  sponsorEquity: number;
+  detteEventuelle: number;
+  autresSources: number;
+}
+
+export interface FractionalLease {
+  id: string;
+  projectId: string;
+  tenantName: string;
+  lotLabel?: string | null;
+  surfaceM2?: number | null;
+  dateEffet: string;
+  dateTerme: string;
+  breakDates?: string[] | null;
+  loyerFacialAnnuel: number;
+  ervAnnuel?: number | null;
+  indexation: FractionalIndexationType;
+  franchiseMois: number;
+  chargesRecuperables: boolean;
+  depotGarantieMontant?: number | null;
+  statutRenouvellement: FractionalLeaseRenewalStatus;
+  restrictionsCessionSousLocation?: string | null;
+  repartitionTravaux?: string | null;
+  impayesNotes?: string | null;
+  notes?: string | null;
+}
+
+export interface FractionalCapexItem {
+  id: string;
+  projectId: string;
+  annee: number;
+  montant: number;
+  nature: string;
+  responsable: FractionalCapexResponsable;
+  notes?: string | null;
+}
+
+export interface FractionalValuation {
+  id: string;
+  projectId: string;
+  method: FractionalValuationMethod;
+  value: number;
+  capRatePct?: number | null;
+  asOfDate: string;
+  source?: string | null;
+  notes?: string | null;
+}
+
+export interface PlatformFractionalProfile {
+  id: string;
+  organizationId: string;
+  platformName: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  minNetInvestorYieldPct: number;
+  targetHoldPeriodMonths?: number | null;
+  eligibleLocations?: string | null;
+  strategyConstraints?: string | null;
+  acquisitionFeePct: number;
+  annualManagementFeePct: number;
+  incomeShareInvestorPct: number;
+  capitalGainShareInvestorPct: number;
+  appraisalRule?: string | null;
+  earlyExitRule?: string | null;
+  source?: string | null;
+  confidence?: string | null;
+}
+
+export interface FractionalVehicleStructure {
+  id: string;
+  projectId: string;
+  platformProfileId?: string | null;
+  platformProfile?: PlatformFractionalProfile | null;
+  spvName?: string | null;
+  instrumentType: FractionalVehicleInstrumentType;
+  nominal?: number | null;
+  maturity?: string | null;
+  amortization?: string | null;
+  governanceNotes?: string | null;
+}
+
+export interface FractionalAssumptionSet {
+  id: string;
+  projectId: string;
+  scenario: FractionalAssumptionScenario;
+  version: number;
+  label?: string | null;
+  values: Record<string, unknown>;
+}
+
+export interface FractionalProjectDetail extends FractionalProject {
+  sourcesUses?: FractionalSourcesUses | null;
+  leases: FractionalLease[];
+  capexItems: FractionalCapexItem[];
+  valuations: FractionalValuation[];
+  vehicleStructure?: FractionalVehicleStructure | null;
+  assumptionSets: FractionalAssumptionSet[];
+}
+
+export type LeaseSecurityStatus = 'SECURED' | 'WATCH' | 'SECURE_BEFORE_ACQUISITION' | 'EXCLUDE_FROM_SECURED_YIELD';
+export const LEASE_SECURITY_STATUS_LABELS: Record<LeaseSecurityStatus, string> = {
+  SECURED: 'Sécurisé',
+  WATCH: 'À surveiller',
+  SECURE_BEFORE_ACQUISITION: 'À sécuriser avant acquisition',
+  EXCLUDE_FROM_SECURED_YIELD: 'Exclu du rendement sécurisé',
+};
+
+export interface LeaseAssessment {
+  leaseId: string;
+  tenantName: string;
+  weightPct: number;
+  monthsToNextBreakOrTerm: number;
+  securityStatus: LeaseSecurityStatus;
+  reasons: string[];
+}
+
+export interface FractionalOperatingModelYear {
+  year: number;
+  grossPotentialRent: number;
+  vacancyCreditLoss: number;
+  effectiveGrossIncome: number;
+  operatingExpenses: number;
+  noi: number;
+  capex: number;
+  platformVehicleCosts: number;
+  distributableCashFlow: number;
+  investorDistribution: number;
+}
+
+export interface FractionalReturnsResult {
+  sourcesUsesResult: { coutActeEnMain: number; coutTotal: number; sourcesTotal: number; deltaSourcesUses: number; balanced: boolean };
+  leaseSecurity: {
+    assessments: LeaseAssessment[];
+    walbYears: number | null;
+    waltYears: number | null;
+    totalLoyerFacial: number;
+    securedRentPct: number;
+    rentAtRiskPct: number;
+    expiryWallByYear: Record<number, number>;
+  };
+  yearlyModel: FractionalOperatingModelYear[];
+  terminalProceeds: { netSaleProceeds: number; capitalGain: number; investorTerminalProceeds: number };
+  grossYieldPct: number;
+  grossYieldAiPct: number;
+  netPropertyYieldPct: number;
+  investorNetYieldPct: number;
+  securedNetYieldPct: number;
+  yieldOnCostPct: number;
+  irrPct: number | null;
+  equityMultiple: number | null;
+}
+
+export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE';
+export const ELIGIBILITY_VERDICT_LABELS: Record<EligibilityVerdict, string> = {
+  ELIGIBLE: 'Éligible',
+  MARGINAL: 'Marginal',
+  INELIGIBLE: 'Non éligible',
+};
+
+export interface ReverseSolverResult {
+  value: number | null;
+  achievedYieldPct: number | null;
+  iterations: number;
+}
+
+export interface FractionalSynthese {
+  base: FractionalReturnsResult;
+  stressed: FractionalReturnsResult;
+  stressedIsFallback: boolean;
+  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number; gapPct: number };
+  reverseSolver: { maxAcquisitionPrice: ReverseSolverResult; minSecuredRent: ReverseSolverResult } | null;
+  hurdlePct: number;
+  platformProfile: PlatformFractionalProfile | null;
+}
