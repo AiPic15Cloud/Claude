@@ -8,10 +8,42 @@ import { PrismaService } from '../common/prisma/prisma.service';
 const SALT_ROUNDS = 12;
 const RECOVERY_CODE_COUNT = 8;
 const ISSUER = 'ATLAS';
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class TwoFactorService {
+  // Per-user failed-attempt counter, independent of source IP — the global
+  // per-IP throttle on POST /2fa/verify doesn't stop a distributed attacker
+  // rotating IPs from brute-forcing one account's TOTP/recovery code.
+  // In-memory only (single API replica); resets on deploy/restart.
+  private readonly failedAttempts = new Map<string, { count: number; lockedUntil?: number }>();
+
   constructor(private readonly prisma: PrismaService) {}
+
+  private assertNotLocked(userId: string) {
+    const entry = this.failedAttempts.get(userId);
+    if (entry?.lockedUntil && entry.lockedUntil > Date.now()) {
+      const remainingMin = Math.ceil((entry.lockedUntil - Date.now()) / 60_000);
+      throw new UnauthorizedException(
+        `Trop de tentatives échouées — réessayez dans ${remainingMin} min`,
+      );
+    }
+  }
+
+  private registerFailure(userId: string) {
+    const entry = this.failedAttempts.get(userId) ?? { count: 0 };
+    entry.count += 1;
+    if (entry.count >= MAX_FAILED_ATTEMPTS) {
+      entry.lockedUntil = Date.now() + LOCKOUT_MS;
+      entry.count = 0;
+    }
+    this.failedAttempts.set(userId, entry);
+  }
+
+  private registerSuccess(userId: string) {
+    this.failedAttempts.delete(userId);
+  }
 
   async generateSetup(userId: string, email: string) {
     const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { twoFactorEnabled: true } });
@@ -61,12 +93,17 @@ export class TwoFactorService {
   }
 
   async verifyCode(userId: string, code: string): Promise<boolean> {
+    this.assertNotLocked(userId);
+
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.twoFactorSecret) return false;
 
     if (/^\d{6}$/.test(code)) {
       const result = await verify({ token: code, secret: user.twoFactorSecret }).catch(() => ({ valid: false }));
-      if (result.valid) return true;
+      if (result.valid) {
+        this.registerSuccess(userId);
+        return true;
+      }
     }
 
     for (const hash of user.twoFactorRecoveryCodes) {
@@ -75,9 +112,12 @@ export class TwoFactorService {
           where: { id: userId },
           data: { twoFactorRecoveryCodes: user.twoFactorRecoveryCodes.filter((h) => h !== hash) },
         });
+        this.registerSuccess(userId);
         return true;
       }
     }
+
+    this.registerFailure(userId);
     return false;
   }
 

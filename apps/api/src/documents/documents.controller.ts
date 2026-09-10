@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { DocumentsService } from './documents.service';
+import { DOCUMENT_MIME_ALLOWLIST, mimeAllowlistFilter } from '../common/storage/file-validation.util';
 
 @ApiTags('documents')
 @ApiBearerAuth()
@@ -33,7 +34,12 @@ export class DocumentsController {
 
   @Post()
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 25 * 1024 * 1024 },
+      fileFilter: mimeAllowlistFilter(DOCUMENT_MIME_ALLOWLIST),
+    }),
+  )
   upload(
     @CurrentUser() user: AuthenticatedUser,
     @Param('dealId') dealId: string,

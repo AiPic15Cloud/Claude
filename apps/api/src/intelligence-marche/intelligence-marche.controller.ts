@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { IntelligenceMarcheService } from './intelligence-marche.service';
 import { MarketIndicatorsService } from './indicators.service';
@@ -63,11 +65,15 @@ export class IntelligenceMarcheController {
     return this.service.listSources(user.organizationId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('sources')
   createSource(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateSourceDto) {
     return this.service.createSource(user.organizationId, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch('sources/:id')
   setActive(
     @CurrentUser() user: AuthenticatedUser,
@@ -77,11 +83,15 @@ export class IntelligenceMarcheController {
     return this.service.setSourceActive(user.organizationId, id, active);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('sources/:id/fetch')
   fetch(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.service.enqueueFetch(user.organizationId, id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('sources/collect-all')
   collectAll(@CurrentUser() user: AuthenticatedUser) {
     return this.service.collectAll(user.organizationId);
@@ -92,6 +102,8 @@ export class IntelligenceMarcheController {
     return this.service.listArticles(user.organizationId, query);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('articles')
   createArticle(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateArticleDto) {
     return this.service.createManualArticle(user.organizationId, dto);
