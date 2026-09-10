@@ -6,6 +6,7 @@ import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-use
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
+import { IMAGE_MIME_ALLOWLIST, mimeAllowlistFilter } from '../common/storage/file-validation.util';
 
 @ApiTags('notes')
 @ApiBearerAuth()
@@ -24,7 +25,7 @@ export class NotesController {
   @UseInterceptors(
     FilesInterceptor('images', 6, {
       limits: { fileSize: 10 * 1024 * 1024 },
-      fileFilter: (_req, file, callback) => callback(null, file.mimetype.startsWith('image/')),
+      fileFilter: mimeAllowlistFilter(IMAGE_MIME_ALLOWLIST),
     }),
   )
   create(

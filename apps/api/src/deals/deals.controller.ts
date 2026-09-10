@@ -80,21 +80,29 @@ export class DealsController {
     return this.companyMonitoring.checkOne(user.organizationId, id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateDealDto) {
     return this.dealsService.create(user.organizationId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id')
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateDealDto) {
     return this.dealsService.update(user.organizationId, id, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id/stage')
   changeStage(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ChangeStageDto) {
     return this.dealsService.changeStage(user.organizationId, id, user.id, dto.stage);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id/tags')
   setTags(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: SetTagsDto) {
     return this.dealsService.setTags(user.organizationId, id, user.id, dto.tagIds);
@@ -122,11 +130,15 @@ export class DealsController {
     return this.dealsService.exportDealReport(user.organizationId, id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':id/extend-deadline')
   extendDeadline(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ExtendDeadlineDto) {
     return this.dealsService.extendDeadline(user.organizationId, id, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
