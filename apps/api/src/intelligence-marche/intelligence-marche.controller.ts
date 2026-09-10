@@ -102,6 +102,8 @@ export class IntelligenceMarcheController {
     return this.service.listArticles(user.organizationId, query);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('articles')
   createArticle(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateArticleDto) {
     return this.service.createManualArticle(user.organizationId, dto);

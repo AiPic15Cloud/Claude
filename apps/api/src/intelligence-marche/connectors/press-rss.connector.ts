@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import { ConnectorArticle, NewsConnector } from './connector.interface';
 import { inferCategory, isRealEstateRelevant } from './keyword-taxonomy';
-import { assertPublicHttpUrl } from '../../common/security/ssrf-guard.util';
+import { fetchPublicHttpUrl } from '../../common/security/ssrf-guard.util';
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -30,11 +30,11 @@ export class PressRssConnector implements NewsConnector {
 
     try {
       // sourceUrl is analyst-supplied (NewsSource.url) and fetched server-side —
-      // without this check an internal/private URL (e.g. cloud metadata,
-      // another Railway service) would be reachable via this connector (SSRF).
-      const safeUrl = await assertPublicHttpUrl(sourceUrl);
-
-      const response = await fetch(safeUrl, {
+      // without this, an internal/private URL (e.g. cloud metadata, another
+      // Railway service) would be reachable via this connector (SSRF), either
+      // directly or via a redirect from an initially-valid public URL —
+      // fetchPublicHttpUrl re-checks every hop, not just the first request.
+      const response = await fetchPublicHttpUrl(sourceUrl, {
         headers: {
           Accept: 'application/rss+xml, application/xml, text/xml',
           'User-Agent': 'AtlasRealEstateOS/1.0 (+https://atlas.app; veille immobiliere)',

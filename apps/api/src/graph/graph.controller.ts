@@ -2,6 +2,8 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { GraphEntityType } from '@prisma/client';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { GraphService } from './graph.service';
 import { CreateEntityDto } from './dto/create-entity.dto';
@@ -32,27 +34,37 @@ export class GraphController {
     return this.graphService.getEntity(user.organizationId, id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('entities')
   createEntity(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateEntityDto) {
     return this.graphService.createEntity(user.organizationId, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch('entities/:id')
   updateEntity(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateEntityDto) {
     return this.graphService.updateEntity(user.organizationId, id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('entities/:id')
   removeEntity(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.graphService.removeEntity(user.organizationId, id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('relations')
   createRelation(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateRelationDto) {
     return this.graphService.createRelation(user.organizationId, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('relations/:id')
   removeRelation(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {

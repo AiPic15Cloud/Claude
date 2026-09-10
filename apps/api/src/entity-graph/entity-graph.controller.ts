@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { RelationshipsService } from './relationships.service';
@@ -44,16 +46,22 @@ export class EntityGraphController {
     return this.prisma.relationshipType.findMany({ orderBy: { label: 'asc' } });
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('relationships')
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateRelationshipDto) {
     return this.relationships.create(user.organizationId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('relationships/:id/evidence')
   addEvidence(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: AddEvidenceDto) {
     return this.relationships.addEvidence(user.organizationId, user.id, id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch('relationships/:id')
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateRelationshipDto) {
     return this.relationships.update(user.organizationId, id, dto);

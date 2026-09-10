@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { StorageService } from '../common/storage/storage.service';
+import { assertFileContentMatchesMime } from '../common/storage/file-validation.util';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { withNoteImageUrls } from './note-image.util';
@@ -34,6 +35,7 @@ export class NotesService {
         images: {
           create: await Promise.all(
             files.map(async (file) => {
+              assertFileContentMatchesMime(file.buffer, file.mimetype);
               const stored = await this.storage.save(dealId, file.originalname, file.buffer, file.mimetype);
               return { mimeType: file.mimetype, storageKey: stored.storageKey, storageDriver: stored.driver };
             }),

@@ -93,3 +93,30 @@ export async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
 
   return url;
 }
+
+const MAX_REDIRECTS = 5;
+
+/**
+ * fetch() with an SSRF check re-applied on every hop. A plain
+ * `fetch(await assertPublicHttpUrl(url))` only validates the *initial*
+ * request — `fetch`'s default `redirect: "follow"` would then transparently
+ * follow a 3xx response to an unvalidated Location (e.g. a public feed URL
+ * that 302s to http://169.254.169.254/...), defeating the check entirely.
+ * This validates the target before every request, including each redirect.
+ */
+export async function fetchPublicHttpUrl(rawUrl: string, init: RequestInit = {}): Promise<Response> {
+  let currentUrl = await assertPublicHttpUrl(rawUrl);
+
+  for (let redirects = 0; ; redirects++) {
+    const response = await fetch(currentUrl, { ...init, redirect: 'manual' });
+
+    if (response.status < 300 || response.status >= 400 || !response.headers.has('location')) {
+      return response;
+    }
+    if (redirects >= MAX_REDIRECTS) {
+      throw new SsrfBlockedUrlError(`Trop de redirections depuis "${rawUrl}"`);
+    }
+    const location = response.headers.get('location')!;
+    currentUrl = await assertPublicHttpUrl(new URL(location, currentUrl).toString());
+  }
+}

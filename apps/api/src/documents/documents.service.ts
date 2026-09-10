@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { StorageService } from '../common/storage/storage.service';
+import { assertFileContentMatchesMime } from '../common/storage/file-validation.util';
 
 const DOCUMENT_INCLUDE = {
   uploadedBy: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
@@ -24,6 +25,7 @@ export class DocumentsService {
     const deal = await this.prisma.deal.findFirst({ where: { id: dealId, organizationId } });
     if (!deal) throw new NotFoundException('Opération introuvable');
 
+    assertFileContentMatchesMime(file.buffer, file.mimetype);
     const stored = await this.storage.save(dealId, file.originalname, file.buffer, file.mimetype);
 
     const document = await this.prisma.document.create({
