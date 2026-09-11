@@ -8,11 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FRACTIONAL_PROJECT_STATUS_LABELS, type FractionalProjectStatus } from '@/types';
-import { useFractionalProject, useFractionalSynthese, useUpdateFractionalProjectStatus } from './hooks/use-fractional';
+import { useFractionalProject, useFractionalSynthese, useFractionalDealEconomics, useUpdateFractionalProjectStatus } from './hooks/use-fractional';
 import { SyntheseTab } from './components/synthese-tab';
 import { AcquisitionTab } from './components/acquisition-tab';
 import { LocatifTab } from './components/locatif-tab';
 import { StructureTab } from './components/structure-tab';
+import { DealEconomicsTab } from './components/deal-economics-tab';
 
 const STATUSES: FractionalProjectStatus[] = ['ANALYSE', 'STRUCTURATION', 'VALIDATION_PLATEFORME', 'COLLECTE', 'ACQUISITION', 'EXPLOITATION', 'SORTIE', 'REFUSE', 'ABANDONNE'];
 
@@ -21,6 +22,7 @@ export function FractionalProjectPage() {
   const [activeTab, setActiveTab] = useState('synthese');
   const { data: project, isLoading } = useFractionalProject(id ?? null);
   const { data: synthese, isLoading: syntheseLoading } = useFractionalSynthese(id ?? null);
+  const { data: dealEconomics, isLoading: dealEconomicsLoading } = useFractionalDealEconomics(id ?? null);
   const updateStatus = useUpdateFractionalProjectStatus();
 
   if (isLoading || !project) {
@@ -72,6 +74,7 @@ export function FractionalProjectPage() {
           <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
           <TabsTrigger value="locatif">Locatif ({project.leases.length})</TabsTrigger>
           <TabsTrigger value="structure">Structure & Sortie</TabsTrigger>
+          <TabsTrigger value="deal-economics">Deal Economics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="synthese">
@@ -96,6 +99,10 @@ export function FractionalProjectPage() {
 
         <TabsContent value="structure">
           <StructureTab project={project} />
+        </TabsContent>
+
+        <TabsContent value="deal-economics">
+          <DealEconomicsTab projectId={project.id} stakeholders={project.stakeholders} waterfallTiers={project.waterfallTiers} economics={dealEconomics} isLoading={dealEconomicsLoading} />
         </TabsContent>
       </Tabs>
     </div>

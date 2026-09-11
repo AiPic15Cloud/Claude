@@ -12,6 +12,14 @@ import type {
   FractionalVehicleInstrumentType,
   FractionalAssumptionScenario,
   PlatformFractionalProfile,
+  FractionalDealEconomics,
+  FractionalStakeholder,
+  FractionalFeeDefinition,
+  FractionalWaterfallTier,
+  StakeholderRole,
+  FeeType,
+  FeeCalculationBase,
+  WaterfallTierType,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -227,5 +235,92 @@ export function useCreatePlatformProfile() {
   return useMutation({
     mutationFn: (payload: CreatePlatformProfilePayload) => api.post<PlatformFractionalProfile>('/fractional/projects/platform-profiles', payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'platform-profiles'] }),
+  });
+}
+
+// ── Deal Economics & Stakeholder Waterfall (spec V3.1 §29) ─────────────────
+
+export function useFractionalDealEconomics(id: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', id, 'deal-economics'],
+    queryFn: () => api.get<FractionalDealEconomics | null>(`/fractional/projects/${id}/deal-economics`),
+    enabled: Boolean(id),
+  });
+}
+
+function invalidateDealEconomics(qc: ReturnType<typeof useQueryClient>, id: string) {
+  qc.invalidateQueries({ queryKey: ['fractional', 'projects', id] });
+  qc.invalidateQueries({ queryKey: ['fractional', 'projects', id, 'deal-economics'] });
+}
+
+export interface StakeholderPayload {
+  role: StakeholderRole;
+  name: string;
+  capitalEngaged?: number;
+  notes?: string;
+}
+
+export function useCreateStakeholder(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: StakeholderPayload) => api.post<FractionalStakeholder>(`/fractional/projects/${projectId}/stakeholders`, payload),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
+export function useDeleteStakeholder(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stakeholderId: string) => api.delete(`/fractional/projects/${projectId}/stakeholders/${stakeholderId}`),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
+export interface FeeDefinitionPayload {
+  stakeholderId: string;
+  feeType: FeeType;
+  ratePct?: number;
+  fixedAmount?: number;
+  calculationBase?: FeeCalculationBase;
+}
+
+export function useCreateFeeDefinition(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: FeeDefinitionPayload) => api.post<FractionalFeeDefinition>(`/fractional/projects/${projectId}/fee-definitions`, payload),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
+export function useDeleteFeeDefinition(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (feeId: string) => api.delete(`/fractional/projects/${projectId}/fee-definitions/${feeId}`),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
+export interface WaterfallTierPayload {
+  order: number;
+  type: WaterfallTierType;
+  beneficiaryStakeholderId?: string;
+  hurdleRatePct?: number;
+  catchUpPct?: number;
+  sharePct?: number;
+}
+
+export function useCreateWaterfallTier(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: WaterfallTierPayload) => api.post<FractionalWaterfallTier>(`/fractional/projects/${projectId}/waterfall-tiers`, payload),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
+export function useDeleteWaterfallTier(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tierId: string) => api.delete(`/fractional/projects/${projectId}/waterfall-tiers/${tierId}`),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
   });
 }

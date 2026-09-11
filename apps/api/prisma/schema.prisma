@@ -2194,6 +2194,9 @@ model FractionalProject {
   capexItems       FractionalCapexItem[]
   valuations       FractionalValuation[]
   vehicleStructure FractionalVehicleStructure?
+  stakeholders     FractionalStakeholder[]
+  feeDefinitions   FractionalFeeDefinition[]
+  waterfallTiers   FractionalWaterfallTier[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2447,4 +2450,158 @@ model MarketComparablePool {
 
   @@index([organizationId, commune])
   @@map("market_comparable_pool")
+}
+
+// ── Deal Economics & Stakeholder Waterfall Engine (spec V3.1 §29) ──────────
+//
+// Le patch V3.2 §1 pose FractionalProject sur un split investisseur/
+// plateforme simple (PlatformFractionalProfile.incomeShareInvestorPct /
+// capitalGainShareInvestorPct) — suffisant pour la majorité des dossiers.
+// §29 (marqué "P0 CRITIQUE" dans la spec, ajouté après coup — absent de la
+// version lue au premier passage) exige un modèle multi-stakeholder complet
+// (sponsor, arrangeur, asset/property manager, prêteur...) avec waterfall à
+// tiers (preferred return/return of capital/catch-up/carry/residual split)
+// et taxonomie de frais versionnée. Ces 3 modèles sont OPT-IN par dossier :
+// un FractionalProject sans FractionalStakeholder garde le calcul simple
+// déjà en production (returns.util.ts / operating-model.util.ts,
+// inchangés) — stakeholder-waterfall.util.ts n'intervient que si le
+// dossier a explicitement configuré des stakeholders/tiers.
+//
+// Différé à P1 (cohérent avec le roadmap §28, "Mémoire" reste P1) :
+// FeeAccrual/StakeholderCashFlow/StakeholderReturn/DealEconomicsSnapshot
+// persistés — calculés à la volée par stakeholder-waterfall.util.ts,
+// jamais stockés en P0, pour les mêmes raisons que le statut de
+// sécurisation des baux (voir FractionalLease) : la source de vérité reste
+// les paramètres saisis, jamais un résultat en cache.
+
+enum StakeholderRole {
+  INVESTOR
+  PLATFORM
+  SPONSOR
+  ARRANGER
+  ASSET_MANAGER
+  PROPERTY_MANAGER
+  LENDER
+  ADVISOR
+  OTHER
+}
+
+enum FeeType {
+  ENTRY
+  RUNNING
+  TRANSACTION
+  FINANCING
+  EXIT
+  CARRY
+  REVENUE_SHARE
+  CAPITAL_GAIN_SHARE
+}
+
+enum FeeCalculationBase {
+  PRIX_NET_VENDEUR
+  COUT_TOTAL
+  GAV
+  NAV
+  LOYERS_BRUTS
+  LOYERS_NETS
+  NOI
+  CAPITAL_COLLECTE
+  PLUS_VALUE
+  AUTRE
+}
+
+enum FeeFrequency {
+  ONE_OFF
+  MENSUEL
+  TRIMESTRIEL
+  ANNUEL
+  SORTIE
+}
+
+enum WaterfallTierType {
+  PREFERRED_RETURN
+  RETURN_OF_CAPITAL
+  CATCH_UP
+  CARRIED_INTEREST
+  RESIDUAL_SPLIT
+}
+
+/// Partie économique d'un deal Fractionné (spec §29.1/§29.12) — investisseurs,
+/// plateforme, sponsor, arrangeur, asset/property manager, prêteur, conseils...
+model FractionalStakeholder {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  role  StakeholderRole
+  name  String
+  notes String?
+
+  /// Capital engagé par ce stakeholder — pour INVESTOR/SPONSOR essentiellement ;
+  /// laissé vide pour un stakeholder rémunéré uniquement en frais (arrangeur, conseils).
+  capitalEngaged Decimal? @db.Decimal(14, 2)
+
+  feeDefinitions FractionalFeeDefinition[]
+  waterfallTiers FractionalWaterfallTier[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("fractional_stakeholders")
+}
+
+/// Règle de frais versionnée (spec §29.2/§29.3) — jamais codée en dur :
+/// bénéficiaire, assiette, taux/montant, fréquence, bornes, source.
+model FractionalFeeDefinition {
+  id            String                @id @default(cuid())
+  projectId     String
+  project       FractionalProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stakeholderId String
+  stakeholder   FractionalStakeholder @relation(fields: [stakeholderId], references: [id], onDelete: Cascade)
+
+  feeType         FeeType
+  ratePct         Decimal?           @db.Decimal(6, 3)
+  fixedAmount     Decimal?           @db.Decimal(14, 2)
+  calculationBase FeeCalculationBase @default(AUTRE)
+  frequency       FeeFrequency       @default(ANNUEL)
+  startYear       Int?
+  endYear         Int?
+  triggerNote     String?
+  minAmount       Decimal?           @db.Decimal(14, 2)
+  maxAmount       Decimal?           @db.Decimal(14, 2)
+  source          String?
+  confidence      String?
+  scenarioBehavior String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([stakeholderId])
+  @@map("fractional_fee_definitions")
+}
+
+/// Tier ordonné de la waterfall (spec §29.4) — preferred return → return of
+/// capital → catch-up → carried interest → residual split, appliqué
+/// annuellement par stakeholder-waterfall.util.ts dans l'ordre de `order`.
+model FractionalWaterfallTier {
+  id                       String                 @id @default(cuid())
+  projectId                String
+  project                  FractionalProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  beneficiaryStakeholderId String?
+  beneficiaryStakeholder   FractionalStakeholder? @relation(fields: [beneficiaryStakeholderId], references: [id], onDelete: SetNull)
+
+  order         Int
+  type          WaterfallTierType
+  hurdleRatePct Decimal? @db.Decimal(6, 3)
+  catchUpPct    Decimal? @db.Decimal(5, 2)
+  sharePct      Decimal? @db.Decimal(5, 2)
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId, order])
+  @@map("fractional_waterfall_tiers")
 }

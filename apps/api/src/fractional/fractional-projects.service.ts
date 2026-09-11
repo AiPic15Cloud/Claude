@@ -12,9 +12,14 @@ import { CreateValuationDto } from './dto/create-valuation.dto';
 import { UpsertVehicleStructureDto } from './dto/upsert-vehicle-structure.dto';
 import { CreatePlatformProfileDto } from './dto/create-platform-profile.dto';
 import { UpsertAssumptionSetDto } from './dto/upsert-assumption-set.dto';
+import { CreateStakeholderDto } from './dto/create-stakeholder.dto';
+import { CreateFeeDefinitionDto } from './dto/create-fee-definition.dto';
+import { CreateWaterfallTierDto } from './dto/create-waterfall-tier.dto';
 import { computeReturnsEngine, type ReturnsEngineInput } from './returns.util';
 import { computeEligibility } from './eligibility.util';
 import { solveMaxAcquisitionPrice, solveMinSecuredRent } from './reverse-solver.util';
+import { computeOperatingModelYear } from './operating-model.util';
+import { computeStakeholderWaterfall, solveMaxTotalFeeLoad, solveMaxCarry, type YearContext, type StakeholderInput, type FeeDefinitionInput, type WaterfallTierInput } from './stakeholder-waterfall.util';
 import type { LeaseInput } from './lease-security.util';
 
 /**
@@ -78,7 +83,16 @@ export class FractionalProjectsService {
   async findOne(id: string, user: AuthenticatedUser) {
     const project = await this.prisma.fractionalProject.findUnique({
       where: { id },
-      include: { sourcesUses: true, leases: true, capexItems: true, valuations: true, vehicleStructure: { include: { platformProfile: true } }, assumptionSets: true },
+      include: {
+        sourcesUses: true,
+        leases: true,
+        capexItems: true,
+        valuations: true,
+        vehicleStructure: { include: { platformProfile: true } },
+        assumptionSets: true,
+        stakeholders: { include: { feeDefinitions: true } },
+        waterfallTiers: true,
+      },
     });
     return assertOwned(project, user.id);
   }
@@ -229,6 +243,163 @@ export class FractionalProjectsService {
         effectiveTo: dto.effectiveTo ? new Date(dto.effectiveTo) : undefined,
       },
     });
+  }
+
+  // ── Deal Economics — Stakeholders, Fees, Waterfall Tiers (spec §29) ──
+
+  async createStakeholder(projectId: string, dto: CreateStakeholderDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    return this.prisma.fractionalStakeholder.create({ data: { projectId, ...dto } });
+  }
+
+  async removeStakeholder(projectId: string, stakeholderId: string, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const stakeholder = await this.prisma.fractionalStakeholder.findUnique({ where: { id: stakeholderId } });
+    if (!stakeholder || stakeholder.projectId !== projectId) throw new NotFoundException('Partie prenante introuvable.');
+    await this.prisma.fractionalStakeholder.delete({ where: { id: stakeholderId } });
+  }
+
+  async createFeeDefinition(projectId: string, dto: CreateFeeDefinitionDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const stakeholder = await this.prisma.fractionalStakeholder.findUnique({ where: { id: dto.stakeholderId } });
+    if (!stakeholder || stakeholder.projectId !== projectId) throw new NotFoundException('Partie prenante introuvable.');
+    return this.prisma.fractionalFeeDefinition.create({ data: { projectId, ...dto } });
+  }
+
+  async removeFeeDefinition(projectId: string, feeId: string, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const fee = await this.prisma.fractionalFeeDefinition.findUnique({ where: { id: feeId } });
+    if (!fee || fee.projectId !== projectId) throw new NotFoundException('Frais introuvable.');
+    await this.prisma.fractionalFeeDefinition.delete({ where: { id: feeId } });
+  }
+
+  async createWaterfallTier(projectId: string, dto: CreateWaterfallTierDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    if (dto.beneficiaryStakeholderId) {
+      const stakeholder = await this.prisma.fractionalStakeholder.findUnique({ where: { id: dto.beneficiaryStakeholderId } });
+      if (!stakeholder || stakeholder.projectId !== projectId) throw new NotFoundException('Partie prenante introuvable.');
+    }
+    return this.prisma.fractionalWaterfallTier.create({ data: { projectId, ...dto } });
+  }
+
+  async removeWaterfallTier(projectId: string, tierId: string, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const tier = await this.prisma.fractionalWaterfallTier.findUnique({ where: { id: tierId } });
+    if (!tier || tier.projectId !== projectId) throw new NotFoundException('Tier de waterfall introuvable.');
+    await this.prisma.fractionalWaterfallTier.delete({ where: { id: tierId } });
+  }
+
+  /**
+   * Deal Economics (spec §29) — chemin OPT-IN : ne s'exécute que si le
+   * dossier a au moins un stakeholder ET un tier de waterfall configurés,
+   * sinon retourne null (le split simple income/capital share de
+   * computeSynthese() reste la voie utilisée, inchangée). Réutilise le NOI/
+   * CAPEX déjà calculés (annualManagementFeePct=0 pour obtenir un flux
+   * "niveau actif" avant tout frais stakeholder — les frais RUNNING/
+   * TRANSACTION/EXIT du dossier remplacent alors le simple
+   * annualManagementFeePct du profil plateforme dans ce chemin).
+   */
+  async computeDealEconomics(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    if (project.stakeholders.length === 0 || project.waterfallTiers.length === 0) return null;
+    if (!project.sourcesUses) {
+      throw new ForbiddenException("Le dossier n'a pas encore de Sources & Uses saisi — impossible de calculer les Deal Economics.");
+    }
+
+    const asOfDate = new Date();
+    const totalLoyerFacial = project.leases.reduce((sum, l) => sum + Number(l.loyerFacialAnnuel), 0);
+
+    const baseAssumptionSet = project.assumptionSets.filter((a) => a.scenario === 'BASE').sort((a, b) => b.version - a.version)[0];
+    const baseValues = { ...DEFAULT_ASSUMPTIONS, ...parseAssumptionValues(baseAssumptionSet?.values) };
+
+    const latestValuation = project.valuations.sort((a, b) => b.asOfDate.getTime() - a.asOfDate.getTime())[0];
+    const exitValue = baseValues.exitValueOverride ?? (latestValuation ? Number(latestValuation.value) : Number(project.sourcesUses.prixNetVendeur));
+
+    const capexByYear: Record<number, number> = {};
+    for (const item of project.capexItems) {
+      const offset = item.annee - asOfDate.getFullYear() + 1;
+      if (offset >= 1) capexByYear[offset] = (capexByYear[offset] ?? 0) + Number(item.montant);
+    }
+
+    const coutTotal =
+      Number(project.sourcesUses.prixNetVendeur) +
+      Number(project.sourcesUses.droitsNotaire) +
+      Number(project.sourcesUses.honoraires) +
+      Number(project.sourcesUses.travauxInitiaux) +
+      Number(project.sourcesUses.capexDiffereReserve) +
+      Number(project.sourcesUses.fraisPlateformeEntree) +
+      Number(project.sourcesUses.reserveVacance) +
+      Number(project.sourcesUses.reserveTravaux) +
+      Number(project.sourcesUses.reserveTresorerie);
+
+    const years: YearContext[] = [];
+    for (let year = 1; year <= baseValues.holdPeriodYears; year++) {
+      const gpr = totalLoyerFacial * Math.pow(1 + baseValues.rentGrowthPctPerYear / 100, year - 1);
+      const yearResult = computeOperatingModelYear({
+        year,
+        grossPotentialRent: gpr,
+        vacancyCreditLossPct: baseValues.vacancyCreditLossPct,
+        opexPct: baseValues.opexPct,
+        capexThisYear: capexByYear[year] ?? 0,
+        annualManagementFeePct: 0,
+        managementFeeBase: 0,
+        incomeShareInvestorPct: 100,
+      });
+      years.push({
+        year,
+        prixNetVendeur: Number(project.sourcesUses.prixNetVendeur),
+        coutTotal,
+        assetValue: exitValue,
+        grossPotentialRent: yearResult.grossPotentialRent,
+        noi: yearResult.noi,
+        capitalCollecte: Number(project.sourcesUses.collecteMontant),
+        propertyLevelCashFlow: yearResult.distributableCashFlow,
+      });
+    }
+
+    const netSaleProceeds = exitValue * (1 - baseValues.sellingCostsPct / 100);
+    const plusValue = Math.max(0, netSaleProceeds - coutTotal);
+
+    const stakeholders: StakeholderInput[] = project.stakeholders.map((s) => ({
+      id: s.id,
+      role: s.role,
+      name: s.name,
+      capitalEngaged: s.capitalEngaged !== null ? Number(s.capitalEngaged) : null,
+    }));
+    const feeDefinitions: FeeDefinitionInput[] = project.stakeholders.flatMap((s) =>
+      s.feeDefinitions.map((f) => ({
+        id: f.id,
+        stakeholderId: f.stakeholderId,
+        feeType: f.feeType,
+        ratePct: f.ratePct !== null ? Number(f.ratePct) : null,
+        fixedAmount: f.fixedAmount !== null ? Number(f.fixedAmount) : null,
+        calculationBase: f.calculationBase,
+        startYear: f.startYear,
+        endYear: f.endYear,
+      })),
+    );
+    const tiers: WaterfallTierInput[] = project.waterfallTiers
+      .sort((a, b) => a.order - b.order)
+      .map((t) => ({
+        id: t.id,
+        beneficiaryStakeholderId: t.beneficiaryStakeholderId,
+        order: t.order,
+        type: t.type,
+        hurdleRatePct: t.hurdleRatePct !== null ? Number(t.hurdleRatePct) : null,
+        catchUpPct: t.catchUpPct !== null ? Number(t.catchUpPct) : null,
+        sharePct: t.sharePct !== null ? Number(t.sharePct) : null,
+      }));
+
+    const waterfallInput = { asOfDate, stakeholders, feeDefinitions, tiers, years, netSaleProceeds, plusValue };
+    const result = computeStakeholderWaterfall(waterfallInput);
+
+    const platformProfile = project.vehicleStructure?.platformProfile ?? null;
+    const hurdlePct = platformProfile ? Number(platformProfile.minNetInvestorYieldPct) : 0;
+    const reverseSolver = platformProfile
+      ? { maxTotalFeeLoad: solveMaxTotalFeeLoad(waterfallInput, hurdlePct), maxCarry: solveMaxCarry(waterfallInput, hurdlePct) }
+      : null;
+
+    return { result, reverseSolver, hurdlePct };
   }
 
   // ── Synthèse (Returns Engine + Eligibility + Reverse Solver) ─

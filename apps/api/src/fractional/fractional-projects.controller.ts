@@ -15,6 +15,9 @@ import { CreateValuationDto } from './dto/create-valuation.dto';
 import { UpsertVehicleStructureDto } from './dto/upsert-vehicle-structure.dto';
 import { CreatePlatformProfileDto } from './dto/create-platform-profile.dto';
 import { UpsertAssumptionSetDto } from './dto/upsert-assumption-set.dto';
+import { CreateStakeholderDto } from './dto/create-stakeholder.dto';
+import { CreateFeeDefinitionDto } from './dto/create-fee-definition.dto';
+import { CreateWaterfallTierDto } from './dto/create-waterfall-tier.dto';
 
 @ApiTags('fractional')
 @ApiBearerAuth()
@@ -115,6 +118,56 @@ export class FractionalProjectsController {
   @Roles('ADMIN', 'ANALYST')
   upsertAssumptionSet(@Param('id') id: string, @Body() dto: UpsertAssumptionSetDto, @CurrentUser() user: AuthenticatedUser) {
     return this.service.upsertAssumptionSet(id, dto, user);
+  }
+
+  @Get(':id/deal-economics')
+  dealEconomics(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.computeDealEconomics(id, user);
+  }
+
+  @Post(':id/stakeholders')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  createStakeholder(@Param('id') id: string, @Body() dto: CreateStakeholderDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.createStakeholder(id, dto, user);
+  }
+
+  @Delete(':id/stakeholders/:stakeholderId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeStakeholder(@Param('id') id: string, @Param('stakeholderId') stakeholderId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.removeStakeholder(id, stakeholderId, user);
+  }
+
+  @Post(':id/fee-definitions')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  createFeeDefinition(@Param('id') id: string, @Body() dto: CreateFeeDefinitionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.createFeeDefinition(id, dto, user);
+  }
+
+  @Delete(':id/fee-definitions/:feeId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeFeeDefinition(@Param('id') id: string, @Param('feeId') feeId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.removeFeeDefinition(id, feeId, user);
+  }
+
+  @Post(':id/waterfall-tiers')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  createWaterfallTier(@Param('id') id: string, @Body() dto: CreateWaterfallTierDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.createWaterfallTier(id, dto, user);
+  }
+
+  @Delete(':id/waterfall-tiers/:tierId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeWaterfallTier(@Param('id') id: string, @Param('tierId') tierId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.removeWaterfallTier(id, tierId, user);
   }
 
   @Get('platform-profiles/all')

@@ -1769,6 +1769,8 @@ export interface FractionalProjectDetail extends FractionalProject {
   valuations: FractionalValuation[];
   vehicleStructure?: FractionalVehicleStructure | null;
   assumptionSets: FractionalAssumptionSet[];
+  stakeholders: FractionalStakeholder[];
+  waterfallTiers: FractionalWaterfallTier[];
 }
 
 export type LeaseSecurityStatus = 'SECURED' | 'WATCH' | 'SECURE_BEFORE_ACQUISITION' | 'EXCLUDE_FROM_SECURED_YIELD';
@@ -1845,4 +1847,132 @@ export interface FractionalSynthese {
   reverseSolver: { maxAcquisitionPrice: ReverseSolverResult; minSecuredRent: ReverseSolverResult } | null;
   hurdlePct: number;
   platformProfile: PlatformFractionalProfile | null;
+}
+
+// ── Deal Economics & Stakeholder Waterfall (spec V3.1 §29, P0 critique) ────
+
+export type StakeholderRole = 'INVESTOR' | 'PLATFORM' | 'SPONSOR' | 'ARRANGER' | 'ASSET_MANAGER' | 'PROPERTY_MANAGER' | 'LENDER' | 'ADVISOR' | 'OTHER';
+export const STAKEHOLDER_ROLE_LABELS: Record<StakeholderRole, string> = {
+  INVESTOR: 'Investisseurs',
+  PLATFORM: 'Plateforme',
+  SPONSOR: 'Sponsor / opérateur',
+  ARRANGER: 'Arrangeur',
+  ASSET_MANAGER: 'Asset manager',
+  PROPERTY_MANAGER: 'Property manager',
+  LENDER: 'Prêteur',
+  ADVISOR: 'Conseil',
+  OTHER: 'Autre',
+};
+
+export type FeeType = 'ENTRY' | 'RUNNING' | 'TRANSACTION' | 'FINANCING' | 'EXIT' | 'CARRY' | 'REVENUE_SHARE' | 'CAPITAL_GAIN_SHARE';
+export const FEE_TYPE_LABELS: Record<FeeType, string> = {
+  ENTRY: "Frais d'entrée",
+  RUNNING: 'Frais courants',
+  TRANSACTION: 'Frais de transaction',
+  FINANCING: 'Frais de financement',
+  EXIT: 'Frais de sortie',
+  CARRY: 'Carried interest',
+  REVENUE_SHARE: 'Quote-part revenus',
+  CAPITAL_GAIN_SHARE: 'Quote-part plus-value',
+};
+
+export type FeeCalculationBase = 'PRIX_NET_VENDEUR' | 'COUT_TOTAL' | 'GAV' | 'NAV' | 'LOYERS_BRUTS' | 'LOYERS_NETS' | 'NOI' | 'CAPITAL_COLLECTE' | 'PLUS_VALUE' | 'AUTRE';
+export const FEE_CALCULATION_BASE_LABELS: Record<FeeCalculationBase, string> = {
+  PRIX_NET_VENDEUR: 'Prix net vendeur',
+  COUT_TOTAL: 'Coût total',
+  GAV: 'GAV',
+  NAV: 'NAV',
+  LOYERS_BRUTS: 'Loyers bruts',
+  LOYERS_NETS: 'Loyers nets',
+  NOI: 'NOI',
+  CAPITAL_COLLECTE: 'Capital collecté',
+  PLUS_VALUE: 'Plus-value',
+  AUTRE: 'Autre',
+};
+
+export type WaterfallTierType = 'PREFERRED_RETURN' | 'RETURN_OF_CAPITAL' | 'CATCH_UP' | 'CARRIED_INTEREST' | 'RESIDUAL_SPLIT';
+export const WATERFALL_TIER_TYPE_LABELS: Record<WaterfallTierType, string> = {
+  PREFERRED_RETURN: 'Preferred return',
+  RETURN_OF_CAPITAL: 'Retour de capital',
+  CATCH_UP: 'Catch-up',
+  CARRIED_INTEREST: 'Carried interest',
+  RESIDUAL_SPLIT: 'Répartition résiduelle',
+};
+
+export interface FractionalStakeholder {
+  id: string;
+  projectId: string;
+  role: StakeholderRole;
+  name: string;
+  notes?: string | null;
+  capitalEngaged?: number | null;
+  feeDefinitions?: FractionalFeeDefinition[];
+}
+
+export interface FractionalFeeDefinition {
+  id: string;
+  projectId: string;
+  stakeholderId: string;
+  feeType: FeeType;
+  ratePct?: number | null;
+  fixedAmount?: number | null;
+  calculationBase: FeeCalculationBase;
+  startYear?: number | null;
+  endYear?: number | null;
+}
+
+export interface FractionalWaterfallTier {
+  id: string;
+  projectId: string;
+  beneficiaryStakeholderId?: string | null;
+  order: number;
+  type: WaterfallTierType;
+  hurdleRatePct?: number | null;
+  catchUpPct?: number | null;
+  sharePct?: number | null;
+  notes?: string | null;
+}
+
+export interface StakeholderReceipt {
+  year: number;
+  category: 'FEE' | 'PREFERRED_RETURN' | 'RETURN_OF_CAPITAL' | 'CATCH_UP' | 'CARRIED_INTEREST' | 'RESIDUAL_SPLIT';
+  amount: number;
+}
+
+export interface StakeholderResult {
+  stakeholderId: string;
+  name: string;
+  role: StakeholderRole;
+  capitalEngaged: number | null;
+  totalFeeIncome: number;
+  totalWaterfallIncome: number;
+  totalReceipts: number;
+  netProfit: number | null;
+  irrPct: number | null;
+  multiple: number | null;
+  receipts: StakeholderReceipt[];
+}
+
+export interface StakeholderWaterfallResult {
+  stakeholders: StakeholderResult[];
+  totalFeeLoadPct: number;
+  valueCaptureRatio: Record<string, number>;
+  reconciled: boolean;
+  unallocatedAmount: number;
+  alignment: {
+    sponsorEquityRatioPct: number | null;
+    feeVsSponsorEquityRatioPct: number | null;
+    carrySubordinatedToHurdle: boolean | null;
+  };
+}
+
+export interface StakeholderReverseSolverResult {
+  value: number | null;
+  achievedInvestorIrrPct: number | null;
+}
+
+export interface FractionalDealEconomics {
+  result: StakeholderWaterfallResult;
+  reverseSolver: { maxTotalFeeLoad: StakeholderReverseSolverResult; maxCarry: StakeholderReverseSolverResult } | null;
+  hurdlePct: number;
 }
