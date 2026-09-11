@@ -1,0 +1,163 @@
+import { computeOperatingModelYear } from './operating-model.util';
+import {
+  computeStakeholderWaterfall,
+  type YearContext,
+  type StakeholderInput,
+  type FeeDefinitionInput,
+  type WaterfallTierInput,
+  type StakeholderWaterfallInput,
+  type StakeholderWaterfallResult,
+} from './stakeholder-waterfall.util';
+import {
+  ALL_STRESS_SCENARIOS,
+  RENT_DOWNSIDE_HAIRCUT_PCT,
+  VACANCY_ADD_PCT,
+  CAPEX_OVERRUN_MULTIPLIER,
+  OPEX_ADD_PCT,
+  EXIT_YIELD_EXPANSION_HAIRCUT_PCT,
+  VALUE_DECLINE_HAIRCUT_PCT,
+  PLATFORM_FEES_STRESS_MULTIPLIER,
+  type StressScenarioKey,
+} from './stress-testing.util';
+
+/**
+ * Applique les 10 scénarios de stress-testing.util.ts au moteur
+ * multi-stakeholder (Deal Economics, spec §29.9 "Stress tests des parties
+ * prenantes") — sans ce module, un dossier utilisant la waterfall
+ * multi-tiers ne montrait jamais l'effet d'une vacance ou d'un défaut
+ * locataire sur le TRI de chaque partie prenante, seulement sur le split
+ * simple investisseur/plateforme (stress-testing.util.ts). Réutilise les
+ * mêmes magnitudes de choc (constantes exportées de stress-testing.util.ts)
+ * pour qu'un même scénario "VACANCY" signifie la même chose des deux côtés.
+ */
+
+export interface LeaseAmount {
+  id: string;
+  loyerFacialAnnuel: number;
+}
+
+export interface DealEconomicsScenarioContext {
+  asOfDate: Date;
+  holdPeriodYears: number;
+  vacancyCreditLossPct: number;
+  opexPct: number;
+  rentGrowthPctPerYear: number;
+  leases: LeaseAmount[];
+  capexByYear: Record<number, number>;
+  exitValueBase: number;
+  sellingCostsPct: number;
+  coutTotal: number;
+  prixNetVendeur: number;
+  collecteMontant: number;
+  stakeholders: StakeholderInput[];
+  feeDefinitions: FeeDefinitionInput[];
+  tiers: WaterfallTierInput[];
+  hurdlePct: number;
+  hasPlatformProfile: boolean;
+}
+
+function excludeLargestLease(leases: LeaseAmount[]): LeaseAmount[] {
+  if (leases.length === 0) return leases;
+  const largest = [...leases].sort((a, b) => b.loyerFacialAnnuel - a.loyerFacialAnnuel)[0];
+  return leases.filter((l) => l.id !== largest.id);
+}
+
+function scaleFeeDefinitions(feeDefinitions: FeeDefinitionInput[], factor: number): FeeDefinitionInput[] {
+  return feeDefinitions.map((f) =>
+    f.feeType === 'RUNNING' || f.feeType === 'TRANSACTION'
+      ? { ...f, ratePct: f.ratePct !== null ? f.ratePct * factor : null, fixedAmount: f.fixedAmount !== null ? f.fixedAmount * factor : null }
+      : f,
+  );
+}
+
+export function buildScenarioWaterfallInput(context: DealEconomicsScenarioContext, scenario: StressScenarioKey): StakeholderWaterfallInput {
+  let leases = context.leases;
+  let vacancyCreditLossPct = context.vacancyCreditLossPct;
+  let opexPct = context.opexPct;
+  let rentGrowthPctPerYear = context.rentGrowthPctPerYear;
+  let capexByYear = context.capexByYear;
+  let exitValue = context.exitValueBase;
+  let feeDefinitions = context.feeDefinitions;
+
+  const applyCapexOverrun = () => {
+    const scaled: Record<number, number> = {};
+    for (const [year, amount] of Object.entries(capexByYear)) scaled[Number(year)] = amount * CAPEX_OVERRUN_MULTIPLIER;
+    capexByYear = scaled;
+  };
+
+  switch (scenario) {
+    case 'BASE':
+      break;
+    case 'RENT_DOWNSIDE':
+      leases = leases.map((l) => ({ ...l, loyerFacialAnnuel: l.loyerFacialAnnuel * (1 - RENT_DOWNSIDE_HAIRCUT_PCT / 100) }));
+      rentGrowthPctPerYear = 0;
+      break;
+    case 'VACANCY':
+      vacancyCreditLossPct += VACANCY_ADD_PCT;
+      break;
+    case 'TENANT_DEFAULT':
+      leases = excludeLargestLease(leases);
+      break;
+    case 'CAPEX_OVERRUN':
+      applyCapexOverrun();
+      break;
+    case 'OPEX_INCREASE':
+      opexPct += OPEX_ADD_PCT;
+      break;
+    case 'EXIT_YIELD_EXPANSION':
+      exitValue *= 1 - EXIT_YIELD_EXPANSION_HAIRCUT_PCT / 100;
+      break;
+    case 'VALUE_DECLINE':
+      exitValue *= 1 - VALUE_DECLINE_HAIRCUT_PCT / 100;
+      break;
+    case 'PLATFORM_FEES_INCREASE':
+      feeDefinitions = scaleFeeDefinitions(feeDefinitions, PLATFORM_FEES_STRESS_MULTIPLIER);
+      break;
+    case 'COMBINED_SEVERE':
+      vacancyCreditLossPct += VACANCY_ADD_PCT;
+      leases = excludeLargestLease(leases);
+      applyCapexOverrun();
+      exitValue *= 1 - EXIT_YIELD_EXPANSION_HAIRCUT_PCT / 100;
+      break;
+  }
+
+  const totalLoyerFacial = leases.reduce((sum, l) => sum + l.loyerFacialAnnuel, 0);
+  const years: YearContext[] = [];
+  for (let year = 1; year <= context.holdPeriodYears; year++) {
+    const gpr = totalLoyerFacial * Math.pow(1 + rentGrowthPctPerYear / 100, year - 1);
+    const yearResult = computeOperatingModelYear({
+      year,
+      grossPotentialRent: gpr,
+      vacancyCreditLossPct,
+      opexPct,
+      capexThisYear: capexByYear[year] ?? 0,
+      annualManagementFeePct: 0,
+      managementFeeBase: 0,
+      incomeShareInvestorPct: 100,
+    });
+    years.push({
+      year,
+      prixNetVendeur: context.prixNetVendeur,
+      coutTotal: context.coutTotal,
+      assetValue: exitValue,
+      grossPotentialRent: yearResult.grossPotentialRent,
+      noi: yearResult.noi,
+      capitalCollecte: context.collecteMontant,
+      propertyLevelCashFlow: yearResult.distributableCashFlow,
+    });
+  }
+
+  const netSaleProceeds = exitValue * (1 - context.sellingCostsPct / 100);
+  const plusValue = Math.max(0, netSaleProceeds - context.coutTotal);
+
+  return { asOfDate: context.asOfDate, stakeholders: context.stakeholders, feeDefinitions, tiers: context.tiers, years, netSaleProceeds, plusValue };
+}
+
+export interface DealEconomicsScenarioResult {
+  scenario: StressScenarioKey;
+  result: StakeholderWaterfallResult;
+}
+
+export function computeAllDealEconomicsStressScenarios(context: DealEconomicsScenarioContext): DealEconomicsScenarioResult[] {
+  return ALL_STRESS_SCENARIOS.map((scenario) => ({ scenario, result: computeStakeholderWaterfall(buildScenarioWaterfallInput(context, scenario)) }));
+}

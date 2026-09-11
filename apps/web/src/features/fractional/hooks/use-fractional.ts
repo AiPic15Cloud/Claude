@@ -13,6 +13,7 @@ import type {
   FractionalAssumptionScenario,
   PlatformFractionalProfile,
   FractionalDealEconomics,
+  DealEconomicsScenarioResult,
   FractionalStakeholder,
   FractionalFeeDefinition,
   FractionalWaterfallTier,
@@ -29,6 +30,10 @@ import type {
   ProjectOutcomeStatus,
   PerformanceAttributionResult,
   ComparableResult,
+  RentIndexSeries,
+  RentIndexType,
+  MarketComparablePool,
+  MarketComparableType,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -141,6 +146,10 @@ export interface LeasePayload {
   sirenLocataire?: string;
   procedureCollective?: boolean;
   garantieMaisonMere?: boolean;
+  caLocataireAnnuel?: number;
+  ebitdaLocataireAnnuel?: number;
+  tresorerieLocataire?: number;
+  exerciceFinancierAsOf?: string;
 }
 
 export function useCreateLease(projectId: string) {
@@ -256,6 +265,14 @@ export function useFractionalDealEconomics(id: string | null) {
   return useQuery({
     queryKey: ['fractional', 'projects', id, 'deal-economics'],
     queryFn: () => api.get<FractionalDealEconomics | null>(`/fractional/projects/${id}/deal-economics`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useFractionalDealEconomicsStressTests(id: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', id, 'deal-economics-stress-tests'],
+    queryFn: () => api.get<DealEconomicsScenarioResult[] | null>(`/fractional/projects/${id}/deal-economics-stress-tests`),
     enabled: Boolean(id),
   });
 }
@@ -421,5 +438,76 @@ export function useFractionalComparables(id: string | null) {
     queryKey: ['fractional', 'projects', id, 'comparables'],
     queryFn: () => api.get<ComparableResult[]>(`/fractional/projects/${id}/comparables`),
     enabled: Boolean(id),
+  });
+}
+
+// ── Marché — RentIndexSeries & MarketComparablePool (patch V3.2 §2) ────────
+
+export function useRentIndexSeries() {
+  return useQuery({
+    queryKey: ['fractional', 'market-data', 'rent-index-series'],
+    queryFn: () => api.get<RentIndexSeries[]>('/fractional/market-data/rent-index-series'),
+  });
+}
+
+export interface RentIndexSeriesPayload {
+  indexType: RentIndexType;
+  period: string;
+  value: number;
+  cagr5y?: number;
+  cagr10y?: number;
+  asOfDate: string;
+  source?: string;
+}
+
+export function useUpsertRentIndexSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: RentIndexSeriesPayload) => api.post<RentIndexSeries>('/fractional/market-data/rent-index-series', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'market-data', 'rent-index-series'] }),
+  });
+}
+
+export function useDeleteRentIndexSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/fractional/market-data/rent-index-series/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'market-data', 'rent-index-series'] }),
+  });
+}
+
+export function useMarketComparables(commune?: string) {
+  return useQuery({
+    queryKey: ['fractional', 'market-data', 'comparables', commune ?? null],
+    queryFn: () => api.get<MarketComparablePool[]>(`/fractional/market-data/comparables${commune ? `?commune=${encodeURIComponent(commune)}` : ''}`),
+  });
+}
+
+export interface MarketComparablePayload {
+  commune: string;
+  secteur?: string;
+  type: MarketComparableType;
+  valeurM2?: number;
+  yieldPct?: number;
+  surfaceM2?: number;
+  asOfDate: string;
+  source: string;
+  notes?: string;
+  addedByProjectId?: string;
+}
+
+export function useCreateMarketComparable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: MarketComparablePayload) => api.post<MarketComparablePool>('/fractional/market-data/comparables', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'market-data', 'comparables'] }),
+  });
+}
+
+export function useDeleteMarketComparable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/fractional/market-data/comparables/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'market-data', 'comparables'] }),
   });
 }

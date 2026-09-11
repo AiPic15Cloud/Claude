@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 import {
   useCreateStakeholder,
@@ -15,12 +16,14 @@ import {
   useDeleteFeeDefinition,
   useCreateWaterfallTier,
   useDeleteWaterfallTier,
+  useFractionalDealEconomicsStressTests,
 } from '../hooks/use-fractional';
 import {
   STAKEHOLDER_ROLE_LABELS,
   FEE_TYPE_LABELS,
   FEE_CALCULATION_BASE_LABELS,
   WATERFALL_TIER_TYPE_LABELS,
+  STRESS_SCENARIO_LABELS,
   type FractionalStakeholder,
   type FractionalWaterfallTier,
   type FractionalDealEconomics,
@@ -58,6 +61,7 @@ export function DealEconomicsTab({
   economics?: FractionalDealEconomics | null;
   isLoading: boolean;
 }) {
+  const { data: stressScenarios, isLoading: stressScenariosLoading } = useFractionalDealEconomicsStressTests(projectId);
   const createStakeholder = useCreateStakeholder(projectId);
   const deleteStakeholder = useDeleteStakeholder(projectId);
   const createFee = useCreateFeeDefinition(projectId);
@@ -204,6 +208,43 @@ export function DealEconomicsTab({
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Stress Testing × Deal Economics — TRI par partie prenante</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stressScenariosLoading && <Skeleton className="h-48" />}
+              {stressScenarios && stressScenarios.length > 0 && (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Scénario</TableHead>
+                        {stressScenarios[0].result.stakeholders.map((s) => (
+                          <TableHead key={s.stakeholderId}>
+                            {s.name} <span className="text-xs text-muted-foreground">({STAKEHOLDER_ROLE_LABELS[s.role]})</span>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stressScenarios.map(({ scenario, result }) => (
+                        <TableRow key={scenario} className={scenario === 'BASE' ? 'font-medium' : undefined}>
+                          <TableCell>{STRESS_SCENARIO_LABELS[scenario]}</TableCell>
+                          {result.stakeholders.map((s) => (
+                            <TableCell key={s.stakeholderId}>
+                              {pct(s.irrPct)} <span className="text-xs text-muted-foreground">({s.multiple !== null ? `${s.multiple.toFixed(2)}x` : '—'})</span>
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
       {!economics && !isLoading && stakeholders.length > 0 && waterfallTiers.length > 0 && (

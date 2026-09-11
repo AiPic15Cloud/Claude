@@ -2306,6 +2306,16 @@ model FractionalLease {
   procedureCollective  Boolean @default(false)
   garantieMaisonMere   Boolean @default(false)
 
+  /// Bloc Financier du Tenant Covenant (spec §8, explicitement différé en
+  /// P1 faute de saisie dédiée — cf. tenant-covenant.util.ts) : dernier
+  /// exercice connu du locataire, saisie manuelle (liasse fiscale/Infogreffe),
+  /// jamais recalculée. Optionnels et neutres si absents, comme le reste du
+  /// score de covenant.
+  caLocataireAnnuel       Decimal?  @db.Decimal(16, 2)
+  ebitdaLocataireAnnuel   Decimal?  @db.Decimal(16, 2)
+  tresorerieLocataire     Decimal?  @db.Decimal(16, 2)
+  exerciceFinancierAsOf   DateTime?
+
   notes String?
 
   createdAt DateTime @default(now())

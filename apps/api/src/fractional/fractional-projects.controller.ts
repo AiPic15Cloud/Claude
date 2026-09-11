@@ -128,6 +128,11 @@ export class FractionalProjectsController {
     return this.service.computeDealEconomics(id, user);
   }
 
+  @Get(':id/deal-economics-stress-tests')
+  dealEconomicsStressTests(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.computeDealEconomicsStressTests(id, user);
+  }
+
   @Post(':id/stakeholders')
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')

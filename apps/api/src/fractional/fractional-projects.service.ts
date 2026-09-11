@@ -18,8 +18,8 @@ import { CreateWaterfallTierDto } from './dto/create-waterfall-tier.dto';
 import { computeReturnsEngine, type ReturnsEngineInput } from './returns.util';
 import { computeEligibility } from './eligibility.util';
 import { solveMaxAcquisitionPrice, solveMinSecuredRent } from './reverse-solver.util';
-import { computeOperatingModelYear } from './operating-model.util';
-import { computeStakeholderWaterfall, solveMaxTotalFeeLoad, solveMaxCarry, type YearContext, type StakeholderInput, type FeeDefinitionInput, type WaterfallTierInput } from './stakeholder-waterfall.util';
+import { computeStakeholderWaterfall, solveMaxTotalFeeLoad, solveMaxCarry, type StakeholderInput, type FeeDefinitionInput, type WaterfallTierInput } from './stakeholder-waterfall.util';
+import { buildScenarioWaterfallInput, computeAllDealEconomicsStressScenarios, type DealEconomicsScenarioContext } from './stakeholder-waterfall-stress.util';
 import type { LeaseInput } from './lease-security.util';
 import { computeTenantCovenantScore } from './tenant-covenant.util';
 import { computeAllStressScenarios } from './stress-testing.util';
@@ -162,6 +162,10 @@ export class FractionalProjectsService {
         sirenLocataire: dto.sirenLocataire,
         procedureCollective: dto.procedureCollective,
         garantieMaisonMere: dto.garantieMaisonMere,
+        caLocataireAnnuel: dto.caLocataireAnnuel,
+        ebitdaLocataireAnnuel: dto.ebitdaLocataireAnnuel,
+        tresorerieLocataire: dto.tresorerieLocataire,
+        exerciceFinancierAsOf: dto.exerciceFinancierAsOf ? new Date(dto.exerciceFinancierAsOf) : undefined,
       },
     });
   }
@@ -178,6 +182,7 @@ export class FractionalProjectsService {
         dateTerme: dto.dateTerme ? new Date(dto.dateTerme) : undefined,
         indexation: dto.indexation as FractionalIndexationType | undefined,
         statutRenouvellement: dto.statutRenouvellement as FractionalLeaseRenewalStatus | undefined,
+        exerciceFinancierAsOf: dto.exerciceFinancierAsOf ? new Date(dto.exerciceFinancierAsOf) : undefined,
       },
     });
   }
@@ -313,7 +318,14 @@ export class FractionalProjectsService {
    * TRANSACTION/EXIT du dossier remplacent alors le simple
    * annualManagementFeePct du profil plateforme dans ce chemin).
    */
-  async computeDealEconomics(projectId: string, user: AuthenticatedUser) {
+  /**
+   * Ingrédients bruts partagés par computeDealEconomics (scénario BASE) et
+   * computeDealEconomicsStressTests (les 10 scénarios) — factorisé pour ne
+   * mapper les lignes Prisma (stakeholders/fees/tiers/leases/capex) qu'une
+   * fois, buildScenarioWaterfallInput() de stakeholder-waterfall-stress.util.ts
+   * appliquant ensuite les chocs par scénario sur ce contexte commun.
+   */
+  private async buildDealEconomicsContext(projectId: string, user: AuthenticatedUser): Promise<DealEconomicsScenarioContext | null> {
     const project = await this.findOne(projectId, user);
     if (project.stakeholders.length === 0 || project.waterfallTiers.length === 0) return null;
     if (!project.sourcesUses) {
@@ -321,13 +333,13 @@ export class FractionalProjectsService {
     }
 
     const asOfDate = new Date();
-    const totalLoyerFacial = project.leases.reduce((sum, l) => sum + Number(l.loyerFacialAnnuel), 0);
+    const leases = project.leases.map((l) => ({ id: l.id, loyerFacialAnnuel: Number(l.loyerFacialAnnuel) }));
 
     const baseAssumptionSet = project.assumptionSets.filter((a) => a.scenario === 'BASE').sort((a, b) => b.version - a.version)[0];
     const baseValues = { ...DEFAULT_ASSUMPTIONS, ...parseAssumptionValues(baseAssumptionSet?.values) };
 
     const latestValuation = project.valuations.sort((a, b) => b.asOfDate.getTime() - a.asOfDate.getTime())[0];
-    const exitValue = baseValues.exitValueOverride ?? (latestValuation ? Number(latestValuation.value) : Number(project.sourcesUses.prixNetVendeur));
+    const exitValueBase = baseValues.exitValueOverride ?? (latestValuation ? Number(latestValuation.value) : Number(project.sourcesUses.prixNetVendeur));
 
     const capexByYear: Record<number, number> = {};
     for (const item of project.capexItems) {
@@ -345,34 +357,6 @@ export class FractionalProjectsService {
       Number(project.sourcesUses.reserveVacance) +
       Number(project.sourcesUses.reserveTravaux) +
       Number(project.sourcesUses.reserveTresorerie);
-
-    const years: YearContext[] = [];
-    for (let year = 1; year <= baseValues.holdPeriodYears; year++) {
-      const gpr = totalLoyerFacial * Math.pow(1 + baseValues.rentGrowthPctPerYear / 100, year - 1);
-      const yearResult = computeOperatingModelYear({
-        year,
-        grossPotentialRent: gpr,
-        vacancyCreditLossPct: baseValues.vacancyCreditLossPct,
-        opexPct: baseValues.opexPct,
-        capexThisYear: capexByYear[year] ?? 0,
-        annualManagementFeePct: 0,
-        managementFeeBase: 0,
-        incomeShareInvestorPct: 100,
-      });
-      years.push({
-        year,
-        prixNetVendeur: Number(project.sourcesUses.prixNetVendeur),
-        coutTotal,
-        assetValue: exitValue,
-        grossPotentialRent: yearResult.grossPotentialRent,
-        noi: yearResult.noi,
-        capitalCollecte: Number(project.sourcesUses.collecteMontant),
-        propertyLevelCashFlow: yearResult.distributableCashFlow,
-      });
-    }
-
-    const netSaleProceeds = exitValue * (1 - baseValues.sellingCostsPct / 100);
-    const plusValue = Math.max(0, netSaleProceeds - coutTotal);
 
     const stakeholders: StakeholderInput[] = project.stakeholders.map((s) => ({
       id: s.id,
@@ -406,16 +390,55 @@ export class FractionalProjectsService {
         sharePct: t.sharePct !== null ? Number(t.sharePct) : null,
       }));
 
-    const waterfallInput = { asOfDate, stakeholders, feeDefinitions, tiers, years, netSaleProceeds, plusValue };
-    const result = computeStakeholderWaterfall(waterfallInput);
-
     const platformProfile = project.vehicleStructure?.platformProfile ?? null;
-    const hurdlePct = platformProfile ? Number(platformProfile.minNetInvestorYieldPct) : 0;
-    const reverseSolver = platformProfile
-      ? { maxTotalFeeLoad: solveMaxTotalFeeLoad(waterfallInput, hurdlePct), maxCarry: solveMaxCarry(waterfallInput, hurdlePct) }
+
+    return {
+      asOfDate,
+      holdPeriodYears: baseValues.holdPeriodYears,
+      vacancyCreditLossPct: baseValues.vacancyCreditLossPct,
+      opexPct: baseValues.opexPct,
+      rentGrowthPctPerYear: baseValues.rentGrowthPctPerYear,
+      leases,
+      capexByYear,
+      exitValueBase,
+      sellingCostsPct: baseValues.sellingCostsPct,
+      coutTotal,
+      prixNetVendeur: Number(project.sourcesUses.prixNetVendeur),
+      collecteMontant: Number(project.sourcesUses.collecteMontant),
+      stakeholders,
+      feeDefinitions,
+      tiers,
+      hurdlePct: platformProfile ? Number(platformProfile.minNetInvestorYieldPct) : 0,
+      hasPlatformProfile: Boolean(platformProfile),
+    };
+  }
+
+  async computeDealEconomics(projectId: string, user: AuthenticatedUser) {
+    const context = await this.buildDealEconomicsContext(projectId, user);
+    if (!context) return null;
+
+    const waterfallInput = buildScenarioWaterfallInput(context, 'BASE');
+    const result = computeStakeholderWaterfall(waterfallInput);
+    const reverseSolver = context.hasPlatformProfile
+      ? { maxTotalFeeLoad: solveMaxTotalFeeLoad(waterfallInput, context.hurdlePct), maxCarry: solveMaxCarry(waterfallInput, context.hurdlePct) }
       : null;
 
-    return { result, reverseSolver, hurdlePct };
+    return { result, reverseSolver, hurdlePct: context.hurdlePct };
+  }
+
+  /**
+   * Stress Testing × Deal Economics (spec §29.9) — les mêmes 10 scénarios
+   * que computeStressTests(), mais rejoués à travers le moteur
+   * multi-stakeholder : montre l'effet d'une vacance ou d'un défaut
+   * locataire sur le TRI de CHAQUE partie prenante (pas seulement
+   * l'investisseur du split simple), condition explicitement demandée.
+   * Retourne null si le dossier n'a pas de stakeholders/tiers configurés
+   * (même règle opt-in que computeDealEconomics).
+   */
+  async computeDealEconomicsStressTests(projectId: string, user: AuthenticatedUser) {
+    const context = await this.buildDealEconomicsContext(projectId, user);
+    if (!context) return null;
+    return computeAllDealEconomicsStressScenarios(context);
   }
 
   // ── Synthèse (Returns Engine + Eligibility + Reverse Solver) ─
@@ -455,6 +478,9 @@ export class FractionalProjectsService {
         depotGarantieMontant: l.depotGarantieMontant !== null ? Number(l.depotGarantieMontant) : null,
         loyerFacialAnnuel: Number(l.loyerFacialAnnuel),
         impayesNotes: l.impayesNotes,
+        caLocataireAnnuel: l.caLocataireAnnuel !== null ? Number(l.caLocataireAnnuel) : null,
+        ebitdaLocataireAnnuel: l.ebitdaLocataireAnnuel !== null ? Number(l.ebitdaLocataireAnnuel) : null,
+        tresorerieLocataire: l.tresorerieLocataire !== null ? Number(l.tresorerieLocataire) : null,
       }).score,
     }));
 

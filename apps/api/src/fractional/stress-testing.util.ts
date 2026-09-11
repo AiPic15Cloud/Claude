@@ -22,13 +22,22 @@ export type StressScenarioKey =
   | 'PLATFORM_FEES_INCREASE'
   | 'COMBINED_SEVERE';
 
-const RENT_DOWNSIDE_HAIRCUT_PCT = 10;
-const VACANCY_ADD_PCT = 15;
-const CAPEX_OVERRUN_MULTIPLIER = 1.5;
-const OPEX_ADD_PCT = 5;
-const EXIT_YIELD_EXPANSION_HAIRCUT_PCT = 10;
-const VALUE_DECLINE_HAIRCUT_PCT = 20;
-const PLATFORM_FEES_ADD_PCT = 2;
+// Exportées : réutilisées telles quelles par stakeholder-waterfall-stress.util.ts
+// pour que les 10 scénarios produisent des chocs de même magnitude côté
+// Returns Engine simple et côté moteur multi-stakeholder (Deal Economics) —
+// un même "VACANCY" ne doit pas signifier +15% ici et +8% là-bas.
+export const RENT_DOWNSIDE_HAIRCUT_PCT = 10;
+export const VACANCY_ADD_PCT = 15;
+export const CAPEX_OVERRUN_MULTIPLIER = 1.5;
+export const OPEX_ADD_PCT = 5;
+export const EXIT_YIELD_EXPANSION_HAIRCUT_PCT = 10;
+export const VALUE_DECLINE_HAIRCUT_PCT = 20;
+export const PLATFORM_FEES_ADD_PCT = 2;
+// Le Deal Economics n'a pas d'équivalent direct à annualManagementFeePct
+// (+2pts) : les frais y sont des FeeDefinition par stakeholder avec des
+// assiettes variées. On modélise le même scénario comme une hausse
+// multiplicative des frais RUNNING/TRANSACTION plutôt qu'additive.
+export const PLATFORM_FEES_STRESS_MULTIPLIER = 1.5;
 
 function excludeLargestLease(input: ReturnsEngineInput): ReturnsEngineInput {
   if (input.leases.length === 0) return input;

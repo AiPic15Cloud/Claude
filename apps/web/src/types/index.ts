@@ -1700,6 +1700,10 @@ export interface FractionalLease {
   sirenLocataire?: string | null;
   procedureCollective: boolean;
   garantieMaisonMere: boolean;
+  caLocataireAnnuel?: number | null;
+  ebitdaLocataireAnnuel?: number | null;
+  tresorerieLocataire?: number | null;
+  exerciceFinancierAsOf?: string | null;
 }
 
 export interface FractionalCapexItem {
@@ -2101,4 +2105,57 @@ export interface ComparableResult {
   prixNetVendeur: number | null;
   grossYieldPct: number | null;
   similarityScore: number;
+}
+
+export interface DealEconomicsScenarioResult {
+  scenario: StressScenarioKey;
+  result: StakeholderWaterfallResult;
+}
+
+// ── Marché — RentIndexSeries & MarketComparablePool (patch V3.2 §2) ────────
+// Données partagées au niveau organisation, jamais dupliquées par dossier.
+
+export type RentIndexType = 'ILC' | 'ILAT' | 'IRL' | 'ICC';
+
+export const RENT_INDEX_TYPE_LABELS: Record<RentIndexType, string> = {
+  ILC: 'ILC',
+  ILAT: 'ILAT',
+  IRL: 'IRL',
+  ICC: 'ICC',
+};
+
+export type MarketComparableType = 'LOYER' | 'VENTE';
+
+export const MARKET_COMPARABLE_TYPE_LABELS: Record<MarketComparableType, string> = {
+  LOYER: 'Loyer',
+  VENTE: 'Vente',
+};
+
+export interface RentIndexSeries {
+  id: string;
+  organizationId: string;
+  indexType: RentIndexType;
+  period: string;
+  value: number;
+  cagr5y: number | null;
+  cagr10y: number | null;
+  asOfDate: string;
+  source: string | null;
+  createdAt: string;
+}
+
+export interface MarketComparablePool {
+  id: string;
+  organizationId: string;
+  commune: string;
+  secteur: string | null;
+  type: MarketComparableType;
+  valeurM2: number | null;
+  yieldPct: number | null;
+  surfaceM2: number | null;
+  asOfDate: string;
+  source: string;
+  addedByProjectId: string | null;
+  notes: string | null;
+  createdAt: string;
 }

@@ -3,12 +3,12 @@ import type { FractionalLeaseRenewalStatus } from '@prisma/client';
 /**
  * Tenant Covenant Intelligence (spec V3 §8) — score 0-100 calculé à la
  * volée à partir des champs bruts du bail (jamais stocké, même principe que
- * le statut de sécurisation). Périmètre P1 volontairement réduit aux
- * dimensions directement dérivables des données déjà saisies (identité,
- * juridique, paiement, groupe, bail) — le bloc "Financier" (CA/EBITDA/
- * trésorerie) demanderait une saisie dédiée non construite ici, et le score
- * traite son absence comme neutre plutôt que pénalisant, pour ne jamais
- * laisser une donnée manquante se faire passer pour un risque avéré.
+ * le statut de sécurisation). Dimensions couvertes : identité, juridique,
+ * paiement, groupe, bail, et bloc Financier (CA/EBITDA/trésorerie, saisie
+ * manuelle depuis le dernier exercice connu du locataire). Ce dernier bloc
+ * reste optionnel — un champ absent est traité comme neutre plutôt que
+ * pénalisant, pour ne jamais laisser une donnée manquante se faire passer
+ * pour un risque avéré.
  */
 
 export interface TenantCovenantInput {
@@ -19,6 +19,9 @@ export interface TenantCovenantInput {
   depotGarantieMontant: number | null;
   loyerFacialAnnuel: number;
   impayesNotes: string | null;
+  caLocataireAnnuel: number | null;
+  ebitdaLocataireAnnuel: number | null;
+  tresorerieLocataire: number | null;
 }
 
 export interface TenantCovenantResult {
@@ -64,6 +67,54 @@ export function computeTenantCovenantScore(input: TenantCovenantInput): TenantCo
   }
   if (!input.sirenLocataire) {
     reasons.push('SIREN non renseigné — identité non vérifiable');
+  }
+
+  // Bloc Financier — CA/EBITDA/trésorerie du dernier exercice connu du
+  // locataire. Chaque ratio n'est évalué que si les champs nécessaires sont
+  // renseignés et le loyer est positif (aucune pénalité sur donnée absente).
+  if (input.caLocataireAnnuel !== null && input.caLocataireAnnuel > 0 && input.loyerFacialAnnuel > 0) {
+    const rentToRevenuePct = (input.loyerFacialAnnuel / input.caLocataireAnnuel) * 100;
+    if (rentToRevenuePct > 15) {
+      score -= 15;
+      reasons.push(`Loyer représentant ${rentToRevenuePct.toFixed(1)}% du CA du locataire (> 15%)`);
+    } else if (rentToRevenuePct > 10) {
+      score -= 8;
+      reasons.push(`Loyer représentant ${rentToRevenuePct.toFixed(1)}% du CA du locataire (> 10%)`);
+    } else if (rentToRevenuePct < 3) {
+      score += 5;
+      reasons.push(`Loyer représentant seulement ${rentToRevenuePct.toFixed(1)}% du CA du locataire`);
+    }
+  }
+
+  if (input.ebitdaLocataireAnnuel !== null && input.loyerFacialAnnuel > 0) {
+    if (input.ebitdaLocataireAnnuel < 0) {
+      score -= 25;
+      reasons.push('EBITDA du locataire négatif');
+    } else {
+      const ebitdaCoverage = input.ebitdaLocataireAnnuel / input.loyerFacialAnnuel;
+      if (ebitdaCoverage < 1) {
+        score -= 20;
+        reasons.push(`EBITDA du locataire inférieur au loyer annuel (couverture ${ebitdaCoverage.toFixed(1)}x)`);
+      } else if (ebitdaCoverage < 2) {
+        score -= 8;
+        reasons.push(`Couverture EBITDA/loyer modérée (${ebitdaCoverage.toFixed(1)}x)`);
+      } else if (ebitdaCoverage >= 4) {
+        score += 5;
+        reasons.push(`Couverture EBITDA/loyer confortable (${ebitdaCoverage.toFixed(1)}x)`);
+      }
+    }
+  }
+
+  if (input.tresorerieLocataire !== null && input.loyerFacialAnnuel > 0) {
+    const quarterlyRent = input.loyerFacialAnnuel / 4;
+    const treasuryCoverageQuarters = input.tresorerieLocataire / quarterlyRent;
+    if (treasuryCoverageQuarters < 1) {
+      score -= 10;
+      reasons.push('Trésorerie du locataire inférieure à un trimestre de loyer');
+    } else if (treasuryCoverageQuarters >= 4) {
+      score += 5;
+      reasons.push('Trésorerie du locataire couvrant au moins un an de loyer');
+    }
   }
 
   return { score: Math.max(0, Math.min(100, score)), reasons };

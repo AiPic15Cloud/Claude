@@ -102,4 +102,26 @@ export class CreateLeaseDto {
   @IsOptional()
   @IsBoolean()
   garantieMaisonMere?: boolean;
+
+  @ApiProperty({ required: false, description: 'Bloc Financier — CA du dernier exercice connu du locataire' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  caLocataireAnnuel?: number;
+
+  @ApiProperty({ required: false, description: 'Bloc Financier — EBITDA du dernier exercice connu du locataire' })
+  @IsOptional()
+  @IsNumber()
+  ebitdaLocataireAnnuel?: number;
+
+  @ApiProperty({ required: false, description: 'Bloc Financier — trésorerie disponible du locataire' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tresorerieLocataire?: number;
+
+  @ApiProperty({ required: false, description: 'Date de clôture de l\'exercice financier renseigné' })
+  @IsOptional()
+  @IsDateString()
+  exerciceFinancierAsOf?: string;
 }

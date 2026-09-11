@@ -23,6 +23,10 @@ interface LeaseFormState {
   sirenLocataire: string;
   procedureCollective: boolean;
   garantieMaisonMere: boolean;
+  caLocataireAnnuel: string;
+  ebitdaLocataireAnnuel: string;
+  tresorerieLocataire: string;
+  exerciceFinancierAsOf: string;
 }
 
 const EMPTY_FORM: LeaseFormState = {
@@ -34,6 +38,10 @@ const EMPTY_FORM: LeaseFormState = {
   sirenLocataire: '',
   procedureCollective: false,
   garantieMaisonMere: false,
+  caLocataireAnnuel: '',
+  ebitdaLocataireAnnuel: '',
+  tresorerieLocataire: '',
+  exerciceFinancierAsOf: '',
 };
 
 /** Onglet Locatif (spec V3 §7) — rent roll + statut de sécurisation issu du Lease Security Engine (calculé côté API, jamais stocké). */
@@ -56,6 +64,10 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
         sirenLocataire: form.sirenLocataire || undefined,
         procedureCollective: form.procedureCollective,
         garantieMaisonMere: form.garantieMaisonMere,
+        caLocataireAnnuel: form.caLocataireAnnuel ? Number(form.caLocataireAnnuel) : undefined,
+        ebitdaLocataireAnnuel: form.ebitdaLocataireAnnuel ? Number(form.ebitdaLocataireAnnuel) : undefined,
+        tresorerieLocataire: form.tresorerieLocataire ? Number(form.tresorerieLocataire) : undefined,
+        exerciceFinancierAsOf: form.exerciceFinancierAsOf || undefined,
       },
       { onSuccess: () => setForm(EMPTY_FORM) },
     );
@@ -173,6 +185,27 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                 <input type="checkbox" className="h-4 w-4 accent-primary" checked={form.garantieMaisonMere} onChange={(e) => setForm((p) => ({ ...p, garantieMaisonMere: e.target.checked }))} />
                 Garantie maison mère
               </label>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs uppercase text-muted-foreground">Bloc Financier — dernier exercice connu du locataire</Label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="caLocataireAnnuel">CA annuel</Label>
+                  <Input id="caLocataireAnnuel" type="number" min={0} value={form.caLocataireAnnuel} onChange={(e) => setForm((p) => ({ ...p, caLocataireAnnuel: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="ebitdaLocataireAnnuel">EBITDA annuel</Label>
+                  <Input id="ebitdaLocataireAnnuel" type="number" value={form.ebitdaLocataireAnnuel} onChange={(e) => setForm((p) => ({ ...p, ebitdaLocataireAnnuel: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="tresorerieLocataire">Trésorerie</Label>
+                  <Input id="tresorerieLocataire" type="number" min={0} value={form.tresorerieLocataire} onChange={(e) => setForm((p) => ({ ...p, tresorerieLocataire: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="exerciceFinancierAsOf">Clôture de l'exercice</Label>
+                  <Input id="exerciceFinancierAsOf" type="date" value={form.exerciceFinancierAsOf} onChange={(e) => setForm((p) => ({ ...p, exerciceFinancierAsOf: e.target.value }))} />
+                </div>
+              </div>
             </div>
             <div>
               <Button type="submit" disabled={create.isPending}>

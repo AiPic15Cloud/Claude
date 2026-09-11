@@ -8,7 +8,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useFractionalStressTests, useFractionalICRecommendation, useCreateICDecision } from '../hooks/use-fractional';
-import { STRESS_SCENARIO_LABELS, IC_DECISION_STATUS_LABELS, type FractionalICDecision } from '@/types';
+import { STRESS_SCENARIO_LABELS, IC_DECISION_STATUS_LABELS, type FractionalICDecision, type FractionalAssumptionSet } from '@/types';
+import { AssumptionsCard } from './assumptions-card';
 
 const IC_STATUS_VARIANT = {
   APPROVE: 'success',
@@ -22,8 +23,8 @@ function pct(value: number | null | undefined, digits = 1): string {
   return value === null || value === undefined ? '—' : `${value.toFixed(digits)} %`;
 }
 
-/** Onglet Risque & IC (spec V3 §17/§18) — Stress Testing Engine (10 scénarios) + recommandation/décision IC. */
-export function RisqueIcTab({ projectId, icDecisions }: { projectId: string; icDecisions: FractionalICDecision[] }) {
+/** Onglet Risque & IC (spec V3 §17/§18) — hypothèses, Stress Testing Engine (10 scénarios) + recommandation/décision IC. */
+export function RisqueIcTab({ projectId, icDecisions, assumptionSets }: { projectId: string; icDecisions: FractionalICDecision[]; assumptionSets: FractionalAssumptionSet[] }) {
   const { data: scenarios, isLoading: scenariosLoading } = useFractionalStressTests(projectId);
   const { data: recommendation, isLoading: recommendationLoading } = useFractionalICRecommendation(projectId);
   const createDecision = useCreateICDecision(projectId);
@@ -42,6 +43,8 @@ export function RisqueIcTab({ projectId, icDecisions }: { projectId: string; icD
 
   return (
     <div className="flex flex-col gap-4">
+      <AssumptionsCard projectId={projectId} assumptionSets={assumptionSets} />
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Stress Testing — 10 scénarios</CardTitle>
