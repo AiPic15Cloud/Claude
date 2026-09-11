@@ -48,6 +48,16 @@ export class CreateFeeDefinitionDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsNumber()
+  minAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  maxAmount?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
   source?: string;
 

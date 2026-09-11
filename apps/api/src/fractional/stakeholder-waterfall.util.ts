@@ -42,6 +42,8 @@ export interface FeeDefinitionInput {
   calculationBase: FeeCalculationBase;
   startYear: number | null;
   endYear: number | null;
+  minAmount: number | null;
+  maxAmount: number | null;
 }
 
 export interface WaterfallTierInput {
@@ -78,7 +80,7 @@ export interface StakeholderWaterfallInput {
 }
 
 interface StakeholderReceipt {
-  /** Année de détention (1..holdPeriodYears) — les flux de sortie (frais EXIT, waterfall terminal) portent la dernière année, jamais 0/t0 (voir computeStakeholderWaterfall). */
+  /** Année de détention : 0 = t0/closing (ENTRY fees uniquement), 1..holdPeriodYears = exploitation, la dernière année porte aussi les flux de sortie (frais EXIT, waterfall terminal). */
   year: number;
   category: 'FEE' | 'PREFERRED_RETURN' | 'RETURN_OF_CAPITAL' | 'CATCH_UP' | 'CARRIED_INTEREST' | 'RESIDUAL_SPLIT';
   amount: number;
@@ -135,9 +137,13 @@ function resolveFeeBase(base: FeeCalculationBase, ctx: { prixNetVendeur: number;
 }
 
 function feeAmount(fee: FeeDefinitionInput, base: number): number {
-  if (fee.fixedAmount !== null) return fee.fixedAmount;
-  if (fee.ratePct !== null) return base * (fee.ratePct / 100);
-  return 0;
+  let amount: number;
+  if (fee.fixedAmount !== null) amount = fee.fixedAmount;
+  else if (fee.ratePct !== null) amount = base * (fee.ratePct / 100);
+  else amount = 0;
+  if (fee.minAmount !== null) amount = Math.max(amount, fee.minAmount);
+  if (fee.maxAmount !== null) amount = Math.min(amount, fee.maxAmount);
+  return amount;
 }
 
 export function computeStakeholderWaterfall(input: StakeholderWaterfallInput): StakeholderWaterfallResult {
@@ -153,6 +159,9 @@ export function computeStakeholderWaterfall(input: StakeholderWaterfallInput): S
 
   const cumulativePreferredPaid = new Map<string, number>();
   for (const s of input.stakeholders) cumulativePreferredPaid.set(s.id, 0);
+
+  const cumulativeCatchUpPaid = new Map<string, number>();
+  for (const s of input.stakeholders) cumulativeCatchUpPaid.set(s.id, 0);
 
   let totalUnallocated = 0;
 
@@ -171,7 +180,7 @@ export function computeStakeholderWaterfall(input: StakeholderWaterfallInput): S
     }
 
     pool = Math.max(pool, 0);
-    totalUnallocated += runTiers(pool, year.year, input.tiers, outstandingCapital, cumulativePreferredPaid, addReceipt);
+    totalUnallocated += runTiers(pool, year.year, input.tiers, outstandingCapital, cumulativePreferredPaid, cumulativeCatchUpPaid, addReceipt);
   }
 
   // Sortie : frais EXIT déduits du produit net, puis le solde entre dans la
@@ -191,14 +200,21 @@ export function computeStakeholderWaterfall(input: StakeholderWaterfallInput): S
   }
   // Le retour de capital et le solde résiduel passent aussi par les tiers RETURN_OF_CAPITAL/RESIDUAL_SPLIT à la sortie.
   terminalPool = Math.max(terminalPool, 0);
-  totalUnallocated += runTiers(terminalPool, terminalYear, input.tiers, outstandingCapital, cumulativePreferredPaid, addReceipt);
+  totalUnallocated += runTiers(terminalPool, terminalYear, input.tiers, outstandingCapital, cumulativePreferredPaid, cumulativeCatchUpPaid, addReceipt);
 
-  // Entry fees (one-off, appliqués à t0 — informatif, déjà budgétés dans Sources & Uses côté sources-uses.util.ts).
+  // Entry fees (one-off, appliqués à t0 — informatif, déjà budgétés dans
+  // Sources & Uses côté sources-uses.util.ts). Datés year:0 (t0), pas
+  // input.years[0].year (= 1) : un stakeholder qui apporte du capital ET
+  // perçoit un entry fee (ex. sponsor faisant aussi office d'arrangeur) doit
+  // voir les deux flux à la même date de closing pour un TRI correct — la
+  // dégénérescence "tous les flux à t0" qui justifiait de dater la sortie
+  // plus tard (voir plus haut) ne s'applique pas ici tant que d'autres
+  // distributions existent à des dates ultérieures.
   for (const fee of input.feeDefinitions) {
     if (fee.feeType !== 'ENTRY') continue;
     const first = input.years[0];
     const base = first ? resolveFeeBase(fee.calculationBase, { ...first, plusValue: 0 }) : 0;
-    addReceipt(fee.stakeholderId, { year: input.years[0]?.year ?? 1, category: 'FEE', amount: feeAmount(fee, base) });
+    addReceipt(fee.stakeholderId, { year: 0, category: 'FEE', amount: feeAmount(fee, base) });
   }
 
   const stakeholders: StakeholderResult[] = input.stakeholders.map((s) => {
@@ -331,6 +347,7 @@ function runTiers(
   tiers: WaterfallTierInput[],
   outstandingCapital: Map<string, number>,
   cumulativePreferredPaid: Map<string, number>,
+  cumulativeCatchUpPaid: Map<string, number>,
   addReceipt: (stakeholderId: string, receipt: StakeholderReceipt) => void,
 ): number {
   let pool = poolIn;
@@ -362,19 +379,25 @@ function runTiers(
           .filter(([id]) => id !== tier.beneficiaryStakeholderId)
           .reduce((sum, [, v]) => sum + v, 0);
         const target = totalPreferredPaidToOthers * ((tier.catchUpPct ?? 0) / 100);
-        const alreadyReceived = 0; // simplification P0 : pas de suivi cumulatif inter-années du catch-up déjà versé
+        const alreadyReceived = cumulativeCatchUpPaid.get(tier.beneficiaryStakeholderId) ?? 0;
         const amount = Math.min(pool, Math.max(0, target - alreadyReceived));
         pool -= amount;
+        cumulativeCatchUpPaid.set(tier.beneficiaryStakeholderId, alreadyReceived + amount);
         addReceipt(tier.beneficiaryStakeholderId, { year, category: 'CATCH_UP', amount });
       }
     }
 
-    // CARRIED_INTEREST / RESIDUAL_SPLIT du même groupe : split proportionnel simultané du pool restant.
+    // CARRIED_INTEREST / RESIDUAL_SPLIT du même groupe : split proportionnel
+    // simultané du pool restant. Les sharePct sont normalisés à 100% s'ils
+    // dépassent ce total (mauvaise saisie) — jamais distribué plus que le
+    // pool disponible, quelle que soit la somme des parts saisies.
     const splitTiers = group.filter((t) => (t.type === 'CARRIED_INTEREST' || t.type === 'RESIDUAL_SPLIT') && t.beneficiaryStakeholderId);
     if (splitTiers.length > 0 && pool > 0) {
       const poolAtSplit = pool;
+      const totalSharePct = splitTiers.reduce((sum, t) => sum + (t.sharePct ?? 0), 0);
+      const normalizationFactor = totalSharePct > 100 ? 100 / totalSharePct : 1;
       for (const tier of splitTiers) {
-        const amount = poolAtSplit * ((tier.sharePct ?? 0) / 100);
+        const amount = poolAtSplit * (((tier.sharePct ?? 0) * normalizationFactor) / 100);
         pool -= amount;
         addReceipt(tier.beneficiaryStakeholderId!, { year, category: tier.type === 'CARRIED_INTEREST' ? 'CARRIED_INTEREST' : 'RESIDUAL_SPLIT', amount });
       }

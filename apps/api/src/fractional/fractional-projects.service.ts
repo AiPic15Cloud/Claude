@@ -390,6 +390,8 @@ export class FractionalProjectsService {
         calculationBase: f.calculationBase,
         startYear: f.startYear,
         endYear: f.endYear,
+        minAmount: f.minAmount !== null ? Number(f.minAmount) : null,
+        maxAmount: f.maxAmount !== null ? Number(f.maxAmount) : null,
       })),
     );
     const tiers: WaterfallTierInput[] = project.waterfallTiers
