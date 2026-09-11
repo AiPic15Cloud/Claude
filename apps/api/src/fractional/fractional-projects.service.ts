@@ -26,6 +26,7 @@ import type { LeaseInput } from './lease-security.util';
 import { computeTenantCovenantScore } from './tenant-covenant.util';
 import { computeAllStressScenarios } from './stress-testing.util';
 import { computeICRecommendation } from './ic-engine.util';
+import { computeDCFValuation } from './dcf-valuation.util';
 import { computePerformanceAttribution } from './performance-attribution.util';
 import { findComparables, type ComparableFeatures } from './comparable-engine.util';
 import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
@@ -51,6 +52,8 @@ interface DefaultAssumptionValues {
   rentGrowthPctPerYear: number;
   sellingCostsPct: number;
   materialityThresholdPct: number;
+  /** Taux d'actualisation utilisé par la valorisation DCF (dcf-valuation.util.ts) — distinct du hurdle plateforme, jugement de marché sur le risque de l'actif. */
+  discountRatePct: number;
   exitValueOverride?: number;
 }
 
@@ -61,6 +64,7 @@ const DEFAULT_ASSUMPTIONS: DefaultAssumptionValues = {
   rentGrowthPctPerYear: 1.5,
   sellingCostsPct: 6,
   materialityThresholdPct: 5,
+  discountRatePct: 7,
 };
 
 // Haircut appliqué quand aucun AssumptionSet SEVERE/BEAR n'est encore saisi
@@ -628,6 +632,12 @@ export class FractionalProjectsService {
       };
     }
 
+    const dcfValuation = computeDCFValuation({
+      yearlyCashFlows: baseResult.yearlyModel.map((y) => ({ year: y.year, noi: y.noi, capex: y.capex })),
+      discountRatePct: baseValues.discountRatePct,
+      terminalValue: exitValueBase,
+    });
+
     return {
       base: baseResult,
       stressed: stressResult,
@@ -636,6 +646,7 @@ export class FractionalProjectsService {
       reverseSolver,
       hurdlePct,
       platformProfile,
+      dcfValuation,
     };
   }
 

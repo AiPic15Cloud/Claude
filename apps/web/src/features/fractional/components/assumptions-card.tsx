@@ -21,6 +21,7 @@ interface AssumptionFormState {
   rentGrowthPctPerYear: string;
   sellingCostsPct: string;
   materialityThresholdPct: string;
+  discountRatePct: string;
   exitValueOverride: string;
 }
 
@@ -32,6 +33,7 @@ const DEFAULT_FORM: AssumptionFormState = {
   rentGrowthPctPerYear: '1.5',
   sellingCostsPct: '6',
   materialityThresholdPct: '5',
+  discountRatePct: '7',
   exitValueOverride: '',
 };
 
@@ -66,6 +68,7 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
       rentGrowthPctPerYear: Number(form.rentGrowthPctPerYear),
       sellingCostsPct: Number(form.sellingCostsPct),
       materialityThresholdPct: Number(form.materialityThresholdPct),
+      discountRatePct: Number(form.discountRatePct),
     };
     if (form.exitValueOverride) values.exitValueOverride = Number(form.exitValueOverride);
     upsert.mutate({ scenario: form.scenario, values });
@@ -82,6 +85,7 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
       rentGrowthPctPerYear: String(values.rentGrowthPctPerYear ?? DEFAULT_FORM.rentGrowthPctPerYear),
       sellingCostsPct: String(values.sellingCostsPct ?? DEFAULT_FORM.sellingCostsPct),
       materialityThresholdPct: String(values.materialityThresholdPct ?? DEFAULT_FORM.materialityThresholdPct),
+      discountRatePct: String(values.discountRatePct ?? DEFAULT_FORM.discountRatePct),
       exitValueOverride: values.exitValueOverride !== undefined ? String(values.exitValueOverride) : '',
     });
   };
@@ -164,6 +168,10 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="materialityThresholdPct">Seuil de matérialité bail (%)</Label>
               <Input id="materialityThresholdPct" type="number" step="0.1" value={form.materialityThresholdPct} onChange={(e) => setForm((p) => ({ ...p, materialityThresholdPct: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="discountRatePct">Taux d'actualisation DCF (%)</Label>
+              <Input id="discountRatePct" type="number" step="0.1" value={form.discountRatePct} onChange={(e) => setForm((p) => ({ ...p, discountRatePct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="exitValueOverride">Valeur de sortie (override, optionnel)</Label>

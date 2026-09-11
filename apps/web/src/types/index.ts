@@ -1851,6 +1851,22 @@ export interface ReverseSolverResult {
   iterations: number;
 }
 
+export interface FractionalDCFYearCashFlow {
+  year: number;
+  propertyLevelCashFlow: number;
+  discountFactor: number;
+  presentValue: number;
+}
+
+export interface FractionalDCFValuation {
+  discountRatePct: number;
+  yearlyCashFlows: FractionalDCFYearCashFlow[];
+  presentValueOfCashFlows: number;
+  terminalValue: number;
+  presentValueOfTerminalValue: number;
+  totalValue: number;
+}
+
 export interface FractionalSynthese {
   base: FractionalReturnsResult;
   stressed: FractionalReturnsResult;
@@ -1859,6 +1875,7 @@ export interface FractionalSynthese {
   reverseSolver: { maxAcquisitionPrice: ReverseSolverResult; minSecuredRent: ReverseSolverResult } | null;
   hurdlePct: number;
   platformProfile: PlatformFractionalProfile | null;
+  dcfValuation: FractionalDCFValuation;
 }
 
 // ── Deal Economics & Stakeholder Waterfall (spec V3.1 §29, P0 critique) ────

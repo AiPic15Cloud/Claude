@@ -163,6 +163,15 @@ export function useCreateLease(projectId: string) {
   });
 }
 
+export function useUpdateLease(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leaseId, payload }: { leaseId: string; payload: Partial<LeasePayload> }) =>
+      api.patch(`/fractional/projects/${projectId}/leases/${leaseId}`, payload),
+    onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
 export function useDeleteLease(projectId: string) {
   const qc = useQueryClient();
   return useMutation({

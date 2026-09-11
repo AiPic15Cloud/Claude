@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { useCreateLease, useDeleteLease, useFractionalLegalReview } from '../hooks/use-fractional';
+import { useCreateLease, useUpdateLease, useDeleteLease, useFractionalLegalReview } from '../hooks/use-fractional';
 import {
   FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS,
   LEASE_SECURITY_STATUS_LABELS,
@@ -60,38 +60,76 @@ const EMPTY_FORM: LeaseFormState = {
   indexationFloorPct: '',
 };
 
+function toDateInputValue(value: string | null | undefined): string {
+  return value ? value.slice(0, 10) : '';
+}
+
+function leaseToFormState(lease: FractionalLease): LeaseFormState {
+  return {
+    tenantName: lease.tenantName,
+    loyerFacialAnnuel: String(lease.loyerFacialAnnuel),
+    dateEffet: toDateInputValue(lease.dateEffet),
+    dateTerme: toDateInputValue(lease.dateTerme),
+    statutRenouvellement: lease.statutRenouvellement,
+    sirenLocataire: lease.sirenLocataire ?? '',
+    procedureCollective: lease.procedureCollective,
+    garantieMaisonMere: lease.garantieMaisonMere,
+    caLocataireAnnuel: lease.caLocataireAnnuel !== null && lease.caLocataireAnnuel !== undefined ? String(lease.caLocataireAnnuel) : '',
+    ebitdaLocataireAnnuel: lease.ebitdaLocataireAnnuel !== null && lease.ebitdaLocataireAnnuel !== undefined ? String(lease.ebitdaLocataireAnnuel) : '',
+    tresorerieLocataire: lease.tresorerieLocataire !== null && lease.tresorerieLocataire !== undefined ? String(lease.tresorerieLocataire) : '',
+    exerciceFinancierAsOf: toDateInputValue(lease.exerciceFinancierAsOf),
+    indexation: lease.indexation,
+    indexationCapPct: lease.indexationCapPct !== null && lease.indexationCapPct !== undefined ? String(lease.indexationCapPct) : '',
+    indexationFloorPct: lease.indexationFloorPct !== null && lease.indexationFloorPct !== undefined ? String(lease.indexationFloorPct) : '',
+  };
+}
+
 /** Onglet Locatif (spec V3 §7) — rent roll + statut de sécurisation issu du Lease Security Engine (calculé côté API, jamais stocké). */
 export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId: string; leases: FractionalLease[]; leaseAssessments?: LeaseAssessment[] }) {
   const [form, setForm] = useState<LeaseFormState>(EMPTY_FORM);
+  const [editingLeaseId, setEditingLeaseId] = useState<string | null>(null);
   const create = useCreateLease(projectId);
+  const update = useUpdateLease(projectId);
   const del = useDeleteLease(projectId);
   const { data: legalReviews } = useFractionalLegalReview(projectId);
 
   const assessmentByLeaseId = new Map((leaseAssessments ?? []).map((a) => [a.leaseId, a]));
   const legalReviewByLeaseId = new Map((legalReviews ?? []).map((r) => [r.leaseId, r]));
 
+  const startEditing = (lease: FractionalLease) => {
+    setEditingLeaseId(lease.id);
+    setForm(leaseToFormState(lease));
+  };
+
+  const cancelEditing = () => {
+    setEditingLeaseId(null);
+    setForm(EMPTY_FORM);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    create.mutate(
-      {
-        tenantName: form.tenantName,
-        loyerFacialAnnuel: Number(form.loyerFacialAnnuel),
-        dateEffet: form.dateEffet,
-        dateTerme: form.dateTerme,
-        statutRenouvellement: form.statutRenouvellement,
-        sirenLocataire: form.sirenLocataire || undefined,
-        procedureCollective: form.procedureCollective,
-        garantieMaisonMere: form.garantieMaisonMere,
-        caLocataireAnnuel: form.caLocataireAnnuel ? Number(form.caLocataireAnnuel) : undefined,
-        ebitdaLocataireAnnuel: form.ebitdaLocataireAnnuel ? Number(form.ebitdaLocataireAnnuel) : undefined,
-        tresorerieLocataire: form.tresorerieLocataire ? Number(form.tresorerieLocataire) : undefined,
-        exerciceFinancierAsOf: form.exerciceFinancierAsOf || undefined,
-        indexation: form.indexation,
-        indexationCapPct: form.indexationCapPct ? Number(form.indexationCapPct) : undefined,
-        indexationFloorPct: form.indexationFloorPct ? Number(form.indexationFloorPct) : undefined,
-      },
-      { onSuccess: () => setForm(EMPTY_FORM) },
-    );
+    const payload = {
+      tenantName: form.tenantName,
+      loyerFacialAnnuel: Number(form.loyerFacialAnnuel),
+      dateEffet: form.dateEffet,
+      dateTerme: form.dateTerme,
+      statutRenouvellement: form.statutRenouvellement,
+      sirenLocataire: form.sirenLocataire || undefined,
+      procedureCollective: form.procedureCollective,
+      garantieMaisonMere: form.garantieMaisonMere,
+      caLocataireAnnuel: form.caLocataireAnnuel ? Number(form.caLocataireAnnuel) : undefined,
+      ebitdaLocataireAnnuel: form.ebitdaLocataireAnnuel ? Number(form.ebitdaLocataireAnnuel) : undefined,
+      tresorerieLocataire: form.tresorerieLocataire ? Number(form.tresorerieLocataire) : undefined,
+      exerciceFinancierAsOf: form.exerciceFinancierAsOf || undefined,
+      indexation: form.indexation,
+      indexationCapPct: form.indexationCapPct ? Number(form.indexationCapPct) : undefined,
+      indexationFloorPct: form.indexationFloorPct ? Number(form.indexationFloorPct) : undefined,
+    };
+    if (editingLeaseId) {
+      update.mutate({ leaseId: editingLeaseId, payload }, { onSuccess: () => cancelEditing() });
+    } else {
+      create.mutate(payload, { onSuccess: () => setForm(EMPTY_FORM) });
+    }
   };
 
   return (
@@ -147,9 +185,14 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => del.mutate(lease.id)} disabled={del.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => startEditing(lease)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => del.mutate(lease.id)} disabled={del.isPending}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -162,7 +205,7 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Ajouter un bail</CardTitle>
+          <CardTitle className="text-base">{editingLeaseId ? 'Modifier le bail' : 'Ajouter un bail'}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -264,11 +307,23 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                 </div>
               </div>
             </div>
-            <div>
-              <Button type="submit" disabled={create.isPending}>
-                {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Ajouter le bail
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={create.isPending || update.isPending}>
+                {create.isPending || update.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : editingLeaseId ? (
+                  <Pencil className="h-4 w-4" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                {editingLeaseId ? 'Enregistrer les modifications' : 'Ajouter le bail'}
               </Button>
+              {editingLeaseId && (
+                <Button type="button" variant="ghost" onClick={cancelEditing}>
+                  <X className="h-4 w-4" />
+                  Annuler
+                </Button>
+              )}
             </div>
           </form>
         </CardContent>

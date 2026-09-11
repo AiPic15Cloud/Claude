@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
 import { ELIGIBILITY_VERDICT_LABELS, type FractionalSynthese } from '@/types';
 
@@ -21,7 +22,7 @@ const VERDICT_VARIANT = { ELIGIBLE: 'success', MARGINAL: 'warning', INELIGIBLE: 
 
 /** Onglet Synthèse (spec V3 §25) — verdict, hurdle, rendements, WALB/WALT, Reverse Solver. */
 export function SyntheseTab({ synthese }: { synthese: FractionalSynthese }) {
-  const { base, stressed, stressedIsFallback, eligibility, reverseSolver, platformProfile } = synthese;
+  const { base, stressed, stressedIsFallback, eligibility, reverseSolver, platformProfile, dcfValuation } = synthese;
 
   return (
     <div className="flex flex-col gap-4">
@@ -100,6 +101,73 @@ export function SyntheseTab({ synthese }: { synthese: FractionalSynthese }) {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Cash-Flow annuel</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Année</TableHead>
+                  <TableHead>GPR</TableHead>
+                  <TableHead>Vacance</TableHead>
+                  <TableHead>EGI</TableHead>
+                  <TableHead>OPEX</TableHead>
+                  <TableHead>NOI</TableHead>
+                  <TableHead>CAPEX</TableHead>
+                  <TableHead>Coûts plateforme</TableHead>
+                  <TableHead>CF distribuable</TableHead>
+                  <TableHead>Distribution investisseur</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {base.yearlyModel.map((y) => (
+                  <TableRow key={y.year}>
+                    <TableCell>{y.year}</TableCell>
+                    <TableCell>{formatCurrency(y.grossPotentialRent)}</TableCell>
+                    <TableCell>{formatCurrency(y.vacancyCreditLoss)}</TableCell>
+                    <TableCell>{formatCurrency(y.effectiveGrossIncome)}</TableCell>
+                    <TableCell>{formatCurrency(y.operatingExpenses)}</TableCell>
+                    <TableCell>{formatCurrency(y.noi)}</TableCell>
+                    <TableCell>{y.capex > 0 ? formatCurrency(y.capex) : '—'}</TableCell>
+                    <TableCell>{formatCurrency(y.platformVehicleCosts)}</TableCell>
+                    <TableCell>{formatCurrency(y.distributableCashFlow)}</TableCell>
+                    <TableCell>{formatCurrency(y.investorDistribution)}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-medium">
+                  <TableCell>Sortie</TableCell>
+                  <TableCell colSpan={7} className="text-xs text-muted-foreground">
+                    Produit net de cession
+                  </TableCell>
+                  <TableCell>{formatCurrency(base.terminalProceeds.netSaleProceeds)}</TableCell>
+                  <TableCell>{formatCurrency(base.terminalProceeds.investorTerminalProceeds)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Valorisation DCF</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Somme des cash-flows niveau propriété (NOI − CAPEX) actualisés au taux d'actualisation de l'hypothèse, plus la valeur de sortie retenue actualisée à la fin de l'horizon de détention.
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <YieldStat label="Taux d'actualisation" value={pct(dcfValuation.discountRatePct, 1)} />
+            <YieldStat label="VA des cash-flows" value={formatCurrency(dcfValuation.presentValueOfCashFlows)} />
+            <YieldStat label="VA de la valeur terminale" value={formatCurrency(dcfValuation.presentValueOfTerminalValue)} hint={`Sortie retenue : ${formatCurrency(dcfValuation.terminalValue)}`} />
+            <YieldStat label="Valeur DCF de l'actif" value={formatCurrency(dcfValuation.totalValue)} />
+          </div>
+        </CardContent>
+      </Card>
 
       {!base.sourcesUsesResult.balanced && (
         <Card className="border-warning">
