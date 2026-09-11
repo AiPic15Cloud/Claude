@@ -18,6 +18,9 @@ import {
   EXIT_YIELD_EXPANSION_HAIRCUT_PCT,
   VALUE_DECLINE_HAIRCUT_PCT,
   PLATFORM_FEES_STRESS_MULTIPLIER,
+  excludeLargestLeaseAmount,
+  scaleLeaseRentsAmount,
+  scaleCapexByYear,
   type StressScenarioKey,
 } from './stress-testing.util';
 import { projectIndexedGpr, type IndexGrowthRates } from './rent-indexation.util';
@@ -28,9 +31,12 @@ import { projectIndexedGpr, type IndexGrowthRates } from './rent-indexation.util
  * prenantes") — sans ce module, un dossier utilisant la waterfall
  * multi-tiers ne montrait jamais l'effet d'une vacance ou d'un défaut
  * locataire sur le TRI de chaque partie prenante, seulement sur le split
- * simple investisseur/plateforme (stress-testing.util.ts). Réutilise les
- * mêmes magnitudes de choc (constantes exportées de stress-testing.util.ts)
- * pour qu'un même scénario "VACANCY" signifie la même chose des deux côtés.
+ * simple investisseur/plateforme (stress-testing.util.ts). Réutilise à la
+ * fois les magnitudes de choc et les fonctions d'application des scénarios
+ * (exclusion du bail le plus élevé, scaling des loyers/CAPEX — exportées de
+ * stress-testing.util.ts) pour qu'un même scénario "VACANCY" ou
+ * "TENANT_DEFAULT" signifie exactement la même chose des deux côtés, pas
+ * seulement les mêmes constantes.
  */
 
 export interface LeaseAmount {
@@ -63,12 +69,6 @@ export interface DealEconomicsScenarioContext {
   hasPlatformProfile: boolean;
 }
 
-function excludeLargestLease(leases: LeaseAmount[]): LeaseAmount[] {
-  if (leases.length === 0) return leases;
-  const largest = [...leases].sort((a, b) => b.loyerFacialAnnuel - a.loyerFacialAnnuel)[0];
-  return leases.filter((l) => l.id !== largest.id);
-}
-
 function scaleFeeDefinitions(feeDefinitions: FeeDefinitionInput[], factor: number): FeeDefinitionInput[] {
   return feeDefinitions.map((f) =>
     f.feeType === 'RUNNING' || f.feeType === 'TRANSACTION'
@@ -87,17 +87,11 @@ export function buildScenarioWaterfallInput(context: DealEconomicsScenarioContex
   let exitValue = context.exitValueBase;
   let feeDefinitions = context.feeDefinitions;
 
-  const applyCapexOverrun = () => {
-    const scaled: Record<number, number> = {};
-    for (const [year, amount] of Object.entries(capexByYear)) scaled[Number(year)] = amount * CAPEX_OVERRUN_MULTIPLIER;
-    capexByYear = scaled;
-  };
-
   switch (scenario) {
     case 'BASE':
       break;
     case 'RENT_DOWNSIDE':
-      leases = leases.map((l) => ({ ...l, loyerFacialAnnuel: l.loyerFacialAnnuel * (1 - RENT_DOWNSIDE_HAIRCUT_PCT / 100) }));
+      leases = scaleLeaseRentsAmount(leases, 1 - RENT_DOWNSIDE_HAIRCUT_PCT / 100);
       rentGrowthPctPerYear = 0;
       indexGrowthRates = {};
       break;
@@ -105,10 +99,10 @@ export function buildScenarioWaterfallInput(context: DealEconomicsScenarioContex
       vacancyCreditLossPct += VACANCY_ADD_PCT;
       break;
     case 'TENANT_DEFAULT':
-      leases = excludeLargestLease(leases);
+      leases = excludeLargestLeaseAmount(leases);
       break;
     case 'CAPEX_OVERRUN':
-      applyCapexOverrun();
+      capexByYear = scaleCapexByYear(capexByYear, CAPEX_OVERRUN_MULTIPLIER);
       break;
     case 'OPEX_INCREASE':
       opexPct += OPEX_ADD_PCT;
@@ -124,8 +118,8 @@ export function buildScenarioWaterfallInput(context: DealEconomicsScenarioContex
       break;
     case 'COMBINED_SEVERE':
       vacancyCreditLossPct += VACANCY_ADD_PCT;
-      leases = excludeLargestLease(leases);
-      applyCapexOverrun();
+      leases = excludeLargestLeaseAmount(leases);
+      capexByYear = scaleCapexByYear(capexByYear, CAPEX_OVERRUN_MULTIPLIER);
       exitValue *= 1 - EXIT_YIELD_EXPANSION_HAIRCUT_PCT / 100;
       break;
   }

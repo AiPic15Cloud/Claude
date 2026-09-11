@@ -39,21 +39,43 @@ export const PLATFORM_FEES_ADD_PCT = 2;
 // multiplicative des frais RUNNING/TRANSACTION plutôt qu'additive.
 export const PLATFORM_FEES_STRESS_MULTIPLIER = 1.5;
 
+export interface LeaseAmountLike {
+  id: string;
+  loyerFacialAnnuel: number;
+}
+
+// Génériques sur {id, loyerFacialAnnuel} : réutilisées telles quelles par
+// stakeholder-waterfall-stress.util.ts (dont les baux portent en plus
+// l'indexation) pour qu'un même "TENANT_DEFAULT"/"RENT_DOWNSIDE"/
+// "CAPEX_OVERRUN" désigne exactement le même bail exclu et le même calcul
+// des deux côtés — pas seulement les mêmes constantes de magnitude.
+export function excludeLargestLeaseAmount<T extends LeaseAmountLike>(leases: T[]): T[] {
+  if (leases.length === 0) return leases;
+  const largest = [...leases].sort((a, b) => b.loyerFacialAnnuel - a.loyerFacialAnnuel)[0];
+  return leases.filter((l) => l.id !== largest.id);
+}
+
+export function scaleLeaseRentsAmount<T extends LeaseAmountLike>(leases: T[], factor: number): T[] {
+  return leases.map((l) => ({ ...l, loyerFacialAnnuel: l.loyerFacialAnnuel * factor }));
+}
+
+export function scaleCapexByYear<T extends Record<number, number> | undefined>(capexByYear: T, factor: number): T {
+  if (!capexByYear) return capexByYear;
+  const scaled: Record<number, number> = {};
+  for (const [year, amount] of Object.entries(capexByYear)) scaled[Number(year)] = amount * factor;
+  return scaled as T;
+}
+
 function excludeLargestLease(input: ReturnsEngineInput): ReturnsEngineInput {
-  if (input.leases.length === 0) return input;
-  const largest = [...input.leases].sort((a, b) => b.loyerFacialAnnuel - a.loyerFacialAnnuel)[0];
-  return { ...input, leases: input.leases.filter((l) => l.id !== largest.id) };
+  return { ...input, leases: excludeLargestLeaseAmount(input.leases) };
 }
 
 function scaleLeaseRents(input: ReturnsEngineInput, factor: number): ReturnsEngineInput {
-  return { ...input, leases: input.leases.map((l) => ({ ...l, loyerFacialAnnuel: l.loyerFacialAnnuel * factor })) };
+  return { ...input, leases: scaleLeaseRentsAmount(input.leases, factor) };
 }
 
 function scaleCapex(input: ReturnsEngineInput, factor: number): ReturnsEngineInput {
-  if (!input.capexByYear) return input;
-  const scaled: Record<number, number> = {};
-  for (const [year, amount] of Object.entries(input.capexByYear)) scaled[Number(year)] = amount * factor;
-  return { ...input, capexByYear: scaled };
+  return { ...input, capexByYear: scaleCapexByYear(input.capexByYear, factor) };
 }
 
 function applyScenario(base: ReturnsEngineInput, scenario: StressScenarioKey): ReturnsEngineInput {
