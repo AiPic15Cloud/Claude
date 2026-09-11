@@ -8,7 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FRACTIONAL_PROJECT_STATUS_LABELS, type FractionalProjectStatus } from '@/types';
-import { useFractionalProject, useFractionalSynthese, useFractionalDealEconomics, useFractionalICRecommendation, useUpdateFractionalProjectStatus } from './hooks/use-fractional';
+import {
+  useFractionalProject,
+  useFractionalSynthese,
+  useFractionalDealEconomics,
+  useFractionalICRecommendation,
+  useFractionalLegalReview,
+  useUpdateFractionalProjectStatus,
+} from './hooks/use-fractional';
 import { SyntheseTab } from './components/synthese-tab';
 import { AcquisitionTab } from './components/acquisition-tab';
 import { LocatifTab } from './components/locatif-tab';
@@ -28,6 +35,7 @@ export function FractionalProjectPage() {
   const { data: synthese, isLoading: syntheseLoading } = useFractionalSynthese(id ?? null);
   const { data: dealEconomics, isLoading: dealEconomicsLoading } = useFractionalDealEconomics(id ?? null);
   const { data: icRecommendation } = useFractionalICRecommendation(id ?? null);
+  const { data: legalReviews } = useFractionalLegalReview(id ?? null);
   const updateStatus = useUpdateFractionalProjectStatus();
 
   if (isLoading || !project) {
@@ -130,7 +138,7 @@ export function FractionalProjectPage() {
         </TabsContent>
       </Tabs>
 
-      <InvestmentMemoPrintSheet project={project} synthese={synthese} icRecommendation={icRecommendation} />
+      <InvestmentMemoPrintSheet project={project} synthese={synthese} icRecommendation={icRecommendation} legalReviews={legalReviews} />
     </div>
   );
 }

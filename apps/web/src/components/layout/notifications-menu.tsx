@@ -38,6 +38,8 @@ export function NotificationsMenu() {
     if (!alert.read) markRead.mutate(alert.id);
     if (alert.dealId) {
       navigate(`/deals/${alert.dealId}`);
+    } else if (alert.fractionalProjectId) {
+      navigate(`/fractional/${alert.fractionalProjectId}`);
     } else if (alert.article?.url) {
       window.open(alert.article.url, '_blank', 'noopener,noreferrer');
     } else if (alert.articleId) {

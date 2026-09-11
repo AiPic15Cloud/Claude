@@ -1013,13 +1013,15 @@ model Activity {
 }
 
 model Alert {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  dealId         String?
-  deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  articleId      String?
-  article        Article?     @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  id                 String            @id @default(cuid())
+  organizationId     String
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId             String?
+  deal               Deal?             @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  articleId          String?
+  article            Article?          @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  fractionalProjectId String?
+  fractionalProject  FractionalProject? @relation(fields: [fractionalProjectId], references: [id], onDelete: Cascade)
 
   severity AlertSeverity @default(INFO)
   title    String
@@ -2200,6 +2202,7 @@ model FractionalProject {
   icDecisions      FractionalICDecision[]
   actuals          FractionalProjectActual[]
   outcome          FractionalProjectOutcome?
+  alerts           Alert[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

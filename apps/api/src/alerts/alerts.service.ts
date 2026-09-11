@@ -16,6 +16,7 @@ export class AlertsService {
       include: {
         deal: { select: { id: true, name: true, reference: true } },
         article: { select: { id: true, url: true } },
+        fractionalProject: { select: { id: true, name: true, reference: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -24,7 +25,7 @@ export class AlertsService {
 
   async create(
     organizationId: string,
-    data: { title: string; message: string; severity?: AlertSeverity; dealId?: string; articleId?: string },
+    data: { title: string; message: string; severity?: AlertSeverity; dealId?: string; articleId?: string; fractionalProjectId?: string },
   ) {
     const alert = await this.prisma.alert.create({
       data: {
@@ -34,6 +35,7 @@ export class AlertsService {
         severity: data.severity,
         dealId: data.dealId,
         articleId: data.articleId,
+        fractionalProjectId: data.fractionalProjectId,
       },
     });
 

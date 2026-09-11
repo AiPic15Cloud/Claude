@@ -340,6 +340,8 @@ export interface Alert {
   deal?: { id: string; name: string; reference: string } | null;
   articleId?: string | null;
   article?: { id: string; url: string | null } | null;
+  fractionalProjectId?: string | null;
+  fractionalProject?: { id: string; name: string; reference: string } | null;
   severity: AlertSeverity;
   title: string;
   message: string;
