@@ -1,4 +1,4 @@
-import type { FractionalLeaseRenewalStatus } from '@prisma/client';
+import type { FractionalLeaseRenewalStatus, FractionalIndexationType } from '@prisma/client';
 
 /**
  * Lease Audit & Lease Security Engine (spec V3 §7). Détermine bail par bail
@@ -46,6 +46,10 @@ export interface LeaseInput {
   statutRenouvellement: FractionalLeaseRenewalStatus;
   /** Score Tenant Covenant Intelligence (0-100), calculé en amont par tenant-covenant.util.ts — optionnel, aucun ajustement si absent. */
   covenantScore?: number;
+  /** Indexation contractuelle — consommée par rent-indexation.util.ts pour la projection des loyers, pas par ce moteur. */
+  indexation: FractionalIndexationType;
+  indexationCapPct: number | null;
+  indexationFloorPct: number | null;
 }
 
 export interface LeaseAssessment {

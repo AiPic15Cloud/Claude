@@ -30,6 +30,7 @@ import type {
   ProjectOutcomeStatus,
   PerformanceAttributionResult,
   ComparableResult,
+  LeaseLegalReview,
   RentIndexSeries,
   RentIndexType,
   MarketComparablePool,
@@ -135,6 +136,8 @@ export interface LeasePayload {
   loyerFacialAnnuel: number;
   ervAnnuel?: number;
   indexation?: FractionalIndexationType;
+  indexationCapPct?: number;
+  indexationFloorPct?: number;
   franchiseMois?: number;
   chargesRecuperables?: boolean;
   depotGarantieMontant?: number;
@@ -437,6 +440,14 @@ export function useFractionalComparables(id: string | null) {
   return useQuery({
     queryKey: ['fractional', 'projects', id, 'comparables'],
     queryFn: () => api.get<ComparableResult[]>(`/fractional/projects/${id}/comparables`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useFractionalLegalReview(id: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', id, 'legal-review'],
+    queryFn: () => api.get<LeaseLegalReview[]>(`/fractional/projects/${id}/legal-review`),
     enabled: Boolean(id),
   });
 }

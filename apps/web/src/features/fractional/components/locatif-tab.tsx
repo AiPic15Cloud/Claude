@@ -8,11 +8,21 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { useCreateLease, useDeleteLease } from '../hooks/use-fractional';
-import { FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS, LEASE_SECURITY_STATUS_LABELS, type FractionalLease, type FractionalLeaseRenewalStatus, type LeaseAssessment } from '@/types';
+import { useCreateLease, useDeleteLease, useFractionalLegalReview } from '../hooks/use-fractional';
+import {
+  FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS,
+  LEASE_SECURITY_STATUS_LABELS,
+  type FractionalLease,
+  type FractionalLeaseRenewalStatus,
+  type FractionalIndexationType,
+  type LeaseAssessment,
+} from '@/types';
 
 const RENEWAL_STATUSES: FractionalLeaseRenewalStatus[] = ['SIGNE', 'EN_COURS', 'TACITE', 'DEPASSE', 'CONTESTE'];
+const INDEXATION_TYPES: FractionalIndexationType[] = ['ILC', 'ILAT', 'IRL', 'ICC', 'AUTRE'];
 const SECURITY_VARIANT = { SECURED: 'success', WATCH: 'warning', SECURE_BEFORE_ACQUISITION: 'warning', EXCLUDE_FROM_SECURED_YIELD: 'destructive' } as const;
+const LEGAL_SEVERITY_VARIANT = { INFO: 'outline', WATCH: 'warning', ALERT: 'warning', CRITIQUE: 'destructive' } as const;
+const LEGAL_SEVERITY_LABELS = { INFO: 'Info', WATCH: 'À surveiller', ALERT: 'Alerte', CRITIQUE: 'Critique' } as const;
 
 interface LeaseFormState {
   tenantName: string;
@@ -27,6 +37,9 @@ interface LeaseFormState {
   ebitdaLocataireAnnuel: string;
   tresorerieLocataire: string;
   exerciceFinancierAsOf: string;
+  indexation: FractionalIndexationType;
+  indexationCapPct: string;
+  indexationFloorPct: string;
 }
 
 const EMPTY_FORM: LeaseFormState = {
@@ -42,6 +55,9 @@ const EMPTY_FORM: LeaseFormState = {
   ebitdaLocataireAnnuel: '',
   tresorerieLocataire: '',
   exerciceFinancierAsOf: '',
+  indexation: 'AUTRE',
+  indexationCapPct: '',
+  indexationFloorPct: '',
 };
 
 /** Onglet Locatif (spec V3 §7) — rent roll + statut de sécurisation issu du Lease Security Engine (calculé côté API, jamais stocké). */
@@ -49,8 +65,10 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
   const [form, setForm] = useState<LeaseFormState>(EMPTY_FORM);
   const create = useCreateLease(projectId);
   const del = useDeleteLease(projectId);
+  const { data: legalReviews } = useFractionalLegalReview(projectId);
 
   const assessmentByLeaseId = new Map((leaseAssessments ?? []).map((a) => [a.leaseId, a]));
+  const legalReviewByLeaseId = new Map((legalReviews ?? []).map((r) => [r.leaseId, r]));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +86,9 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
         ebitdaLocataireAnnuel: form.ebitdaLocataireAnnuel ? Number(form.ebitdaLocataireAnnuel) : undefined,
         tresorerieLocataire: form.tresorerieLocataire ? Number(form.tresorerieLocataire) : undefined,
         exerciceFinancierAsOf: form.exerciceFinancierAsOf || undefined,
+        indexation: form.indexation,
+        indexationCapPct: form.indexationCapPct ? Number(form.indexationCapPct) : undefined,
+        indexationFloorPct: form.indexationFloorPct ? Number(form.indexationFloorPct) : undefined,
       },
       { onSuccess: () => setForm(EMPTY_FORM) },
     );
@@ -91,12 +112,14 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                   <TableHead>Terme</TableHead>
                   <TableHead>Renouvellement</TableHead>
                   <TableHead>Statut de sécurisation</TableHead>
+                  <TableHead>Juridique</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {leases.map((lease) => {
                   const assessment = assessmentByLeaseId.get(lease.id);
+                  const legalReview = legalReviewByLeaseId.get(lease.id);
                   return (
                     <TableRow key={lease.id}>
                       <TableCell>{lease.tenantName}</TableCell>
@@ -107,6 +130,17 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                         {assessment ? (
                           <span title={assessment.reasons.join(' · ')}>
                             <Badge variant={SECURITY_VARIANT[assessment.securityStatus]}>{LEASE_SECURITY_STATUS_LABELS[assessment.securityStatus]}</Badge>
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {legalReview && legalReview.recommendations.length > 0 ? (
+                          <span title={legalReview.recommendations.map((r) => r.message).join(' · ')}>
+                            <Badge variant={LEGAL_SEVERITY_VARIANT[legalReview.worstSeverity]}>
+                              {LEGAL_SEVERITY_LABELS[legalReview.worstSeverity]} ({legalReview.recommendations.length})
+                            </Badge>
                           </span>
                         ) : (
                           '—'
@@ -174,6 +208,29 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="sirenLocataire">SIREN locataire</Label>
                 <Input id="sirenLocataire" value={form.sirenLocataire} onChange={(e) => setForm((p) => ({ ...p, sirenLocataire: e.target.value }))} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Indexation</Label>
+                <Select value={form.indexation} onValueChange={(v) => setForm((p) => ({ ...p, indexation: v as FractionalIndexationType }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDEXATION_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="indexationFloorPct">Plancher indexation (%)</Label>
+                <Input id="indexationFloorPct" type="number" step="0.1" value={form.indexationFloorPct} onChange={(e) => setForm((p) => ({ ...p, indexationFloorPct: e.target.value }))} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="indexationCapPct">Plafond indexation (%)</Label>
+                <Input id="indexationCapPct" type="number" step="0.1" value={form.indexationCapPct} onChange={(e) => setForm((p) => ({ ...p, indexationCapPct: e.target.value }))} />
               </div>
             </div>
             <div className="flex flex-wrap gap-4 text-sm">

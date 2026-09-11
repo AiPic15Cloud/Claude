@@ -1,3 +1,4 @@
+import type { FractionalIndexationType } from '@prisma/client';
 import { computeOperatingModelYear } from './operating-model.util';
 import {
   computeStakeholderWaterfall,
@@ -19,6 +20,7 @@ import {
   PLATFORM_FEES_STRESS_MULTIPLIER,
   type StressScenarioKey,
 } from './stress-testing.util';
+import { projectIndexedGpr, type IndexGrowthRates } from './rent-indexation.util';
 
 /**
  * Applique les 10 scénarios de stress-testing.util.ts au moteur
@@ -34,6 +36,9 @@ import {
 export interface LeaseAmount {
   id: string;
   loyerFacialAnnuel: number;
+  indexation: FractionalIndexationType;
+  indexationCapPct: number | null;
+  indexationFloorPct: number | null;
 }
 
 export interface DealEconomicsScenarioContext {
@@ -42,6 +47,8 @@ export interface DealEconomicsScenarioContext {
   vacancyCreditLossPct: number;
   opexPct: number;
   rentGrowthPctPerYear: number;
+  /** Taux de croissance par indice (rent-indexation.util.ts) — absent = aucune série de marché disponible, tout retombe sur rentGrowthPctPerYear. */
+  indexGrowthRates?: IndexGrowthRates;
   leases: LeaseAmount[];
   capexByYear: Record<number, number>;
   exitValueBase: number;
@@ -75,6 +82,7 @@ export function buildScenarioWaterfallInput(context: DealEconomicsScenarioContex
   let vacancyCreditLossPct = context.vacancyCreditLossPct;
   let opexPct = context.opexPct;
   let rentGrowthPctPerYear = context.rentGrowthPctPerYear;
+  let indexGrowthRates = context.indexGrowthRates ?? {};
   let capexByYear = context.capexByYear;
   let exitValue = context.exitValueBase;
   let feeDefinitions = context.feeDefinitions;
@@ -91,6 +99,7 @@ export function buildScenarioWaterfallInput(context: DealEconomicsScenarioContex
     case 'RENT_DOWNSIDE':
       leases = leases.map((l) => ({ ...l, loyerFacialAnnuel: l.loyerFacialAnnuel * (1 - RENT_DOWNSIDE_HAIRCUT_PCT / 100) }));
       rentGrowthPctPerYear = 0;
+      indexGrowthRates = {};
       break;
     case 'VACANCY':
       vacancyCreditLossPct += VACANCY_ADD_PCT;
@@ -121,10 +130,9 @@ export function buildScenarioWaterfallInput(context: DealEconomicsScenarioContex
       break;
   }
 
-  const totalLoyerFacial = leases.reduce((sum, l) => sum + l.loyerFacialAnnuel, 0);
   const years: YearContext[] = [];
   for (let year = 1; year <= context.holdPeriodYears; year++) {
-    const gpr = totalLoyerFacial * Math.pow(1 + rentGrowthPctPerYear / 100, year - 1);
+    const gpr = projectIndexedGpr(leases, indexGrowthRates, rentGrowthPctPerYear, year);
     const yearResult = computeOperatingModelYear({
       year,
       grossPotentialRent: gpr,

@@ -47,6 +47,16 @@ export class CreateLeaseDto {
   @IsEnum(FractionalIndexationType)
   indexation?: FractionalIndexationType;
 
+  @ApiProperty({ required: false, description: 'Plafond contractuel de la croissance annuelle du loyer (%)' })
+  @IsOptional()
+  @IsNumber()
+  indexationCapPct?: number;
+
+  @ApiProperty({ required: false, description: 'Plancher contractuel de la croissance annuelle du loyer (%)' })
+  @IsOptional()
+  @IsNumber()
+  indexationFloorPct?: number;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()

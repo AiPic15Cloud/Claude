@@ -61,7 +61,7 @@ function applyScenario(base: ReturnsEngineInput, scenario: StressScenarioKey): R
     case 'BASE':
       return base;
     case 'RENT_DOWNSIDE':
-      return { ...scaleLeaseRents(base, 1 - RENT_DOWNSIDE_HAIRCUT_PCT / 100), rentGrowthPctPerYear: 0 };
+      return { ...scaleLeaseRents(base, 1 - RENT_DOWNSIDE_HAIRCUT_PCT / 100), rentGrowthPctPerYear: 0, indexGrowthRates: {} };
     case 'VACANCY':
       return { ...base, vacancyCreditLossPct: base.vacancyCreditLossPct + VACANCY_ADD_PCT };
     case 'TENANT_DEFAULT':

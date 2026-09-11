@@ -20,6 +20,8 @@ import { computeEligibility } from './eligibility.util';
 import { solveMaxAcquisitionPrice, solveMinSecuredRent } from './reverse-solver.util';
 import { computeStakeholderWaterfall, solveMaxTotalFeeLoad, solveMaxCarry, type StakeholderInput, type FeeDefinitionInput, type WaterfallTierInput } from './stakeholder-waterfall.util';
 import { buildScenarioWaterfallInput, computeAllDealEconomicsStressScenarios, type DealEconomicsScenarioContext } from './stakeholder-waterfall-stress.util';
+import { computeIndexGrowthRates, type IndexGrowthRates } from './rent-indexation.util';
+import { computeLeaseLegalReview } from './lease-legal-review.util';
 import type { LeaseInput } from './lease-security.util';
 import { computeTenantCovenantScore } from './tenant-covenant.util';
 import { computeAllStressScenarios } from './stress-testing.util';
@@ -151,6 +153,8 @@ export class FractionalProjectsService {
         loyerFacialAnnuel: dto.loyerFacialAnnuel,
         ervAnnuel: dto.ervAnnuel,
         indexation: dto.indexation as FractionalIndexationType | undefined,
+        indexationCapPct: dto.indexationCapPct,
+        indexationFloorPct: dto.indexationFloorPct,
         franchiseMois: dto.franchiseMois,
         chargesRecuperables: dto.chargesRecuperables,
         depotGarantieMontant: dto.depotGarantieMontant,
@@ -192,6 +196,38 @@ export class FractionalProjectsService {
     const lease = await this.prisma.fractionalLease.findUnique({ where: { id: leaseId } });
     if (!lease || lease.projectId !== projectId) throw new NotFoundException('Bail introuvable.');
     await this.prisma.fractionalLease.delete({ where: { id: leaseId } });
+  }
+
+  /**
+   * Module juridique — recommandations de qualité par bail
+   * (lease-legal-review.util.ts) : checklist actionnable (échéance proche,
+   * renouvellement non formalisé, procédure collective, garanties...),
+   * distincte du Lease Security Engine qui répond à une question différente
+   * ("quel revenu est sécurisé ?" plutôt que "qu'est-ce qu'il faut faire ?").
+   */
+  async computeLegalReview(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const asOfDate = new Date();
+    return project.leases.map((l) => ({
+      leaseId: l.id,
+      tenantName: l.tenantName,
+      ...computeLeaseLegalReview(
+        {
+          dateEffet: l.dateEffet,
+          dateTerme: l.dateTerme,
+          breakDates: (l.breakDates as string[] | null)?.map((d) => new Date(d)) ?? [],
+          statutRenouvellement: l.statutRenouvellement,
+          procedureCollective: l.procedureCollective,
+          impayesNotes: l.impayesNotes,
+          depotGarantieMontant: l.depotGarantieMontant !== null ? Number(l.depotGarantieMontant) : null,
+          loyerFacialAnnuel: Number(l.loyerFacialAnnuel),
+          restrictionsCessionSousLocation: l.restrictionsCessionSousLocation,
+          repartitionTravaux: l.repartitionTravaux,
+          sirenLocataire: l.sirenLocataire,
+        },
+        asOfDate,
+      ),
+    }));
   }
 
   // ── CAPEX ──────────────────────────────────────────────────
@@ -333,7 +369,14 @@ export class FractionalProjectsService {
     }
 
     const asOfDate = new Date();
-    const leases = project.leases.map((l) => ({ id: l.id, loyerFacialAnnuel: Number(l.loyerFacialAnnuel) }));
+    const indexGrowthRates = await this.getIndexGrowthRates(user.organizationId);
+    const leases = project.leases.map((l) => ({
+      id: l.id,
+      loyerFacialAnnuel: Number(l.loyerFacialAnnuel),
+      indexation: l.indexation,
+      indexationCapPct: l.indexationCapPct !== null ? Number(l.indexationCapPct) : null,
+      indexationFloorPct: l.indexationFloorPct !== null ? Number(l.indexationFloorPct) : null,
+    }));
 
     const baseAssumptionSet = project.assumptionSets.filter((a) => a.scenario === 'BASE').sort((a, b) => b.version - a.version)[0];
     const baseValues = { ...DEFAULT_ASSUMPTIONS, ...parseAssumptionValues(baseAssumptionSet?.values) };
@@ -398,6 +441,7 @@ export class FractionalProjectsService {
       vacancyCreditLossPct: baseValues.vacancyCreditLossPct,
       opexPct: baseValues.opexPct,
       rentGrowthPctPerYear: baseValues.rentGrowthPctPerYear,
+      indexGrowthRates,
       leases,
       capexByYear,
       exitValueBase,
@@ -456,12 +500,21 @@ export class FractionalProjectsService {
    * factorisé pour être réutilisé par computeSynthese, computeStressTests
    * et computeICRecommendation sans dupliquer le mapping Prisma→moteur.
    */
-  private buildReturnsEngineInput(project: Awaited<ReturnType<FractionalProjectsService['findOne']>>) {
+  /** Séries d'indices de référence de l'organisation → taux de croissance par indice (rent-indexation.util.ts), partagées au niveau organisation (patch V3.2 §2), jamais par dossier. */
+  private async getIndexGrowthRates(organizationId: string): Promise<IndexGrowthRates> {
+    const series = await this.prisma.rentIndexSeries.findMany({ where: { organizationId } });
+    return computeIndexGrowthRates(
+      series.map((s) => ({ indexType: s.indexType, cagr5y: s.cagr5y !== null ? Number(s.cagr5y) : null, asOfDate: s.asOfDate })),
+    );
+  }
+
+  private async buildReturnsEngineInput(project: Awaited<ReturnType<FractionalProjectsService['findOne']>>, organizationId: string) {
     if (!project.sourcesUses) {
       throw new ForbiddenException("Le dossier n'a pas encore de Sources & Uses saisi — impossible de calculer la synthèse.");
     }
 
     const asOfDate = new Date();
+    const indexGrowthRates = await this.getIndexGrowthRates(organizationId);
     const leases: LeaseInput[] = project.leases.map((l) => ({
       id: l.id,
       tenantName: l.tenantName,
@@ -470,6 +523,9 @@ export class FractionalProjectsService {
       dateTerme: l.dateTerme,
       breakDates: (l.breakDates as string[] | null)?.map((d) => new Date(d)) ?? [],
       statutRenouvellement: l.statutRenouvellement,
+      indexation: l.indexation,
+      indexationCapPct: l.indexationCapPct !== null ? Number(l.indexationCapPct) : null,
+      indexationFloorPct: l.indexationFloorPct !== null ? Number(l.indexationFloorPct) : null,
       covenantScore: computeTenantCovenantScore({
         sirenLocataire: l.sirenLocataire,
         procedureCollective: l.procedureCollective,
@@ -529,6 +585,7 @@ export class FractionalProjectsService {
       incomeShareInvestorPct,
       capitalGainShareInvestorPct,
       rentGrowthPctPerYear: baseValues.rentGrowthPctPerYear,
+      indexGrowthRates,
       capexByYear,
       exitValue: exitValueBase,
       sellingCostsPct: baseValues.sellingCostsPct,
@@ -540,7 +597,7 @@ export class FractionalProjectsService {
 
   async computeSynthese(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
-    const { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct } = this.buildReturnsEngineInput(project);
+    const { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct } = await this.buildReturnsEngineInput(project, user.organizationId);
 
     const baseResult = computeReturnsEngine(baseInput);
 
@@ -586,7 +643,7 @@ export class FractionalProjectsService {
 
   async computeStressTests(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
-    const { baseInput, hurdlePct } = this.buildReturnsEngineInput(project);
+    const { baseInput, hurdlePct } = await this.buildReturnsEngineInput(project, user.organizationId);
     return computeAllStressScenarios(baseInput, hurdlePct);
   }
 
@@ -594,7 +651,7 @@ export class FractionalProjectsService {
 
   async computeICRecommendationForProject(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
-    const { baseInput, hurdlePct, platformProfile } = this.buildReturnsEngineInput(project);
+    const { baseInput, hurdlePct, platformProfile } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
     const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
     const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
@@ -652,7 +709,7 @@ export class FractionalProjectsService {
    */
   async computePerformanceAttributionForProject(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
-    const { baseInput } = this.buildReturnsEngineInput(project);
+    const { baseInput } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
     const asOfYear = baseInput.asOfDate.getFullYear();
 

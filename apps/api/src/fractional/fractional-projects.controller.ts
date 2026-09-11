@@ -95,6 +95,11 @@ export class FractionalProjectsController {
     return this.service.removeLease(id, leaseId, user);
   }
 
+  @Get(':id/legal-review')
+  legalReview(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.computeLegalReview(id, user);
+  }
+
   @Post(':id/capex-items')
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')

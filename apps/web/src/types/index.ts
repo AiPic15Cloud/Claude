@@ -1689,6 +1689,8 @@ export interface FractionalLease {
   loyerFacialAnnuel: number;
   ervAnnuel?: number | null;
   indexation: FractionalIndexationType;
+  indexationCapPct?: number | null;
+  indexationFloorPct?: number | null;
   franchiseMois: number;
   chargesRecuperables: boolean;
   depotGarantieMontant?: number | null;
@@ -2110,6 +2112,23 @@ export interface ComparableResult {
 export interface DealEconomicsScenarioResult {
   scenario: StressScenarioKey;
   result: StakeholderWaterfallResult;
+}
+
+// ── Module juridique — recommandations qualité des baux ────────────────────
+
+export type LegalRecommendationSeverity = 'INFO' | 'WATCH' | 'ALERT' | 'CRITIQUE';
+
+export interface LegalRecommendation {
+  code: string;
+  severity: LegalRecommendationSeverity;
+  message: string;
+}
+
+export interface LeaseLegalReview {
+  leaseId: string;
+  tenantName: string;
+  recommendations: LegalRecommendation[];
+  worstSeverity: LegalRecommendationSeverity;
 }
 
 // ── Marché — RentIndexSeries & MarketComparablePool (patch V3.2 §2) ────────

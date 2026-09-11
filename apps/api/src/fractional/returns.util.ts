@@ -2,6 +2,7 @@ import { computeXirr, type CashFlow } from '../deals/xirr.util';
 import { computeSourcesUses, type SourcesUsesInput, type SourcesUsesResult } from './sources-uses.util';
 import { computeLeaseSecurity, sumLoyerByStatuses, type LeaseInput, type LeaseSecurityResult } from './lease-security.util';
 import { computeOperatingModelYear, computeTerminalProceeds, type OperatingModelYearResult, type TerminalProceedsResult } from './operating-model.util';
+import { projectIndexedGpr, type IndexGrowthRates } from './rent-indexation.util';
 
 /**
  * Returns Engine (spec V3 §15) — orchestre Sources/Uses, Lease Security et
@@ -25,8 +26,10 @@ export interface ReturnsEngineInput {
   annualManagementFeePct: number;
   incomeShareInvestorPct: number;
   capitalGainShareInvestorPct: number;
-  /** Croissance annuelle uniforme des loyers — simplification P0 d'une indexation ILC/ILAT par bail (RentIndexSeries alimentera ce paramètre en P1). */
+  /** Croissance annuelle de repli — utilisée pour tout bail en indexation "AUTRE" ou dont l'indice n'a pas de série de marché disponible. Les baux ILC/ILAT/IRL/ICC avec série connue utilisent indexGrowthRates à la place (§7 + patch V3.2 §2). */
   rentGrowthPctPerYear: number;
+  /** Taux de croissance par indice, dérivé de RentIndexSeries (rent-indexation.util.ts) — absent = aucune série de marché disponible, tout retombe sur rentGrowthPctPerYear. */
+  indexGrowthRates?: IndexGrowthRates;
   /** Décaissement CAPEX par année (1 = première année de détention). */
   capexByYear?: Record<number, number>;
   exitValue: number;
@@ -63,9 +66,10 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
   const collecte = input.sourcesUses.collecteMontant;
   const managementFeeBase = collecte;
 
+  const indexGrowthRates = input.indexGrowthRates ?? {};
   const yearlyModel: OperatingModelYearResult[] = [];
   for (let year = 1; year <= input.holdPeriodYears; year++) {
-    const gpr = leaseSecurity.totalLoyerFacial * Math.pow(1 + input.rentGrowthPctPerYear / 100, year - 1);
+    const gpr = projectIndexedGpr(input.leases, indexGrowthRates, input.rentGrowthPctPerYear, year);
     yearlyModel.push(
       computeOperatingModelYear({
         year,
