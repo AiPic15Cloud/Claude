@@ -20,9 +20,21 @@ interface LeaseFormState {
   dateEffet: string;
   dateTerme: string;
   statutRenouvellement: FractionalLeaseRenewalStatus;
+  sirenLocataire: string;
+  procedureCollective: boolean;
+  garantieMaisonMere: boolean;
 }
 
-const EMPTY_FORM: LeaseFormState = { tenantName: '', loyerFacialAnnuel: '', dateEffet: '', dateTerme: '', statutRenouvellement: 'SIGNE' };
+const EMPTY_FORM: LeaseFormState = {
+  tenantName: '',
+  loyerFacialAnnuel: '',
+  dateEffet: '',
+  dateTerme: '',
+  statutRenouvellement: 'SIGNE',
+  sirenLocataire: '',
+  procedureCollective: false,
+  garantieMaisonMere: false,
+};
 
 /** Onglet Locatif (spec V3 §7) — rent roll + statut de sécurisation issu du Lease Security Engine (calculé côté API, jamais stocké). */
 export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId: string; leases: FractionalLease[]; leaseAssessments?: LeaseAssessment[] }) {
@@ -35,7 +47,16 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     create.mutate(
-      { tenantName: form.tenantName, loyerFacialAnnuel: Number(form.loyerFacialAnnuel), dateEffet: form.dateEffet, dateTerme: form.dateTerme, statutRenouvellement: form.statutRenouvellement },
+      {
+        tenantName: form.tenantName,
+        loyerFacialAnnuel: Number(form.loyerFacialAnnuel),
+        dateEffet: form.dateEffet,
+        dateTerme: form.dateTerme,
+        statutRenouvellement: form.statutRenouvellement,
+        sirenLocataire: form.sirenLocataire || undefined,
+        procedureCollective: form.procedureCollective,
+        garantieMaisonMere: form.garantieMaisonMere,
+      },
       { onSuccess: () => setForm(EMPTY_FORM) },
     );
   };
@@ -138,6 +159,20 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="sirenLocataire">SIREN locataire</Label>
+                <Input id="sirenLocataire" value={form.sirenLocataire} onChange={(e) => setForm((p) => ({ ...p, sirenLocataire: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="h-4 w-4 accent-primary" checked={form.procedureCollective} onChange={(e) => setForm((p) => ({ ...p, procedureCollective: e.target.checked }))} />
+                Procédure collective en cours
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="h-4 w-4 accent-primary" checked={form.garantieMaisonMere} onChange={(e) => setForm((p) => ({ ...p, garantieMaisonMere: e.target.checked }))} />
+                Garantie maison mère
+              </label>
             </div>
             <div>
               <Button type="submit" disabled={create.isPending}>

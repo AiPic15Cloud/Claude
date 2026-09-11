@@ -7,10 +7,11 @@ import type { FractionalLeaseRenewalStatus } from '@prisma/client';
  * représentant 2% des loyers ne reçoit pas le même traitement qu'un bail de
  * 18 mois représentant 25%".
  *
- * Règle de matérialité retenue pour ce premier lot (P0) — poids du loyer +
- * durée restante + statut de renouvellement, les 4 autres facteurs cités par
- * la spec (covenant, mark-to-market, coût de relocation) relèvent du Tenant
- * Covenant Engine, explicitement P1 :
+ * Règle de matérialité — poids du loyer + durée restante + statut de
+ * renouvellement + score de covenant (spec P1, tenant-covenant.util.ts) ;
+ * mark-to-market et coût de relocation restent hors périmètre (relèveraient
+ * du Rental Reversion Engine / Tenant Replacement Cost Engine, non
+ * construits) :
  *
  * 1. Statut DEPASSE/CONTESTE, ou échéance déjà passée → EXCLUDE_FROM_SECURED_YIELD
  *    (revenu non suffisamment démontré, spec §7.2).
@@ -19,14 +20,19 @@ import type { FractionalLeaseRenewalStatus } from '@prisma/client';
  *    - statut EN_COURS/TACITE → SECURE_BEFORE_ACQUISITION (matériel + non formalisé)
  * 3. Échéance < horizon de détention (poids faible) → WATCH.
  * 4. Sinon → SECURED.
+ * 5. Ajustement covenant (si covenantScore fourni) : un covenant très faible
+ *    (< COVENANT_ESCALATE_THRESHOLD) fait remonter SECURED→WATCH et
+ *    WATCH→SECURE_BEFORE_ACQUISITION d'un cran — jamais l'inverse (un bon
+ *    covenant n'efface pas une échéance réelle).
  *
- * Seuil de matérialité et horizon par défaut sont des paramètres explicites
+ * Seuils de matérialité, horizon et covenant sont des paramètres explicites
  * (jamais des constantes cachées) — à calibrer par plateforme/projet une
  * fois de vraies données de recette disponibles.
  */
 
 export const DEFAULT_MATERIALITY_THRESHOLD_PCT = 5;
 export const DEFAULT_HOLD_PERIOD_MONTHS = 60;
+export const COVENANT_ESCALATE_THRESHOLD = 40;
 
 export type LeaseSecurityStatus = 'SECURED' | 'WATCH' | 'SECURE_BEFORE_ACQUISITION' | 'EXCLUDE_FROM_SECURED_YIELD';
 
@@ -38,6 +44,8 @@ export interface LeaseInput {
   dateTerme: Date;
   breakDates: Date[];
   statutRenouvellement: FractionalLeaseRenewalStatus;
+  /** Score Tenant Covenant Intelligence (0-100), calculé en amont par tenant-covenant.util.ts — optionnel, aucun ajustement si absent. */
+  covenantScore?: number;
 }
 
 export interface LeaseAssessment {
@@ -76,6 +84,8 @@ function nextBreakOrTerm(lease: LeaseInput, asOfDate: Date): Date {
   return futureBreaks.length > 0 ? futureBreaks[0] : lease.dateTerme;
 }
 
+const ESCALATION_ORDER: LeaseSecurityStatus[] = ['SECURED', 'WATCH', 'SECURE_BEFORE_ACQUISITION', 'EXCLUDE_FROM_SECURED_YIELD'];
+
 function assessLease(
   lease: LeaseInput,
   asOfDate: Date,
@@ -86,35 +96,40 @@ function assessLease(
   const breakOrTerm = nextBreakOrTerm(lease, asOfDate);
   const monthsToNextBreakOrTerm = monthsBetween(asOfDate, breakOrTerm);
   const reasons: string[] = [];
+  let securityStatus: LeaseSecurityStatus;
 
   if (lease.statutRenouvellement === 'DEPASSE' || lease.statutRenouvellement === 'CONTESTE') {
     reasons.push(`Statut de renouvellement ${lease.statutRenouvellement.toLowerCase()} — revenu non suffisamment démontré`);
-    return { leaseId: lease.id, tenantName: lease.tenantName, weightPct, monthsToNextBreakOrTerm, securityStatus: 'EXCLUDE_FROM_SECURED_YIELD', reasons };
-  }
-  if (monthsToNextBreakOrTerm <= 0) {
+    securityStatus = 'EXCLUDE_FROM_SECURED_YIELD';
+  } else if (monthsToNextBreakOrTerm <= 0) {
     reasons.push('Échéance contractuelle (bail ou break) déjà dépassée');
-    return { leaseId: lease.id, tenantName: lease.tenantName, weightPct, monthsToNextBreakOrTerm, securityStatus: 'EXCLUDE_FROM_SECURED_YIELD', reasons };
-  }
+    securityStatus = 'EXCLUDE_FROM_SECURED_YIELD';
+  } else {
+    const isMaterial = weightPct >= materialityThresholdPct;
+    const withinHoldPeriod = monthsToNextBreakOrTerm < holdPeriodMonths;
 
-  const isMaterial = weightPct >= materialityThresholdPct;
-  const withinHoldPeriod = monthsToNextBreakOrTerm < holdPeriodMonths;
-
-  if (isMaterial && withinHoldPeriod) {
-    if (lease.statutRenouvellement === 'SIGNE') {
+    if (isMaterial && withinHoldPeriod && lease.statutRenouvellement === 'SIGNE') {
       reasons.push(`Bail matériel (${weightPct.toFixed(1)}% des loyers) avec échéance dans l'horizon de détention`);
-      return { leaseId: lease.id, tenantName: lease.tenantName, weightPct, monthsToNextBreakOrTerm, securityStatus: 'WATCH', reasons };
+      securityStatus = 'WATCH';
+    } else if (isMaterial && withinHoldPeriod) {
+      reasons.push(`Bail matériel (${weightPct.toFixed(1)}% des loyers), renouvellement non signé (${lease.statutRenouvellement.toLowerCase()}), échéance dans l'horizon de détention`);
+      securityStatus = 'SECURE_BEFORE_ACQUISITION';
+    } else if (withinHoldPeriod) {
+      reasons.push('Échéance dans l\'horizon de détention (poids limité)');
+      securityStatus = 'WATCH';
+    } else {
+      reasons.push('Durée résiduelle compatible avec l\'horizon de détention');
+      securityStatus = 'SECURED';
     }
-    reasons.push(`Bail matériel (${weightPct.toFixed(1)}% des loyers), renouvellement non signé (${lease.statutRenouvellement.toLowerCase()}), échéance dans l'horizon de détention`);
-    return { leaseId: lease.id, tenantName: lease.tenantName, weightPct, monthsToNextBreakOrTerm, securityStatus: 'SECURE_BEFORE_ACQUISITION', reasons };
   }
 
-  if (withinHoldPeriod) {
-    reasons.push('Échéance dans l\'horizon de détention (poids limité)');
-    return { leaseId: lease.id, tenantName: lease.tenantName, weightPct, monthsToNextBreakOrTerm, securityStatus: 'WATCH', reasons };
+  if (lease.covenantScore !== undefined && lease.covenantScore < COVENANT_ESCALATE_THRESHOLD && securityStatus !== 'EXCLUDE_FROM_SECURED_YIELD') {
+    const currentRank = ESCALATION_ORDER.indexOf(securityStatus);
+    securityStatus = ESCALATION_ORDER[currentRank + 1];
+    reasons.push(`Covenant locataire faible (${lease.covenantScore}/100) — statut aggravé d'un cran`);
   }
 
-  reasons.push('Durée résiduelle compatible avec l\'horizon de détention');
-  return { leaseId: lease.id, tenantName: lease.tenantName, weightPct, monthsToNextBreakOrTerm, securityStatus: 'SECURED', reasons };
+  return { leaseId: lease.id, tenantName: lease.tenantName, weightPct, monthsToNextBreakOrTerm, securityStatus, reasons };
 }
 
 export function computeLeaseSecurity(input: LeaseSecurityInput): LeaseSecurityResult {

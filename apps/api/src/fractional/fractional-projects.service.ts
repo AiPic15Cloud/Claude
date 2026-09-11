@@ -21,6 +21,14 @@ import { solveMaxAcquisitionPrice, solveMinSecuredRent } from './reverse-solver.
 import { computeOperatingModelYear } from './operating-model.util';
 import { computeStakeholderWaterfall, solveMaxTotalFeeLoad, solveMaxCarry, type YearContext, type StakeholderInput, type FeeDefinitionInput, type WaterfallTierInput } from './stakeholder-waterfall.util';
 import type { LeaseInput } from './lease-security.util';
+import { computeTenantCovenantScore } from './tenant-covenant.util';
+import { computeAllStressScenarios } from './stress-testing.util';
+import { computeICRecommendation } from './ic-engine.util';
+import { computePerformanceAttribution } from './performance-attribution.util';
+import { findComparables, type ComparableFeatures } from './comparable-engine.util';
+import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
+import { CreateProjectActualDto } from './dto/create-project-actual.dto';
+import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
 
 /**
  * Périmètre P0 — visibilité des FractionalProject scopée au créateur
@@ -92,6 +100,9 @@ export class FractionalProjectsService {
         assumptionSets: true,
         stakeholders: { include: { feeDefinitions: true } },
         waterfallTiers: true,
+        icDecisions: { orderBy: { decidedAt: 'desc' } },
+        actuals: { orderBy: { period: 'desc' } },
+        outcome: true,
       },
     });
     return assertOwned(project, user.id);
@@ -148,6 +159,9 @@ export class FractionalProjectsService {
         repartitionTravaux: dto.repartitionTravaux,
         impayesNotes: dto.impayesNotes,
         notes: dto.notes,
+        sirenLocataire: dto.sirenLocataire,
+        procedureCollective: dto.procedureCollective,
+        garantieMaisonMere: dto.garantieMaisonMere,
       },
     });
   }
@@ -412,8 +426,12 @@ export class FractionalProjectsService {
    * été saisi pour le dossier — jamais silencieux : le flag
    * `stressedIsFallback` l'indique à l'UI.
    */
-  async computeSynthese(projectId: string, user: AuthenticatedUser) {
-    const project = await this.findOne(projectId, user);
+  /**
+   * Assemble un ReturnsEngineInput à partir des données brutes du dossier —
+   * factorisé pour être réutilisé par computeSynthese, computeStressTests
+   * et computeICRecommendation sans dupliquer le mapping Prisma→moteur.
+   */
+  private buildReturnsEngineInput(project: Awaited<ReturnType<FractionalProjectsService['findOne']>>) {
     if (!project.sourcesUses) {
       throw new ForbiddenException("Le dossier n'a pas encore de Sources & Uses saisi — impossible de calculer la synthèse.");
     }
@@ -427,6 +445,15 @@ export class FractionalProjectsService {
       dateTerme: l.dateTerme,
       breakDates: (l.breakDates as string[] | null)?.map((d) => new Date(d)) ?? [],
       statutRenouvellement: l.statutRenouvellement,
+      covenantScore: computeTenantCovenantScore({
+        sirenLocataire: l.sirenLocataire,
+        procedureCollective: l.procedureCollective,
+        garantieMaisonMere: l.garantieMaisonMere,
+        statutRenouvellement: l.statutRenouvellement,
+        depotGarantieMontant: l.depotGarantieMontant !== null ? Number(l.depotGarantieMontant) : null,
+        loyerFacialAnnuel: Number(l.loyerFacialAnnuel),
+        impayesNotes: l.impayesNotes,
+      }).score,
     }));
 
     const baseAssumptionSet = project.assumptionSets.filter((a) => a.scenario === 'BASE').sort((a, b) => b.version - a.version)[0];
@@ -480,6 +507,13 @@ export class FractionalProjectsService {
       materialityThresholdPct: baseValues.materialityThresholdPct,
     };
 
+    return { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct };
+  }
+
+  async computeSynthese(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct } = this.buildReturnsEngineInput(project);
+
     const baseResult = computeReturnsEngine(baseInput);
 
     const stressAssumptionSet = project.assumptionSets
@@ -518,5 +552,119 @@ export class FractionalProjectsService {
       hurdlePct,
       platformProfile,
     };
+  }
+
+  // ── Stress Testing & Sensitivity Engine (spec §18) ──────────
+
+  async computeStressTests(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const { baseInput, hurdlePct } = this.buildReturnsEngineInput(project);
+    return computeAllStressScenarios(baseInput, hurdlePct);
+  }
+
+  // ── IC Engine (spec §17) ─────────────────────────────────────
+
+  async computeICRecommendationForProject(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const { baseInput, hurdlePct, platformProfile } = this.buildReturnsEngineInput(project);
+    const baseResult = computeReturnsEngine(baseInput);
+    const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
+    const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
+    const combinedSevere = stressScenarios.find((s) => s.scenario === 'COMBINED_SEVERE');
+
+    return computeICRecommendation({
+      sourcesUsesBalanced: baseResult.sourcesUsesResult.balanced,
+      hasPlatformProfile: Boolean(platformProfile),
+      hasLeases: project.leases.length > 0,
+      leaseAssessments: baseResult.leaseSecurity.assessments,
+      eligibility,
+      combinedSevereScenario: combinedSevere,
+    });
+  }
+
+  async createICDecision(projectId: string, dto: CreateICDecisionDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const existing = await this.prisma.fractionalICDecision.findFirst({ where: { projectId }, orderBy: { version: 'desc' } });
+    return this.prisma.fractionalICDecision.create({
+      data: {
+        projectId,
+        status: dto.status,
+        hardStops: dto.hardStops ?? [],
+        conditions: dto.conditions ?? [],
+        watchItems: dto.watchItems ?? [],
+        recommendation: dto.recommendation,
+        version: (existing?.version ?? 0) + 1,
+        decidedById: user.id,
+      },
+    });
+  }
+
+  // ── Investment Memory — Actuals, Outcome, Performance Attribution (§20) ─
+
+  async createProjectActual(projectId: string, dto: CreateProjectActualDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    return this.prisma.fractionalProjectActual.create({ data: { projectId, ...dto } });
+  }
+
+  async upsertProjectOutcome(projectId: string, dto: UpsertProjectOutcomeDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    return this.prisma.fractionalProjectOutcome.upsert({
+      where: { projectId },
+      create: { projectId, ...dto },
+      update: dto,
+    });
+  }
+
+  /**
+   * Compare chaque FractionalProjectActual au Business Plan initial pour
+   * l'année correspondante (offset identique à celui utilisé pour
+   * capexByYear dans buildReturnsEngineInput). `period` doit être une année
+   * simple ("2027") pour être rapprochée du BP — sinon l'attribution est
+   * calculée avec des valeurs BP nulles (0), non bloquant mais moins utile.
+   */
+  async computePerformanceAttributionForProject(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const { baseInput } = this.buildReturnsEngineInput(project);
+    const baseResult = computeReturnsEngine(baseInput);
+    const asOfYear = baseInput.asOfDate.getFullYear();
+
+    return project.actuals.map((actual) => {
+      const periodYear = Number(actual.period);
+      const offset = Number.isFinite(periodYear) ? periodYear - asOfYear + 1 : null;
+      const bpYear = offset !== null ? baseResult.yearlyModel.find((y) => y.year === offset) : undefined;
+      const capexBp = offset !== null ? (baseInput.capexByYear?.[offset] ?? 0) : 0;
+
+      const attribution = computePerformanceAttribution({
+        loyersReels: actual.loyersReels !== null ? Number(actual.loyersReels) : null,
+        opexReel: actual.opexReel !== null ? Number(actual.opexReel) : null,
+        capexReel: actual.capexReel !== null ? Number(actual.capexReel) : null,
+        distributionsReelles: actual.distributionsReelles !== null ? Number(actual.distributionsReelles) : null,
+        loyerBp: bpYear?.grossPotentialRent ?? 0,
+        opexBp: bpYear?.operatingExpenses ?? 0,
+        capexBp,
+        distributionBp: bpYear?.investorDistribution ?? 0,
+      });
+
+      return { period: actual.period, ...attribution };
+    });
+  }
+
+  // ── Comparable Project Engine (spec §20.2) ──────────────────
+
+  async listComparables(projectId: string, user: AuthenticatedUser) {
+    const target = await this.findOne(projectId, user);
+    const others = await this.prisma.fractionalProject.findMany({
+      where: { organizationId: user.organizationId, createdById: user.id, id: { not: projectId } },
+      include: { sourcesUses: true, leases: true },
+    });
+
+    const toFeatures = (p: { id: string; name: string; city: string | null; status: string; sourcesUses: { prixNetVendeur: unknown } | null; leases: { loyerFacialAnnuel: unknown }[] }): ComparableFeatures => {
+      const prixNetVendeur = p.sourcesUses ? Number(p.sourcesUses.prixNetVendeur) : null;
+      const totalLoyer = p.leases.reduce((sum, l) => sum + Number(l.loyerFacialAnnuel), 0);
+      const grossYieldPct = prixNetVendeur && prixNetVendeur > 0 ? (totalLoyer / prixNetVendeur) * 100 : null;
+      return { projectId: p.id, name: p.name, city: p.city, status: p.status, prixNetVendeur, grossYieldPct };
+    };
+
+    return findComparables(toFeatures(target), others.map(toFeatures));
   }
 }

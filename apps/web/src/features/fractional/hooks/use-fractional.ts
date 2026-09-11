@@ -20,6 +20,15 @@ import type {
   FeeType,
   FeeCalculationBase,
   WaterfallTierType,
+  StressScenarioResult,
+  ICRecommendation,
+  ICDecisionStatus,
+  FractionalICDecision,
+  FractionalProjectActual,
+  FractionalProjectOutcome,
+  ProjectOutcomeStatus,
+  PerformanceAttributionResult,
+  ComparableResult,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -129,6 +138,9 @@ export interface LeasePayload {
   repartitionTravaux?: string;
   impayesNotes?: string;
   notes?: string;
+  sirenLocataire?: string;
+  procedureCollective?: boolean;
+  garantieMaisonMere?: boolean;
 }
 
 export function useCreateLease(projectId: string) {
@@ -322,5 +334,92 @@ export function useDeleteWaterfallTier(projectId: string) {
   return useMutation({
     mutationFn: (tierId: string) => api.delete(`/fractional/projects/${projectId}/waterfall-tiers/${tierId}`),
     onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
+// ── P1 — Stress Testing, IC Engine, Investment Memory, Comparables ─────────
+
+export function useFractionalStressTests(id: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', id, 'stress-tests'],
+    queryFn: () => api.get<StressScenarioResult[]>(`/fractional/projects/${id}/stress-tests`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useFractionalICRecommendation(id: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', id, 'ic-recommendation'],
+    queryFn: () => api.get<ICRecommendation>(`/fractional/projects/${id}/ic-recommendation`),
+    enabled: Boolean(id),
+  });
+}
+
+export interface ICDecisionPayload {
+  status: ICDecisionStatus;
+  hardStops?: string[];
+  conditions?: string[];
+  watchItems?: string[];
+  recommendation?: string;
+}
+
+export function useCreateICDecision(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ICDecisionPayload) => api.post<FractionalICDecision>(`/fractional/projects/${projectId}/ic-decisions`, payload),
+    onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
+export interface ProjectActualPayload {
+  period: string;
+  loyersReels?: number;
+  occupationPct?: number;
+  opexReel?: number;
+  capexReel?: number;
+  distributionsReelles?: number;
+  valorisationReelle?: number;
+  notes?: string;
+}
+
+export function useCreateProjectActual(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ProjectActualPayload) => api.post<FractionalProjectActual>(`/fractional/projects/${projectId}/actuals`, payload),
+    onSuccess: () => {
+      invalidateProject(qc, projectId);
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'performance-attribution'] });
+    },
+  });
+}
+
+export interface ProjectOutcomePayload {
+  status: ProjectOutcomeStatus;
+  triRealise?: number;
+  multipleRealise?: number;
+  notes?: string;
+}
+
+export function useUpsertProjectOutcome(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ProjectOutcomePayload) => api.post<FractionalProjectOutcome>(`/fractional/projects/${projectId}/outcome`, payload),
+    onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
+export function useFractionalPerformanceAttribution(id: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', id, 'performance-attribution'],
+    queryFn: () => api.get<PerformanceAttributionResult[]>(`/fractional/projects/${id}/performance-attribution`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useFractionalComparables(id: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', id, 'comparables'],
+    queryFn: () => api.get<ComparableResult[]>(`/fractional/projects/${id}/comparables`),
+    enabled: Boolean(id),
   });
 }

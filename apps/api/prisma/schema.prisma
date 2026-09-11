@@ -2197,6 +2197,9 @@ model FractionalProject {
   stakeholders     FractionalStakeholder[]
   feeDefinitions   FractionalFeeDefinition[]
   waterfallTiers   FractionalWaterfallTier[]
+  icDecisions      FractionalICDecision[]
+  actuals          FractionalProjectActual[]
+  outcome          FractionalProjectOutcome?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2293,6 +2296,15 @@ model FractionalLease {
   restrictionsCessionSousLocation String?
   repartitionTravaux               String?
   impayesNotes                     String?
+
+  /// Tenant Covenant Intelligence (spec §8) — champs bruts uniquement, le
+  /// score (0-100) est calculé à la volée par tenant-covenant.util.ts à
+  /// partir de ces champs + du statut de renouvellement/impayesNotes déjà
+  /// présents ci-dessus, jamais stocké (même principe que le statut de
+  /// sécurisation du bail).
+  sirenLocataire       String?
+  procedureCollective  Boolean @default(false)
+  garantieMaisonMere   Boolean @default(false)
 
   notes String?
 
@@ -2604,4 +2616,91 @@ model FractionalWaterfallTier {
 
   @@index([projectId, order])
   @@map("fractional_waterfall_tiers")
+}
+
+// ── P1 : Risque (IC Engine, Tenant Covenant) & Mémoire (Actuals/Outcome) ───
+// Roadmap spec §28. Stress Testing (§18) reste un calcul pur
+// (stress-testing.util.ts), rien à persister. Le Comparable Project Engine
+// (§20.2) réutilise directement les FractionalProject existants — aucun
+// nouveau modèle nécessaire.
+
+enum ICDecisionStatus {
+  APPROVE
+  APPROVE_SUBJECT_TO_CONDITIONS
+  RESTRUCTURE
+  HOLD
+  DECLINE
+}
+
+/// Décision IC enregistrée (spec §17/§24) — distincte de la recommandation
+/// calculée à la volée par ic-engine.util.ts : un utilisateur peut
+/// confirmer la recommandation telle quelle ou l'amender (statut, notes)
+/// avant de l'enregistrer ici. Append-only par version, jamais réécrit.
+model FractionalICDecision {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  status         ICDecisionStatus
+  hardStops      String[]         @default([])
+  conditions     String[]         @default([])
+  watchItems     String[]         @default([])
+  recommendation String?
+  version        Int              @default(1)
+
+  decidedById String?
+  decidedAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@map("fractional_ic_decisions")
+}
+
+enum ProjectOutcomeStatus {
+  SUCCES
+  SOUS_PERFORMANCE
+  PERTE
+  REFUSE
+  ABANDONNE
+}
+
+/// Réalisé périodique (spec §20 "Atlas Investment Memory") — alimente
+/// performance-attribution.util.ts en comparant à l'underwriting initial
+/// (leases/sourcesUses/assumptionSets déjà en place, jamais dupliqués ici).
+model FractionalProjectActual {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// Texte libre ("2027", "2027-T2"...) plutôt qu'une colonne year/quarter —
+  /// la granularité de suivi varie selon le dossier, pas de format imposé en P0.
+  period               String
+  loyersReels          Decimal? @db.Decimal(14, 2)
+  occupationPct        Decimal? @db.Decimal(5, 2)
+  opexReel             Decimal? @db.Decimal(14, 2)
+  capexReel            Decimal? @db.Decimal(14, 2)
+  distributionsReelles Decimal? @db.Decimal(14, 2)
+  valorisationReelle   Decimal? @db.Decimal(14, 2)
+  notes                String?
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@map("fractional_project_actuals")
+}
+
+/// Résultat final (spec §20, "y compris les dossiers refusés") — un seul par
+/// dossier, enregistré à la clôture (sortie, refus ou abandon).
+model FractionalProjectOutcome {
+  id        String            @id @default(cuid())
+  projectId String            @unique
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  status          ProjectOutcomeStatus
+  triRealise      Decimal?             @db.Decimal(6, 3)
+  multipleRealise Decimal?             @db.Decimal(6, 3)
+  notes           String?
+
+  recordedAt DateTime @default(now())
+
+  @@map("fractional_project_outcomes")
 }

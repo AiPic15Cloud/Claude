@@ -1697,6 +1697,9 @@ export interface FractionalLease {
   repartitionTravaux?: string | null;
   impayesNotes?: string | null;
   notes?: string | null;
+  sirenLocataire?: string | null;
+  procedureCollective: boolean;
+  garantieMaisonMere: boolean;
 }
 
 export interface FractionalCapexItem {
@@ -1771,6 +1774,9 @@ export interface FractionalProjectDetail extends FractionalProject {
   assumptionSets: FractionalAssumptionSet[];
   stakeholders: FractionalStakeholder[];
   waterfallTiers: FractionalWaterfallTier[];
+  icDecisions: FractionalICDecision[];
+  actuals: FractionalProjectActual[];
+  outcome?: FractionalProjectOutcome | null;
 }
 
 export type LeaseSecurityStatus = 'SECURED' | 'WATCH' | 'SECURE_BEFORE_ACQUISITION' | 'EXCLUDE_FROM_SECURED_YIELD';
@@ -1975,4 +1981,124 @@ export interface FractionalDealEconomics {
   result: StakeholderWaterfallResult;
   reverseSolver: { maxTotalFeeLoad: StakeholderReverseSolverResult; maxCarry: StakeholderReverseSolverResult } | null;
   hurdlePct: number;
+}
+
+// ── P1 — Stress Testing, IC Engine, Investment Memory, Comparables ─────────
+
+export type StressScenarioKey =
+  | 'BASE'
+  | 'RENT_DOWNSIDE'
+  | 'VACANCY'
+  | 'TENANT_DEFAULT'
+  | 'CAPEX_OVERRUN'
+  | 'OPEX_INCREASE'
+  | 'EXIT_YIELD_EXPANSION'
+  | 'VALUE_DECLINE'
+  | 'PLATFORM_FEES_INCREASE'
+  | 'COMBINED_SEVERE';
+
+export const STRESS_SCENARIO_LABELS: Record<StressScenarioKey, string> = {
+  BASE: 'Base',
+  RENT_DOWNSIDE: 'Baisse des loyers',
+  VACANCY: 'Vacance',
+  TENANT_DEFAULT: 'Défaut locataire',
+  CAPEX_OVERRUN: 'Dépassement CAPEX',
+  OPEX_INCREASE: 'Hausse des charges',
+  EXIT_YIELD_EXPANSION: 'Expansion exit yield',
+  VALUE_DECLINE: 'Baisse de valeur',
+  PLATFORM_FEES_INCREASE: 'Hausse frais plateforme',
+  COMBINED_SEVERE: 'Combiné sévère',
+};
+
+export interface StressScenarioResult {
+  scenario: StressScenarioKey;
+  noi: number;
+  investorNetYieldPct: number;
+  securedNetYieldPct: number;
+  irrPct: number | null;
+  equityMultiple: number | null;
+  exitValue: number;
+  maxLoss: number;
+  yearsUnderHurdle: number;
+  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number; gapPct: number };
+}
+
+export type ICDecisionStatus = 'APPROVE' | 'APPROVE_SUBJECT_TO_CONDITIONS' | 'RESTRUCTURE' | 'HOLD' | 'DECLINE';
+export const IC_DECISION_STATUS_LABELS: Record<ICDecisionStatus, string> = {
+  APPROVE: 'Approuvé',
+  APPROVE_SUBJECT_TO_CONDITIONS: 'Approuvé sous conditions',
+  RESTRUCTURE: 'À restructurer',
+  HOLD: 'En attente',
+  DECLINE: 'Refusé',
+};
+
+export interface ICRecommendation {
+  status: ICDecisionStatus;
+  hardStops: string[];
+  conditions: string[];
+  watchItems: string[];
+  recommendation: string;
+}
+
+export interface FractionalICDecision {
+  id: string;
+  projectId: string;
+  status: ICDecisionStatus;
+  hardStops: string[];
+  conditions: string[];
+  watchItems: string[];
+  recommendation?: string | null;
+  version: number;
+  decidedAt: string;
+}
+
+export type ProjectOutcomeStatus = 'SUCCES' | 'SOUS_PERFORMANCE' | 'PERTE' | 'REFUSE' | 'ABANDONNE';
+export const PROJECT_OUTCOME_STATUS_LABELS: Record<ProjectOutcomeStatus, string> = {
+  SUCCES: 'Succès',
+  SOUS_PERFORMANCE: 'Sous-performance',
+  PERTE: 'Perte',
+  REFUSE: 'Refusé',
+  ABANDONNE: 'Abandonné',
+};
+
+export interface FractionalProjectActual {
+  id: string;
+  projectId: string;
+  period: string;
+  loyersReels?: number | null;
+  occupationPct?: number | null;
+  opexReel?: number | null;
+  capexReel?: number | null;
+  distributionsReelles?: number | null;
+  valorisationReelle?: number | null;
+  notes?: string | null;
+}
+
+export interface FractionalProjectOutcome {
+  id: string;
+  projectId: string;
+  status: ProjectOutcomeStatus;
+  triRealise?: number | null;
+  multipleRealise?: number | null;
+  notes?: string | null;
+}
+
+export interface PerformanceAttributionResult {
+  period: string;
+  loyerVariance: number | null;
+  opexVariance: number | null;
+  capexVariance: number | null;
+  distributionVarianceTotal: number | null;
+  autresFacteurs: number | null;
+  summary: string;
+}
+
+export interface ComparableResult {
+  projectId: string;
+  name: string;
+  city: string | null;
+  status: string;
+  prixNetVendeur: number | null;
+  grossYieldPct: number | null;
+  similarityScore: number;
 }

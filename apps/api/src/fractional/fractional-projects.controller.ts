@@ -18,6 +18,9 @@ import { UpsertAssumptionSetDto } from './dto/upsert-assumption-set.dto';
 import { CreateStakeholderDto } from './dto/create-stakeholder.dto';
 import { CreateFeeDefinitionDto } from './dto/create-fee-definition.dto';
 import { CreateWaterfallTierDto } from './dto/create-waterfall-tier.dto';
+import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
+import { CreateProjectActualDto } from './dto/create-project-actual.dto';
+import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
 
 @ApiTags('fractional')
 @ApiBearerAuth()
@@ -168,6 +171,47 @@ export class FractionalProjectsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   removeWaterfallTier(@Param('id') id: string, @Param('tierId') tierId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.service.removeWaterfallTier(id, tierId, user);
+  }
+
+  @Get(':id/stress-tests')
+  stressTests(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.computeStressTests(id, user);
+  }
+
+  @Get(':id/ic-recommendation')
+  icRecommendation(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.computeICRecommendationForProject(id, user);
+  }
+
+  @Post(':id/ic-decisions')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  createICDecision(@Param('id') id: string, @Body() dto: CreateICDecisionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.createICDecision(id, dto, user);
+  }
+
+  @Post(':id/actuals')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  createActual(@Param('id') id: string, @Body() dto: CreateProjectActualDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.createProjectActual(id, dto, user);
+  }
+
+  @Post(':id/outcome')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  upsertOutcome(@Param('id') id: string, @Body() dto: UpsertProjectOutcomeDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.upsertProjectOutcome(id, dto, user);
+  }
+
+  @Get(':id/performance-attribution')
+  performanceAttribution(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.computePerformanceAttributionForProject(id, user);
+  }
+
+  @Get(':id/comparables')
+  comparables(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.listComparables(id, user);
   }
 
   @Get('platform-profiles/all')
