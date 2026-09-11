@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Plus, Save } from 'lucide-react';
+import { Loader2, Plus, Save, Pencil, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,43 +7,86 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { usePlatformProfiles, useUpsertVehicleStructure, useCreateCapexItem, useCreateValuation } from '../hooks/use-fractional';
-import { FRACTIONAL_VALUATION_METHOD_LABELS, type FractionalProjectDetail, type FractionalValuationMethod } from '@/types';
+import {
+  usePlatformProfiles,
+  useUpsertVehicleStructure,
+  useCreateCapexItem,
+  useUpdateCapexItem,
+  useDeleteCapexItem,
+  useCreateValuation,
+  useUpdateValuation,
+  useDeleteValuation,
+} from '../hooks/use-fractional';
+import { FRACTIONAL_VALUATION_METHOD_LABELS, type FractionalProjectDetail, type FractionalValuationMethod, type FractionalCapexItem, type FractionalValuation } from '@/types';
 import { CreatePlatformProfileDialog } from './create-platform-profile-dialog';
+
+const EMPTY_CAPEX_FORM = { annee: String(new Date().getFullYear() + 1), montant: '', nature: '' };
+const EMPTY_VALUATION_FORM: { method: FractionalValuationMethod; value: string; asOfDate: string } = {
+  method: 'CAPITALISATION',
+  value: '',
+  asOfDate: new Date().toISOString().slice(0, 10),
+};
 
 /** Onglet Structure & Sortie (spec V3 §16/§24) — véhicule, profil plateforme, CAPEX et valorisations. */
 export function StructureTab({ project }: { project: FractionalProjectDetail }) {
   const { data: profiles } = usePlatformProfiles();
   const upsertVehicle = useUpsertVehicleStructure(project.id);
   const createCapex = useCreateCapexItem(project.id);
+  const updateCapex = useUpdateCapexItem(project.id);
+  const deleteCapex = useDeleteCapexItem(project.id);
   const createValuation = useCreateValuation(project.id);
+  const updateValuation = useUpdateValuation(project.id);
+  const deleteValuation = useDeleteValuation(project.id);
 
   const [platformProfileId, setPlatformProfileId] = useState(project.vehicleStructure?.platformProfileId ?? '');
   const [spvName, setSpvName] = useState(project.vehicleStructure?.spvName ?? '');
 
-  const [capexForm, setCapexForm] = useState({ annee: String(new Date().getFullYear() + 1), montant: '', nature: '' });
-  const [valuationForm, setValuationForm] = useState<{ method: FractionalValuationMethod; value: string; asOfDate: string }>({
-    method: 'CAPITALISATION',
-    value: '',
-    asOfDate: new Date().toISOString().slice(0, 10),
-  });
+  const [capexForm, setCapexForm] = useState(EMPTY_CAPEX_FORM);
+  const [editingCapexId, setEditingCapexId] = useState<string | null>(null);
+  const [valuationForm, setValuationForm] = useState(EMPTY_VALUATION_FORM);
+  const [editingValuationId, setEditingValuationId] = useState<string | null>(null);
 
   const handleSaveVehicle = (e: React.FormEvent) => {
     e.preventDefault();
     upsertVehicle.mutate({ platformProfileId: platformProfileId || undefined, spvName: spvName || undefined });
   };
 
-  const handleAddCapex = (e: React.FormEvent) => {
-    e.preventDefault();
-    createCapex.mutate({ annee: Number(capexForm.annee), montant: Number(capexForm.montant), nature: capexForm.nature }, { onSuccess: () => setCapexForm({ annee: capexForm.annee, montant: '', nature: '' }) });
+  const startEditingCapex = (item: FractionalCapexItem) => {
+    setEditingCapexId(item.id);
+    setCapexForm({ annee: String(item.annee), montant: String(item.montant), nature: item.nature });
+  };
+  const cancelEditingCapex = () => {
+    setEditingCapexId(null);
+    setCapexForm(EMPTY_CAPEX_FORM);
   };
 
-  const handleAddValuation = (e: React.FormEvent) => {
+  const handleSubmitCapex = (e: React.FormEvent) => {
     e.preventDefault();
-    createValuation.mutate(
-      { method: valuationForm.method, value: Number(valuationForm.value), asOfDate: valuationForm.asOfDate },
-      { onSuccess: () => setValuationForm({ ...valuationForm, value: '' }) },
-    );
+    const payload = { annee: Number(capexForm.annee), montant: Number(capexForm.montant), nature: capexForm.nature };
+    if (editingCapexId) {
+      updateCapex.mutate({ capexItemId: editingCapexId, payload }, { onSuccess: () => cancelEditingCapex() });
+    } else {
+      createCapex.mutate(payload, { onSuccess: () => setCapexForm({ ...EMPTY_CAPEX_FORM, annee: capexForm.annee }) });
+    }
+  };
+
+  const startEditingValuation = (v: FractionalValuation) => {
+    setEditingValuationId(v.id);
+    setValuationForm({ method: v.method, value: String(v.value), asOfDate: v.asOfDate.slice(0, 10) });
+  };
+  const cancelEditingValuation = () => {
+    setEditingValuationId(null);
+    setValuationForm(EMPTY_VALUATION_FORM);
+  };
+
+  const handleSubmitValuation = (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = { method: valuationForm.method, value: Number(valuationForm.value), asOfDate: valuationForm.asOfDate };
+    if (editingValuationId) {
+      updateValuation.mutate({ valuationId: editingValuationId, payload }, { onSuccess: () => cancelEditingValuation() });
+    } else {
+      createValuation.mutate(payload, { onSuccess: () => setValuationForm({ ...valuationForm, value: '' }) });
+    }
   };
 
   return (
@@ -100,6 +143,7 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                   <TableHead>Année</TableHead>
                   <TableHead>Montant</TableHead>
                   <TableHead>Nature</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -108,12 +152,22 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                     <TableCell>{item.annee}</TableCell>
                     <TableCell>{formatCurrency(item.montant)}</TableCell>
                     <TableCell>{item.nature}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => startEditingCapex(item)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteCapex.mutate(item.id)} disabled={deleteCapex.isPending}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
-          <form onSubmit={handleAddCapex} className="flex flex-wrap items-end gap-3">
+          <form onSubmit={handleSubmitCapex} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="capexAnnee">Année</Label>
               <Input id="capexAnnee" type="number" className="w-28" value={capexForm.annee} onChange={(e) => setCapexForm((p) => ({ ...p, annee: e.target.value }))} />
@@ -126,10 +180,16 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
               <Label htmlFor="capexNature">Nature</Label>
               <Input id="capexNature" required value={capexForm.nature} onChange={(e) => setCapexForm((p) => ({ ...p, nature: e.target.value }))} />
             </div>
-            <Button type="submit" size="sm" disabled={createCapex.isPending}>
-              <Plus className="h-4 w-4" />
-              Ajouter
+            <Button type="submit" size="sm" disabled={createCapex.isPending || updateCapex.isPending}>
+              {editingCapexId ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {editingCapexId ? 'Enregistrer' : 'Ajouter'}
             </Button>
+            {editingCapexId && (
+              <Button type="button" variant="ghost" size="sm" onClick={cancelEditingCapex}>
+                <X className="h-4 w-4" />
+                Annuler
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -146,6 +206,7 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                   <TableHead>Méthode</TableHead>
                   <TableHead>Valeur</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -154,12 +215,22 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                     <TableCell>{FRACTIONAL_VALUATION_METHOD_LABELS[v.method]}</TableCell>
                     <TableCell>{formatCurrency(v.value)}</TableCell>
                     <TableCell>{formatDate(v.asOfDate)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => startEditingValuation(v)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteValuation.mutate(v.id)} disabled={deleteValuation.isPending}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
-          <form onSubmit={handleAddValuation} className="flex flex-wrap items-end gap-3">
+          <form onSubmit={handleSubmitValuation} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Méthode</Label>
               <Select value={valuationForm.method} onValueChange={(v) => setValuationForm((p) => ({ ...p, method: v as FractionalValuationMethod }))}>
@@ -183,10 +254,16 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
               <Label htmlFor="valuationDate">Date</Label>
               <Input id="valuationDate" type="date" value={valuationForm.asOfDate} onChange={(e) => setValuationForm((p) => ({ ...p, asOfDate: e.target.value }))} />
             </div>
-            <Button type="submit" size="sm" disabled={createValuation.isPending}>
-              <Plus className="h-4 w-4" />
-              Ajouter
+            <Button type="submit" size="sm" disabled={createValuation.isPending || updateValuation.isPending}>
+              {editingValuationId ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {editingValuationId ? 'Enregistrer' : 'Ajouter'}
             </Button>
+            {editingValuationId && (
+              <Button type="button" variant="ghost" size="sm" onClick={cancelEditingValuation}>
+                <X className="h-4 w-4" />
+                Annuler
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

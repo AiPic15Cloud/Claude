@@ -1,7 +1,7 @@
 /**
  * Comparable Project Engine (spec V3 §20.2) — similarité entre dossiers
- * Fractionné du même utilisateur (la visibilité scopée au créateur, patch
- * V3.2 §1, s'applique aussi ici : jamais de comparaison inter-utilisateurs).
+ * Fractionné de la même organisation (visibilité au niveau organisation,
+ * comme le reste du module — cf. fractional-projects.service.ts).
  * Dimensions retenues pour P1 — localisation, taille, rendement, statut —
  * parmi celles listées par la spec ; asset class/strategy/risk profile ne
  * sont pas des champs saisis en P0/P1 et restent hors périmètre plutôt que

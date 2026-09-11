@@ -1657,6 +1657,7 @@ export interface FractionalProject {
   createdAt: string;
   updatedAt: string;
   _count?: { leases: number; capexItems: number; valuations: number };
+  createdBy?: { firstName: string; lastName: string } | null;
 }
 
 export interface FractionalSourcesUses {

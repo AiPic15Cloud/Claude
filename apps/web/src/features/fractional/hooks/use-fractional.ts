@@ -196,6 +196,23 @@ export function useCreateCapexItem(projectId: string) {
   });
 }
 
+export function useUpdateCapexItem(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ capexItemId, payload }: { capexItemId: string; payload: Partial<CapexItemPayload> }) =>
+      api.patch(`/fractional/projects/${projectId}/capex-items/${capexItemId}`, payload),
+    onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
+export function useDeleteCapexItem(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (capexItemId: string) => api.delete(`/fractional/projects/${projectId}/capex-items/${capexItemId}`),
+    onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
 export interface ValuationPayload {
   method: FractionalValuationMethod;
   value: number;
@@ -209,6 +226,23 @@ export function useCreateValuation(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: ValuationPayload) => api.post(`/fractional/projects/${projectId}/valuations`, payload),
+    onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
+export function useUpdateValuation(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ valuationId, payload }: { valuationId: string; payload: Partial<ValuationPayload> }) =>
+      api.patch(`/fractional/projects/${projectId}/valuations/${valuationId}`, payload),
+    onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
+export function useDeleteValuation(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (valuationId: string) => api.delete(`/fractional/projects/${projectId}/valuations/${valuationId}`),
     onSuccess: () => invalidateProject(qc, projectId),
   });
 }

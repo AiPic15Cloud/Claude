@@ -8,7 +8,9 @@ import { UpsertSourcesUsesDto } from './dto/upsert-sources-uses.dto';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { CreateCapexItemDto } from './dto/create-capex-item.dto';
+import { UpdateCapexItemDto } from './dto/update-capex-item.dto';
 import { CreateValuationDto } from './dto/create-valuation.dto';
+import { UpdateValuationDto } from './dto/update-valuation.dto';
 import { UpsertVehicleStructureDto } from './dto/upsert-vehicle-structure.dto';
 import { CreatePlatformProfileDto } from './dto/create-platform-profile.dto';
 import { UpsertAssumptionSetDto } from './dto/upsert-assumption-set.dto';
@@ -32,18 +34,6 @@ import { findComparables, type ComparableFeatures } from './comparable-engine.ut
 import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
 import { CreateProjectActualDto } from './dto/create-project-actual.dto';
 import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
-
-/**
- * Périmètre P0 — visibilité des FractionalProject scopée au créateur
- * (createdById), quel que soit son rôle (patch V3.2 §1, hypothèse posée par
- * défaut) : jamais remonté au Cockpit organisationnel. On renvoie
- * NotFoundException (pas Forbidden) sur un accès hors-scope pour ne pas
- * révéler l'existence d'un dossier d'un autre utilisateur.
- */
-function assertOwned<T extends { createdById: string }>(entity: T | null, userId: string): T {
-  if (!entity || entity.createdById !== userId) throw new NotFoundException('Dossier Fractionné introuvable.');
-  return entity;
-}
 
 interface DefaultAssumptionValues {
   holdPeriodYears: number;
@@ -85,18 +75,32 @@ export class FractionalProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ── Projects ───────────────────────────────────────────────
+  //
+  // Visibilité au niveau organisation (comme le reste de la plateforme —
+  // cf. DealsService.findOne — organizationId, jamais createdById) : un
+  // dossier Fractionné créé par un analyste reste visible par le reste de
+  // l'organisation, remonté au même titre que les Deals. createdById est
+  // conservé sur chaque ligne pour la traçabilité (qui a créé quoi) mais
+  // n'est plus un filtre de visibilité — c'était une hypothèse posée par
+  // défaut en P0 (patch V3.2 §1), jamais le bon modèle pour un usage en
+  // équipe. Les mutations restent gouvernées par rôle (RolesGuard/@Roles
+  // ADMIN|ANALYST côté contrôleur), pas par la propriété du dossier — même
+  // principe que DealsController.
 
   async list(user: AuthenticatedUser) {
     return this.prisma.fractionalProject.findMany({
-      where: { organizationId: user.organizationId, createdById: user.id },
+      where: { organizationId: user.organizationId },
       orderBy: { updatedAt: 'desc' },
-      include: { _count: { select: { leases: true, capexItems: true, valuations: true } } },
+      include: {
+        _count: { select: { leases: true, capexItems: true, valuations: true } },
+        createdBy: { select: { firstName: true, lastName: true } },
+      },
     });
   }
 
   async findOne(id: string, user: AuthenticatedUser) {
-    const project = await this.prisma.fractionalProject.findUnique({
-      where: { id },
+    const project = await this.prisma.fractionalProject.findFirst({
+      where: { id, organizationId: user.organizationId },
       include: {
         sourcesUses: true,
         leases: true,
@@ -111,7 +115,8 @@ export class FractionalProjectsService {
         outcome: true,
       },
     });
-    return assertOwned(project, user.id);
+    if (!project) throw new NotFoundException('Dossier Fractionné introuvable.');
+    return project;
   }
 
   async create(dto: CreateFractionalProjectDto, user: AuthenticatedUser) {
@@ -243,6 +248,23 @@ export class FractionalProjectsService {
     });
   }
 
+  async updateCapexItem(projectId: string, capexItemId: string, dto: UpdateCapexItemDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const item = await this.prisma.fractionalCapexItem.findUnique({ where: { id: capexItemId } });
+    if (!item || item.projectId !== projectId) throw new NotFoundException('Poste CAPEX introuvable.');
+    return this.prisma.fractionalCapexItem.update({
+      where: { id: capexItemId },
+      data: { ...dto, responsable: dto.responsable as FractionalCapexResponsable | undefined },
+    });
+  }
+
+  async removeCapexItem(projectId: string, capexItemId: string, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const item = await this.prisma.fractionalCapexItem.findUnique({ where: { id: capexItemId } });
+    if (!item || item.projectId !== projectId) throw new NotFoundException('Poste CAPEX introuvable.');
+    await this.prisma.fractionalCapexItem.delete({ where: { id: capexItemId } });
+  }
+
   // ── Valuations ─────────────────────────────────────────────
 
   async createValuation(projectId: string, dto: CreateValuationDto, user: AuthenticatedUser) {
@@ -250,6 +272,23 @@ export class FractionalProjectsService {
     return this.prisma.fractionalValuation.create({
       data: { projectId, ...dto, method: dto.method as FractionalValuationMethod, asOfDate: new Date(dto.asOfDate) },
     });
+  }
+
+  async updateValuation(projectId: string, valuationId: string, dto: UpdateValuationDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const valuation = await this.prisma.fractionalValuation.findUnique({ where: { id: valuationId } });
+    if (!valuation || valuation.projectId !== projectId) throw new NotFoundException('Valorisation introuvable.');
+    return this.prisma.fractionalValuation.update({
+      where: { id: valuationId },
+      data: { ...dto, method: dto.method as FractionalValuationMethod | undefined, asOfDate: dto.asOfDate ? new Date(dto.asOfDate) : undefined },
+    });
+  }
+
+  async removeValuation(projectId: string, valuationId: string, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const valuation = await this.prisma.fractionalValuation.findUnique({ where: { id: valuationId } });
+    if (!valuation || valuation.projectId !== projectId) throw new NotFoundException('Valorisation introuvable.');
+    await this.prisma.fractionalValuation.delete({ where: { id: valuationId } });
   }
 
   // ── Vehicle structure ──────────────────────────────────────
@@ -750,7 +789,7 @@ export class FractionalProjectsService {
   async listComparables(projectId: string, user: AuthenticatedUser) {
     const target = await this.findOne(projectId, user);
     const others = await this.prisma.fractionalProject.findMany({
-      where: { organizationId: user.organizationId, createdById: user.id, id: { not: projectId } },
+      where: { organizationId: user.organizationId, id: { not: projectId } },
       include: { sourcesUses: true, leases: true },
     });
 

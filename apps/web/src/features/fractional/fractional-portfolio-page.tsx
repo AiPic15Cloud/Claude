@@ -10,9 +10,9 @@ import { FRACTIONAL_PROJECT_STATUS_LABELS } from '@/types';
 
 /**
  * Portefeuille Fractionné (spec V3 §1) — onglet Atlas de premier niveau,
- * distinct du Pipeline/Portefeuille LPB. Visibilité scopée au créateur côté
- * API (patch V3.2 §1) : cette liste ne montre jamais les dossiers d'un
- * autre utilisateur.
+ * distinct du Pipeline/Portefeuille LPB. Visibilité au niveau organisation
+ * côté API (comme les Deals) : cette liste montre tous les dossiers de
+ * l'organisation, pas seulement ceux créés par l'utilisateur courant.
  */
 export function FractionalPortfolioPage() {
   const navigate = useNavigate();
@@ -62,6 +62,11 @@ export function FractionalPortfolioPage() {
                 </div>
                 {project.perimeterLabel && <span className="text-xs text-muted-foreground">Périmètre : {project.perimeterLabel}</span>}
                 {project.city && <span className="text-xs text-muted-foreground">{project.city}</span>}
+                {project.createdBy && (
+                  <span className="text-xs text-muted-foreground">
+                    Créé par {project.createdBy.firstName} {project.createdBy.lastName}
+                  </span>
+                )}
                 <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
                   <span>{project._count?.leases ?? 0} bail(x)</span>
                   <span>{project._count?.capexItems ?? 0} CAPEX</span>

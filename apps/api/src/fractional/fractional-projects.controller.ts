@@ -11,7 +11,9 @@ import { UpsertSourcesUsesDto } from './dto/upsert-sources-uses.dto';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { CreateCapexItemDto } from './dto/create-capex-item.dto';
+import { UpdateCapexItemDto } from './dto/update-capex-item.dto';
 import { CreateValuationDto } from './dto/create-valuation.dto';
+import { UpdateValuationDto } from './dto/update-valuation.dto';
 import { UpsertVehicleStructureDto } from './dto/upsert-vehicle-structure.dto';
 import { CreatePlatformProfileDto } from './dto/create-platform-profile.dto';
 import { UpsertAssumptionSetDto } from './dto/upsert-assumption-set.dto';
@@ -107,11 +109,41 @@ export class FractionalProjectsController {
     return this.service.createCapexItem(id, dto, user);
   }
 
+  @Patch(':id/capex-items/:capexItemId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  updateCapexItem(@Param('id') id: string, @Param('capexItemId') capexItemId: string, @Body() dto: UpdateCapexItemDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.updateCapexItem(id, capexItemId, dto, user);
+  }
+
+  @Delete(':id/capex-items/:capexItemId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeCapexItem(@Param('id') id: string, @Param('capexItemId') capexItemId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.removeCapexItem(id, capexItemId, user);
+  }
+
   @Post(':id/valuations')
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')
   createValuation(@Param('id') id: string, @Body() dto: CreateValuationDto, @CurrentUser() user: AuthenticatedUser) {
     return this.service.createValuation(id, dto, user);
+  }
+
+  @Patch(':id/valuations/:valuationId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  updateValuation(@Param('id') id: string, @Param('valuationId') valuationId: string, @Body() dto: UpdateValuationDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.updateValuation(id, valuationId, dto, user);
+  }
+
+  @Delete(':id/valuations/:valuationId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeValuation(@Param('id') id: string, @Param('valuationId') valuationId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.removeValuation(id, valuationId, user);
   }
 
   @Post(':id/vehicle-structure')
