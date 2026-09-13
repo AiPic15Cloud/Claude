@@ -2343,3 +2343,65 @@ export interface SubmitScoreAssessmentResponse {
   assessment: FractionalScoreAssessment;
   result: FitAssessmentResult;
 }
+
+// ── Data Integrity Engine — provenance généralisée (V3.1 §3, V2 §3) ────────
+
+export type ProvenanceSourceLevel =
+  | 'LEVEL_A_LEGAL_EXECUTED'
+  | 'LEVEL_B_THIRD_PARTY_VERIFIED'
+  | 'LEVEL_C_INVESTMENT_OPERATOR_DOCUMENT'
+  | 'LEVEL_D_DECLARATIVE'
+  | 'LEVEL_E_ATLAS_ASSUMPTION';
+
+export const PROVENANCE_SOURCE_LEVEL_LABELS: Record<ProvenanceSourceLevel, string> = {
+  LEVEL_A_LEGAL_EXECUTED: 'A — Légal / exécuté',
+  LEVEL_B_THIRD_PARTY_VERIFIED: 'B — Tiers vérifié',
+  LEVEL_C_INVESTMENT_OPERATOR_DOCUMENT: "C — Document opérateur",
+  LEVEL_D_DECLARATIVE: 'D — Déclaratif',
+  LEVEL_E_ATLAS_ASSUMPTION: 'E — Hypothèse Atlas',
+};
+
+export type ProvenanceVerificationStatus = 'UNVERIFIED' | 'CROSS_CHECKED' | 'VERIFIED' | 'CONFLICTING';
+export const PROVENANCE_VERIFICATION_STATUS_LABELS: Record<ProvenanceVerificationStatus, string> = {
+  UNVERIFIED: 'Non vérifié',
+  CROSS_CHECKED: 'Recoupé',
+  VERIFIED: 'Vérifié',
+  CONFLICTING: 'Contradictoire',
+};
+
+export type ProvenanceConfidence = 'LOW' | 'MEDIUM' | 'HIGH';
+export const PROVENANCE_CONFIDENCE_LABELS: Record<ProvenanceConfidence, string> = { LOW: 'Faible', MEDIUM: 'Moyenne', HIGH: 'Haute' };
+
+export interface FractionalDataProvenance {
+  id: string;
+  projectId: string;
+  entityType: string;
+  entityId: string;
+  fieldKey: string;
+  sourceLevel: ProvenanceSourceLevel;
+  sourceReference: string | null;
+  asOfDate: string | null;
+  observedAt: string;
+  verificationStatus: ProvenanceVerificationStatus;
+  confidence: ProvenanceConfidence;
+  ownerId: string | null;
+  isOverride: boolean;
+  overrideJustification: string | null;
+  version: number;
+}
+
+export interface DataConfidenceFieldResult {
+  entityType: string;
+  entityId: string;
+  fieldKey: string;
+  label: string;
+  scorePct: number;
+  status: 'MISSING' | ProvenanceVerificationStatus;
+}
+
+export interface DataConfidenceResult {
+  scorePct: number;
+  fieldScores: DataConfidenceFieldResult[];
+  missingCount: number;
+  totalCount: number;
+}

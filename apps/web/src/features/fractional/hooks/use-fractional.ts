@@ -42,6 +42,11 @@ import type {
   SubmitScoreAssessmentResponse,
   EliminatoryMetricKey,
   EliminatoryComparisonOperator,
+  FractionalDataProvenance,
+  DataConfidenceResult,
+  ProvenanceSourceLevel,
+  ProvenanceVerificationStatus,
+  ProvenanceConfidence,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -715,5 +720,44 @@ export function useDeleteEliminatoryRule() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/eliminatory-rules/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules'] }),
+  });
+}
+
+// ── Data Integrity Engine — provenance généralisée (V3.1 §3, V2 §3) ────────
+
+export function useFractionalProvenance(entityType: string, entityId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'data-provenance', entityType, entityId],
+    queryFn: () => api.get<FractionalDataProvenance[]>(`/fractional/data-provenance/${entityType}/${entityId}`),
+    enabled: Boolean(entityId),
+  });
+}
+
+export interface UpsertProvenancePayload {
+  sourceLevel: ProvenanceSourceLevel;
+  sourceReference?: string;
+  asOfDate?: string;
+  verificationStatus: ProvenanceVerificationStatus;
+  confidence: ProvenanceConfidence;
+  isOverride?: boolean;
+  overrideJustification?: string;
+}
+
+export function useUpsertProvenance(entityType: string, entityId: string, fieldKey: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpsertProvenancePayload) => api.put<FractionalDataProvenance>(`/fractional/data-provenance/${entityType}/${entityId}/${fieldKey}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'data-provenance', entityType, entityId] });
+      qc.invalidateQueries({ queryKey: ['fractional', 'data-provenance', 'confidence'] });
+    },
+  });
+}
+
+export function useFractionalDataConfidence(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'data-provenance', 'confidence', projectId],
+    queryFn: () => api.get<DataConfidenceResult>(`/fractional/data-provenance/projects/${projectId}/confidence`),
+    enabled: Boolean(projectId),
   });
 }

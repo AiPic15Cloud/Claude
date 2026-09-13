@@ -108,7 +108,7 @@ export function FractionalProjectPage() {
               </CardContent>
             </Card>
           )}
-          {synthese && <SyntheseTab synthese={synthese} icRecommendation={icRecommendation} />}
+          {synthese && <SyntheseTab projectId={project.id} synthese={synthese} icRecommendation={icRecommendation} />}
         </TabsContent>
 
         <TabsContent value="acquisition">

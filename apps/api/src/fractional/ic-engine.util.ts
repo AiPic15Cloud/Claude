@@ -31,6 +31,8 @@ export interface ICRecommendationInput {
    * laisser le cash-flow paraître non stressé sur ce poste sans explication.
    */
   capexDataMissing?: boolean;
+  /** Data Confidence Engine (data-confidence.util.ts) — % de champs critiques du dossier vérifiés avec une confiance suffisante. */
+  dataConfidencePct?: number;
 }
 
 export interface ICRecommendation {
@@ -42,6 +44,7 @@ export interface ICRecommendation {
 }
 
 const EXCLUDED_LEASE_HARD_STOP_THRESHOLD_PCT = 20;
+const DATA_CONFIDENCE_WATCH_THRESHOLD_PCT = 50;
 
 export function computeICRecommendation(input: ICRecommendationInput): ICRecommendation {
   const hardStops: string[] = [];
@@ -73,6 +76,11 @@ export function computeICRecommendation(input: ICRecommendationInput): ICRecomme
   }
   if (input.capexDataMissing) {
     watchItems.push("CAPEX non renseigné (aucune ligne saisie) — donnée manquante, pas un CAPEX nul confirmé : le cash-flow n'est pas stressé sur ce poste.");
+  }
+  if (input.dataConfidencePct !== undefined && input.dataConfidencePct < DATA_CONFIDENCE_WATCH_THRESHOLD_PCT) {
+    watchItems.push(
+      `Confiance data faible (${input.dataConfidencePct}/100) — plusieurs champs critiques (loyer, dates de bail, prix) ne sont pas encore sourcés ou vérifiés ; les rendements affichés sont à confirmer avant présentation.`,
+    );
   }
 
   let status: ICDecisionStatus;

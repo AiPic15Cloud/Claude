@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
+import { useFractionalDataConfidence } from '../hooks/use-fractional';
 import { ELIGIBILITY_VERDICT_LABELS, IC_DECISION_STATUS_LABELS, type FractionalSynthese, type ICRecommendation } from '@/types';
 
 function pct(value: number | null | undefined, digits = 2): string {
@@ -28,8 +29,9 @@ const IC_STATUS_VARIANT = {
 } as const;
 
 /** Onglet Synthèse (spec V3 §25) — verdict, hurdle, rendements, WALB/WALT, Reverse Solver. */
-export function SyntheseTab({ synthese, icRecommendation }: { synthese: FractionalSynthese; icRecommendation?: ICRecommendation }) {
+export function SyntheseTab({ projectId, synthese, icRecommendation }: { projectId: string; synthese: FractionalSynthese; icRecommendation?: ICRecommendation }) {
   const { base, stressed, stressedIsFallback, eligibility, reverseSolver, platformProfile, dcfValuation, capexDataMissing } = synthese;
+  const { data: dataConfidence } = useFractionalDataConfidence(projectId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -51,10 +53,15 @@ export function SyntheseTab({ synthese, icRecommendation }: { synthese: Fraction
             </p>
           )}
           {icRecommendation && <p className="text-sm text-muted-foreground">{icRecommendation.recommendation}</p>}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <YieldStat label="Secured Net Yield" value={pct(eligibility.securedNetYieldPct)} />
             <YieldStat label="Hurdle plateforme" value={pct(eligibility.hurdlePct)} />
             <YieldStat label="Écart vs hurdle" value={`${eligibility.gapPct >= 0 ? '+' : ''}${eligibility.gapPct.toFixed(2)} pt`} />
+            <YieldStat
+              label="Confiance data"
+              value={dataConfidence ? `${dataConfidence.scorePct}/100` : '—'}
+              hint={dataConfidence && dataConfidence.missingCount > 0 ? `${dataConfidence.missingCount}/${dataConfidence.totalCount} champs critiques non sourcés` : 'Champs critiques sourcés'}
+            />
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>Éligibilité technique (secured yield vs hurdle) :</span>

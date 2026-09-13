@@ -27,6 +27,7 @@ import { computeLeaseLegalReview } from './lease-legal-review.util';
 import type { LeaseInput } from './lease-security.util';
 import { computeTenantCovenantScore } from './tenant-covenant.util';
 import { computeAllStressScenarios, computeAllBreakEventScenarios, computeBreakEventScenario } from './stress-testing.util';
+import { DataProvenanceService } from './data-provenance.service';
 import { computeICRecommendation } from './ic-engine.util';
 import { computeDCFValuation } from './dcf-valuation.util';
 import { computePerformanceAttribution } from './performance-attribution.util';
@@ -72,7 +73,10 @@ function parseAssumptionValues(values: unknown): Partial<DefaultAssumptionValues
 
 @Injectable()
 export class FractionalProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dataProvenance: DataProvenanceService,
+  ) {}
 
   // ── Projects ───────────────────────────────────────────────
   //
@@ -713,6 +717,7 @@ export class FractionalProjectsService {
     const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
     const combinedSevere = stressScenarios.find((s) => s.scenario === 'COMBINED_SEVERE');
     const breakDownside = computeBreakEventScenario(baseInput, 'TENANT_BREAK_DOWNSIDE', hurdlePct);
+    const dataConfidence = await this.dataProvenance.getDataConfidenceForProject(projectId, user);
 
     return computeICRecommendation({
       sourcesUsesBalanced: baseResult.sourcesUsesResult.balanced,
@@ -723,6 +728,7 @@ export class FractionalProjectsService {
       combinedSevereScenario: combinedSevere,
       breakDownsideScenario: breakDownside,
       capexDataMissing,
+      dataConfidencePct: dataConfidence.scorePct,
     });
   }
 

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useCreateLease, useUpdateLease, useDeleteLease, useFractionalLegalReview } from '../hooks/use-fractional';
+import { ProvenanceBadge } from './provenance-badge';
 import {
   FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS,
   LEASE_SECURITY_STATUS_LABELS,
@@ -161,8 +162,18 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                   return (
                     <TableRow key={lease.id}>
                       <TableCell>{lease.tenantName}</TableCell>
-                      <TableCell>{formatCurrency(lease.loyerFacialAnnuel)}</TableCell>
-                      <TableCell>{formatDate(lease.dateTerme)}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatCurrency(lease.loyerFacialAnnuel)}
+                          <ProvenanceBadge entityType="LEASE" entityId={lease.id} fieldKey="loyerFacialAnnuel" label="Loyer facial annuel" />
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5">
+                          {formatDate(lease.dateTerme)}
+                          <ProvenanceBadge entityType="LEASE" entityId={lease.id} fieldKey="dateTerme" label="Date de terme" />
+                        </span>
+                      </TableCell>
                       <TableCell>{FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS[lease.statutRenouvellement]}</TableCell>
                       <TableCell>
                         {assessment ? (
