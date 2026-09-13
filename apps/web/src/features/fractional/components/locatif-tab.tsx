@@ -269,11 +269,11 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="indexationFloorPct">Plancher indexation (%)</Label>
-                <Input id="indexationFloorPct" type="number" step="0.1" value={form.indexationFloorPct} onChange={(e) => setForm((p) => ({ ...p, indexationFloorPct: e.target.value }))} />
+                <Input id="indexationFloorPct" type="number" step="0.1" placeholder="ex. 0" value={form.indexationFloorPct} onChange={(e) => setForm((p) => ({ ...p, indexationFloorPct: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="indexationCapPct">Plafond indexation (%)</Label>
-                <Input id="indexationCapPct" type="number" step="0.1" value={form.indexationCapPct} onChange={(e) => setForm((p) => ({ ...p, indexationCapPct: e.target.value }))} />
+                <Input id="indexationCapPct" type="number" step="0.1" placeholder="ex. 3" value={form.indexationCapPct} onChange={(e) => setForm((p) => ({ ...p, indexationCapPct: e.target.value }))} />
               </div>
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
