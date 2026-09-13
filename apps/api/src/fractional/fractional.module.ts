@@ -9,9 +9,10 @@ import { DataProvenanceController } from './data-provenance.controller';
 import { DataProvenanceService } from './data-provenance.service';
 import { FractionalLegalAlertsService } from './fractional-legal-alerts.service';
 import { AlertsModule } from '../alerts/alerts.module';
+import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-marche.module';
 
 @Module({
-  imports: [AlertsModule],
+  imports: [AlertsModule, IntelligenceMarcheModule],
   controllers: [FractionalProjectsController, MarketDataController, FitScoringController, DataProvenanceController],
   providers: [FractionalProjectsService, MarketDataService, FitScoringService, DataProvenanceService, FractionalLegalAlertsService],
 })

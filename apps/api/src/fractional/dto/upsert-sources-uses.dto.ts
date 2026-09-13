@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsOptional, Min } from 'class-validator';
+import { FractionalTvaRegime } from '@prisma/client';
+import { IsEnum, IsInt, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class UpsertSourcesUsesDto {
   @ApiProperty()
@@ -78,4 +79,21 @@ export class UpsertSourcesUsesDto {
   @IsNumber()
   @Min(0)
   autresSources?: number;
+
+  @ApiProperty({ enum: FractionalTvaRegime, required: false, default: 'NON_ASSUJETTI' })
+  @IsOptional()
+  @IsEnum(FractionalTvaRegime)
+  regimeTva?: FractionalTvaRegime;
+
+  @ApiProperty({ required: false, description: 'Taux de TVA applicable (%) — 20 par défaut si non renseigné.' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tvaTauxPct?: number;
+
+  @ApiProperty({ required: false, description: 'Délai de récupération de la TVA en mois (ex. 3 en régime réel normal, 14 en régime réel simplifié).' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  tvaRecuperationDelaiMois?: number;
 }

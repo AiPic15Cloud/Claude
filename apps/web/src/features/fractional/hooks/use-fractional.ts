@@ -47,6 +47,8 @@ import type {
   ProvenanceSourceLevel,
   ProvenanceVerificationStatus,
   ProvenanceConfidence,
+  TvaRegime,
+  CapRateBuildUpResponse,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -123,6 +125,9 @@ export interface SourcesUsesPayload {
   sponsorEquity?: number;
   detteEventuelle?: number;
   autresSources?: number;
+  regimeTva?: TvaRegime;
+  tvaTauxPct?: number;
+  tvaRecuperationDelaiMois?: number;
 }
 
 function invalidateProject(qc: ReturnType<typeof useQueryClient>, id: string) {
@@ -758,6 +763,16 @@ export function useFractionalDataConfidence(projectId: string | null) {
   return useQuery({
     queryKey: ['fractional', 'data-provenance', 'confidence', projectId],
     queryFn: () => api.get<DataConfidenceResult>(`/fractional/data-provenance/projects/${projectId}/confidence`),
+    enabled: Boolean(projectId),
+  });
+}
+
+// ── Cap Rate Build-Up (Complément H, H.3) ───────────────────────────────────
+
+export function useFractionalCapRateBuildUp(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'cap-rate-build-up'],
+    queryFn: () => api.get<CapRateBuildUpResponse>(`/fractional/projects/${projectId}/cap-rate-build-up`),
     enabled: Boolean(projectId),
   });
 }

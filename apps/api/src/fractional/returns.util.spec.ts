@@ -92,6 +92,35 @@ describe('computeReturnsEngine — breakScenario (Break Event Engine, spec V2 §
   });
 });
 
+describe('computeReturnsEngine — TVA (Complément H, H.3)', () => {
+  it("MARGE/NON_ASSUJETTI ne changent rien au TRI — pas d'événement de trésorerie", () => {
+    const base = computeReturnsEngine(makeBaseInput());
+    const marge = computeReturnsEngine(makeBaseInput({ tva: { regimeTva: 'MARGE', tauxPct: 20, recuperationDelaiMois: 3 } }));
+    expect(marge.irrPct).toBeCloseTo(base.irrPct as number, 6);
+    expect(marge.irrImpactFromTvaTimingPts).toBeNull();
+  });
+
+  it('PRIX_TOTAL_OPTION_LOYERS dégrade le TRI (décaissement à t=0, récupération plus tard) — impact négatif renseigné', () => {
+    const base = computeReturnsEngine(makeBaseInput());
+    const withTva = computeReturnsEngine(makeBaseInput({ tva: { regimeTva: 'PRIX_TOTAL_OPTION_LOYERS', tauxPct: 20, recuperationDelaiMois: 3 } }));
+    expect(withTva.irrPct as number).toBeLessThan(base.irrPct as number);
+    expect(withTva.irrImpactFromTvaTimingPts).not.toBeNull();
+    expect(withTva.irrImpactFromTvaTimingPts as number).toBeLessThan(0);
+  });
+
+  it('un délai de récupération plus long dégrade davantage le TRI qu\'un délai court', () => {
+    const short = computeReturnsEngine(makeBaseInput({ tva: { regimeTva: 'PRIX_TOTAL_OPTION_LOYERS', tauxPct: 20, recuperationDelaiMois: 3 } }));
+    const long = computeReturnsEngine(makeBaseInput({ tva: { regimeTva: 'PRIX_TOTAL_OPTION_LOYERS', tauxPct: 20, recuperationDelaiMois: 14 } }));
+    expect(long.irrPct as number).toBeLessThan(short.irrPct as number);
+  });
+
+  it("le multiple d'equity reste inchangé — le net de TVA est nul à terme, seul le TRI (timing) bouge", () => {
+    const base = computeReturnsEngine(makeBaseInput());
+    const withTva = computeReturnsEngine(makeBaseInput({ tva: { regimeTva: 'PRIX_TOTAL_OPTION_LOYERS', tauxPct: 20, recuperationDelaiMois: 3 } }));
+    expect(withTva.equityMultiple).toBeCloseTo(base.equityMultiple as number, 6);
+  });
+});
+
 describe('computeReturnsEngine', () => {
   it('calcule un Gross Yield cohérent (loyer / prix net vendeur)', () => {
     const result = computeReturnsEngine(makeBaseInput());

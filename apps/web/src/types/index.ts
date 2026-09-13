@@ -1678,6 +1678,9 @@ export interface FractionalSourcesUses {
   sponsorEquity: number;
   detteEventuelle: number;
   autresSources: number;
+  regimeTva: TvaRegime;
+  tvaTauxPct: number | null;
+  tvaRecuperationDelaiMois: number | null;
 }
 
 export interface FractionalLease {
@@ -1839,6 +1842,8 @@ export interface FractionalReturnsResult {
   yieldOnCostPct: number;
   irrPct: number | null;
   equityMultiple: number | null;
+  /** Écart de TRI (pts) imputable au seul décalage de trésorerie TVA (tva-cashflow.util.ts) — null si aucun régime PRIX_TOTAL_OPTION_LOYERS n'est modélisé. */
+  irrImpactFromTvaTimingPts: number | null;
 }
 
 export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE';
@@ -2405,3 +2410,52 @@ export interface DataConfidenceResult {
   missingCount: number;
   totalCount: number;
 }
+
+// ── Cap Rate Build-Up + TVA (Complément H, H.3) ─────────────────────────────
+
+export type PropertyConditionTier = 'CORE' | 'CORE_PLUS' | 'VALUE_ADD' | 'OPPORTUNISTE' | 'DISTRESSED';
+export const PROPERTY_CONDITION_LABELS: Record<PropertyConditionTier, string> = {
+  CORE: 'Core',
+  CORE_PLUS: 'Core+',
+  VALUE_ADD: 'Value-add',
+  OPPORTUNISTE: 'Opportuniste',
+  DISTRESSED: 'Distressed',
+};
+
+export type LocationTier = 'PARIS_QCA' | 'SECONDAIRE' | 'TERTIAIRE_A' | 'TERTIAIRE_B' | 'TERTIAIRE_C';
+export const LOCATION_TIER_LABELS: Record<LocationTier, string> = {
+  PARIS_QCA: 'Paris QCA',
+  SECONDAIRE: 'Secondaire',
+  TERTIAIRE_A: 'Tertiaire A',
+  TERTIAIRE_B: 'Tertiaire B',
+  TERTIAIRE_C: 'Tertiaire C',
+};
+
+export type MarketDepth = 'PROFOND' | 'MOYEN' | 'FAIBLE';
+export const MARKET_DEPTH_LABELS: Record<MarketDepth, string> = { PROFOND: 'Profond', MOYEN: 'Moyen', FAIBLE: 'Faible' };
+
+export interface CapRateBuildUpResult {
+  tec10Pct: number;
+  conditionPremiumPct: number;
+  locationPremiumPct: number;
+  liquidityPremiumPct: number;
+  capRatePct: number;
+}
+
+export interface CapRateComparisonResult {
+  buildUp: CapRateBuildUpResult;
+  impliedCapRatePct: number;
+  gapPts: number;
+}
+
+export type CapRateBuildUpResponse =
+  | { status: 'NOT_QUALIFIED' }
+  | { status: 'TEC10_MISSING' }
+  | { status: 'OK'; tec10Source: 'OVERRIDE' | 'LIVE'; tec10AsOf: string | null; entry: CapRateComparisonResult; exit: CapRateComparisonResult };
+
+export type TvaRegime = 'NON_ASSUJETTI' | 'MARGE' | 'PRIX_TOTAL_OPTION_LOYERS';
+export const TVA_REGIME_LABELS: Record<TvaRegime, string> = {
+  NON_ASSUJETTI: 'Non assujetti',
+  MARGE: 'TVA sur la marge',
+  PRIX_TOTAL_OPTION_LOYERS: 'TVA sur le prix (option loyers)',
+};

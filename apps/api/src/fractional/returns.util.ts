@@ -4,6 +4,7 @@ import { computeLeaseSecurity, sumLoyerByStatuses, type LeaseInput, type LeaseSe
 import { computeOperatingModelYear, computeTerminalProceeds, type OperatingModelYearResult, type TerminalProceedsResult } from './operating-model.util';
 import { type IndexGrowthRates } from './rent-indexation.util';
 import { projectPortfolioWithBreaks, type BreakScenario } from './break-event.util';
+import { computeTvaCashflowEvents, type TvaRegime } from './tva-cashflow.util';
 
 /**
  * Returns Engine (spec V3 §15) — orchestre Sources/Uses, Lease Security et
@@ -43,6 +44,13 @@ export interface ReturnsEngineInput {
    * CAPEX de relocation + décote à la prochaine échéance de chaque bail.
    */
   breakScenario?: BreakScenario;
+  /**
+   * Régime de TVA (Complément H, H.3, tva-cashflow.util.ts) — absent ou
+   * NON_ASSUJETTI : aucun décalage de trésorerie modélisé, TRI inchangé.
+   * PRIX_TOTAL_OPTION_LOYERS injecte un décaissement à l'acquisition puis une
+   * récupération au délai déclaratif dans le calendrier de flux de l'XIRR.
+   */
+  tva?: { regimeTva: TvaRegime; tauxPct: number | null; recuperationDelaiMois: number | null };
 }
 
 export interface ReturnsEngineResult {
@@ -61,6 +69,8 @@ export interface ReturnsEngineResult {
   irrPct: number | null;
   equityMultiple: number | null;
   breakScenario: BreakScenario;
+  /** Écart de TRI (points) imputable au seul décalage de trésorerie TVA — null si aucun régime PRIX_TOTAL_OPTION_LOYERS n'est modélisé. Négatif = le décalage dégrade le TRI. */
+  irrImpactFromTvaTimingPts: number | null;
 }
 
 export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineResult {
@@ -136,7 +146,24 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
     const isLast = idx === yearlyModel.length - 1;
     cashFlows.push({ date, amount: y.investorDistribution + (isLast ? terminalProceeds.investorTerminalProceeds : 0) });
   });
-  const irr = computeXirr(cashFlows);
+  const irrBeforeTva = computeXirr(cashFlows);
+
+  const tvaEvents = input.tva
+    ? computeTvaCashflowEvents({
+        regimeTva: input.tva.regimeTva,
+        prixNetVendeur: input.sourcesUses.prixNetVendeur,
+        tvaTauxPct: input.tva.tauxPct,
+        tvaRecuperationDelaiMois: input.tva.recuperationDelaiMois,
+      })
+    : [];
+  for (const event of tvaEvents) {
+    const date = new Date(input.asOfDate);
+    date.setMonth(date.getMonth() + event.monthsFromAcquisition);
+    cashFlows.push({ date, amount: event.amount });
+  }
+  const irr = tvaEvents.length > 0 ? computeXirr(cashFlows) : irrBeforeTva;
+  const irrImpactFromTvaTimingPts = tvaEvents.length > 0 && irr !== null && irrBeforeTva !== null ? (irr - irrBeforeTva) * 100 : null;
+
   const totalDistributions = yearlyModel.reduce((sum, y) => sum + y.investorDistribution, 0) + terminalProceeds.investorTerminalProceeds;
   const equityMultiple = collecte > 0 ? totalDistributions / collecte : null;
 
@@ -154,5 +181,6 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
     irrPct: irr === null ? null : irr * 100,
     equityMultiple,
     breakScenario,
+    irrImpactFromTvaTimingPts,
   };
 }

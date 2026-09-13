@@ -28,6 +28,8 @@ import type { LeaseInput } from './lease-security.util';
 import { computeTenantCovenantScore } from './tenant-covenant.util';
 import { computeAllStressScenarios, computeAllBreakEventScenarios, computeBreakEventScenario } from './stress-testing.util';
 import { DataProvenanceService } from './data-provenance.service';
+import { MarketIndicatorsService } from '../intelligence-marche/indicators.service';
+import { computeCapRateBuildUp, compareToImpliedCapRate, type PropertyConditionTier, type LocationTier, type MarketDepth } from './cap-rate-build-up.util';
 import { computeICRecommendation } from './ic-engine.util';
 import { computeDCFValuation } from './dcf-valuation.util';
 import { computePerformanceAttribution } from './performance-attribution.util';
@@ -46,6 +48,18 @@ interface DefaultAssumptionValues {
   /** Taux d'actualisation utilisé par la valorisation DCF (dcf-valuation.util.ts) — distinct du hurdle plateforme, jugement de marché sur le risque de l'actif. */
   discountRatePct: number;
   exitValueOverride?: number;
+  /**
+   * Cap Rate Build-Up (Complément H, H.3, cap-rate-build-up.util.ts) —
+   * absents tant que le dossier n'a pas été qualifié : jamais un profil
+   * deviné (CORE/Paris QCA par défaut serait une hypothèse silencieuse
+   * optimiste). tec10PctOverride prévaut sur le taux live (intelligence
+   * marché) quand renseigné, pour figer la valeur utilisée dans un
+   * underwriting donné (traçabilité).
+   */
+  propertyCondition?: PropertyConditionTier;
+  locationTier?: LocationTier;
+  marketDepth?: MarketDepth;
+  tec10PctOverride?: number;
 }
 
 const DEFAULT_ASSUMPTIONS: DefaultAssumptionValues = {
@@ -76,6 +90,7 @@ export class FractionalProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dataProvenance: DataProvenanceService,
+    private readonly marketIndicators: MarketIndicatorsService,
   ) {}
 
   // ── Projects ───────────────────────────────────────────────
@@ -637,6 +652,11 @@ export class FractionalProjectsService {
       exitValue: exitValueBase,
       sellingCostsPct: baseValues.sellingCostsPct,
       materialityThresholdPct: baseValues.materialityThresholdPct,
+      tva: {
+        regimeTva: project.sourcesUses.regimeTva,
+        tauxPct: project.sourcesUses.tvaTauxPct !== null ? Number(project.sourcesUses.tvaTauxPct) : null,
+        recuperationDelaiMois: project.sourcesUses.tvaRecuperationDelaiMois,
+      },
     };
 
     // Aucune ligne CapexItem saisie ≠ CAPEX confirmé à zéro (spec V2 §10,
@@ -697,6 +717,59 @@ export class FractionalProjectsService {
       dcfValuation,
       capexDataMissing,
     };
+  }
+
+  // ── Cap Rate Build-Up Engine (Complément H, H.3) ────────────
+
+  private async resolveTec10Pct(tec10PctOverride: number | undefined): Promise<{ value: number | null; source: 'OVERRIDE' | 'LIVE' | 'MISSING'; asOf: string | null }> {
+    if (tec10PctOverride !== undefined) return { value: tec10PctOverride, source: 'OVERRIDE', asOf: null };
+    try {
+      const summary = await this.marketIndicators.summary();
+      if (summary.oat10y.value !== null) return { value: summary.oat10y.value, source: 'LIVE', asOf: summary.oat10y.period };
+    } catch {
+      // Source de marché indisponible (réseau, API) — traité comme donnée manquante, jamais un taux inventé.
+    }
+    return { value: null, source: 'MISSING', asOf: null };
+  }
+
+  async getCapRateBuildUpForProject(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const { baseInput, baseValues } = await this.buildReturnsEngineInput(project, user.organizationId);
+
+    if (!baseValues.propertyCondition || !baseValues.locationTier || !baseValues.marketDepth) {
+      return { status: 'NOT_QUALIFIED' as const };
+    }
+
+    const tec10 = await this.resolveTec10Pct(baseValues.tec10PctOverride);
+    if (tec10.value === null) return { status: 'TEC10_MISSING' as const };
+
+    const baseResult = computeReturnsEngine(baseInput);
+
+    const entryBuildUp = computeCapRateBuildUp({
+      tec10Pct: tec10.value,
+      propertyCondition: baseValues.propertyCondition,
+      locationTier: baseValues.locationTier,
+      marketDepth: baseValues.marketDepth,
+      walbYears: baseResult.leaseSecurity.walbYears,
+    });
+    const entry = compareToImpliedCapRate(entryBuildUp, baseResult.netPropertyYieldPct);
+
+    // WALB à la sortie ≈ WALB à l'achat moins la durée de détention (approximation
+    // simple, cohérente avec le reste du module qui ne modélise pas de bail
+    // supplémentaire signé en cours de détention) — jamais négatif.
+    const walbAtExit = baseResult.leaseSecurity.walbYears !== null ? Math.max(0, baseResult.leaseSecurity.walbYears - baseValues.holdPeriodYears) : null;
+    const exitBuildUp = computeCapRateBuildUp({
+      tec10Pct: tec10.value,
+      propertyCondition: baseValues.propertyCondition,
+      locationTier: baseValues.locationTier,
+      marketDepth: baseValues.marketDepth,
+      walbYears: walbAtExit,
+    });
+    const lastYear = baseResult.yearlyModel[baseResult.yearlyModel.length - 1];
+    const impliedExitYieldPct = lastYear && baseInput.exitValue > 0 ? (lastYear.noi / baseInput.exitValue) * 100 : 0;
+    const exit = compareToImpliedCapRate(exitBuildUp, impliedExitYieldPct);
+
+    return { status: 'OK' as const, tec10Source: tec10.source, tec10AsOf: tec10.asOf, entry, exit };
   }
 
   // ── Stress Testing & Sensitivity Engine (spec §18) ──────────

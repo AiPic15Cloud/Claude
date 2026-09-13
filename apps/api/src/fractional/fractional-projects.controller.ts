@@ -46,6 +46,11 @@ export class FractionalProjectsController {
     return this.service.computeSynthese(id, user);
   }
 
+  @Get(':id/cap-rate-build-up')
+  capRateBuildUp(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.getCapRateBuildUpForProject(id, user);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')

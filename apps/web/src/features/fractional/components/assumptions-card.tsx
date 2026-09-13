@@ -8,10 +8,20 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useUpsertAssumptionSet } from '../hooks/use-fractional';
-import type { FractionalAssumptionScenario, FractionalAssumptionSet } from '@/types';
+import type {
+  FractionalAssumptionScenario,
+  FractionalAssumptionSet,
+  LocationTier,
+  MarketDepth,
+  PropertyConditionTier,
+} from '@/types';
+import { LOCATION_TIER_LABELS, MARKET_DEPTH_LABELS, PROPERTY_CONDITION_LABELS } from '@/types';
 
 const SCENARIOS: FractionalAssumptionScenario[] = ['BASE', 'BEAR', 'SEVERE', 'CUSTOM'];
 const SCENARIO_LABELS: Record<FractionalAssumptionScenario, string> = { BASE: 'Base', BEAR: 'Bear', SEVERE: 'Severe', CUSTOM: 'Custom' };
+const PROPERTY_CONDITIONS: PropertyConditionTier[] = ['CORE', 'CORE_PLUS', 'VALUE_ADD', 'OPPORTUNISTE', 'DISTRESSED'];
+const LOCATION_TIERS: LocationTier[] = ['PARIS_QCA', 'SECONDAIRE', 'TERTIAIRE_A', 'TERTIAIRE_B', 'TERTIAIRE_C'];
+const MARKET_DEPTHS: MarketDepth[] = ['PROFOND', 'MOYEN', 'FAIBLE'];
 
 interface AssumptionFormState {
   scenario: FractionalAssumptionScenario;
@@ -23,6 +33,10 @@ interface AssumptionFormState {
   materialityThresholdPct: string;
   discountRatePct: string;
   exitValueOverride: string;
+  propertyCondition: PropertyConditionTier | '';
+  locationTier: LocationTier | '';
+  marketDepth: MarketDepth | '';
+  tec10PctOverride: string;
 }
 
 const DEFAULT_FORM: AssumptionFormState = {
@@ -35,6 +49,10 @@ const DEFAULT_FORM: AssumptionFormState = {
   materialityThresholdPct: '5',
   discountRatePct: '7',
   exitValueOverride: '',
+  propertyCondition: '',
+  locationTier: '',
+  marketDepth: '',
+  tec10PctOverride: '',
 };
 
 function latestByScenario(sets: FractionalAssumptionSet[]): Partial<Record<FractionalAssumptionScenario, FractionalAssumptionSet>> {
@@ -71,7 +89,12 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
       discountRatePct: Number(form.discountRatePct),
     };
     if (form.exitValueOverride) values.exitValueOverride = Number(form.exitValueOverride);
-    upsert.mutate({ scenario: form.scenario, values });
+    if (form.tec10PctOverride) values.tec10PctOverride = Number(form.tec10PctOverride);
+    const withText: Record<string, unknown> = { ...values };
+    if (form.propertyCondition) withText.propertyCondition = form.propertyCondition;
+    if (form.locationTier) withText.locationTier = form.locationTier;
+    if (form.marketDepth) withText.marketDepth = form.marketDepth;
+    upsert.mutate({ scenario: form.scenario, values: withText });
   };
 
   const loadScenario = (scenario: FractionalAssumptionScenario) => {
@@ -87,6 +110,10 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
       materialityThresholdPct: String(values.materialityThresholdPct ?? DEFAULT_FORM.materialityThresholdPct),
       discountRatePct: String(values.discountRatePct ?? DEFAULT_FORM.discountRatePct),
       exitValueOverride: values.exitValueOverride !== undefined ? String(values.exitValueOverride) : '',
+      propertyCondition: (values as Record<string, unknown>).propertyCondition as PropertyConditionTier | undefined ?? '',
+      locationTier: (values as Record<string, unknown>).locationTier as LocationTier | undefined ?? '',
+      marketDepth: (values as Record<string, unknown>).marketDepth as MarketDepth | undefined ?? '',
+      tec10PctOverride: values.tec10PctOverride !== undefined ? String(values.tec10PctOverride) : '',
     });
   };
 
@@ -176,6 +203,67 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="exitValueOverride">Valeur de sortie (override, optionnel)</Label>
               <Input id="exitValueOverride" type="number" min={0} value={form.exitValueOverride} onChange={(e) => setForm((p) => ({ ...p, exitValueOverride: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+            <div className="text-sm font-medium">Cap Rate Build-Up (Complément H, H.3)</div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>État du bien</Label>
+                <Select value={form.propertyCondition || undefined} onValueChange={(v) => setForm((p) => ({ ...p, propertyCondition: v as PropertyConditionTier }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non renseigné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPERTY_CONDITIONS.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {PROPERTY_CONDITION_LABELS[c]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Localisation</Label>
+                <Select value={form.locationTier || undefined} onValueChange={(v) => setForm((p) => ({ ...p, locationTier: v as LocationTier }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non renseignée" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOCATION_TIERS.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {LOCATION_TIER_LABELS[l]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Profondeur de marché</Label>
+                <Select value={form.marketDepth || undefined} onValueChange={(v) => setForm((p) => ({ ...p, marketDepth: v as MarketDepth }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non renseignée" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MARKET_DEPTHS.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {MARKET_DEPTH_LABELS[m]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tec10PctOverride">TEC10 (override %, optionnel)</Label>
+                <Input
+                  id="tec10PctOverride"
+                  type="number"
+                  step="0.01"
+                  value={form.tec10PctOverride}
+                  onChange={(e) => setForm((p) => ({ ...p, tec10PctOverride: e.target.value }))}
+                  placeholder="Taux live"
+                />
+              </div>
             </div>
           </div>
           <div>

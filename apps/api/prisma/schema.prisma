@@ -2333,10 +2333,28 @@ model FractionalSourcesUses {
   detteEventuelle Decimal @default(0) @db.Decimal(14, 2)
   autresSources   Decimal @default(0) @db.Decimal(14, 2)
 
+  /// Régime de TVA (Complément H, H.3) — MARGE : TVA calculée par le vendeur
+  /// sur sa seule marge, embarquée dans le prix négocié, sans décaissement
+  /// distinct côté acheteur. PRIX_TOTAL_OPTION_LOYERS : TVA décaissée sur le
+  /// prix total à l'acquisition puis récupérée après tvaRecuperationDelaiMois
+  /// (calendrier déclaratif CA3/M+13-14) — c'est ce régime qui a un impact
+  /// de trésorerie réel sur le TRI (tva-cashflow.util.ts), même quand le
+  /// montant net de TVA est nul à terme. NON_ASSUJETTI (défaut) : hors champ,
+  /// comportement inchangé pour tout dossier existant.
+  regimeTva                FractionalTvaRegime @default(NON_ASSUJETTI)
+  tvaTauxPct               Decimal?            @db.Decimal(5, 2)
+  tvaRecuperationDelaiMois Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("fractional_sources_uses")
+}
+
+enum FractionalTvaRegime {
+  NON_ASSUJETTI
+  MARGE
+  PRIX_TOTAL_OPTION_LOYERS
 }
 
 /// Bail normalisé (spec §7/§24) — porte les données contractuelles brutes.

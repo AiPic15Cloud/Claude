@@ -2,8 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-import { useFractionalDataConfidence } from '../hooks/use-fractional';
-import { ELIGIBILITY_VERDICT_LABELS, IC_DECISION_STATUS_LABELS, type FractionalSynthese, type ICRecommendation } from '@/types';
+import { useFractionalCapRateBuildUp, useFractionalDataConfidence } from '../hooks/use-fractional';
+import {
+  ELIGIBILITY_VERDICT_LABELS,
+  IC_DECISION_STATUS_LABELS,
+  type CapRateComparisonResult,
+  type FractionalSynthese,
+  type ICRecommendation,
+} from '@/types';
 
 function pct(value: number | null | undefined, digits = 2): string {
   return value === null || value === undefined ? '—' : `${value.toFixed(digits)} %`;
@@ -27,6 +33,57 @@ const IC_STATUS_VARIANT = {
   HOLD: 'outline',
   DECLINE: 'destructive',
 } as const;
+
+function CapRateBreakdown({ label, result }: { label: string; result: CapRateComparisonResult }) {
+  const { buildUp, impliedCapRatePct, gapPts } = result;
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <p className="text-lg font-semibold tabular-nums">{buildUp.capRatePct.toFixed(2)} %</p>
+      <p className="text-[11px] text-muted-foreground">
+        TEC10 {buildUp.tec10Pct.toFixed(2)}% + état {buildUp.conditionPremiumPct.toFixed(2)}pt + localisation {buildUp.locationPremiumPct.toFixed(2)}pt + liquidité{' '}
+        {buildUp.liquidityPremiumPct.toFixed(2)}pt
+      </p>
+      <p className="mt-1 text-[11px]">
+        Cap rate implicite : <span className="font-medium tabular-nums">{impliedCapRatePct.toFixed(2)} %</span> — écart{' '}
+        <span className={`font-medium tabular-nums ${gapPts >= 0 ? 'text-success' : 'text-warning'}`}>
+          {gapPts >= 0 ? '+' : ''}
+          {gapPts.toFixed(2)} pt
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function CapRateBuildUpCard({ projectId }: { projectId: string }) {
+  const { data } = useFractionalCapRateBuildUp(projectId);
+  if (!data || data.status === 'NOT_QUALIFIED') return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Cap Rate Build-Up (Complément H, H.3)</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {data.status === 'TEC10_MISSING' ? (
+          <p className="text-sm text-warning">
+            TEC10 (taux OAT 10 ans) indisponible — ni override saisi (onglet Hypothèses), ni taux live en base. Le build-up de cap rate ne peut pas être calculé.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">
+              Décomposition transparente du cap rate (jamais un score opaque) — TEC10 {data.tec10Source === 'OVERRIDE' ? 'saisi manuellement' : 'live'}
+              {data.tec10AsOf ? ` au ${new Date(data.tec10AsOf).toLocaleDateString('fr-FR')}` : ''}.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <CapRateBreakdown label="Entrée" result={data.entry} />
+              <CapRateBreakdown label="Sortie" result={data.exit} />
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /** Onglet Synthèse (spec V3 §25) — verdict, hurdle, rendements, WALB/WALT, Reverse Solver. */
 export function SyntheseTab({ projectId, synthese, icRecommendation }: { projectId: string; synthese: FractionalSynthese; icRecommendation?: ICRecommendation }) {
@@ -89,6 +146,13 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           <YieldStat label="Yield on Cost" value={pct(base.yieldOnCostPct)} hint="NOI an 1 / coût total" />
           <YieldStat label="IRR (TRI)" value={pct(base.irrPct)} />
           <YieldStat label="Equity Multiple" value={base.equityMultiple ? `${base.equityMultiple.toFixed(2)}x` : '—'} />
+          {base.irrImpactFromTvaTimingPts !== null && (
+            <YieldStat
+              label="Impact TVA sur IRR"
+              value={`${base.irrImpactFromTvaTimingPts >= 0 ? '+' : ''}${base.irrImpactFromTvaTimingPts.toFixed(2)} pt`}
+              hint="Décalage de trésorerie TVA (H.3) — sans effet sur l'equity multiple"
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -103,6 +167,8 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           <YieldStat label="Rent at Risk" value={pct(base.leaseSecurity.rentAtRiskPct, 1)} />
         </CardContent>
       </Card>
+
+      <CapRateBuildUpCard projectId={projectId} />
 
       {reverseSolver && (
         <Card>
