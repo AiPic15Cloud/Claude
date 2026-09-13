@@ -22,6 +22,7 @@ import { LocatifTab } from './components/locatif-tab';
 import { StructureTab } from './components/structure-tab';
 import { DealEconomicsTab } from './components/deal-economics-tab';
 import { RisqueIcTab } from './components/risque-ic-tab';
+import { FitTab } from './components/fit-tab';
 import { MarcheTab } from './components/marche-tab';
 import { MemoireTab } from './components/memoire-tab';
 import { InvestmentMemoPrintSheet } from './components/investment-memo-print-sheet';
@@ -93,6 +94,7 @@ export function FractionalProjectPage() {
           <TabsTrigger value="structure">Structure & Sortie</TabsTrigger>
           <TabsTrigger value="deal-economics">Deal Economics</TabsTrigger>
           <TabsTrigger value="risque-ic">Risque & IC</TabsTrigger>
+          <TabsTrigger value="fit">Fit</TabsTrigger>
           <TabsTrigger value="marche">Marché</TabsTrigger>
           <TabsTrigger value="memoire">Mémoire</TabsTrigger>
         </TabsList>
@@ -127,6 +129,10 @@ export function FractionalProjectPage() {
 
         <TabsContent value="risque-ic">
           <RisqueIcTab projectId={project.id} icDecisions={project.icDecisions} assumptionSets={project.assumptionSets} />
+        </TabsContent>
+
+        <TabsContent value="fit">
+          <FitTab projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="marche">

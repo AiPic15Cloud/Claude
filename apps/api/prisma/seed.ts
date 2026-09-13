@@ -9,6 +9,7 @@ import {
   GraphRelationType,
   ArticleCategory,
   GuaranteeType,
+  FractionalScoreComparisonOperator,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -516,6 +517,94 @@ async function main() {
         severity: AlertSeverity.INFO,
         title: 'Bienvenue sur ATLAS',
         message: 'Votre organisation Atlas Capital est configurée avec des données de démonstration.',
+      },
+    });
+  }
+
+  // Barème de scoring pondéré Fractionné (Complément H, point 1) — exemple
+  // de départ générique (assetType null), pas une reproduction du barème à
+  // 102 points du classeur audité (dont le détail critère par critère n'a
+  // pas été transmis) : à affiner via l'API fit-scoring une fois de vrais
+  // dossiers notés disponibles. Idempotent — ne s'exécute qu'une fois.
+  const existingScoreCategories = await prisma.fractionalScoreCategory.count({ where: { organizationId: organization.id } });
+  if (existingScoreCategories === 0) {
+    const categoriesSeed = [
+      {
+        label: 'Écosystème business',
+        maxPoints: 15,
+        sortOrder: 1,
+        criteria: [
+          { label: 'Dynamisme de la zone de chalandise', sortOrder: 1, buckets: [{ label: 'Faible', points: 3 }, { label: 'Modéré', points: 9 }, { label: 'Fort', points: 15 }] },
+        ],
+      },
+      {
+        label: 'Exploitant',
+        maxPoints: 20,
+        sortOrder: 2,
+        criteria: [
+          { label: "Ancienneté de l'exploitant", sortOrder: 1, buckets: [{ label: '< 2 ans', points: 4 }, { label: '2-5 ans', points: 12 }, { label: '> 5 ans', points: 20 }] },
+        ],
+      },
+      {
+        label: 'État locatif',
+        maxPoints: 15,
+        sortOrder: 3,
+        criteria: [
+          { label: 'WALB', sortOrder: 1, buckets: [{ label: '< 2 ans', points: 3 }, { label: '2-4 ans', points: 9 }, { label: '> 4 ans', points: 15 }] },
+        ],
+      },
+      {
+        label: 'Prix & loyer',
+        maxPoints: 27,
+        sortOrder: 4,
+        criteria: [
+          { label: 'Rendement net vs marché', sortOrder: 1, buckets: [{ label: 'Sous le marché', points: 8 }, { label: 'Aligné', points: 18 }, { label: 'Au-dessus du marché', points: 27 }] },
+        ],
+      },
+      {
+        label: 'Réglementaire',
+        maxPoints: 11,
+        sortOrder: 5,
+        criteria: [
+          { label: 'Conformité ERP/urbanisme', sortOrder: 1, buckets: [{ label: 'Non conforme', points: 0 }, { label: 'Conforme', points: 11 }] },
+        ],
+      },
+      {
+        label: 'Technique',
+        maxPoints: 12,
+        sortOrder: 6,
+        criteria: [
+          { label: 'État général du bâti', sortOrder: 1, buckets: [{ label: 'Travaux lourds à prévoir', points: 2 }, { label: 'Entretien courant', points: 8 }, { label: 'Récent / rénové', points: 12 }] },
+        ],
+      },
+    ];
+
+    for (const cat of categoriesSeed) {
+      const category = await prisma.fractionalScoreCategory.create({
+        data: { organizationId: organization.id, assetType: null, label: cat.label, maxPoints: cat.maxPoints, sortOrder: cat.sortOrder },
+      });
+      for (const crit of cat.criteria) {
+        const criterion = await prisma.fractionalScoreCriterion.create({
+          data: { categoryId: category.id, label: crit.label, sortOrder: crit.sortOrder },
+        });
+        for (const [idx, bucket] of crit.buckets.entries()) {
+          await prisma.fractionalScoreBucket.create({
+            data: { criterionId: criterion.id, label: bucket.label, points: bucket.points, sortOrder: idx + 1 },
+          });
+        }
+      }
+    }
+
+    await prisma.fractionalEliminatoryRule.create({
+      data: {
+        organizationId: organization.id,
+        assetType: null,
+        label: 'Plan de financement équilibré',
+        metricKey: 'SOURCES_USES_BALANCED',
+        operator: FractionalScoreComparisonOperator.EQ,
+        threshold: 1,
+        failMessage: "Sources ≠ Uses — le plan de financement doit être corrigé avant présentation (donnée manquante, pas nécessairement un mauvais deal).",
+        sortOrder: 1,
       },
     });
   }

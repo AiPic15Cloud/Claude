@@ -2212,3 +2212,134 @@ export interface MarketComparablePool {
   notes: string | null;
   createdAt: string;
 }
+
+// ── Scoring pondéré + règles éliminatoires nommées (Complément H, points 1/8) ──
+
+export interface FractionalScoreBucket {
+  id: string;
+  criterionId: string;
+  label: string;
+  points: number;
+  isEliminatory: boolean;
+  sortOrder: number;
+}
+
+export interface FractionalScoreCriterion {
+  id: string;
+  categoryId: string;
+  label: string;
+  sourceField: string | null;
+  sortOrder: number;
+  buckets: FractionalScoreBucket[];
+}
+
+export interface FractionalScoreCategory {
+  id: string;
+  organizationId: string;
+  assetType: string | null;
+  label: string;
+  maxPoints: number;
+  sortOrder: number;
+  criteria: FractionalScoreCriterion[];
+}
+
+export type EliminatoryComparisonOperator = 'GTE' | 'LTE' | 'GT' | 'LT' | 'EQ';
+export const ELIMINATORY_OPERATOR_LABELS: Record<EliminatoryComparisonOperator, string> = { GTE: '≥', LTE: '≤', GT: '>', LT: '<', EQ: '=' };
+
+export type EliminatoryMetricKey =
+  | 'SECURED_NET_YIELD_PCT'
+  | 'INVESTOR_NET_YIELD_PCT'
+  | 'GROSS_YIELD_PCT'
+  | 'WALB_YEARS'
+  | 'WALT_YEARS'
+  | 'IRR_PCT'
+  | 'EQUITY_MULTIPLE'
+  | 'SOURCES_USES_BALANCED';
+
+export const ELIMINATORY_METRIC_LABELS: Record<EliminatoryMetricKey, string> = {
+  SECURED_NET_YIELD_PCT: 'Secured Net Yield (%)',
+  INVESTOR_NET_YIELD_PCT: 'Investor Net Yield (%)',
+  GROSS_YIELD_PCT: 'Gross Yield (%)',
+  WALB_YEARS: 'WALB (années)',
+  WALT_YEARS: 'WALT (années)',
+  IRR_PCT: 'TRI (%)',
+  EQUITY_MULTIPLE: 'Equity Multiple (x)',
+  SOURCES_USES_BALANCED: 'Sources = Uses',
+};
+
+export interface FractionalEliminatoryRule {
+  id: string;
+  organizationId: string;
+  assetType: string | null;
+  platformProfileId: string | null;
+  label: string;
+  metricKey: EliminatoryMetricKey;
+  operator: EliminatoryComparisonOperator;
+  threshold: number;
+  failMessage: string;
+  sortOrder: number;
+}
+
+export interface FractionalBareme {
+  resolvedAssetType: string | null;
+  categories: FractionalScoreCategory[];
+  eliminatoryRules: FractionalEliminatoryRule[];
+}
+
+export type ScoreTierVerdict = 'NO_GO' | 'CONDITIONNEL' | 'GO' | 'GO_FORT';
+export const SCORE_TIER_VERDICT_LABELS: Record<ScoreTierVerdict, string> = {
+  NO_GO: 'NO GO',
+  CONDITIONNEL: 'Conditionnel',
+  GO: 'GO',
+  GO_FORT: 'GO fort',
+};
+
+export interface ScoreCategoryBreakdown {
+  categoryId: string;
+  label: string;
+  points: number;
+  maxPoints: number;
+  pct: number;
+}
+
+export interface EliminatoryRuleResult {
+  ruleId: string;
+  label: string;
+  metricKey: EliminatoryMetricKey;
+  observedValue: number | null;
+  operator: EliminatoryComparisonOperator;
+  threshold: number;
+  passed: boolean;
+  failMessage: string | null;
+}
+
+export interface FitAssessmentResult {
+  score: {
+    totalPoints: number;
+    maxPoints: number;
+    pct: number;
+    categoryBreakdown: ScoreCategoryBreakdown[];
+    unansweredCriterionIds: string[];
+  };
+  scoreVerdict: ScoreTierVerdict;
+  eliminatoryResults: EliminatoryRuleResult[];
+  finalVerdict: ScoreTierVerdict;
+  supplantedByEliminatoryRule: boolean;
+}
+
+export interface FractionalScoreAssessment {
+  id: string;
+  projectId: string;
+  scoredById: string | null;
+  scoredAt: string;
+  totalPoints: number;
+  maxPoints: number;
+  categoryBreakdown: ScoreCategoryBreakdown[];
+  eliminatoryResults: EliminatoryRuleResult[];
+  finalVerdict: ScoreTierVerdict;
+}
+
+export interface SubmitScoreAssessmentResponse {
+  assessment: FractionalScoreAssessment;
+  result: FitAssessmentResult;
+}

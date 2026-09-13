@@ -255,6 +255,8 @@ model Organization {
   platformProfiles   PlatformFractionalProfile[]
   rentIndexSeries    RentIndexSeries[]
   marketComparables  MarketComparablePool[]
+  scoreCategories    FractionalScoreCategory[]
+  eliminatoryRules   FractionalEliminatoryRule[]
 
   @@map("organizations")
 }
@@ -2188,6 +2190,13 @@ model FractionalProject {
   postcode String?
   country  String  @default("FR")
 
+  /// Typologie libre (ex. "Commerce", "Activités", "Bureaux", "Mixte") —
+  /// sélectionne le barème de scoring et les règles éliminatoires
+  /// applicables (Complément H point 1, weighted-score.util.ts). Null = pas
+  /// encore qualifié, seul le barème générique (assetType null) s'applique
+  /// — jamais une typologie devinée silencieusement.
+  assetType String?
+
   notes String?
 
   sourcesUses      FractionalSourcesUses?
@@ -2203,6 +2212,7 @@ model FractionalProject {
   actuals          FractionalProjectActual[]
   outcome          FractionalProjectOutcome?
   alerts           Alert[]
+  scoreAssessments FractionalScoreAssessment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2394,6 +2404,7 @@ model PlatformFractionalProfile {
   confidence String?
 
   vehicleStructures FractionalVehicleStructure[]
+  eliminatoryRules  FractionalEliminatoryRule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2666,6 +2677,160 @@ model FractionalICDecision {
 
   @@index([projectId])
   @@map("fractional_ic_decisions")
+}
+
+/// Scoring pondéré + règles éliminatoires nommées (Complément H, points 1 et
+/// 8 — audit du classeur myVesta x LPB). Barème décomposable jusqu'au dernier
+/// point (ScoreCategory → ScoreCriterion → ScoreBucket), partagé au niveau
+/// organisation comme PlatformFractionalProfile/RentIndexSeries — jamais
+/// ressaisi par dossier. assetType null = barème générique, applicable à
+/// tout projet dont l'assetType ne matche aucun barème plus spécifique.
+model FractionalScoreCategory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  assetType String?
+  label     String
+  maxPoints Decimal @db.Decimal(6, 2)
+  sortOrder Int     @default(0)
+
+  criteria FractionalScoreCriterion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, assetType])
+  @@map("fractional_score_categories")
+}
+
+/// Un critère noté au sein d'une catégorie. sourceField est indicatif
+/// seulement (le champ du moteur que ce critère recoupe, pour aider la
+/// saisie) — la réponse reste toujours un choix explicite dans buckets,
+/// jamais une valeur recalculée automatiquement (v1, cf. H.2).
+model FractionalScoreCriterion {
+  id         String                  @id @default(cuid())
+  categoryId String
+  category   FractionalScoreCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  label       String
+  sourceField String?
+  sortOrder   Int     @default(0)
+
+  buckets FractionalScoreBucket[]
+  answers FractionalScoreAnswer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@map("fractional_score_criteria")
+}
+
+/// Une tranche de réponse possible pour un critère, dans une liste fermée —
+/// jamais une note libre (doctrine "jamais de score composite opaque").
+model FractionalScoreBucket {
+  id          String                   @id @default(cuid())
+  criterionId String
+  criterion   FractionalScoreCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  label         String
+  points        Decimal @db.Decimal(6, 2)
+  isEliminatory Boolean @default(false)
+  sortOrder     Int     @default(0)
+
+  answers FractionalScoreAnswer[]
+
+  createdAt DateTime @default(now())
+
+  @@index([criterionId])
+  @@map("fractional_score_buckets")
+}
+
+enum FractionalScoreComparisonOperator {
+  GTE
+  LTE
+  GT
+  LT
+  EQ
+}
+
+/// Règle dure indépendante du score (Complément H point 8) — peut à elle
+/// seule faire basculer le verdict final en NO_GO quel que soit le score
+/// pondéré. metricKey référence le registre de métriques nommées
+/// d'eliminatory-rule.util.ts (jamais un champ libre/eval dynamique) ;
+/// platformProfileId scope une règle propre à une plateforme (ex. seuil
+/// Tantiem ≠ seuil LPB), assetType scope par typologie d'actif — les deux
+/// nuls = règle globale.
+model FractionalEliminatoryRule {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  assetType         String?
+  platformProfileId String?
+  platformProfile   PlatformFractionalProfile? @relation(fields: [platformProfileId], references: [id], onDelete: SetNull)
+
+  label       String
+  metricKey   String
+  operator    FractionalScoreComparisonOperator
+  threshold   Decimal                            @db.Decimal(12, 4)
+  failMessage String
+  sortOrder   Int                                @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, assetType])
+  @@index([platformProfileId])
+  @@map("fractional_eliminatory_rules")
+}
+
+enum FractionalScoreVerdict {
+  NO_GO
+  CONDITIONNEL
+  GO
+  GO_FORT
+}
+
+/// Une instance de passage au barème pour un projet donné (Complément H,
+/// ScoreAssessment) — append-only par scoredAt, comme FractionalICDecision.
+/// categoryBreakdown/eliminatoryResults sont le détail figé au moment du
+/// calcul (jamais recalculés a posteriori si le barème change ensuite).
+model FractionalScoreAssessment {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  scoredById String?
+  scoredAt   DateTime @default(now())
+
+  totalPoints        Decimal                @db.Decimal(6, 2)
+  maxPoints          Decimal                @db.Decimal(6, 2)
+  categoryBreakdown  Json
+  eliminatoryResults Json
+  finalVerdict       FractionalScoreVerdict
+
+  answers FractionalScoreAnswer[]
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@map("fractional_score_assessments")
+}
+
+model FractionalScoreAnswer {
+  id           String                    @id @default(cuid())
+  assessmentId String
+  assessment   FractionalScoreAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  criterionId  String
+  criterion    FractionalScoreCriterion  @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  bucketId     String
+  bucket       FractionalScoreBucket     @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, criterionId])
+  @@index([assessmentId])
+  @@map("fractional_score_answers")
 }
 
 enum ProjectOutcomeStatus {

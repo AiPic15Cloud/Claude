@@ -35,6 +35,13 @@ import type {
   RentIndexType,
   MarketComparablePool,
   MarketComparableType,
+  FractionalScoreCategory,
+  FractionalEliminatoryRule,
+  FractionalBareme,
+  FractionalScoreAssessment,
+  SubmitScoreAssessmentResponse,
+  EliminatoryMetricKey,
+  EliminatoryComparisonOperator,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -563,5 +570,150 @@ export function useDeleteMarketComparable() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/fractional/market-data/comparables/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'market-data', 'comparables'] }),
+  });
+}
+
+// ── Scoring pondéré + règles éliminatoires nommées (Complément H, points 1/8) ──
+// Barème et règles éliminatoires PARTAGÉS au niveau organisation (comme
+// RentIndexSeries/MarketComparablePool ci-dessus) — jamais ressaisis par
+// dossier ; seul le FractionalScoreAssessment est propre à un projet.
+
+export function useFractionalBareme(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'fit-scoring', 'bareme'],
+    queryFn: () => api.get<FractionalBareme>(`/fractional/fit-scoring/projects/${projectId}/bareme`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export function useFractionalLatestAssessment(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'fit-scoring', 'assessments', 'latest'],
+    // Coalesce explicitement à null : un dossier jamais noté renvoie un body vide (204),
+    // qu'api.get() traduit en `undefined` — react-query refuse une query qui résout à
+    // `undefined` (cf. son propre avertissement), jamais un état "pas encore noté".
+    queryFn: async () => (await api.get<FractionalScoreAssessment | null>(`/fractional/fit-scoring/projects/${projectId}/assessments/latest`)) ?? null,
+    enabled: Boolean(projectId),
+  });
+}
+
+export function useSubmitScoreAssessment(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (answers: { criterionId: string; bucketId: string }[]) =>
+      api.post<SubmitScoreAssessmentResponse>(`/fractional/fit-scoring/projects/${projectId}/assessments`, { answers }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'fit-scoring', 'assessments', 'latest'] }),
+  });
+}
+
+export function useFractionalScoreCategories(assetType?: string) {
+  return useQuery({
+    queryKey: ['fractional', 'fit-scoring', 'categories', assetType ?? null],
+    queryFn: () => api.get<FractionalScoreCategory[]>(`/fractional/fit-scoring/categories${assetType ? `?assetType=${encodeURIComponent(assetType)}` : ''}`),
+  });
+}
+
+export interface CreateScoreCategoryPayload {
+  assetType?: string;
+  label: string;
+  maxPoints: number;
+  sortOrder?: number;
+}
+
+export function useCreateScoreCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateScoreCategoryPayload) => api.post<FractionalScoreCategory>('/fractional/fit-scoring/categories', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+  });
+}
+
+export function useDeleteScoreCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/categories/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+  });
+}
+
+export interface CreateScoreCriterionPayload {
+  categoryId: string;
+  label: string;
+  sourceField?: string;
+  sortOrder?: number;
+}
+
+export function useCreateScoreCriterion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateScoreCriterionPayload) => api.post('/fractional/fit-scoring/criteria', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+  });
+}
+
+export function useDeleteScoreCriterion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/criteria/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+  });
+}
+
+export interface CreateScoreBucketPayload {
+  criterionId: string;
+  label: string;
+  points: number;
+  isEliminatory?: boolean;
+  sortOrder?: number;
+}
+
+export function useCreateScoreBucket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateScoreBucketPayload) => api.post('/fractional/fit-scoring/buckets', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+  });
+}
+
+export function useDeleteScoreBucket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/buckets/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+  });
+}
+
+export function useFractionalEliminatoryRules(assetType?: string) {
+  return useQuery({
+    queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules', assetType ?? null],
+    queryFn: () =>
+      api.get<FractionalEliminatoryRule[]>(`/fractional/fit-scoring/eliminatory-rules${assetType ? `?assetType=${encodeURIComponent(assetType)}` : ''}`),
+  });
+}
+
+export interface CreateEliminatoryRulePayload {
+  assetType?: string;
+  platformProfileId?: string;
+  label: string;
+  metricKey: EliminatoryMetricKey;
+  operator: EliminatoryComparisonOperator;
+  threshold: number;
+  failMessage: string;
+  sortOrder?: number;
+}
+
+export function useCreateEliminatoryRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateEliminatoryRulePayload) => api.post<FractionalEliminatoryRule>('/fractional/fit-scoring/eliminatory-rules', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules'] }),
+  });
+}
+
+export function useDeleteEliminatoryRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/eliminatory-rules/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules'] }),
   });
 }
