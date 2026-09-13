@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { formatCurrency } from '@/lib/format';
 import {
+  ELIGIBILITY_VERDICT_LABELS,
   FRACTIONAL_PROJECT_STATUS_LABELS,
   IC_DECISION_STATUS_LABELS,
   LEASE_SECURITY_STATUS_LABELS,
@@ -90,11 +91,14 @@ export function InvestmentMemoPrintSheet({
               <tr>
                 <td className="py-0.5">Hurdle plateforme</td>
                 <td className="py-0.5 text-right">{pct(synthese.hurdlePct)}</td>
-                <td className="py-0.5">Verdict</td>
-                <td className="py-0.5 text-right">{synthese.eligibility.verdict}</td>
+                <td className="py-0.5">Éligibilité (technique)</td>
+                <td className="py-0.5 text-right">{ELIGIBILITY_VERDICT_LABELS[synthese.eligibility.verdict]}</td>
               </tr>
             </tbody>
           </table>
+          {synthese.capexDataMissing && (
+            <p className="mt-1 text-sm font-medium">⚠️ CAPEX non renseigné — aucune ligne saisie, le cash-flow n'est pas stressé sur ce poste.</p>
+          )}
         </section>
       )}
 
@@ -127,7 +131,7 @@ export function InvestmentMemoPrintSheet({
                 <tr key={y.year}>
                   <td className="py-0.5">{y.year}</td>
                   <td className="py-0.5 text-right">{formatCurrency(y.noi)}</td>
-                  <td className="py-0.5 text-right">{y.capex > 0 ? formatCurrency(y.capex) : '—'}</td>
+                  <td className="py-0.5 text-right">{y.capex > 0 ? formatCurrency(y.capex) : synthese.capexDataMissing ? 'Non renseigné' : '—'}</td>
                   <td className="py-0.5 text-right">{formatCurrency(y.distributableCashFlow)}</td>
                   <td className="py-0.5 text-right">{formatCurrency(y.investorDistribution)}</td>
                 </tr>

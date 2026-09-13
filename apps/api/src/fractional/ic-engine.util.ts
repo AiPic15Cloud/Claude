@@ -23,6 +23,14 @@ export interface ICRecommendationInput {
   combinedSevereScenario?: StressScenarioResult;
   /** Scénario DOWNSIDE du Break Event Engine (break-event.util.ts) — départ du locataire à sa prochaine échéance de break, pas un défaut immédiat comme TENANT_DEFAULT. */
   breakDownsideScenario?: StressScenarioResult;
+  /**
+   * Data Integrity (spec V2 §10 "Unknown ≠ Zero") — aucune ligne CapexItem
+   * saisie pour ce dossier. capexByYear vaut alors {} dans le moteur de
+   * rendement, indiscernable côté calcul d'un CAPEX confirmé à zéro : ce seul
+   * champ permet à l'IC engine de le signaler explicitement au lieu de
+   * laisser le cash-flow paraître non stressé sur ce poste sans explication.
+   */
+  capexDataMissing?: boolean;
 }
 
 export interface ICRecommendation {
@@ -62,6 +70,9 @@ export function computeICRecommendation(input: ICRecommendationInput): ICRecomme
     watchItems.push(
       `Départ locataire à la prochaine échéance de break (vacance + relocation) : perte de capital estimée à ${Math.round(input.breakDownsideScenario.maxLoss).toLocaleString('fr-FR')} €.`,
     );
+  }
+  if (input.capexDataMissing) {
+    watchItems.push("CAPEX non renseigné (aucune ligne saisie) — donnée manquante, pas un CAPEX nul confirmé : le cash-flow n'est pas stressé sur ce poste.");
   }
 
   let status: ICDecisionStatus;

@@ -1879,6 +1879,8 @@ export interface FractionalSynthese {
   hurdlePct: number;
   platformProfile: PlatformFractionalProfile | null;
   dcfValuation: FractionalDCFValuation;
+  /** Data Integrity (spec V2 §10 "Unknown ≠ Zero") — aucune ligne CAPEX saisie, distinct d'un CAPEX confirmé à zéro. */
+  capexDataMissing: boolean;
 }
 
 // ── Deal Economics & Stakeholder Waterfall (spec V3.1 §29, P0 critique) ────

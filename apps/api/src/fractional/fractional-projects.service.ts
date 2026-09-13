@@ -635,12 +635,17 @@ export class FractionalProjectsService {
       materialityThresholdPct: baseValues.materialityThresholdPct,
     };
 
-    return { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct };
+    // Aucune ligne CapexItem saisie ≠ CAPEX confirmé à zéro (spec V2 §10,
+    // "Unknown ≠ Zero") — capexByYear reste {} dans les deux cas, ce booléen
+    // est le seul moyen pour l'appelant (IC engine, UI) de distinguer les deux.
+    const capexDataMissing = project.capexItems.length === 0;
+
+    return { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct, capexDataMissing };
   }
 
   async computeSynthese(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
-    const { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct } = await this.buildReturnsEngineInput(project, user.organizationId);
+    const { baseInput, baseValues, exitValueBase, platformProfile, hurdlePct, capexDataMissing } = await this.buildReturnsEngineInput(project, user.organizationId);
 
     const baseResult = computeReturnsEngine(baseInput);
 
@@ -686,6 +691,7 @@ export class FractionalProjectsService {
       hurdlePct,
       platformProfile,
       dcfValuation,
+      capexDataMissing,
     };
   }
 
@@ -701,7 +707,7 @@ export class FractionalProjectsService {
 
   async computeICRecommendationForProject(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
-    const { baseInput, hurdlePct, platformProfile } = await this.buildReturnsEngineInput(project, user.organizationId);
+    const { baseInput, hurdlePct, platformProfile, capexDataMissing } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
     const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
     const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
@@ -716,6 +722,7 @@ export class FractionalProjectsService {
       eligibility,
       combinedSevereScenario: combinedSevere,
       breakDownsideScenario: breakDownside,
+      capexDataMissing,
     });
   }
 

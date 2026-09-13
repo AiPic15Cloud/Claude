@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-import { ELIGIBILITY_VERDICT_LABELS, type FractionalSynthese } from '@/types';
+import { ELIGIBILITY_VERDICT_LABELS, IC_DECISION_STATUS_LABELS, type FractionalSynthese, type ICRecommendation } from '@/types';
 
 function pct(value: number | null | undefined, digits = 2): string {
   return value === null || value === undefined ? '—' : `${value.toFixed(digits)} %`;
@@ -18,31 +18,48 @@ function YieldStat({ label, value, hint }: { label: string; value: string; hint?
   );
 }
 
-const VERDICT_VARIANT = { ELIGIBLE: 'success', MARGINAL: 'warning', INELIGIBLE: 'destructive' } as const;
+const ELIGIBILITY_VARIANT = { ELIGIBLE: 'success', MARGINAL: 'warning', INELIGIBLE: 'destructive' } as const;
+const IC_STATUS_VARIANT = {
+  APPROVE: 'success',
+  APPROVE_SUBJECT_TO_CONDITIONS: 'warning',
+  RESTRUCTURE: 'warning',
+  HOLD: 'outline',
+  DECLINE: 'destructive',
+} as const;
 
 /** Onglet Synthèse (spec V3 §25) — verdict, hurdle, rendements, WALB/WALT, Reverse Solver. */
-export function SyntheseTab({ synthese }: { synthese: FractionalSynthese }) {
-  const { base, stressed, stressedIsFallback, eligibility, reverseSolver, platformProfile, dcfValuation } = synthese;
+export function SyntheseTab({ synthese, icRecommendation }: { synthese: FractionalSynthese; icRecommendation?: ICRecommendation }) {
+  const { base, stressed, stressedIsFallback, eligibility, reverseSolver, platformProfile, dcfValuation, capexDataMissing } = synthese;
 
   return (
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Verdict</CardTitle>
-            <Badge variant={VERDICT_VARIANT[eligibility.verdict]}>{ELIGIBILITY_VERDICT_LABELS[eligibility.verdict]}</Badge>
+            <CardTitle className="text-base">Décision</CardTitle>
+            {icRecommendation ? (
+              <Badge variant={IC_STATUS_VARIANT[icRecommendation.status]}>{IC_DECISION_STATUS_LABELS[icRecommendation.status]}</Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">Calcul en cours…</span>
+            )}
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {!platformProfile && (
             <p className="text-sm text-muted-foreground">
-              Aucun profil plateforme rattaché (onglet Structure) — hurdle à 0%, le verdict n'est pas significatif tant qu'un profil n'est pas assigné.
+              Aucun profil plateforme rattaché (onglet Structure) — hurdle à 0%, la décision n'est pas significative tant qu'un profil n'est pas assigné.
             </p>
           )}
+          {icRecommendation && <p className="text-sm text-muted-foreground">{icRecommendation.recommendation}</p>}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <YieldStat label="Secured Net Yield" value={pct(eligibility.securedNetYieldPct)} />
             <YieldStat label="Hurdle plateforme" value={pct(eligibility.hurdlePct)} />
             <YieldStat label="Écart vs hurdle" value={`${eligibility.gapPct >= 0 ? '+' : ''}${eligibility.gapPct.toFixed(2)} pt`} />
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Éligibilité technique (secured yield vs hurdle) :</span>
+            <Badge variant={ELIGIBILITY_VARIANT[eligibility.verdict]}>{ELIGIBILITY_VERDICT_LABELS[eligibility.verdict]}</Badge>
+            <span>— indicateur partiel, voir la Décision ci-dessus et l'onglet Risque &amp; IC pour la recommandation complète.</span>
           </div>
         </CardContent>
       </Card>
@@ -132,7 +149,17 @@ export function SyntheseTab({ synthese }: { synthese: FractionalSynthese }) {
                     <TableCell>{formatCurrency(y.effectiveGrossIncome)}</TableCell>
                     <TableCell>{formatCurrency(y.operatingExpenses)}</TableCell>
                     <TableCell>{formatCurrency(y.noi)}</TableCell>
-                    <TableCell>{y.capex > 0 ? formatCurrency(y.capex) : '—'}</TableCell>
+                    <TableCell>
+                      {y.capex > 0 ? (
+                        formatCurrency(y.capex)
+                      ) : capexDataMissing ? (
+                        <span className="text-warning" title="Aucune ligne CAPEX saisie — donnée manquante, pas un CAPEX nul confirmé.">
+                          ⚠️ Non renseigné
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell>{formatCurrency(y.platformVehicleCosts)}</TableCell>
                     <TableCell>{formatCurrency(y.distributableCashFlow)}</TableCell>
                     <TableCell>{formatCurrency(y.investorDistribution)}</TableCell>
@@ -173,6 +200,14 @@ export function SyntheseTab({ synthese }: { synthese: FractionalSynthese }) {
         <Card className="border-warning">
           <CardContent className="py-3 text-sm text-warning">
             Sources ≠ Uses : écart de {formatCurrency(base.sourcesUsesResult.deltaSourcesUses)} — vérifier le plan de financement (onglet Acquisition).
+          </CardContent>
+        </Card>
+      )}
+
+      {capexDataMissing && (
+        <Card className="border-warning">
+          <CardContent className="py-3 text-sm text-warning">
+            ⚠️ CAPEX non renseigné — aucune ligne saisie (onglet Acquisition). Le cash-flow ci-dessus n'est pas stressé sur ce poste ; ce n'est pas un CAPEX confirmé à zéro.
           </CardContent>
         </Card>
       )}
