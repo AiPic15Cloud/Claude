@@ -1,5 +1,6 @@
 import { computeReturnsEngine, type ReturnsEngineInput, type ReturnsEngineResult } from './returns.util';
 import { computeEligibility, type EligibilityResult } from './eligibility.util';
+import type { BreakScenario } from './break-event.util';
 
 /**
  * Stress Testing & Sensitivity Engine (spec V3 §18) — les 10 scénarios de la
@@ -108,7 +109,7 @@ function applyScenario(base: ReturnsEngineInput, scenario: StressScenarioKey): R
 }
 
 export interface StressScenarioResult {
-  scenario: StressScenarioKey;
+  scenario: StressScenarioKey | BreakStressScenarioKey;
   noi: number;
   investorNetYieldPct: number;
   securedNetYieldPct: number;
@@ -162,4 +163,53 @@ export const ALL_STRESS_SCENARIOS: StressScenarioKey[] = [
 
 export function computeAllStressScenarios(base: ReturnsEngineInput, hurdlePct: number): StressScenarioResult[] {
   return ALL_STRESS_SCENARIOS.map((scenario) => computeStressScenario(base, scenario, hurdlePct));
+}
+
+/**
+ * Break Event Engine (break-event.util.ts) exposé comme deux scénarios
+ * supplémentaires — distincts des 10 scénarios ci-dessus (perturbations
+ * d'entrée génériques rejouées via applyScenario) car ils s'appliquent via
+ * `ReturnsEngineInput.breakScenario`, pas via une modification de leases/
+ * capex/exitValue. Tenus hors de ALL_STRESS_SCENARIOS/StressScenarioKey :
+ * stakeholder-waterfall-stress.util.ts rejoue ALL_STRESS_SCENARIOS sans les
+ * connaître, les y ajouter y produirait silencieusement un résultat
+ * "comme BASE" au lieu du scénario de break réel.
+ */
+export type BreakStressScenarioKey = 'TENANT_BREAK_DOWNSIDE' | 'TENANT_BREAK_SEVERE';
+
+const BREAK_STRESS_SCENARIO_TO_BREAK_SCENARIO: Record<BreakStressScenarioKey, BreakScenario> = {
+  TENANT_BREAK_DOWNSIDE: 'DOWNSIDE',
+  TENANT_BREAK_SEVERE: 'SEVERE',
+};
+
+export const ALL_BREAK_STRESS_SCENARIOS: BreakStressScenarioKey[] = ['TENANT_BREAK_DOWNSIDE', 'TENANT_BREAK_SEVERE'];
+
+export function computeBreakEventScenario(base: ReturnsEngineInput, scenario: BreakStressScenarioKey, hurdlePct: number): StressScenarioResult {
+  const input: ReturnsEngineInput = { ...base, breakScenario: BREAK_STRESS_SCENARIO_TO_BREAK_SCENARIO[scenario] };
+  const result: ReturnsEngineResult = computeReturnsEngine(input);
+  const collecte = input.sourcesUses.collecteMontant;
+
+  const yearsUnderHurdle = result.yearlyModel.filter((y) => {
+    const yearYieldPct = collecte > 0 ? (y.investorDistribution / collecte) * 100 : 0;
+    return yearYieldPct < hurdlePct;
+  }).length;
+
+  const maxLoss = result.equityMultiple !== null && result.equityMultiple < 1 ? collecte * (1 - result.equityMultiple) : 0;
+
+  return {
+    scenario,
+    noi: result.yearlyModel[0]?.noi ?? 0,
+    investorNetYieldPct: result.investorNetYieldPct,
+    securedNetYieldPct: result.securedNetYieldPct,
+    irrPct: result.irrPct,
+    equityMultiple: result.equityMultiple,
+    exitValue: input.exitValue,
+    maxLoss,
+    yearsUnderHurdle,
+    eligibility: computeEligibility(result.securedNetYieldPct, hurdlePct),
+  };
+}
+
+export function computeAllBreakEventScenarios(base: ReturnsEngineInput, hurdlePct: number): StressScenarioResult[] {
+  return ALL_BREAK_STRESS_SCENARIOS.map((scenario) => computeBreakEventScenario(base, scenario, hurdlePct));
 }

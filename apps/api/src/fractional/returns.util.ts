@@ -2,7 +2,8 @@ import { computeXirr, type CashFlow } from '../deals/xirr.util';
 import { computeSourcesUses, type SourcesUsesInput, type SourcesUsesResult } from './sources-uses.util';
 import { computeLeaseSecurity, sumLoyerByStatuses, type LeaseInput, type LeaseSecurityResult } from './lease-security.util';
 import { computeOperatingModelYear, computeTerminalProceeds, type OperatingModelYearResult, type TerminalProceedsResult } from './operating-model.util';
-import { projectIndexedGpr, type IndexGrowthRates } from './rent-indexation.util';
+import { type IndexGrowthRates } from './rent-indexation.util';
+import { projectPortfolioWithBreaks, type BreakScenario } from './break-event.util';
 
 /**
  * Returns Engine (spec V3 §15) — orchestre Sources/Uses, Lease Security et
@@ -35,6 +36,13 @@ export interface ReturnsEngineInput {
   exitValue: number;
   sellingCostsPct: number;
   materialityThresholdPct?: number;
+  /**
+   * Branche du Break Event Engine (break-event.util.ts) appliquée à la
+   * projection annuelle — BASE (défaut) laisse la trajectoire indexée
+   * inchangée (locataire renouvelle), DOWNSIDE/SEVERE injectent vacance +
+   * CAPEX de relocation + décote à la prochaine échéance de chaque bail.
+   */
+  breakScenario?: BreakScenario;
 }
 
 export interface ReturnsEngineResult {
@@ -52,6 +60,7 @@ export interface ReturnsEngineResult {
 
   irrPct: number | null;
   equityMultiple: number | null;
+  breakScenario: BreakScenario;
 }
 
 export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineResult {
@@ -67,16 +76,24 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
   const managementFeeBase = collecte;
 
   const indexGrowthRates = input.indexGrowthRates ?? {};
+  const breakScenario = input.breakScenario ?? 'BASE';
   const yearlyModel: OperatingModelYearResult[] = [];
   for (let year = 1; year <= input.holdPeriodYears; year++) {
-    const gpr = projectIndexedGpr(input.leases, indexGrowthRates, input.rentGrowthPctPerYear, year);
+    const { grossPotentialRent: gpr, relettingCapex } = projectPortfolioWithBreaks(
+      input.leases,
+      indexGrowthRates,
+      input.rentGrowthPctPerYear,
+      input.asOfDate,
+      year,
+      breakScenario,
+    );
     yearlyModel.push(
       computeOperatingModelYear({
         year,
         grossPotentialRent: gpr,
         vacancyCreditLossPct: input.vacancyCreditLossPct,
         opexPct: input.opexPct,
-        capexThisYear: input.capexByYear?.[year] ?? 0,
+        capexThisYear: (input.capexByYear?.[year] ?? 0) + relettingCapex,
         annualManagementFeePct: input.annualManagementFeePct,
         managementFeeBase,
         incomeShareInvestorPct: input.incomeShareInvestorPct,
@@ -136,5 +153,6 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
     yieldOnCostPct,
     irrPct: irr === null ? null : irr * 100,
     equityMultiple,
+    breakScenario,
   };
 }

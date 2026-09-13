@@ -79,11 +79,13 @@ export interface LeaseSecurityResult {
   expiryWallByYear: Record<number, number>;
 }
 
-function monthsBetween(from: Date, to: Date): number {
+/** Exporté pour réutilisation par break-event.util.ts (même granularité de conversion mois↔jours partout). */
+export function monthsBetween(from: Date, to: Date): number {
   return (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24 * 30.4375);
 }
 
-function nextBreakOrTerm(lease: LeaseInput, asOfDate: Date): Date {
+/** Exporté pour réutilisation par break-event.util.ts — un même bail doit basculer sur le même événement (break ou terme) que celui utilisé pour le WALB, pas un calcul redondant. */
+export function nextBreakOrTerm(lease: Pick<LeaseInput, 'breakDates' | 'dateTerme'>, asOfDate: Date): Date {
   const futureBreaks = lease.breakDates.filter((d) => d.getTime() > asOfDate.getTime()).sort((a, b) => a.getTime() - b.getTime());
   return futureBreaks.length > 0 ? futureBreaks[0] : lease.dateTerme;
 }

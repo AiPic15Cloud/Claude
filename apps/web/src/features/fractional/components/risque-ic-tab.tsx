@@ -47,7 +47,7 @@ export function RisqueIcTab({ projectId, icDecisions, assumptionSets }: { projec
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Stress Testing — 10 scénarios</CardTitle>
+          <CardTitle className="text-base">Stress Testing — 12 scénarios</CardTitle>
         </CardHeader>
         <CardContent>
           {scenariosLoading && <Skeleton className="h-48" />}

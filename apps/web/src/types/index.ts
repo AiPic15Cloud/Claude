@@ -2023,7 +2023,17 @@ export type StressScenarioKey =
   | 'PLATFORM_FEES_INCREASE'
   | 'COMBINED_SEVERE';
 
-export const STRESS_SCENARIO_LABELS: Record<StressScenarioKey, string> = {
+/**
+ * Break Event Engine (spec V2 §9) — scénarios distincts des 10 ci-dessus :
+ * déclenchés à la prochaine échéance de break réelle de chaque bail (vacance
+ * + CAPEX de relocation + relocation à loyer réduit), pas une perturbation
+ * générique appliquée dès l'année 1. Renvoyés par le même endpoint stress
+ * tests (fractional-projects.service.ts computeStressTests), affichés dans
+ * la même table.
+ */
+export type BreakStressScenarioKey = 'TENANT_BREAK_DOWNSIDE' | 'TENANT_BREAK_SEVERE';
+
+export const STRESS_SCENARIO_LABELS: Record<StressScenarioKey | BreakStressScenarioKey, string> = {
   BASE: 'Base',
   RENT_DOWNSIDE: 'Baisse des loyers',
   VACANCY: 'Vacance',
@@ -2034,10 +2044,12 @@ export const STRESS_SCENARIO_LABELS: Record<StressScenarioKey, string> = {
   VALUE_DECLINE: 'Baisse de valeur',
   PLATFORM_FEES_INCREASE: 'Hausse frais plateforme',
   COMBINED_SEVERE: 'Combiné sévère',
+  TENANT_BREAK_DOWNSIDE: 'Départ locataire au break',
+  TENANT_BREAK_SEVERE: 'Départ locataire au break (sévère)',
 };
 
 export interface StressScenarioResult {
-  scenario: StressScenarioKey;
+  scenario: StressScenarioKey | BreakStressScenarioKey;
   noi: number;
   investorNetYieldPct: number;
   securedNetYieldPct: number;

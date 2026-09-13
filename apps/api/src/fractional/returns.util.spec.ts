@@ -51,6 +51,47 @@ function makeBaseInput(overrides: Partial<ReturnsEngineInput> = {}, leaseOverrid
   };
 }
 
+describe('computeReturnsEngine — breakScenario (Break Event Engine, spec V2 §9)', () => {
+  // Cas "Action Saint-Étienne" : hold period 8 ans, break à 2,5 ans (WALB
+  // court), reproduit la contradiction signalée — WALB 2,5 ans affiché mais
+  // cash-flow qui continuait tout droit sur 8 ans sans rupture ni CAPEX.
+  const actionLikeInput = makeBaseInput(
+    { holdPeriodYears: 8 },
+    { loyerFacialAnnuel: 124617, dateTerme: new Date('2040-01-01'), breakDates: [new Date('2028-07-01')] },
+  );
+
+  it("BASE reste identique a l'ancien comportement (aucun break modelise) : loyer plein sur les 8 annees", () => {
+    const result = computeReturnsEngine(actionLikeInput);
+    expect(result.breakScenario).toBe('BASE');
+    for (const y of result.yearlyModel) {
+      expect(y.grossPotentialRent).toBeCloseTo(124617 * Math.pow(1.015, y.year - 1), 4);
+      expect(y.capex).toBe(0);
+    }
+  });
+
+  it('DOWNSIDE fait apparaitre une rupture reelle a l\'echeance du break : NOI en baisse et CAPEX de relocation, plus IRR degrade vs BASE', () => {
+    const base = computeReturnsEngine(actionLikeInput);
+    const downside = computeReturnsEngine({ ...actionLikeInput, breakScenario: 'DOWNSIDE' });
+
+    // L'annee du break (annee 3) porte desormais un CAPEX de relocation — absent en BASE.
+    const breakYearDownside = downside.yearlyModel[2];
+    expect(breakYearDownside.capex).toBeGreaterThan(0);
+    expect(breakYearDownside.grossPotentialRent).toBeLessThan(base.yearlyModel[2].grossPotentialRent);
+
+    // Le TRI degrade reflete la perte de revenu + le CAPEX, pas seulement le loyer facial.
+    expect(downside.irrPct).not.toBeNull();
+    expect(base.irrPct).not.toBeNull();
+    expect(downside.irrPct as number).toBeLessThan(base.irrPct as number);
+  });
+
+  it('SEVERE degrade davantage que DOWNSIDE (vacance plus longue + decote plus forte + CAPEX plus eleve)', () => {
+    const downside = computeReturnsEngine({ ...actionLikeInput, breakScenario: 'DOWNSIDE' });
+    const severe = computeReturnsEngine({ ...actionLikeInput, breakScenario: 'SEVERE' });
+    expect(severe.irrPct as number).toBeLessThan(downside.irrPct as number);
+    expect(severe.yearlyModel[2].capex).toBeGreaterThan(downside.yearlyModel[2].capex);
+  });
+});
+
 describe('computeReturnsEngine', () => {
   it('calcule un Gross Yield cohérent (loyer / prix net vendeur)', () => {
     const result = computeReturnsEngine(makeBaseInput());

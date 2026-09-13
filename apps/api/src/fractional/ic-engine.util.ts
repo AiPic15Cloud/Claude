@@ -21,6 +21,8 @@ export interface ICRecommendationInput {
   leaseAssessments: LeaseAssessment[];
   eligibility: EligibilityResult;
   combinedSevereScenario?: StressScenarioResult;
+  /** Scénario DOWNSIDE du Break Event Engine (break-event.util.ts) — départ du locataire à sa prochaine échéance de break, pas un défaut immédiat comme TENANT_DEFAULT. */
+  breakDownsideScenario?: StressScenarioResult;
 }
 
 export interface ICRecommendation {
@@ -55,6 +57,11 @@ export function computeICRecommendation(input: ICRecommendationInput): ICRecomme
   }
   if (input.combinedSevereScenario && input.combinedSevereScenario.maxLoss > 0) {
     watchItems.push(`Scénario combiné sévère : perte de capital estimée à ${Math.round(input.combinedSevereScenario.maxLoss).toLocaleString('fr-FR')} €.`);
+  }
+  if (input.breakDownsideScenario && input.breakDownsideScenario.maxLoss > 0) {
+    watchItems.push(
+      `Départ locataire à la prochaine échéance de break (vacance + relocation) : perte de capital estimée à ${Math.round(input.breakDownsideScenario.maxLoss).toLocaleString('fr-FR')} €.`,
+    );
   }
 
   let status: ICDecisionStatus;

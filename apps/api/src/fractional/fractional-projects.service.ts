@@ -26,7 +26,7 @@ import { computeIndexGrowthRates, type IndexGrowthRates } from './rent-indexatio
 import { computeLeaseLegalReview } from './lease-legal-review.util';
 import type { LeaseInput } from './lease-security.util';
 import { computeTenantCovenantScore } from './tenant-covenant.util';
-import { computeAllStressScenarios } from './stress-testing.util';
+import { computeAllStressScenarios, computeAllBreakEventScenarios, computeBreakEventScenario } from './stress-testing.util';
 import { computeICRecommendation } from './ic-engine.util';
 import { computeDCFValuation } from './dcf-valuation.util';
 import { computePerformanceAttribution } from './performance-attribution.util';
@@ -694,7 +694,7 @@ export class FractionalProjectsService {
   async computeStressTests(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
     const { baseInput, hurdlePct } = await this.buildReturnsEngineInput(project, user.organizationId);
-    return computeAllStressScenarios(baseInput, hurdlePct);
+    return [...computeAllStressScenarios(baseInput, hurdlePct), ...computeAllBreakEventScenarios(baseInput, hurdlePct)];
   }
 
   // ── IC Engine (spec §17) ─────────────────────────────────────
@@ -706,6 +706,7 @@ export class FractionalProjectsService {
     const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
     const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
     const combinedSevere = stressScenarios.find((s) => s.scenario === 'COMBINED_SEVERE');
+    const breakDownside = computeBreakEventScenario(baseInput, 'TENANT_BREAK_DOWNSIDE', hurdlePct);
 
     return computeICRecommendation({
       sourcesUsesBalanced: baseResult.sourcesUsesResult.balanced,
@@ -714,6 +715,7 @@ export class FractionalProjectsService {
       leaseAssessments: baseResult.leaseSecurity.assessments,
       eligibility,
       combinedSevereScenario: combinedSevere,
+      breakDownsideScenario: breakDownside,
     });
   }
 
