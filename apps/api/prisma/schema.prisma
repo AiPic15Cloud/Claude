@@ -2242,21 +2242,22 @@ model FractionalProject {
 
   notes String?
 
-  sourcesUses      FractionalSourcesUses?
-  assumptionSets   FractionalAssumptionSet[]
-  leases           FractionalLease[]
-  capexItems       FractionalCapexItem[]
-  valuations       FractionalValuation[]
-  vehicleStructure FractionalVehicleStructure?
-  stakeholders     FractionalStakeholder[]
-  feeDefinitions   FractionalFeeDefinition[]
-  waterfallTiers   FractionalWaterfallTier[]
-  icDecisions      FractionalICDecision[]
-  actuals          FractionalProjectActual[]
-  outcome          FractionalProjectOutcome?
-  alerts           Alert[]
-  scoreAssessments FractionalScoreAssessment[]
-  dataProvenance   FractionalDataProvenance[]
+  sourcesUses          FractionalSourcesUses?
+  assumptionSets       FractionalAssumptionSet[]
+  leases               FractionalLease[]
+  capexItems           FractionalCapexItem[]
+  valuations           FractionalValuation[]
+  vehicleStructure     FractionalVehicleStructure?
+  stakeholders         FractionalStakeholder[]
+  feeDefinitions       FractionalFeeDefinition[]
+  waterfallTiers       FractionalWaterfallTier[]
+  icDecisions          FractionalICDecision[]
+  actuals              FractionalProjectActual[]
+  outcome              FractionalProjectOutcome?
+  alerts               Alert[]
+  scoreAssessments     FractionalScoreAssessment[]
+  dataProvenance       FractionalDataProvenance[]
+  dataRoomItemStatuses FractionalDataRoomItemStatus[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2329,6 +2330,42 @@ model FractionalDataProvenance {
   @@unique([entityType, entityId, fieldKey])
   @@index([projectId])
   @@map("fractional_data_provenance")
+}
+
+enum FractionalDataRoomItemStatusValue {
+  OBTAINED
+  MISSING
+  NOT_APPLICABLE
+  INCONSISTENT
+}
+
+/// Data Room Completeness Engine (spec V3.1 §4) — registre fermé de blocs DD
+/// et pièces attendues (data-room-completeness.util.ts), jamais un champ
+/// libre : c'est ce qui permet à Atlas de générer automatiquement la liste
+/// des éléments manquants/incohérents sans dépendre d'une saisie ad hoc.
+/// Une pièce sans ligne ici = MISSING par défaut (Unknown ≠ Zero, même
+/// principe que FractionalDataProvenance) — seul un changement de statut
+/// crée une ligne, jamais un pré-remplissage silencieux de tout le registre
+/// à la création du dossier.
+model FractionalDataRoomItemStatus {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  block   String
+  itemKey String
+
+  status FractionalDataRoomItemStatusValue
+  notes  String?
+
+  updatedById String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, block, itemKey])
+  @@index([projectId])
+  @@map("fractional_data_room_item_statuses")
 }
 
 /// Hypothèses Base/Bear/Severe/Custom versionnées (spec §0 "AssumptionSet",

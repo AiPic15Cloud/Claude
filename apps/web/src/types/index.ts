@@ -2536,3 +2536,59 @@ export interface TenantReplacementCostResponse {
   DOWNSIDE: TenantReplacementCostBreakdown[];
   SEVERE: TenantReplacementCostBreakdown[];
 }
+
+// ── Data Room Completeness Engine (spec V3.1 §4) ────────────────────────────
+
+export type DataRoomBlockKey =
+  | 'CORPORATE_KYC'
+  | 'TITLE_LEGAL'
+  | 'LEASES'
+  | 'TECHNICAL'
+  | 'ENVIRONMENTAL_ESG'
+  | 'FINANCIAL'
+  | 'MARKET'
+  | 'VALUATION'
+  | 'VEHICLE_PLATFORM';
+
+export type DataRoomItemStatusValue = 'OBTAINED' | 'MISSING' | 'NOT_APPLICABLE' | 'INCONSISTENT';
+export const DATA_ROOM_ITEM_STATUS_LABELS: Record<DataRoomItemStatusValue, string> = {
+  OBTAINED: 'Obtenu',
+  MISSING: 'Manquant',
+  NOT_APPLICABLE: 'Non applicable',
+  INCONSISTENT: 'Incohérent',
+};
+
+export interface DataRoomItemResult {
+  block: DataRoomBlockKey;
+  itemKey: string;
+  label: string;
+  status: DataRoomItemStatusValue;
+  notes: string | null;
+}
+
+export interface DataRoomBlockResult {
+  block: DataRoomBlockKey;
+  label: string;
+  total: number;
+  obtainedCount: number;
+  missingCount: number;
+  notApplicableCount: number;
+  inconsistentCount: number;
+  completenessPct: number;
+  items: DataRoomItemResult[];
+}
+
+export interface DataRoomFlaggedItem {
+  block: DataRoomBlockKey;
+  blockLabel: string;
+  itemKey: string;
+  label: string;
+  notes: string | null;
+}
+
+export interface DataRoomCompletenessResult {
+  overallCompletenessPct: number;
+  blocks: DataRoomBlockResult[];
+  missingItems: DataRoomFlaggedItem[];
+  inconsistentItems: DataRoomFlaggedItem[];
+}

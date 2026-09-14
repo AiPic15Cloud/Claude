@@ -51,6 +51,9 @@ import type {
   CapRateBuildUpResponse,
   PortfolioReversionResult,
   TenantReplacementCostResponse,
+  DataRoomCompletenessResult,
+  DataRoomBlockKey,
+  DataRoomItemStatusValue,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -834,5 +837,31 @@ export function useFractionalTenantReplacementCost(projectId: string | null) {
     queryKey: ['fractional', 'projects', projectId, 'tenant-replacement-cost'],
     queryFn: () => api.get<TenantReplacementCostResponse>(`/fractional/projects/${projectId}/tenant-replacement-cost`),
     enabled: Boolean(projectId),
+  });
+}
+
+// ── Data Room Completeness Engine (spec V3.1 §4) ────────────────────────────
+
+export function useFractionalDataRoomCompleteness(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'data-room', 'completeness'],
+    queryFn: () => api.get<DataRoomCompletenessResult>(`/fractional/projects/${projectId}/data-room/completeness`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export interface UpsertDataRoomItemStatusPayload {
+  status: DataRoomItemStatusValue;
+  notes?: string;
+}
+
+export function useUpsertDataRoomItemStatus(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ block, itemKey, payload }: { block: DataRoomBlockKey; itemKey: string; payload: UpsertDataRoomItemStatusPayload }) =>
+      api.put(`/fractional/projects/${projectId}/data-room/${block}/${itemKey}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'data-room', 'completeness'] });
+    },
   });
 }
