@@ -15,6 +15,9 @@
  * 7,25 % → 8,00 %) correspond à +50 puis +75 points de base.
  */
 
+import { computeReturnsEngine, type ReturnsEngineInput } from './returns.util';
+import { bisect, type ReverseSolverResult } from './reverse-solver.util';
+
 export const BEAR_EXIT_YIELD_EXPANSION_BPS = 50;
 /** Cumulé vs Base (pas vs Bear) — cohérent avec l'exemple spec §11.1 : 6,75 % (Base) -> 7,25 % (Bear, +50 pts) -> 8,00 % (Severe, +125 pts cumulés depuis Base). */
 export const SEVERE_EXIT_YIELD_EXPANSION_BPS = 125;
@@ -116,4 +119,32 @@ export function median(values: number[]): number | null {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+const MAX_EXIT_YIELD_EXPANSION_SEARCH_BPS = 500;
+
+/**
+ * Reverse Solver "exit yield maximum" (spec §19) — de combien le taux de
+ * capitalisation de sortie peut se dégrader avant de casser le TRI cible,
+ * exitValue étant recalculé à chaque pas depuis le yield testé
+ * (lastYearNoi / yield), jamais une simple décote arbitraire sur la valeur
+ * saisie. Cible irrPct (le TRI, littéralement demandé par la spec — "quel
+ * cap rate de sortie conserve le TRI cible ?") et non securedNetYieldPct :
+ * ce dernier est un rendement année 1 (returns.util.ts) qui n'inclut
+ * jamais le produit de sortie, donc structurellement insensible à
+ * exitValue — le cibler ici bissecterait sur une fonction constante et ne
+ * résoudrait rien. Bissecte sur computeReturnsEngine comme boîte noire,
+ * même philosophie que reverse-solver.util.ts (dont ce module réutilise
+ * bisect) ; un IRR non défini (XIRR sans racine) est traité comme "hors de
+ * portée", jamais comme 0% inventé.
+ */
+export function solveMaxExitYieldExpansion(base: ReturnsEngineInput, baseExitYieldPct: number, lastYearNoi: number, targetHurdlePct: number): ReverseSolverResult {
+  const yieldAt = (expansionBps: number) => {
+    const yieldPct = baseExitYieldPct + expansionBps / 100;
+    if (yieldPct <= 0) return -Infinity;
+    const exitValue = lastYearNoi / (yieldPct / 100);
+    const irr = computeReturnsEngine({ ...base, exitValue }).irrPct;
+    return irr ?? -Infinity;
+  };
+  return bisect(0, MAX_EXIT_YIELD_EXPANSION_SEARCH_BPS, targetHurdlePct, yieldAt, true);
 }

@@ -143,6 +143,14 @@ function ExitYieldCard({ projectId }: { projectId: string }) {
               </Table>
             </div>
 
+            {data.maxExitYieldExpansion && (
+              <YieldStat
+                label="Exit yield maximum (Reverse Solver, spec §19)"
+                value={data.maxExitYieldExpansion.value !== null ? `+${data.maxExitYieldExpansion.value.toFixed(0)} pts vs Base` : 'Hors de portée'}
+                hint="Expansion maximale du taux de sortie compatible avec le hurdle (TRI)"
+              />
+            )}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Sensibilité au taux de capitalisation (Base ± pts de base)</p>
@@ -371,20 +379,50 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
       {reverseSolver && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Reverse Solver</CardTitle>
+            <CardTitle className="text-base">Reverse Solver (spec V3.1 §19)</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-border p-3">
-              <span className="text-xs text-muted-foreground">Prix d'acquisition maximum pour tenir le hurdle</span>
-              <p className="text-lg font-semibold tabular-nums">
-                {reverseSolver.maxAcquisitionPrice.value !== null ? formatCurrency(reverseSolver.maxAcquisitionPrice.value) : 'Hors de portée'}
-              </p>
+          <CardContent className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border p-3">
+                <span className="text-xs text-muted-foreground">Prix d'acquisition maximum pour tenir le hurdle</span>
+                <p className="text-lg font-semibold tabular-nums">
+                  {reverseSolver.maxAcquisitionPrice.value !== null ? formatCurrency(reverseSolver.maxAcquisitionPrice.value) : 'Hors de portée'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <span className="text-xs text-muted-foreground">Loyer total minimum pour tenir le hurdle</span>
+                <p className="text-lg font-semibold tabular-nums">
+                  {reverseSolver.minSecuredRent.value !== null ? `${formatCurrency(reverseSolver.minSecuredRent.value)} / an` : 'Hors de portée'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <span className="text-xs text-muted-foreground">Vacance &amp; impayés maximum pour tenir le hurdle</span>
+                <p className="text-lg font-semibold tabular-nums">
+                  {reverseSolver.maxVacancyCreditLossPct.value !== null ? `${reverseSolver.maxVacancyCreditLossPct.value.toFixed(1)} %` : 'Hors de portée'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <span className="text-xs text-muted-foreground">Budget CAPEX supplémentaire maximum pour tenir le hurdle</span>
+                <p className="text-lg font-semibold tabular-nums">
+                  {reverseSolver.maxAdditionalCapex.value !== null ? formatCurrency(reverseSolver.maxAdditionalCapex.value) : 'Hors de portée'}
+                </p>
+              </div>
             </div>
             <div className="rounded-lg border border-border p-3">
-              <span className="text-xs text-muted-foreground">Loyer total minimum pour tenir le hurdle</span>
-              <p className="text-lg font-semibold tabular-nums">
-                {reverseSolver.minSecuredRent.value !== null ? `${formatCurrency(reverseSolver.minSecuredRent.value)} / an` : 'Hors de portée'}
-              </p>
+              <span className="text-xs text-muted-foreground">Baux à sécuriser pour tenir le hurdle</span>
+              {reverseSolver.leasesToSecure.leasesToSecure === null ? (
+                <p className="text-sm text-warning">Sécuriser tous les baux disponibles ne suffit pas à atteindre le hurdle.</p>
+              ) : reverseSolver.leasesToSecure.leasesToSecure.length === 0 ? (
+                <p className="text-sm">Le hurdle est déjà atteint — aucun bail à sécuriser.</p>
+              ) : (
+                <ul className="mt-1 list-inside list-disc text-sm">
+                  {reverseSolver.leasesToSecure.leasesToSecure.map((l) => (
+                    <li key={l.leaseId}>
+                      {l.tenantName} ({l.weightPct.toFixed(1)}% des loyers)
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </CardContent>
         </Card>

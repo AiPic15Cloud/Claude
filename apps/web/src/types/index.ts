@@ -1921,7 +1921,13 @@ export interface FractionalSynthese {
   stressed: FractionalReturnsResult;
   stressedIsFallback: boolean;
   eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number; gapPct: number };
-  reverseSolver: { maxAcquisitionPrice: ReverseSolverResult; minSecuredRent: ReverseSolverResult } | null;
+  reverseSolver: {
+    maxAcquisitionPrice: ReverseSolverResult;
+    minSecuredRent: ReverseSolverResult;
+    maxVacancyCreditLossPct: ReverseSolverResult;
+    maxAdditionalCapex: ReverseSolverResult;
+    leasesToSecure: { leasesToSecure: { leaseId: string; tenantName: string; weightPct: number }[] | null; achievedYieldPct: number };
+  } | null;
   hurdlePct: number;
   platformProfile: PlatformFractionalProfile | null;
   dcfValuation: FractionalDCFValuation;
@@ -2531,6 +2537,7 @@ export type ExitYieldResponse =
       scenarios: ExitYieldScenarioResult[];
       capRateSensitivity: CapRateSensitivityPoint[];
       noiSensitivity: NoiSensitivityPoint[];
+      maxExitYieldExpansion: ReverseSolverResult | null;
     };
 
 export type TvaRegime = 'NON_ASSUJETTI' | 'MARGE' | 'PRIX_TOTAL_OPTION_LOYERS';

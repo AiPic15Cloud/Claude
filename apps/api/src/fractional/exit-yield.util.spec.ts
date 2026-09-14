@@ -1,4 +1,54 @@
-import { computeExitYieldEngine, computeCapRateSensitivity, computeNoiSensitivity, median } from './exit-yield.util';
+import { computeExitYieldEngine, computeCapRateSensitivity, computeNoiSensitivity, median, solveMaxExitYieldExpansion } from './exit-yield.util';
+import { computeReturnsEngine, type ReturnsEngineInput } from './returns.util';
+import type { LeaseInput } from './lease-security.util';
+
+const asOfDate = new Date('2026-01-01');
+
+function makeBaseInput(): ReturnsEngineInput {
+  const leases: LeaseInput[] = [
+    {
+      id: 'l1',
+      tenantName: 'Locataire',
+      loyerFacialAnnuel: 100000,
+      dateEffet: new Date('2020-01-01'),
+      dateTerme: new Date('2036-01-01'),
+      breakDates: [],
+      statutRenouvellement: 'SIGNE',
+      indexation: 'AUTRE',
+      indexationCapPct: null,
+      indexationFloorPct: null,
+      ervAnnuel: null,
+    },
+  ];
+  return {
+    asOfDate,
+    sourcesUses: {
+      prixNetVendeur: 1000000,
+      droitsNotaire: 0,
+      honoraires: 0,
+      travauxInitiaux: 0,
+      capexDiffereReserve: 0,
+      fraisPlateformeEntree: 0,
+      reserveVacance: 0,
+      reserveTravaux: 0,
+      reserveTresorerie: 0,
+      collecteMontant: 1000000,
+      sponsorEquity: 0,
+      detteEventuelle: 0,
+      autresSources: 0,
+    },
+    leases,
+    holdPeriodYears: 5,
+    vacancyCreditLossPct: 0,
+    opexPct: 0,
+    annualManagementFeePct: 0,
+    incomeShareInvestorPct: 100,
+    capitalGainShareInvestorPct: 100,
+    rentGrowthPctPerYear: 0,
+    exitValue: 1000000,
+    sellingCostsPct: 0,
+  };
+}
 
 describe('computeExitYieldEngine', () => {
   it('reproduit l\'exemple de la spec §11.1 : Base 6.75% -> Bear 7.25% -> Severe 8.00%', () => {
@@ -107,5 +157,30 @@ describe('median', () => {
 
   it('calcule la mediane sur un nombre pair de valeurs (moyenne des deux du milieu)', () => {
     expect(median([1, 2, 3, 4])).toBeCloseTo(2.5, 6);
+  });
+});
+
+describe('solveMaxExitYieldExpansion', () => {
+  it('trouve une expansion maximale positive pour un TRI cible atteignable', () => {
+    const result = solveMaxExitYieldExpansion(makeBaseInput(), 6.75, 100000, 10);
+    expect(result.value).not.toBeNull();
+    expect(result.value!).toBeGreaterThan(0);
+  });
+
+  it('recalcule exitValue depuis le yield teste (lastYearNoi / yield), pas une simple decote arbitraire', () => {
+    const base = makeBaseInput();
+    const result = solveMaxExitYieldExpansion(base, 6.75, 100000, 10);
+    expect(result.value).not.toBeNull();
+    const impliedYieldPct = 6.75 + result.value! / 100;
+    const expectedExitValue = 100000 / (impliedYieldPct / 100);
+    // achievedYieldPct doit correspondre au TRI (IRR) obtenu avec cette exitValue precise.
+    const direct = computeReturnsEngine({ ...base, exitValue: expectedExitValue }).irrPct;
+    expect(direct).not.toBeNull();
+    expect(result.achievedYieldPct).toBeCloseTo(direct!, 4);
+  });
+
+  it('renvoie null si meme sans aucune expansion le hurdle est hors de portee', () => {
+    const result = solveMaxExitYieldExpansion(makeBaseInput(), 6.75, 100000, 500);
+    expect(result.value).toBeNull();
   });
 });

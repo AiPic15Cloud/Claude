@@ -19,7 +19,7 @@ import { CreateFeeDefinitionDto } from './dto/create-fee-definition.dto';
 import { CreateWaterfallTierDto } from './dto/create-waterfall-tier.dto';
 import { computeReturnsEngine, type ReturnsEngineInput } from './returns.util';
 import { computeEligibility } from './eligibility.util';
-import { solveMaxAcquisitionPrice, solveMinSecuredRent } from './reverse-solver.util';
+import { solveMaxAcquisitionPrice, solveMinSecuredRent, solveMaxVacancyCreditLossPct, solveMaxAdditionalCapex, solveLeasesToSecure } from './reverse-solver.util';
 import { computeStakeholderWaterfall, solveMaxTotalFeeLoad, solveMaxCarry, type StakeholderInput, type FeeDefinitionInput, type WaterfallTierInput } from './stakeholder-waterfall.util';
 import { buildScenarioWaterfallInput, computeAllDealEconomicsStressScenarios, type DealEconomicsScenarioContext } from './stakeholder-waterfall-stress.util';
 import { computeIndexGrowthRates, type IndexGrowthRates } from './rent-indexation.util';
@@ -41,7 +41,7 @@ import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
 import { CreateProjectActualDto } from './dto/create-project-actual.dto';
 import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
 import { MarketDataService } from './market-data.service';
-import { computeExitYieldEngine, computeCapRateSensitivity, computeNoiSensitivity, median } from './exit-yield.util';
+import { computeExitYieldEngine, computeCapRateSensitivity, computeNoiSensitivity, median, solveMaxExitYieldExpansion } from './exit-yield.util';
 
 interface DefaultAssumptionValues {
   holdPeriodYears: number;
@@ -699,11 +699,20 @@ export class FractionalProjectsService {
 
     const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
 
-    let reverseSolver: { maxAcquisitionPrice: ReturnType<typeof solveMaxAcquisitionPrice>; minSecuredRent: ReturnType<typeof solveMinSecuredRent> } | null = null;
+    let reverseSolver: {
+      maxAcquisitionPrice: ReturnType<typeof solveMaxAcquisitionPrice>;
+      minSecuredRent: ReturnType<typeof solveMinSecuredRent>;
+      maxVacancyCreditLossPct: ReturnType<typeof solveMaxVacancyCreditLossPct>;
+      maxAdditionalCapex: ReturnType<typeof solveMaxAdditionalCapex>;
+      leasesToSecure: ReturnType<typeof solveLeasesToSecure>;
+    } | null = null;
     if (platformProfile) {
       reverseSolver = {
         maxAcquisitionPrice: solveMaxAcquisitionPrice(baseInput, hurdlePct),
         minSecuredRent: solveMinSecuredRent(baseInput, hurdlePct),
+        maxVacancyCreditLossPct: solveMaxVacancyCreditLossPct(baseInput, hurdlePct),
+        maxAdditionalCapex: solveMaxAdditionalCapex(baseInput, hurdlePct),
+        leasesToSecure: solveLeasesToSecure(baseInput, hurdlePct),
       };
     }
 
@@ -798,7 +807,7 @@ export class FractionalProjectsService {
     const capRateBuildUp = await this.getCapRateBuildUpForProject(projectId, user);
     if (capRateBuildUp.status !== 'OK') return { status: capRateBuildUp.status };
 
-    const { baseInput } = await this.buildReturnsEngineInput(project, user.organizationId);
+    const { baseInput, platformProfile, hurdlePct } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
     const lastYear = baseResult.yearlyModel[baseResult.yearlyModel.length - 1];
     const lastYearNoi = lastYear?.noi ?? 0;
@@ -821,6 +830,7 @@ export class FractionalProjectsService {
       ...engine,
       capRateSensitivity: computeCapRateSensitivity(engine.scenarios[0].exitYieldPct, lastYearNoi, acquisitionValueEur),
       noiSensitivity: computeNoiSensitivity(engine.scenarios[0].exitYieldPct, lastYearNoi, acquisitionValueEur),
+      maxExitYieldExpansion: platformProfile ? solveMaxExitYieldExpansion(baseInput, capRateBuildUp.exit.buildUp.capRatePct, lastYearNoi, hurdlePct) : null,
     };
   }
 
