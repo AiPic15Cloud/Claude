@@ -103,7 +103,7 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
               <Input id="edit-source" {...register('source')} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-amount">Montant (€)</Label>
               <Input id="edit-amount" type="number" min={0} step={1000} {...register('amount')} />

@@ -136,7 +136,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label>Type</Label>
               <Controller
@@ -214,7 +214,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="interestRate">Taux (%)</Label>
               <Input id="interestRate" type="number" min={0} max={100} step={0.1} {...register('interestRate')} />
@@ -307,7 +307,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
 
           <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
             <p className="text-xs font-medium text-foreground">Échéance de vote (suivi J-90 / J-60 / J-30 / J-15)</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="dateMin">Date min</Label>
                 <Input id="dateMin" type="date" {...register('dateMin')} />

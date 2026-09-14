@@ -115,7 +115,7 @@ export function ConvertPipelineEntryDialog({ entry }: { entry: PipelineEntry }) 
               {errors.amountTarget && <p className="text-xs text-destructive">{errors.amountTarget.message}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="convert-feesRate">Fees (%)</Label>
               <Input id="convert-feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
