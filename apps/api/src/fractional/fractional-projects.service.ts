@@ -31,6 +31,8 @@ import { DataProvenanceService } from './data-provenance.service';
 import { MarketIndicatorsService } from '../intelligence-marche/indicators.service';
 import { computeCapRateBuildUp, compareToImpliedCapRate, type PropertyConditionTier, type LocationTier, type MarketDepth } from './cap-rate-build-up.util';
 import { computePortfolioReversion } from './rental-reversion.util';
+import { resolveLeaseBreakEconomics, type LeaseBreakInput } from './break-event.util';
+import { computeTenantReplacementCost, type TenantReplacementCostBreakdown } from './tenant-replacement-cost.util';
 import { computeICRecommendation } from './ic-engine.util';
 import { computeDCFValuation } from './dcf-valuation.util';
 import { computePerformanceAttribution } from './performance-attribution.util';
@@ -782,6 +784,59 @@ export class FractionalProjectsService {
     return computePortfolioReversion(
       baseInput.leases.map((l) => ({ id: l.id, tenantName: l.tenantName, loyerFacialAnnuel: l.loyerFacialAnnuel, ervAnnuel: l.ervAnnuel })),
     );
+  }
+
+  // ── Tenant Replacement Cost Engine (spec V3.1 §10) ──────────
+
+  /**
+   * Décompose, pour chaque bail ayant une échéance (break ou terme) dans
+   * l'horizon de détention, le coût économique complet d'un départ
+   * locataire (DOWNSIDE/SEVERE) — jamais recalculé, réutilise le CAPEX de
+   * relocation déjà produit par break-event.util.ts (resolveLeaseBreakEconomics),
+   * partagé avec le cash-flow projeté.
+   */
+  async getTenantReplacementCostForProject(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const { baseValues } = await this.buildReturnsEngineInput(project, user.organizationId);
+    const indexGrowthRates = await this.getIndexGrowthRates(user.organizationId);
+    const asOfDate = new Date();
+
+    const results: Record<'DOWNSIDE' | 'SEVERE', TenantReplacementCostBreakdown[]> = { DOWNSIDE: [], SEVERE: [] };
+
+    for (const lease of project.leases) {
+      const leaseBreakInput: LeaseBreakInput = {
+        loyerFacialAnnuel: Number(lease.loyerFacialAnnuel),
+        indexation: lease.indexation,
+        indexationCapPct: lease.indexationCapPct !== null ? Number(lease.indexationCapPct) : null,
+        indexationFloorPct: lease.indexationFloorPct !== null ? Number(lease.indexationFloorPct) : null,
+        dateEffet: lease.dateEffet,
+        dateTerme: lease.dateTerme,
+        breakDates: (lease.breakDates as string[] | null)?.map((d) => new Date(d)) ?? [],
+        ervAnnuel: lease.ervAnnuel !== null ? Number(lease.ervAnnuel) : null,
+      };
+
+      for (const scenario of ['DOWNSIDE', 'SEVERE'] as const) {
+        const economics = resolveLeaseBreakEconomics(leaseBreakInput, indexGrowthRates, baseValues.rentGrowthPctPerYear, asOfDate, scenario);
+        // Hors périmètre : pas de break dans l'horizon, ou break au-delà de la
+        // détention prévue — sans pertinence pour la décision en cours.
+        if (!economics.hasBreakInHorizon || economics.breakYear > baseValues.holdPeriodYears) continue;
+
+        results[scenario].push(
+          computeTenantReplacementCost({
+            leaseId: lease.id,
+            tenantName: lease.tenantName,
+            preBreakAnnualRent: economics.preBreakRentAtBreakYear,
+            vacancyMonths: economics.vacancyMonths,
+            relettingCapexTotal: economics.relettingCapexTotal,
+            reletAnnualRent: economics.reletAnnualRentBase,
+            opexPct: baseValues.opexPct,
+            chargesRecuperables: lease.chargesRecuperables,
+          }),
+        );
+      }
+    }
+
+    return results;
   }
 
   // ── Stress Testing & Sensitivity Engine (spec §18) ──────────

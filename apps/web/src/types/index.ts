@@ -2489,3 +2489,23 @@ export interface PortfolioReversionResult {
   totalCount: number;
   rentPctErvMissing: number;
 }
+
+// ── Tenant Replacement Cost Engine (spec V3.1 §10) ──────────────────────────
+
+export interface TenantReplacementCostBreakdown {
+  leaseId: string;
+  tenantName: string;
+  vacancyLostRent: number;
+  lostRecoverableCharges: number;
+  refurbishmentCost: number;
+  brokerageFee: number;
+  legalFees: number;
+  landlordTiContribution: number;
+  totalEconomicCost: number;
+  paybackYears: number | null;
+}
+
+export interface TenantReplacementCostResponse {
+  DOWNSIDE: TenantReplacementCostBreakdown[];
+  SEVERE: TenantReplacementCostBreakdown[];
+}

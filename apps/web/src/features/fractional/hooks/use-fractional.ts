@@ -50,6 +50,7 @@ import type {
   TvaRegime,
   CapRateBuildUpResponse,
   PortfolioReversionResult,
+  TenantReplacementCostResponse,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -824,6 +825,14 @@ export function useFractionalRentalReversion(projectId: string | null) {
   return useQuery({
     queryKey: ['fractional', 'projects', projectId, 'rental-reversion'],
     queryFn: () => api.get<PortfolioReversionResult>(`/fractional/projects/${projectId}/rental-reversion`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export function useFractionalTenantReplacementCost(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'tenant-replacement-cost'],
+    queryFn: () => api.get<TenantReplacementCostResponse>(`/fractional/projects/${projectId}/tenant-replacement-cost`),
     enabled: Boolean(projectId),
   });
 }

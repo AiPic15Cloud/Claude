@@ -92,6 +92,56 @@ export interface LeaseYearBreakProjection {
  * affiché par défaut tant qu'aucun scénario dégradé n'est explicitement
  * demandé.
  */
+/**
+ * Économie de la reloc pour un bail/scénario donné — factorisée pour être
+ * partagée par `projectLeaseYearWithBreak` (cash-flow annuel) ET
+ * `tenant-replacement-cost.util.ts` (décomposition nommée du coût), pour
+ * qu'un même scénario DOWNSIDE/SEVERE désigne exactement le même CAPEX de
+ * relocation des deux côtés — jamais deux calculs susceptibles de diverger.
+ */
+export interface LeaseBreakEconomics {
+  hasBreakInHorizon: boolean;
+  growthPct: number;
+  breakYear: number;
+  vacancyMonths: number;
+  preBreakRentAtBreakYear: number;
+  /** Loyer de reloc annuel juste après la vacance, avant vieillissement ultérieur (indexation post-relet). */
+  reletAnnualRentBase: number;
+  relettingCapexTotal: number;
+}
+
+export function resolveLeaseBreakEconomics(
+  lease: LeaseBreakInput,
+  indexGrowthRates: IndexGrowthRates,
+  fallbackGrowthPct: number,
+  asOfDate: Date,
+  scenario: Exclude<BreakScenario, 'BASE'>,
+): LeaseBreakEconomics {
+  const growthPct = resolveLeaseGrowthPct(lease, indexGrowthRates, fallbackGrowthPct);
+  const breakOrTerm = nextBreakOrTerm(lease, asOfDate);
+  const monthsToBreak = monthsBetween(asOfDate, breakOrTerm);
+  const breakYear = Math.ceil(monthsToBreak / 12);
+
+  if (breakYear <= 0) {
+    return { hasBreakInHorizon: false, growthPct, breakYear: 0, vacancyMonths: 0, preBreakRentAtBreakYear: 0, reletAnnualRentBase: 0, relettingCapexTotal: 0 };
+  }
+
+  const { vacancyMonths, reletHaircutPct, relettingCapexPctOfRent } = DOWNSIDE_SCENARIO_PARAMS[scenario];
+  const preBreakRentAtBreakYear = lease.loyerFacialAnnuel * Math.pow(1 + growthPct / 100, breakYear - 1);
+  // Base de reloc : l'ERV réelle du bail (rental-reversion.util.ts), grandie
+  // au même taux que le loyer facial jusqu'à l'année du break, quand
+  // renseignée — sinon repli sur l'ancien proxy (décote sur le loyer facial
+  // sortant, faute de toute donnée de marché). Le haircut DOWNSIDE/SEVERE
+  // s'applique dans les deux cas : sur l'ERV, il représente la tension du
+  // marché au moment de la relocation (négociation en-dessous de l'ERV
+  // estimée) ; sur le proxy, il reste l'unique source de décote.
+  const marketRentAtBreakYear = lease.ervAnnuel != null ? lease.ervAnnuel * Math.pow(1 + growthPct / 100, breakYear - 1) : preBreakRentAtBreakYear;
+  const reletAnnualRentBase = marketRentAtBreakYear * (1 - reletHaircutPct / 100);
+  const relettingCapexTotal = preBreakRentAtBreakYear * (relettingCapexPctOfRent / 100);
+
+  return { hasBreakInHorizon: true, growthPct, breakYear, vacancyMonths, preBreakRentAtBreakYear, reletAnnualRentBase, relettingCapexTotal };
+}
+
 export function projectLeaseYearWithBreak(
   lease: LeaseBreakInput,
   indexGrowthRates: IndexGrowthRates,
@@ -107,28 +157,19 @@ export function projectLeaseYearWithBreak(
     return { rent: preBreakRentAtYear(year), relettingCapex: 0, isPostRelet: false };
   }
 
+  const economics = resolveLeaseBreakEconomics(lease, indexGrowthRates, fallbackGrowthPct, asOfDate, scenario);
   const breakOrTerm = nextBreakOrTerm(lease, asOfDate);
   const monthsToBreak = monthsBetween(asOfDate, breakOrTerm);
-  const breakYear = Math.ceil(monthsToBreak / 12);
+  const { breakYear } = economics;
   const yearStartMonths = (year - 1) * 12;
   const yearEndMonths = year * 12;
 
-  if (breakYear <= 0 || monthsToBreak >= yearEndMonths) {
+  if (!economics.hasBreakInHorizon || monthsToBreak >= yearEndMonths) {
     // Break déjà passé avant l'horizon, ou pas encore atteint au cours de cette année : trajectoire normale.
     return { rent: preBreakRentAtYear(year), relettingCapex: 0, isPostRelet: false };
   }
 
-  const { vacancyMonths, reletHaircutPct, relettingCapexPctOfRent } = DOWNSIDE_SCENARIO_PARAMS[scenario];
-  const preBreakRentAtBreakYear = preBreakRentAtYear(breakYear);
-  // Base de reloc : l'ERV réelle du bail (rental-reversion.util.ts), grandie
-  // au même taux que le loyer facial jusqu'à l'année du break, quand
-  // renseignée — sinon repli sur l'ancien proxy (décote sur le loyer facial
-  // sortant, faute de toute donnée de marché). Le haircut DOWNSIDE/SEVERE
-  // s'applique dans les deux cas : sur l'ERV, il représente la tension du
-  // marché au moment de la relocation (négociation en-dessous de l'ERV
-  // estimée) ; sur le proxy, il reste l'unique source de décote.
-  const marketRentAtBreakYear = lease.ervAnnuel != null ? lease.ervAnnuel * Math.pow(1 + growthPct / 100, breakYear - 1) : preBreakRentAtBreakYear;
-  const reletAnnualRentBase = marketRentAtBreakYear * (1 - reletHaircutPct / 100);
+  const { vacancyMonths, reletAnnualRentBase } = economics;
   // La vacance peut déborder au-delà de l'année du break — modélisée en mois
   // absolus (pas confinée à l'année du break) pour que SEVERE (vacance plus
   // longue) produise bien plusieurs années sans loyer, pas seulement une
@@ -143,7 +184,7 @@ export function projectLeaseYearWithBreak(
   const reletYearsElapsed = Math.max(0, year - reletStartYear);
   const reletAnnualRent = reletAnnualRentBase * Math.pow(1 + growthPct / 100, reletYearsElapsed);
 
-  const relettingCapex = year === breakYear ? preBreakRentAtBreakYear * (relettingCapexPctOfRent / 100) : 0;
+  const relettingCapex = year === breakYear ? economics.relettingCapexTotal : 0;
   const blendedRent = preBreakRentAtYear(year) * preBreakFraction + reletAnnualRent * reletFraction;
 
   return { rent: blendedRent, relettingCapex, isPostRelet: true };

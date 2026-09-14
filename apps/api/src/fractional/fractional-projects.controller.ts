@@ -56,6 +56,11 @@ export class FractionalProjectsController {
     return this.service.getRentalReversionForProject(id, user);
   }
 
+  @Get(':id/tenant-replacement-cost')
+  tenantReplacementCost(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.getTenantReplacementCostForProject(id, user);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')

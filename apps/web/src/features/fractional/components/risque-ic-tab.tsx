@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { useFractionalStressTests, useFractionalICRecommendation, useCreateICDecision } from '../hooks/use-fractional';
-import { STRESS_SCENARIO_LABELS, IC_DECISION_STATUS_LABELS, type FractionalICDecision, type FractionalAssumptionSet } from '@/types';
+import { useFractionalStressTests, useFractionalICRecommendation, useCreateICDecision, useFractionalTenantReplacementCost } from '../hooks/use-fractional';
+import { STRESS_SCENARIO_LABELS, IC_DECISION_STATUS_LABELS, type FractionalICDecision, type FractionalAssumptionSet, type TenantReplacementCostBreakdown } from '@/types';
 import { AssumptionsCard } from './assumptions-card';
 
 const IC_STATUS_VARIANT = {
@@ -21,6 +21,72 @@ const IC_STATUS_VARIANT = {
 
 function pct(value: number | null | undefined, digits = 1): string {
   return value === null || value === undefined ? '—' : `${value.toFixed(digits)} %`;
+}
+
+function ReplacementCostTable({ label, breakdowns }: { label: string; breakdowns: TenantReplacementCostBreakdown[] }) {
+  if (breakdowns.length === 0) return null;
+  const total = breakdowns.reduce((sum, b) => sum + b.totalEconomicCost, 0);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-sm font-semibold tabular-nums">{formatCurrency(total)}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Locataire</TableHead>
+              <TableHead>Vacance</TableHead>
+              <TableHead>Charges perdues</TableHead>
+              <TableHead>Travaux</TableHead>
+              <TableHead>Honoraires</TableHead>
+              <TableHead>Frais juridiques</TableHead>
+              <TableHead>Contrib. bailleur</TableHead>
+              <TableHead>Coût total</TableHead>
+              <TableHead>Récupération</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {breakdowns.map((b) => (
+              <TableRow key={b.leaseId}>
+                <TableCell>{b.tenantName}</TableCell>
+                <TableCell>{formatCurrency(b.vacancyLostRent)}</TableCell>
+                <TableCell>{formatCurrency(b.lostRecoverableCharges)}</TableCell>
+                <TableCell>{formatCurrency(b.refurbishmentCost)}</TableCell>
+                <TableCell>{formatCurrency(b.brokerageFee)}</TableCell>
+                <TableCell>{formatCurrency(b.legalFees)}</TableCell>
+                <TableCell>{formatCurrency(b.landlordTiContribution)}</TableCell>
+                <TableCell className="font-medium">{formatCurrency(b.totalEconomicCost)}</TableCell>
+                <TableCell>{b.paybackYears !== null ? `${b.paybackYears.toFixed(1)} ans` : '—'}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function TenantReplacementCostCard({ projectId }: { projectId: string }) {
+  const { data } = useFractionalTenantReplacementCost(projectId);
+  if (!data || (data.DOWNSIDE.length === 0 && data.SEVERE.length === 0)) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Coût de remplacement locataire (spec V3.1 §10)</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <p className="text-xs text-muted-foreground">
+          Décomposition du CAPEX de relocation déjà pris en compte dans les scénarios Break DOWNSIDE/SEVERE ci-dessus (jamais un montant agrégé opaque) —
+          vacance et charges perdues sont des coûts réels distincts du CAPEX ; travaux/honoraires/frais juridiques/contribution bailleur répartissent ce
+          CAPEX selon des parts nommées, à calibrer une fois des dossiers réels disponibles.
+        </p>
+        <ReplacementCostTable label="Scénario DOWNSIDE" breakdowns={data.DOWNSIDE} />
+        <ReplacementCostTable label="Scénario SEVERE" breakdowns={data.SEVERE} />
+      </CardContent>
+    </Card>
+  );
 }
 
 /** Onglet Risque & IC (spec V3 §17/§18) — hypothèses, Stress Testing Engine (10 scénarios) + recommandation/décision IC. */
@@ -89,6 +155,8 @@ export function RisqueIcTab({ projectId, icDecisions, assumptionSets }: { projec
           )}
         </CardContent>
       </Card>
+
+      <TenantReplacementCostCard projectId={projectId} />
 
       <Card>
         <CardHeader className="pb-3">
