@@ -43,6 +43,18 @@ export interface ICRecommendationInput {
   esgCapexToComplyTotal?: number | null;
   /** Total CAPEX déjà budgété (capexByYear, tous horizons confondus). */
   budgetedCapexTotal?: number;
+  /**
+   * Data Integrity (spec §29.3/§26.31 "le moteur ne valide pas un hurdle net
+   * si des frais obligatoires sont inconnus") — aucune FractionalFeeDefinition
+   * saisie pour aucun stakeholder du dossier. Le Secured Net Yield affiché
+   * (eligibility) n'intègre que le taux de gestion annuel du profil
+   * plateforme (annualManagementFeePct) — jamais les frais d'entrée, de
+   * structuration, de sortie ou le carry, modélisés séparément dans le Deal
+   * Economics Engine (stakeholder-waterfall.util.ts). Sans aucune ligne de
+   * frais saisie, le verdict d'éligibilité peut donc être optimiste sans que
+   * rien ne le signale — jamais un hurdle validé en silence.
+   */
+  feeDataMissing?: boolean;
 }
 
 export interface ICRecommendation {
@@ -91,6 +103,11 @@ export function computeICRecommendation(input: ICRecommendationInput): ICRecomme
     const gap = input.esgCapexToComplyTotal - (input.budgetedCapexTotal ?? 0);
     watchItems.push(
       `CAPEX de mise en conformité ESG estimé à ${Math.round(input.esgCapexToComplyTotal).toLocaleString('fr-FR')} € (onglet Risque ESG) — ${Math.round(gap).toLocaleString('fr-FR')} € de plus que le CAPEX actuellement budgété.`,
+    );
+  }
+  if (input.feeDataMissing) {
+    watchItems.push(
+      "Aucun frais stakeholder renseigné (onglet Deal Economics) — le Secured Net Yield affiché n'intègre que le taux de gestion du profil plateforme, jamais les frais d'entrée, de structuration, de sortie ou le carry : le hurdle validé ci-dessus peut être optimiste.",
     );
   }
   if (input.dataConfidencePct !== undefined && input.dataConfidencePct < DATA_CONFIDENCE_WATCH_THRESHOLD_PCT) {

@@ -932,6 +932,7 @@ export class FractionalProjectsService {
     const dataConfidence = await this.dataProvenance.getDataConfidenceForProject(projectId, user);
     const { profile: esgProfile } = await this.esgRisk.getProfile(projectId, user);
     const budgetedCapexTotal = Object.values(baseInput.capexByYear ?? {}).reduce((sum, v) => sum + v, 0);
+    const feeDataMissing = project.stakeholders.every((s) => s.feeDefinitions.length === 0);
 
     return computeICRecommendation({
       sourcesUsesBalanced: baseResult.sourcesUsesResult.balanced,
@@ -945,6 +946,7 @@ export class FractionalProjectsService {
       dataConfidencePct: dataConfidence.scorePct,
       esgCapexToComplyTotal: esgProfile.capexToComplyTotal,
       budgetedCapexTotal,
+      feeDataMissing,
     });
   }
 

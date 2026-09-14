@@ -54,3 +54,21 @@ describe('computeICRecommendation — ecart CAPEX ESG vs budgete (spec §12/§28
     expect(result.watchItems.some((w) => w.includes('mise en conformité ESG'))).toBe(true);
   });
 });
+
+describe('computeICRecommendation — feeDataMissing (spec §29.3/§26.31 "le moteur ne valide pas un hurdle net si des frais obligatoires sont inconnus")', () => {
+  it("n'ajoute aucun watch item quand des frais stakeholder sont renseignes", () => {
+    const result = computeICRecommendation(makeBaseInput({ feeDataMissing: false }));
+    expect(result.watchItems.some((w) => w.includes('frais stakeholder'))).toBe(false);
+  });
+
+  it('signale en watch item (jamais un hard stop) l\'absence totale de frais stakeholder', () => {
+    const result = computeICRecommendation(makeBaseInput({ feeDataMissing: true }));
+    expect(result.watchItems.some((w) => w.includes('Aucun frais stakeholder renseigné'))).toBe(true);
+    expect(result.hardStops).toHaveLength(0);
+  });
+
+  it('des frais stakeholder manquants seuls ne bloquent pas une recommandation APPROVE par ailleurs saine', () => {
+    const result = computeICRecommendation(makeBaseInput({ feeDataMissing: true }));
+    expect(result.status).toBe('APPROVE');
+  });
+});
