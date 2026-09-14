@@ -2645,3 +2645,47 @@ export interface EsgRiskProfileResponse {
   surfaceM2: number | null;
   profile: EsgRiskProfileResult;
 }
+
+// ── Asset & Technical Due Diligence Engine (spec V3.1 §6) ───────────────────
+
+export type TechnicalSubBlock = 'BATIMENT' | 'CONFORMITE' | 'ETAT' | 'ADAPTABILITE' | 'OBSOLESCENCE' | 'ENVIRONNEMENT' | 'ASSURANCE';
+
+export type TechnicalTier = 'BON' | 'MOYEN' | 'MAUVAIS' | 'CRITIQUE';
+export const TECHNICAL_TIER_LABELS: Record<TechnicalTier, string> = {
+  BON: 'Bon',
+  MOYEN: 'Moyen',
+  MAUVAIS: 'Mauvais',
+  CRITIQUE: 'Critique',
+};
+
+export interface TechnicalSubBlockResult {
+  subBlock: TechnicalSubBlock;
+  label: string;
+  criteria: string;
+  tier: TechnicalTier | null;
+  conditionPrealable: boolean;
+  notes: string | null;
+}
+
+export interface TechnicalRiskRatingResult {
+  subBlocks: TechnicalSubBlockResult[];
+  worstTier: TechnicalTier | null;
+  criticalCount: number;
+  conditionPrealableCount: number;
+  unassessedCount: number;
+}
+
+export type CapexHorizon = 'ANS_0_1' | 'ANS_1_3' | 'ANS_3_5' | 'ANS_5_10' | 'HORS_HORIZON';
+
+export interface CapexHorizonBucket {
+  horizon: CapexHorizon;
+  label: string;
+  proprietaireTotal: number;
+  locataireTotal: number;
+  total: number;
+}
+
+export interface TechnicalAssessmentResponse {
+  rating: TechnicalRiskRatingResult;
+  capexPlan: CapexHorizonBucket[];
+}

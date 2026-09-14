@@ -58,6 +58,9 @@ import type {
   DpeClass,
   EsgEquipmentTier,
   EsgPhysicalRiskTier,
+  TechnicalAssessmentResponse,
+  TechnicalSubBlock,
+  TechnicalTier,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -896,6 +899,33 @@ export function useUpsertEsgAssessment(projectId: string) {
     mutationFn: (payload: UpsertEsgAssessmentPayload) => api.put(`/fractional/projects/${projectId}/esg-risk`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'esg-risk'] });
+    },
+  });
+}
+
+// ── Asset & Technical Due Diligence Engine (spec V3.1 §6) ──────────────────
+
+export function useFractionalTechnicalDd(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'technical-dd'],
+    queryFn: () => api.get<TechnicalAssessmentResponse>(`/fractional/projects/${projectId}/technical-dd`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export interface UpsertTechnicalAssessmentPayload {
+  tier: TechnicalTier;
+  conditionPrealable?: boolean;
+  notes?: string;
+}
+
+export function useUpsertTechnicalAssessment(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ subBlock, payload }: { subBlock: TechnicalSubBlock; payload: UpsertTechnicalAssessmentPayload }) =>
+      api.put(`/fractional/projects/${projectId}/technical-dd/${subBlock}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'technical-dd'] });
     },
   });
 }

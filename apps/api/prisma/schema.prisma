@@ -2259,6 +2259,7 @@ model FractionalProject {
   dataProvenance       FractionalDataProvenance[]
   dataRoomItemStatuses FractionalDataRoomItemStatus[]
   esgAssessment        FractionalEsgAssessment?
+  technicalAssessments FractionalTechnicalAssessment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2425,6 +2426,55 @@ model FractionalEsgAssessment {
   createdAt DateTime @default(now())
 
   @@map("fractional_esg_assessments")
+}
+
+enum FractionalTechnicalSubBlock {
+  BATIMENT
+  CONFORMITE
+  ETAT
+  ADAPTABILITE
+  OBSOLESCENCE
+  ENVIRONNEMENT
+  ASSURANCE
+}
+
+enum FractionalTechnicalTier {
+  BON
+  MOYEN
+  MAUVAIS
+  CRITIQUE
+}
+
+/// Asset & Technical Due Diligence Engine (spec V3.1 §6) — registre fermé des
+/// 7 sous-blocs techniques (technical-dd.util.ts), mirroté sur
+/// FractionalDataRoomItemStatus : une ligne par dossier/sous-bloc, jamais un
+/// champ libre. Un sous-bloc sans ligne ici est "non évalué" (Unknown ≠
+/// Zero) — computeTechnicalRiskRating ne l'assimile jamais à BON par défaut.
+/// Le plan CAPEX par horizon (0-1/1-3/3-5/5-10 ans) n'est volontairement PAS
+/// stocké ici : il est recalculé à la lecture à partir des
+/// FractionalCapexItem existants (annee/montant/responsable), déjà la seule
+/// source qui alimente NOI/IRR (fractional-projects.service.ts
+/// #buildReturnsEngineInput) — Single Source of Truth, jamais un second
+/// plan CAPEX qui pourrait diverger du premier.
+model FractionalTechnicalAssessment {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  subBlock FractionalTechnicalSubBlock
+
+  tier               FractionalTechnicalTier
+  conditionPrealable Boolean                 @default(false)
+  notes              String?
+
+  updatedById String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, subBlock])
+  @@index([projectId])
+  @@map("fractional_technical_assessments")
 }
 
 /// Hypothèses Base/Bear/Severe/Custom versionnées (spec §0 "AssumptionSet",

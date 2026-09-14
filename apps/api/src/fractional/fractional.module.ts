@@ -11,13 +11,24 @@ import { DataRoomController } from './data-room.controller';
 import { DataRoomService } from './data-room.service';
 import { EsgRiskController } from './esg-risk.controller';
 import { EsgRiskService } from './esg-risk.service';
+import { TechnicalDdController } from './technical-dd.controller';
+import { TechnicalDdService } from './technical-dd.service';
 import { FractionalLegalAlertsService } from './fractional-legal-alerts.service';
 import { AlertsModule } from '../alerts/alerts.module';
 import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-marche.module';
 
 @Module({
   imports: [AlertsModule, IntelligenceMarcheModule],
-  controllers: [FractionalProjectsController, MarketDataController, FitScoringController, DataProvenanceController, DataRoomController, EsgRiskController],
-  providers: [FractionalProjectsService, MarketDataService, FitScoringService, DataProvenanceService, DataRoomService, EsgRiskService, FractionalLegalAlertsService],
+  controllers: [FractionalProjectsController, MarketDataController, FitScoringController, DataProvenanceController, DataRoomController, EsgRiskController, TechnicalDdController],
+  providers: [
+    FractionalProjectsService,
+    MarketDataService,
+    FitScoringService,
+    DataProvenanceService,
+    DataRoomService,
+    EsgRiskService,
+    TechnicalDdService,
+    FractionalLegalAlertsService,
+  ],
 })
 export class FractionalModule {}

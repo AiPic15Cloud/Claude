@@ -26,6 +26,7 @@ import { FitTab } from './components/fit-tab';
 import { MarcheTab } from './components/marche-tab';
 import { MemoireTab } from './components/memoire-tab';
 import { DataRoomTab } from './components/data-room-tab';
+import { TechnicalDdTab } from './components/technical-dd-tab';
 import { InvestmentMemoPrintSheet } from './components/investment-memo-print-sheet';
 
 const STATUSES: FractionalProjectStatus[] = ['ANALYSE', 'STRUCTURATION', 'VALIDATION_PLATEFORME', 'COLLECTE', 'ACQUISITION', 'EXPLOITATION', 'SORTIE', 'REFUSE', 'ABANDONNE'];
@@ -91,6 +92,7 @@ export function FractionalProjectPage() {
         <TabsList>
           <TabsTrigger value="synthese">Synthèse</TabsTrigger>
           <TabsTrigger value="acquisition">Acquisition</TabsTrigger>
+          <TabsTrigger value="technique">Technique</TabsTrigger>
           <TabsTrigger value="locatif">Locatif ({project.leases.length})</TabsTrigger>
           <TabsTrigger value="structure">Structure & Sortie</TabsTrigger>
           <TabsTrigger value="deal-economics">Deal Economics</TabsTrigger>
@@ -115,6 +117,10 @@ export function FractionalProjectPage() {
 
         <TabsContent value="acquisition">
           <AcquisitionTab projectId={project.id} sourcesUses={project.sourcesUses} />
+        </TabsContent>
+
+        <TabsContent value="technique">
+          <TechnicalDdTab projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="locatif">
