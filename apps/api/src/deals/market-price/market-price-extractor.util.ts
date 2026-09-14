@@ -31,7 +31,7 @@ function isPlausible(value: number): boolean {
 }
 
 function parsePriceToken(raw: string): number | null {
-  const cleaned = raw.replace(/[\s ]/g, '').replace(',', '.');
+  const cleaned = raw.replace(/\s/g, '').replace(',', '.');
   const value = Number(cleaned);
   return isPlausible(value) ? value : null;
 }
@@ -94,14 +94,14 @@ function numberField(value: unknown): number | null {
   return null;
 }
 
-const PRICE_PER_SQM_PATTERN = /(\d[\d\s .,]{1,8})\s?€\s?\/?\s?m(?:2|²)/i;
+const PRICE_PER_SQM_PATTERN = /(\d[\d\s.,]{1,8})\s?€\s?\/?\s?m(?:2|²)/i;
 const SEARCH_WINDOW_CHARS = 300;
 
 function findPriceNearLabel(html: string, labels: string[]): number | null {
   const haystack = html.toLowerCase();
   for (const label of labels) {
     let fromIndex = 0;
-    while (true) {
+    for (;;) {
       const labelIndex = haystack.indexOf(label, fromIndex);
       if (labelIndex === -1) break;
       const window = html.slice(labelIndex, labelIndex + SEARCH_WINDOW_CHARS);

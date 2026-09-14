@@ -1,5 +1,3 @@
-const DAY_MS = 86_400_000;
-
 /** Fenêtre usuelle par défaut — à valider avec un avocat spécialisé procédures collectives (ceci n'est pas un conseil juridique, voir procedure-collective.playbook.ts). */
 export const PERIODE_SUSPECTE_WINDOW_MONTHS = 18;
 
