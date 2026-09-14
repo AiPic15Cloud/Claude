@@ -201,6 +201,16 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           <YieldStat label="WALT" value={base.leaseSecurity.waltYears ? `${base.leaseSecurity.waltYears.toFixed(1)} ans` : '—'} />
           <YieldStat label="Secured Rent" value={pct(base.leaseSecurity.securedRentPct, 1)} />
           <YieldStat label="Rent at Risk" value={pct(base.leaseSecurity.rentAtRiskPct, 1)} />
+          <YieldStat
+            label="Lease Coverage Ratio"
+            value={base.leaseSecurity.leaseCoverageRatio !== null ? `${base.leaseSecurity.leaseCoverageRatio.toFixed(2)}x` : '—'}
+            hint="WALB / durée de détention cible — < 1 : la durée ferme moyenne n'atteint pas l'horizon"
+          />
+          <YieldStat
+            label="Renewal Dependency"
+            value={pct(base.leaseSecurity.renewalDependencyPct, 1)}
+            hint="Part des loyers dont le renouvellement n'est pas encore formalisé (en cours ou tacite)"
+          />
         </CardContent>
       </Card>
 

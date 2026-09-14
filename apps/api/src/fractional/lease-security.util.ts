@@ -79,6 +79,10 @@ export interface LeaseSecurityResult {
   /** loyer non sécurisé (WATCH exclu — WATCH reste compté dans le sécurisé, seuls SECURE_BEFORE_ACQUISITION/EXCLUDE en sont retirés) */
   rentAtRiskPct: number;
   expiryWallByYear: Record<number, number>;
+  /** Lease Coverage Ratio (spec §7.1) = WALB / durée de détention cible. > 1 : la durée ferme moyenne dépasse l'horizon de détention. null si aucun bail. */
+  leaseCoverageRatio: number | null;
+  /** Renewal Dependency (spec §7.1) = part des loyers dont le renouvellement n'est pas encore formalisé (EN_COURS/TACITE) — donc dont le business plan dépend d'un renouvellement à venir. */
+  renewalDependencyPct: number;
 }
 
 /** Exporté pour réutilisation par break-event.util.ts (même granularité de conversion mois↔jours partout). */
@@ -174,6 +178,13 @@ export function computeLeaseSecurity(input: LeaseSecurityInput): LeaseSecurityRe
     expiryWallByYear[year] = (expiryWallByYear[year] ?? 0) + pct;
   }
 
+  const leaseCoverageRatio = walbYears !== null && holdPeriodMonths > 0 ? walbYears / (holdPeriodMonths / 12) : null;
+
+  const renewalDependantLoyer = input.leases
+    .filter((l) => l.statutRenouvellement === 'EN_COURS' || l.statutRenouvellement === 'TACITE')
+    .reduce((sum, l) => sum + l.loyerFacialAnnuel, 0);
+  const renewalDependencyPct = totalLoyerFacial > 0 ? (renewalDependantLoyer / totalLoyerFacial) * 100 : 0;
+
   return {
     assessments,
     walbYears,
@@ -182,6 +193,8 @@ export function computeLeaseSecurity(input: LeaseSecurityInput): LeaseSecurityRe
     securedRentPct,
     rentAtRiskPct: 100 - securedRentPct,
     expiryWallByYear,
+    leaseCoverageRatio,
+    renewalDependencyPct,
   };
 }
 

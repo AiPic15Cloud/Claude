@@ -120,4 +120,41 @@ describe('computeLeaseSecurity', () => {
     const at36Months = computeSecuredRentAtHorizon({ leases, asOfDate }, 36);
     expect(at36Months).toBe(100000);
   });
+
+  it('leaseCoverageRatio vaut WALB / duree de detention cible (superieur a 1 si le WALB depasse l\'horizon)', () => {
+    const result = computeLeaseSecurity({
+      leases: [makeLease({ id: 'l1', loyerFacialAnnuel: 100000, dateTerme: new Date('2036-01-01') })], // WALB ~10 ans
+      asOfDate,
+      holdPeriodMonths: 60, // 5 ans
+    });
+    expect(result.leaseCoverageRatio).not.toBeNull();
+    expect(result.leaseCoverageRatio!).toBeGreaterThan(1.8);
+    expect(result.leaseCoverageRatio!).toBeLessThan(2.2);
+  });
+
+  it('leaseCoverageRatio est null en l\'absence de bail (walbYears null)', () => {
+    const result = computeLeaseSecurity({ leases: [], asOfDate, holdPeriodMonths: 60 });
+    expect(result.leaseCoverageRatio).toBeNull();
+  });
+
+  it('renewalDependencyPct isole les loyers dont le renouvellement n\'est pas encore formalise (EN_COURS/TACITE)', () => {
+    const result = computeLeaseSecurity({
+      leases: [
+        makeLease({ id: 'l1', loyerFacialAnnuel: 70000, statutRenouvellement: 'SIGNE', dateTerme: new Date('2036-01-01') }),
+        makeLease({ id: 'l2', loyerFacialAnnuel: 20000, statutRenouvellement: 'EN_COURS', dateTerme: new Date('2036-01-01') }),
+        makeLease({ id: 'l3', loyerFacialAnnuel: 10000, statutRenouvellement: 'TACITE', dateTerme: new Date('2036-01-01') }),
+      ],
+      asOfDate,
+    });
+    expect(result.renewalDependencyPct).toBeCloseTo(30, 5);
+  });
+
+  it('renewalDependencyPct vaut 0 quand tous les baux sont signes, meme sans bail du tout', () => {
+    expect(computeLeaseSecurity({ leases: [], asOfDate }).renewalDependencyPct).toBe(0);
+    const result = computeLeaseSecurity({
+      leases: [makeLease({ id: 'l1', loyerFacialAnnuel: 100000, statutRenouvellement: 'SIGNE', dateTerme: new Date('2036-01-01') })],
+      asOfDate,
+    });
+    expect(result.renewalDependencyPct).toBe(0);
+  });
 });

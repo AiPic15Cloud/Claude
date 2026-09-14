@@ -1858,6 +1858,8 @@ export interface FractionalReturnsResult {
     securedRentPct: number;
     rentAtRiskPct: number;
     expiryWallByYear: Record<number, number>;
+    leaseCoverageRatio: number | null;
+    renewalDependencyPct: number;
   };
   yearlyModel: FractionalOperatingModelYear[];
   terminalProceeds: { netSaleProceeds: number; capitalGain: number; investorTerminalProceeds: number };
