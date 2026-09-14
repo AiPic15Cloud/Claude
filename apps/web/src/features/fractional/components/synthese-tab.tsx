@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-import { useFractionalCapRateBuildUp, useFractionalDataConfidence } from '../hooks/use-fractional';
+import { useFractionalCapRateBuildUp, useFractionalDataConfidence, useFractionalRentalReversion } from '../hooks/use-fractional';
 import {
   ELIGIBILITY_VERDICT_LABELS,
   IC_DECISION_STATUS_LABELS,
@@ -79,6 +79,42 @@ function CapRateBuildUpCard({ projectId }: { projectId: string }) {
               <CapRateBreakdown label="Sortie" result={data.exit} />
             </div>
           </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RentalReversionCard({ projectId }: { projectId: string }) {
+  const { data } = useFractionalRentalReversion(projectId);
+  if (!data || data.totalCount === 0) return null;
+  const { weightedReversionPct, overRentedCount, underRentedCount, atMarketCount, ervMissingCount, rentPctErvMissing } = data;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Rental Reversion (spec V3.1 §9)</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <p className="text-xs text-muted-foreground">
+          Passing Rent vs ERV, pondéré par le loyer — un rendement élevé obtenu grâce à des loyers au-dessus du marché doit être pénalisé ; un actif
+          sous-loué contient au contraire une réserve de croissance, sous réserve du risque de renouvellement.
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <YieldStat
+            label="Reversion pondérée"
+            value={weightedReversionPct !== null ? `${weightedReversionPct >= 0 ? '+' : ''}${weightedReversionPct.toFixed(1)} %` : '—'}
+            hint={weightedReversionPct === null ? 'Aucun bail avec ERV renseignée' : undefined}
+          />
+          <YieldStat label="Baux sur-loués" value={String(overRentedCount)} />
+          <YieldStat label="Baux au marché" value={String(atMarketCount)} />
+          <YieldStat label="Baux sous-loués" value={String(underRentedCount)} />
+        </div>
+        {ervMissingCount > 0 && (
+          <p className="text-xs text-warning">
+            ⚠️ {ervMissingCount} bail(x) sans ERV renseignée ({rentPctErvMissing.toFixed(0)}% du loyer total) — non compté dans la moyenne pondérée, pas
+            traité comme "au marché" par défaut. Le Break Event Engine (onglet Risque &amp; IC) utilise également un proxy générique pour ces baux faute
+            d'ERV.
+          </p>
         )}
       </CardContent>
     </Card>
@@ -167,6 +203,8 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           <YieldStat label="Rent at Risk" value={pct(base.leaseSecurity.rentAtRiskPct, 1)} />
         </CardContent>
       </Card>
+
+      <RentalReversionCard projectId={projectId} />
 
       <CapRateBuildUpCard projectId={projectId} />
 

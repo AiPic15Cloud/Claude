@@ -12,6 +12,7 @@ function makeLease(overrides: Partial<LeaseInput> & Pick<LeaseInput, 'id' | 'loy
     indexation: 'AUTRE',
     indexationCapPct: null,
     indexationFloorPct: null,
+    ervAnnuel: null,
     ...overrides,
   };
 }

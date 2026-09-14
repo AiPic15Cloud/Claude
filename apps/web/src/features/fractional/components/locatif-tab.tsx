@@ -8,15 +8,17 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { useCreateLease, useUpdateLease, useDeleteLease, useFractionalLegalReview } from '../hooks/use-fractional';
+import { useCreateLease, useUpdateLease, useDeleteLease, useFractionalLegalReview, useFractionalRentalReversion } from '../hooks/use-fractional';
 import { ProvenanceBadge } from './provenance-badge';
 import {
   FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS,
   LEASE_SECURITY_STATUS_LABELS,
+  REVERSION_STATUS_LABELS,
   type FractionalLease,
   type FractionalLeaseRenewalStatus,
   type FractionalIndexationType,
   type LeaseAssessment,
+  type ReversionStatus,
 } from '@/types';
 
 const RENEWAL_STATUSES: FractionalLeaseRenewalStatus[] = ['SIGNE', 'EN_COURS', 'TACITE', 'DEPASSE', 'CONTESTE'];
@@ -24,10 +26,17 @@ const INDEXATION_TYPES: FractionalIndexationType[] = ['ILC', 'ILAT', 'IRL', 'ICC
 const SECURITY_VARIANT = { SECURED: 'success', WATCH: 'warning', SECURE_BEFORE_ACQUISITION: 'warning', EXCLUDE_FROM_SECURED_YIELD: 'destructive' } as const;
 const LEGAL_SEVERITY_VARIANT = { INFO: 'outline', WATCH: 'warning', ALERT: 'warning', CRITIQUE: 'destructive' } as const;
 const LEGAL_SEVERITY_LABELS = { INFO: 'Info', WATCH: 'À surveiller', ALERT: 'Alerte', CRITIQUE: 'Critique' } as const;
+const REVERSION_VARIANT: Record<ReversionStatus, 'success' | 'warning' | 'outline'> = {
+  OVER_RENTED: 'warning',
+  AT_MARKET: 'outline',
+  UNDER_RENTED: 'success',
+  ERV_MISSING: 'outline',
+};
 
 interface LeaseFormState {
   tenantName: string;
   loyerFacialAnnuel: string;
+  ervAnnuel: string;
   dateEffet: string;
   dateTerme: string;
   statutRenouvellement: FractionalLeaseRenewalStatus;
@@ -46,6 +55,7 @@ interface LeaseFormState {
 const EMPTY_FORM: LeaseFormState = {
   tenantName: '',
   loyerFacialAnnuel: '',
+  ervAnnuel: '',
   dateEffet: '',
   dateTerme: '',
   statutRenouvellement: 'SIGNE',
@@ -69,6 +79,7 @@ function leaseToFormState(lease: FractionalLease): LeaseFormState {
   return {
     tenantName: lease.tenantName,
     loyerFacialAnnuel: String(lease.loyerFacialAnnuel),
+    ervAnnuel: lease.ervAnnuel !== null && lease.ervAnnuel !== undefined ? String(lease.ervAnnuel) : '',
     dateEffet: toDateInputValue(lease.dateEffet),
     dateTerme: toDateInputValue(lease.dateTerme),
     statutRenouvellement: lease.statutRenouvellement,
@@ -93,9 +104,11 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
   const update = useUpdateLease(projectId);
   const del = useDeleteLease(projectId);
   const { data: legalReviews } = useFractionalLegalReview(projectId);
+  const { data: rentalReversion } = useFractionalRentalReversion(projectId);
 
   const assessmentByLeaseId = new Map((leaseAssessments ?? []).map((a) => [a.leaseId, a]));
   const legalReviewByLeaseId = new Map((legalReviews ?? []).map((r) => [r.leaseId, r]));
+  const reversionByLeaseId = new Map((rentalReversion?.leases ?? []).map((r) => [r.leaseId, r]));
 
   const startEditing = (lease: FractionalLease) => {
     setEditingLeaseId(lease.id);
@@ -112,6 +125,7 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
     const payload = {
       tenantName: form.tenantName,
       loyerFacialAnnuel: Number(form.loyerFacialAnnuel),
+      ervAnnuel: form.ervAnnuel ? Number(form.ervAnnuel) : undefined,
       dateEffet: form.dateEffet,
       dateTerme: form.dateTerme,
       statutRenouvellement: form.statutRenouvellement,
@@ -148,6 +162,7 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                 <TableRow>
                   <TableHead>Locataire</TableHead>
                   <TableHead>Loyer facial annuel</TableHead>
+                  <TableHead>Reversion (ERV)</TableHead>
                   <TableHead>Terme</TableHead>
                   <TableHead>Renouvellement</TableHead>
                   <TableHead>Statut de sécurisation</TableHead>
@@ -159,6 +174,7 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                 {leases.map((lease) => {
                   const assessment = assessmentByLeaseId.get(lease.id);
                   const legalReview = legalReviewByLeaseId.get(lease.id);
+                  const reversion = reversionByLeaseId.get(lease.id);
                   return (
                     <TableRow key={lease.id}>
                       <TableCell>{lease.tenantName}</TableCell>
@@ -167,6 +183,17 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                           {formatCurrency(lease.loyerFacialAnnuel)}
                           <ProvenanceBadge entityType="LEASE" entityId={lease.id} fieldKey="loyerFacialAnnuel" label="Loyer facial annuel" />
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        {reversion ? (
+                          <span title={reversion.ervAnnuel !== null ? `ERV : ${formatCurrency(reversion.ervAnnuel)}` : 'ERV non renseignée'}>
+                            <Badge variant={REVERSION_VARIANT[reversion.status]}>
+                              {reversion.reversionPct !== null ? `${reversion.reversionPct >= 0 ? '+' : ''}${reversion.reversionPct.toFixed(1)}%` : REVERSION_STATUS_LABELS.ERV_MISSING}
+                            </Badge>
+                          </span>
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="inline-flex items-center gap-1.5">
@@ -234,6 +261,17 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                   required
                   value={form.loyerFacialAnnuel}
                   onChange={(e) => setForm((p) => ({ ...p, loyerFacialAnnuel: e.target.value }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ervAnnuel">ERV annuelle (valeur locative de marché)</Label>
+                <Input
+                  id="ervAnnuel"
+                  type="number"
+                  min={0}
+                  placeholder="Optionnel — alimente le Rental Reversion Engine"
+                  value={form.ervAnnuel}
+                  onChange={(e) => setForm((p) => ({ ...p, ervAnnuel: e.target.value }))}
                 />
               </div>
               <div className="flex flex-col gap-1.5">

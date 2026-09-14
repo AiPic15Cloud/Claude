@@ -23,9 +23,10 @@ import { nextBreakOrTerm, monthsBetween } from './lease-security.util';
  *   sans interruption. C'est exactement le comportement actuel de
  *   projectIndexedGpr ; BASE ne doit donc rien changer aux chiffres déjà
  *   affichés par défaut.
- * - DOWNSIDE : le locataire part — vacance, CAPEX de relocation, relocation à un
- *   loyer réduit (proxy ERV faute de série de marché par local), ré-indexation
- *   repartant de ce nouveau loyer.
+ * - DOWNSIDE : le locataire part — vacance, CAPEX de relocation, relocation à
+ *   un loyer réduit (ERV réelle du bail quand renseignée — rental-reversion.util.ts —
+ *   sinon repli sur un proxy générique, décote du loyer facial sortant),
+ *   ré-indexation repartant de ce nouveau loyer.
  * - SEVERE : même mécanique, vacance plus longue et décote plus sévère.
  *
  * Magnitudes (vacance, décote, CAPEX de relocation) : paramètres nommés
@@ -65,6 +66,13 @@ export interface LeaseBreakInput {
   dateEffet: Date;
   dateTerme: Date;
   breakDates: Date[];
+  /**
+   * Valeur locative de marché estimée (rental-reversion.util.ts) — quand
+   * connue, sert de base réelle à la reloc DOWNSIDE/SEVERE au lieu du proxy
+   * générique (décote sur le loyer facial). Absente/non renseignée = repli
+   * sur l'ancien proxy, jamais une ERV devinée.
+   */
+  ervAnnuel?: number | null;
 }
 
 export interface LeaseYearBreakProjection {
@@ -112,7 +120,15 @@ export function projectLeaseYearWithBreak(
 
   const { vacancyMonths, reletHaircutPct, relettingCapexPctOfRent } = DOWNSIDE_SCENARIO_PARAMS[scenario];
   const preBreakRentAtBreakYear = preBreakRentAtYear(breakYear);
-  const reletAnnualRentBase = preBreakRentAtBreakYear * (1 - reletHaircutPct / 100);
+  // Base de reloc : l'ERV réelle du bail (rental-reversion.util.ts), grandie
+  // au même taux que le loyer facial jusqu'à l'année du break, quand
+  // renseignée — sinon repli sur l'ancien proxy (décote sur le loyer facial
+  // sortant, faute de toute donnée de marché). Le haircut DOWNSIDE/SEVERE
+  // s'applique dans les deux cas : sur l'ERV, il représente la tension du
+  // marché au moment de la relocation (négociation en-dessous de l'ERV
+  // estimée) ; sur le proxy, il reste l'unique source de décote.
+  const marketRentAtBreakYear = lease.ervAnnuel != null ? lease.ervAnnuel * Math.pow(1 + growthPct / 100, breakYear - 1) : preBreakRentAtBreakYear;
+  const reletAnnualRentBase = marketRentAtBreakYear * (1 - reletHaircutPct / 100);
   // La vacance peut déborder au-delà de l'année du break — modélisée en mois
   // absolus (pas confinée à l'année du break) pour que SEVERE (vacance plus
   // longue) produise bien plusieurs années sans loyer, pas seulement une

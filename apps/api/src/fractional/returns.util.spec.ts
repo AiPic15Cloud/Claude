@@ -16,6 +16,7 @@ function makeBaseInput(overrides: Partial<ReturnsEngineInput> = {}, leaseOverrid
       indexation: 'AUTRE',
       indexationCapPct: null,
       indexationFloorPct: null,
+      ervAnnuel: null,
       ...leaseOverrides,
     },
   ];

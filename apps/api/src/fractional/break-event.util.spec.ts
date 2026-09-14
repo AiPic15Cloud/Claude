@@ -68,6 +68,41 @@ describe('projectLeaseYearWithBreak — DOWNSIDE', () => {
   });
 });
 
+describe('projectLeaseYearWithBreak — ERV réelle (rental-reversion.util.ts) vs proxy générique', () => {
+  it('sans ERV renseignée : repli exact sur le proxy générique (comportement historique inchangé)', () => {
+    const withoutErv = projectLeaseYearWithBreak(leaseWithNearBreak, {}, 1.5, asOfDate, 5, 'DOWNSIDE');
+    const preBreakRentAtBreakYear = 124617 * Math.pow(1.015, 2);
+    const reletBase = preBreakRentAtBreakYear * (1 - BREAK_DOWNSIDE_RELET_HAIRCUT_PCT / 100);
+    const expected = reletBase * Math.pow(1.015, 1);
+    expect(withoutErv.rent).toBeCloseTo(expected, 2);
+  });
+
+  it('avec ERV renseignée : la reloc part de l\'ERV (grandie au même taux jusqu\'à l\'année du break), pas du loyer facial sortant', () => {
+    const leaseWithErv: LeaseBreakInput = { ...leaseWithNearBreak, ervAnnuel: 150000 };
+    const withErv = projectLeaseYearWithBreak(leaseWithErv, {}, 1.5, asOfDate, 5, 'DOWNSIDE');
+    const ervAtBreakYear = 150000 * Math.pow(1.015, 2); // année 3 = année du break
+    const reletBase = ervAtBreakYear * (1 - BREAK_DOWNSIDE_RELET_HAIRCUT_PCT / 100);
+    const expected = reletBase * Math.pow(1.015, 1);
+    expect(withErv.rent).toBeCloseTo(expected, 2);
+    // Confirme que ce n'est pas juste le proxy générique par coïncidence.
+    const withoutErv = projectLeaseYearWithBreak(leaseWithNearBreak, {}, 1.5, asOfDate, 5, 'DOWNSIDE');
+    expect(withErv.rent).not.toBeCloseTo(withoutErv.rent, 2);
+  });
+
+  it('ERV très en dessous du loyer facial (bail sur-loué) : la reloc post-break est bien inférieure à la trajectoire indexée pré-break', () => {
+    const leaseOverRented: LeaseBreakInput = { ...leaseWithNearBreak, ervAnnuel: 60000 };
+    const postBreak = projectLeaseYearWithBreak(leaseOverRented, {}, 1.5, asOfDate, 6, 'DOWNSIDE');
+    const facialTrajectoryYear6 = 124617 * Math.pow(1.015, 5);
+    expect(postBreak.rent).toBeLessThan(facialTrajectoryYear6 * 0.6);
+  });
+
+  it("le CAPEX de relocation reste base sur le loyer facial sortant, pas sur l'ERV (magnitude physique de travaux, pas de marche)", () => {
+    const withErv = projectLeaseYearWithBreak({ ...leaseWithNearBreak, ervAnnuel: 300000 }, {}, 1.5, asOfDate, 3, 'DOWNSIDE');
+    const withoutErv = projectLeaseYearWithBreak(leaseWithNearBreak, {}, 1.5, asOfDate, 3, 'DOWNSIDE');
+    expect(withErv.relettingCapex).toBeCloseTo(withoutErv.relettingCapex, 6);
+  });
+});
+
 describe('projectLeaseYearWithBreak — SEVERE vs DOWNSIDE', () => {
   it("annee du break : meme mois de bascule pour les deux (vacance minimale de 9/18 mois deborde deja l'annee), le CAPEX de relocation differe deja", () => {
     const downside = projectLeaseYearWithBreak(leaseWithNearBreak, {}, 1.5, asOfDate, 3, 'DOWNSIDE');

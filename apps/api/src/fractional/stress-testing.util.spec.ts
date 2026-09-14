@@ -14,6 +14,7 @@ const leases: LeaseInput[] = [
     indexation: 'AUTRE',
     indexationCapPct: null,
     indexationFloorPct: null,
+    ervAnnuel: null,
   },
   {
     id: 'l2',
@@ -26,6 +27,7 @@ const leases: LeaseInput[] = [
     indexation: 'AUTRE',
     indexationCapPct: null,
     indexationFloorPct: null,
+    ervAnnuel: null,
   },
 ];
 

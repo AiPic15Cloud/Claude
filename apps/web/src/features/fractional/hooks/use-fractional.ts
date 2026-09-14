@@ -49,6 +49,7 @@ import type {
   ProvenanceConfidence,
   TvaRegime,
   CapRateBuildUpResponse,
+  PortfolioReversionResult,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -815,6 +816,14 @@ export function useFractionalCapRateBuildUp(projectId: string | null) {
   return useQuery({
     queryKey: ['fractional', 'projects', projectId, 'cap-rate-build-up'],
     queryFn: () => api.get<CapRateBuildUpResponse>(`/fractional/projects/${projectId}/cap-rate-build-up`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export function useFractionalRentalReversion(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'rental-reversion'],
+    queryFn: () => api.get<PortfolioReversionResult>(`/fractional/projects/${projectId}/rental-reversion`),
     enabled: Boolean(projectId),
   });
 }

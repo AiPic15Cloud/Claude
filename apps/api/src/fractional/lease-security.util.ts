@@ -50,6 +50,8 @@ export interface LeaseInput {
   indexation: FractionalIndexationType;
   indexationCapPct: number | null;
   indexationFloorPct: number | null;
+  /** Valeur locative de marché estimée — consommée par rental-reversion.util.ts et break-event.util.ts, pas par ce moteur. */
+  ervAnnuel: number | null;
 }
 
 export interface LeaseAssessment {

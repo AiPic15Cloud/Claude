@@ -30,6 +30,7 @@ import { computeAllStressScenarios, computeAllBreakEventScenarios, computeBreakE
 import { DataProvenanceService } from './data-provenance.service';
 import { MarketIndicatorsService } from '../intelligence-marche/indicators.service';
 import { computeCapRateBuildUp, compareToImpliedCapRate, type PropertyConditionTier, type LocationTier, type MarketDepth } from './cap-rate-build-up.util';
+import { computePortfolioReversion } from './rental-reversion.util';
 import { computeICRecommendation } from './ic-engine.util';
 import { computeDCFValuation } from './dcf-valuation.util';
 import { computePerformanceAttribution } from './performance-attribution.util';
@@ -588,6 +589,7 @@ export class FractionalProjectsService {
       indexation: l.indexation,
       indexationCapPct: l.indexationCapPct !== null ? Number(l.indexationCapPct) : null,
       indexationFloorPct: l.indexationFloorPct !== null ? Number(l.indexationFloorPct) : null,
+      ervAnnuel: l.ervAnnuel !== null ? Number(l.ervAnnuel) : null,
       covenantScore: computeTenantCovenantScore({
         sirenLocataire: l.sirenLocataire,
         procedureCollective: l.procedureCollective,
@@ -770,6 +772,16 @@ export class FractionalProjectsService {
     const exit = compareToImpliedCapRate(exitBuildUp, impliedExitYieldPct);
 
     return { status: 'OK' as const, tec10Source: tec10.source, tec10AsOf: tec10.asOf, entry, exit };
+  }
+
+  // ── Rental Market & Rental Reversion Engine (spec V3.1 §9) ──
+
+  async getRentalReversionForProject(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const { baseInput } = await this.buildReturnsEngineInput(project, user.organizationId);
+    return computePortfolioReversion(
+      baseInput.leases.map((l) => ({ id: l.id, tenantName: l.tenantName, loyerFacialAnnuel: l.loyerFacialAnnuel, ervAnnuel: l.ervAnnuel })),
+    );
   }
 
   // ── Stress Testing & Sensitivity Engine (spec §18) ──────────

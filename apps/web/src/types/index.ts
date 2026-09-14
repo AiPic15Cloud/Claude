@@ -2459,3 +2459,33 @@ export const TVA_REGIME_LABELS: Record<TvaRegime, string> = {
   MARGE: 'TVA sur la marge',
   PRIX_TOTAL_OPTION_LOYERS: 'TVA sur le prix (option loyers)',
 };
+
+// ── Rental Reversion Engine (spec V3.1 §9) ──────────────────────────────────
+
+export type ReversionStatus = 'OVER_RENTED' | 'AT_MARKET' | 'UNDER_RENTED' | 'ERV_MISSING';
+export const REVERSION_STATUS_LABELS: Record<ReversionStatus, string> = {
+  OVER_RENTED: 'Sur-loué (au-dessus du marché)',
+  AT_MARKET: 'Au marché',
+  UNDER_RENTED: 'Sous-loué (réserve de hausse)',
+  ERV_MISSING: 'ERV non renseignée',
+};
+
+export interface LeaseReversionResult {
+  leaseId: string;
+  tenantName: string;
+  passingRent: number;
+  ervAnnuel: number | null;
+  reversionPct: number | null;
+  status: ReversionStatus;
+}
+
+export interface PortfolioReversionResult {
+  leases: LeaseReversionResult[];
+  weightedReversionPct: number | null;
+  overRentedCount: number;
+  atMarketCount: number;
+  underRentedCount: number;
+  ervMissingCount: number;
+  totalCount: number;
+  rentPctErvMissing: number;
+}
