@@ -37,6 +37,7 @@ import { SearchModule } from './search/search.module';
 import { MarketTickerModule } from './market-ticker/market-ticker.module';
 import { FeesModule } from './fees/fees.module';
 import { RepaymentsModule } from './repayments/repayments.module';
+import { InterestPaymentsModule } from './interest-payments/interest-payments.module';
 import { PipelineModule } from './pipeline/pipeline.module';
 import { PushModule } from './push/push.module';
 import { FractionalModule } from './fractional/fractional.module';
@@ -81,6 +82,7 @@ import { HealthController } from './health/health.controller';
     MarketTickerModule,
     FeesModule,
     RepaymentsModule,
+    InterestPaymentsModule,
     PipelineModule,
     PushModule,
     FractionalModule,

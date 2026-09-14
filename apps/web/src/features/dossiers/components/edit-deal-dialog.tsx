@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUpdateDeal } from '@/features/portfolio/hooks/use-deals';
 import {
   DEAL_RECOVERY_STATUS_LABELS,
+  DEAL_REPAYMENT_MODE_LABELS,
   DEAL_STAGE_LABELS,
   DEAL_STAGES,
   DEAL_STATUS_LABELS,
@@ -20,6 +21,7 @@ import {
   DEAL_TYPES,
   type DealDetail,
   type DealRecoveryStatus,
+  type DealRepaymentMode,
   type DealStage,
   type DealStatus,
   type DealType,
@@ -29,6 +31,7 @@ import { formatCurrency } from '@/lib/format';
 
 const DEAL_STATUSES: DealStatus[] = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED'];
 const DEAL_RECOVERY_STATUSES: DealRecoveryStatus[] = ['RAS', 'AMIABLE', 'MISE_EN_DEMEURE', 'CONTENTIEUX', 'PROCEDURE_COLLECTIVE'];
+const DEAL_REPAYMENT_MODES: DealRepaymentMode[] = ['MENSUEL', 'IN_FINE'];
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
@@ -40,6 +43,8 @@ const schema = z.object({
   interestRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
   feesRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
   durationMonths: z.coerce.number().int().positive().optional().or(z.literal(undefined)),
+  repaymentMode: z.enum(DEAL_REPAYMENT_MODES as [DealRepaymentMode, ...DealRepaymentMode[]]).optional(),
+  interestPaymentDay: z.coerce.number().int().min(1).max(31).optional().or(z.literal(undefined)),
   city: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -73,6 +78,7 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
     register,
     handleSubmit,
     control,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -86,6 +92,8 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       interestRate: deal.interestRate ? Number(deal.interestRate) : undefined,
       feesRate: deal.feesRate ? Number(deal.feesRate) : undefined,
       durationMonths: deal.durationMonths ?? undefined,
+      repaymentMode: deal.repaymentMode ?? undefined,
+      interestPaymentDay: deal.interestPaymentDay ?? undefined,
       city: deal.city ?? '',
       startDate: toDateInput(deal.startDate),
       endDate: toDateInput(deal.endDate),
@@ -102,6 +110,8 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
       porteurSiren: deal.porteurSiren ?? '',
     },
   });
+
+  const repaymentMode = watch('repaymentMode');
 
   const onSubmit = (values: FormValues) => {
     updateDeal.mutate(values, { onSuccess: () => setOpen(false) });
@@ -224,6 +234,37 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
               <Label htmlFor="city">Ville</Label>
               <Input id="city" {...register('city')} />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Mode de remboursement</Label>
+              <Controller
+                control={control}
+                name="repaymentMode"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Non renseigné" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEAL_REPAYMENT_MODES.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {DEAL_REPAYMENT_MODE_LABELS[m]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            {repaymentMode === 'MENSUEL' && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="interestPaymentDay">Jour de paiement des intérêts</Label>
+                <Input id="interestPaymentDay" type="number" min={1} max={31} step={1} {...register('interestPaymentDay')} />
+                {errors.interestPaymentDay && <p className="text-xs text-destructive">{errors.interestPaymentDay.message}</p>}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

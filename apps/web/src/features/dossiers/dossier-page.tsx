@@ -38,6 +38,7 @@ import { GuaranteesPanel } from './components/guarantees-panel';
 import { RiskDataCard } from './components/risk-data-card';
 import { CompanyMonitoringCard } from './components/company-monitoring-card';
 import { RepaymentsPanel } from './components/repayments-panel';
+import { InterestPaymentsPanel } from './components/interest-payments-panel';
 import { NotesPanel } from './components/notes-panel';
 import { FinancialModelPanel, type FinancialModelFormValues } from './components/financial-model-panel';
 import { CheckpointsPanel } from './components/checkpoints-panel';
@@ -429,8 +430,9 @@ export function DossierPage() {
             dpeCheckedAt={deal.dpeCheckedAt}
           />
         </TabsContent>
-        <TabsContent value="repayments">
+        <TabsContent value="repayments" className="flex flex-col gap-4">
           <RepaymentsPanel dealId={deal.id} />
+          {deal.repaymentMode === 'MENSUEL' && <InterestPaymentsPanel dealId={deal.id} />}
         </TabsContent>
         <TabsContent value="financial">
           <FinancialModelPanel

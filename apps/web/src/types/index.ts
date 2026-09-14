@@ -40,6 +40,9 @@ export type DealStatus = 'ACTIVE' | 'ON_HOLD' | 'CLOSED' | 'ARCHIVED';
 
 export type DealRecoveryStatus = 'RAS' | 'AMIABLE' | 'MISE_EN_DEMEURE' | 'CONTENTIEUX' | 'PROCEDURE_COLLECTIVE';
 
+export type DealRepaymentMode = 'MENSUEL' | 'IN_FINE';
+export const DEAL_REPAYMENT_MODE_LABELS: Record<DealRepaymentMode, string> = { MENSUEL: 'Mensuel', IN_FINE: 'In fine' };
+
 export const DEAL_RECOVERY_STATUS_LABELS: Record<DealRecoveryStatus, string> = {
   RAS: 'RAS',
   AMIABLE: 'Amiable',
@@ -197,6 +200,8 @@ export interface Deal {
   currency: string;
   interestRate?: string | null;
   durationMonths?: number | null;
+  repaymentMode?: DealRepaymentMode | null;
+  interestPaymentDay?: number | null;
   feesRate?: string | null;
   feesAmount?: string;
   address?: string | null;
@@ -770,6 +775,28 @@ export interface Repayment {
   projected: boolean;
   note?: string | null;
   createdAt: string;
+}
+
+export interface InterestPayment {
+  id: string;
+  dealId: string;
+  paidDate: string;
+  amount?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
+export type InterestPaymentLevel = 'RAS' | 'DUE_SOON' | 'OVERDUE';
+export const INTEREST_PAYMENT_LEVEL_LABELS: Record<InterestPaymentLevel, string> = {
+  RAS: 'À jour',
+  DUE_SOON: 'Échéance proche',
+  OVERDUE: 'En retard',
+};
+
+export interface InterestPaymentStatus {
+  currentDueDate: string;
+  daysOverdue: number;
+  level: InterestPaymentLevel;
 }
 
 export interface RepaymentsSummary {

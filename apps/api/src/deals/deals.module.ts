@@ -4,6 +4,7 @@ import { DealsController } from './deals.controller';
 import { GeocodingService } from './geocoding.service';
 import { GeocodingBackfillService } from './geocoding-backfill.service';
 import { DeadlineAlertsService } from './deadline-alerts.service';
+import { InterestPaymentAlertsService } from './interest-payment-alerts.service';
 import { DurationTargetAlertsService } from './duration-target-alerts.service';
 import { CovenantAlertsService } from './covenant-alerts.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
@@ -39,6 +40,7 @@ import { PlaybooksModule } from '../playbooks/playbooks.module';
     GeocodingService,
     GeocodingBackfillService,
     DeadlineAlertsService,
+    InterestPaymentAlertsService,
     DurationTargetAlertsService,
     CovenantAlertsService,
     CompanyMonitoringService,

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { DealType, DealRecoveryStatus, EsgAssessment } from '@prisma/client';
+import { DealType, DealRecoveryStatus, DealRepaymentMode, EsgAssessment } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -13,6 +13,7 @@ import {
   IsPositive,
   IsString,
   Matches,
+  Max,
   MaxLength,
   Min,
   ValidateIf,
@@ -60,6 +61,18 @@ export class CreateDealDto {
   @IsInt()
   @IsPositive()
   durationMonths?: number;
+
+  @ApiProperty({ enum: DealRepaymentMode, required: false })
+  @IsOptional()
+  @IsEnum(DealRepaymentMode)
+  repaymentMode?: DealRepaymentMode;
+
+  @ApiProperty({ required: false, description: "Jour du mois (1-31) où les intérêts sont dus — pertinent seulement en mode MENSUEL." })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  interestPaymentDay?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()

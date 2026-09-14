@@ -132,6 +132,15 @@ enum DealRecoveryStatus {
   PROCEDURE_COLLECTIVE
 }
 
+/// MENSUEL : intérêts payés chaque mois (Deal.interestPaymentDay fixe le
+/// jour d'échéance, suivi par InterestPayment + interest-payment-alerts.service.ts).
+/// IN_FINE : capital et intérêts remboursés en une fois à l'échéance — aucun
+/// suivi mensuel, interestPaymentDay reste sans effet.
+enum DealRepaymentMode {
+  MENSUEL
+  IN_FINE
+}
+
 // Statut de surveillance ATLAS — dérivé du score composite, de l'EWS et de la
 // vélocité (voir risk-engine/surveillance-status.util.ts), jamais saisi
 // manuellement sauf override analyste explicite (DealOverride). CRITIQUE
@@ -293,16 +302,17 @@ model User {
   twoFactorSecret        String?
   twoFactorRecoveryCodes String[] @default([])
 
-  createdDeals               Deal[]              @relation("DealCreatedBy")
-  assignedDeals              Deal[]              @relation("DealAssignedTo")
+  createdDeals               Deal[]                @relation("DealCreatedBy")
+  assignedDeals              Deal[]                @relation("DealAssignedTo")
   notes                      Note[]
   documents                  Document[]
   repayments                 Repayment[]
+  interestPayments           InterestPayment[]
   loanExtensions             LoanExtension[]
   pipelineEntries            PipelineEntry[]
-  tasksAssigned              Task[]              @relation("TaskAssignee")
-  tasksCreated               Task[]              @relation("TaskCreatedBy")
-  tasksCancelled             Task[]              @relation("TaskCancelledBy")
+  tasksAssigned              Task[]                @relation("TaskAssignee")
+  tasksCreated               Task[]                @relation("TaskCreatedBy")
+  tasksCancelled             Task[]                @relation("TaskCancelledBy")
   activities                 Activity[]
   refreshTokens              RefreshToken[]
   competitorProjectsLogged   CompetitorProject[]
@@ -312,8 +322,8 @@ model User {
   fieldChanges               FieldChange[]
   dataValidations            DataValidation[]
   financialAssumptionsLocked FinancialAssumption[]
-  dealOverridesCreated       DealOverride[]         @relation("DealOverrideCreatedBy")
-  dealOverridesCleared       DealOverride[]         @relation("DealOverrideClearedBy")
+  dealOverridesCreated       DealOverride[]        @relation("DealOverrideCreatedBy")
+  dealOverridesCleared       DealOverride[]        @relation("DealOverrideClearedBy")
   relationshipEvidence       Evidence[]
   fractionalProjectsCreated  FractionalProject[]
 
@@ -388,6 +398,13 @@ model Deal {
   currency       String   @default("EUR")
   interestRate   Decimal? @db.Decimal(5, 2)
   durationMonths Int?
+
+  /// Mode de remboursement (mensuel vs in fine) — null = non renseigné,
+  /// jamais présumé mensuel par défaut. interestPaymentDay (1-31, ajusté au
+  /// dernier jour du mois si le mois est plus court) ne s'applique qu'en
+  /// MENSUEL et pilote interest-payment-alerts.service.ts.
+  repaymentMode      DealRepaymentMode?
+  interestPaymentDay Int?
 
   // Fees — feesRate is the input (%), feesAmount is always server-derived
   // from feesRate × amountRaised, never accepted directly from a client.
@@ -543,6 +560,7 @@ model Deal {
   financialAssumption        FinancialAssumption?
   entityLinks                DealEntityLink[]
   repayments                 Repayment[]
+  interestPayments           InterestPayment[]
   loanExtensions             LoanExtension[]
   convertedFromPipelineEntry PipelineEntry?       @relation("PipelineConvertedDeal")
   checkpoints                ProjectCheckpoint[]
@@ -654,6 +672,31 @@ model Repayment {
   @@map("repayments")
 }
 
+// Paiement d'intérêts effectivement constaté (mode MENSUEL, cf.
+// Deal.repaymentMode/interestPaymentDay) — distinct de Repayment
+// (remboursements de capital, non rattachés à une échéance récurrente) :
+// chaque ligne ici est comparée au jour d'échéance du mois pour détecter un
+// retard (interest-payment.util.ts + interest-payment-alerts.service.ts).
+// amount optionnel : l'analyste peut d'abord constater "payé le [date]"
+// sans ressaisir le montant si celui-ci est déjà connu par ailleurs.
+model InterestPayment {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  paidDate DateTime
+  amount   Decimal? @db.Decimal(14, 2)
+  note     String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([dealId])
+  @@map("interest_payments")
+}
+
 // Une prorogation formelle de l'échéance du prêt (spec ATLAS v2, A.3bis) —
 // distincte d'une simple correction de dateMax via le PATCH générique du
 // deal : chaque entrée ici a sa propre date de signature (potentiellement
@@ -732,8 +775,8 @@ model ProjectCheckpoint {
   // Objectif de prix revu par le porteur de projet (ex. baisse pour accélérer la
   // commercialisation) — distinct de prixVenteReelADate qui reste les ventes
   // effectivement réalisées à ce jour, potentiellement en deçà de cet objectif.
-  prixVenteActualise Decimal? @db.Decimal(14, 2)
-  prixVenteReelADate Decimal? @db.Decimal(14, 2)
+  prixVenteActualise      Decimal? @db.Decimal(14, 2)
+  prixVenteReelADate      Decimal? @db.Decimal(14, 2)
 
   atterrissagePrevu String?
   notes             String?
@@ -1015,15 +1058,15 @@ model Activity {
 }
 
 model Alert {
-  id                 String            @id @default(cuid())
-  organizationId     String
-  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  dealId             String?
-  deal               Deal?             @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  articleId          String?
-  article            Article?          @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  id                  String             @id @default(cuid())
+  organizationId      String
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId              String?
+  deal                Deal?              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  articleId           String?
+  article             Article?           @relation(fields: [articleId], references: [id], onDelete: SetNull)
   fractionalProjectId String?
-  fractionalProject  FractionalProject? @relation(fields: [fractionalProjectId], references: [id], onDelete: Cascade)
+  fractionalProject   FractionalProject? @relation(fields: [fractionalProjectId], references: [id], onDelete: Cascade)
 
   severity AlertSeverity @default(INFO)
   title    String
@@ -1132,7 +1175,7 @@ model FinancialAssumption {
   // Simulation "et si le projet est en retard" : +5 points sur le taux LPB
   // utilisé pour calculer les intérêts sur durée cible — sert à mesurer
   // l'impact financier réel d'un dépassement plutôt qu'à documenter un fait.
-  latePenaltyApplied Boolean @default(false)
+  latePenaltyApplied   Boolean  @default(false)
 
   // Financement bancaire (optionnel, distinct de LPB) — activé dès qu'un nom de banque est renseigné
   bankName               String?
@@ -1239,13 +1282,13 @@ model GraphEntity {
   /// Deal.porteurSiren (voir DealsService/GraphService.autoLinkPromoteurBySiren).
   siren String?
 
-  dealLinks              DealEntityLink[]
-  relationsFrom          GraphRelation[]          @relation("RelationFrom")
-  relationsTo            GraphRelation[]          @relation("RelationTo")
-  articles               ArticleEntityLink[]
-  competitorProjects     CompetitorProject[]
+  dealLinks               DealEntityLink[]
+  relationsFrom           GraphRelation[]          @relation("RelationFrom")
+  relationsTo             GraphRelation[]          @relation("RelationTo")
+  articles                ArticleEntityLink[]
+  competitorProjects      CompetitorProject[]
   competitorProjectEvents CompetitorProjectEvent[]
-  platformStatsSnapshots PlatformStatsSnapshot[]
+  platformStatsSnapshots  PlatformStatsSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1366,8 +1409,8 @@ model Entity {
 
   identifiers       EntityIdentifier[]
   aliases           EntityAlias[]
-  relationshipsFrom Relationship[]     @relation("RelFrom")
-  relationshipsTo   Relationship[]     @relation("RelTo")
+  relationshipsFrom Relationship[]        @relation("RelFrom")
+  relationshipsTo   Relationship[]        @relation("RelTo")
   groupMemberships  EconomicGroupMember[]
   legalEvents       LegalEvent[]
   financialEvents   FinancialEvent[]
@@ -1466,11 +1509,11 @@ model Relationship {
   /// 0-100 — poids de ce lien pour une future analyse de contagion (B.4/B.5, pas construite ici).
   criticality Int       @default(0)
 
-  status     RelationshipStatus   @default(ACTIVE)
+  status          RelationshipStatus   @default(ACTIVE)
   /// Niveau de couverture documentaire — sert aussi de statut de
   /// vérification (spec V2 §5.3 "verification_status") : UNKNOWN/PARTIAL
   /// tant qu'aucune source ne confirme le lien, VERIFIED une fois recoupé.
-  confidence RelationshipCoverage @default(UNKNOWN)
+  confidence      RelationshipCoverage @default(UNKNOWN)
   /// Score numérique 0-100 (spec V2 §5.3 "confidence_score") — distinct de
   /// `confidence` : ce dernier est un palier de preuve documentaire,
   /// celui-ci une estimation continue (ex. Entity Resolution peut poser 60
@@ -1482,8 +1525,8 @@ model Relationship {
   /// et de `verifiedAt` (dernière vérification) — ex. une relation
   /// reconstruite à partir d'un acte notarié observe la date de l'acte, pas
   /// la date à laquelle Atlas l'a saisie.
-  observedAt DateTime?
-  verifiedAt DateTime?
+  observedAt      DateTime?
+  verifiedAt      DateTime?
 
   evidence Evidence[]
   events   RelationshipEvent[]
@@ -1630,15 +1673,15 @@ model LegalEvent {
   entityId String
   entity   Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
 
-  type   LegalEventType
-  source String
+  type      LegalEventType
+  source    String
   reference String?
-  note   String?
+  note      String?
 
   /// Date de l'événement lui-même (ex. date de publication BODACC) —
   /// distincte de detectedAt si Atlas l'apprend après coup.
   occurredAt DateTime?
-  detectedAt DateTime @default(now())
+  detectedAt DateTime  @default(now())
 
   contagionSignals ContagionSignal[]
 
@@ -1676,7 +1719,7 @@ model FinancialEvent {
   note      String?
 
   occurredAt DateTime?
-  detectedAt DateTime @default(now())
+  detectedAt DateTime  @default(now())
 
   contagionSignals ContagionSignal[]
 
@@ -2011,17 +2054,17 @@ enum ProjectObservationStatus {
 /// externe, pas une donnée par tenant — même doctrine que
 /// SourceRegistryEntry.
 model ProjectObservation {
-  id             String                   @id @default(cuid())
-  sourceKey      String
-  platform       String
-  projectName    String
-  projectUrl     String
-  operatorRaw    String?
-  amountTarget   Decimal?                 @db.Decimal(14, 2)
-  ratePct        Decimal?                 @db.Decimal(5, 2)
-  durationMonths Int?
+  id                String                   @id @default(cuid())
+  sourceKey         String
+  platform          String
+  projectName       String
+  projectUrl        String
+  operatorRaw       String?
+  amountTarget      Decimal?                 @db.Decimal(14, 2)
+  ratePct           Decimal?                 @db.Decimal(5, 2)
+  durationMonths    Int?
   /// Catégorie telle qu'affichée par la source — jamais écrasée par la normalisation (spec C.4).
-  sourceCategory String?
+  sourceCategory    String?
   /// Segment ATLAS normalisé (best-effort) — null si aucune correspondance de confiance suffisante.
   atlasSegment      String?
   mappingConfidence String?
@@ -2299,7 +2342,7 @@ model FractionalAssumptionSet {
   project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   scenario FractionalAssumptionScenario
-  version  Int                           @default(1)
+  version  Int                          @default(1)
   label    String?
   values   Json
 
@@ -2390,27 +2433,27 @@ model FractionalLease {
 
   statutRenouvellement            FractionalLeaseRenewalStatus @default(SIGNE)
   restrictionsCessionSousLocation String?
-  repartitionTravaux               String?
-  impayesNotes                     String?
+  repartitionTravaux              String?
+  impayesNotes                    String?
 
   /// Tenant Covenant Intelligence (spec §8) — champs bruts uniquement, le
   /// score (0-100) est calculé à la volée par tenant-covenant.util.ts à
   /// partir de ces champs + du statut de renouvellement/impayesNotes déjà
   /// présents ci-dessus, jamais stocké (même principe que le statut de
   /// sécurisation du bail).
-  sirenLocataire       String?
-  procedureCollective  Boolean @default(false)
-  garantieMaisonMere   Boolean @default(false)
+  sirenLocataire      String?
+  procedureCollective Boolean @default(false)
+  garantieMaisonMere  Boolean @default(false)
 
   /// Bloc Financier du Tenant Covenant (spec §8, explicitement différé en
   /// P1 faute de saisie dédiée — cf. tenant-covenant.util.ts) : dernier
   /// exercice connu du locataire, saisie manuelle (liasse fiscale/Infogreffe),
   /// jamais recalculée. Optionnels et neutres si absents, comme le reste du
   /// score de covenant.
-  caLocataireAnnuel       Decimal?  @db.Decimal(16, 2)
-  ebitdaLocataireAnnuel   Decimal?  @db.Decimal(16, 2)
-  tresorerieLocataire     Decimal?  @db.Decimal(16, 2)
-  exerciceFinancierAsOf   DateTime?
+  caLocataireAnnuel     Decimal?  @db.Decimal(16, 2)
+  ebitdaLocataireAnnuel Decimal?  @db.Decimal(16, 2)
+  tresorerieLocataire   Decimal?  @db.Decimal(16, 2)
+  exerciceFinancierAsOf DateTime?
 
   notes String?
 
@@ -2529,9 +2572,9 @@ model RentIndexSeries {
 
   indexType RentIndexType
   period    String // ex. "2026-T2"
-  value     Decimal        @db.Decimal(10, 4)
-  cagr5y    Decimal?       @db.Decimal(6, 3)
-  cagr10y   Decimal?       @db.Decimal(6, 3)
+  value     Decimal       @db.Decimal(10, 4)
+  cagr5y    Decimal?      @db.Decimal(6, 3)
+  cagr10y   Decimal?      @db.Decimal(6, 3)
   asOfDate  DateTime
   source    String?
 
@@ -2679,18 +2722,18 @@ model FractionalFeeDefinition {
   stakeholderId String
   stakeholder   FractionalStakeholder @relation(fields: [stakeholderId], references: [id], onDelete: Cascade)
 
-  feeType         FeeType
-  ratePct         Decimal?           @db.Decimal(6, 3)
-  fixedAmount     Decimal?           @db.Decimal(14, 2)
-  calculationBase FeeCalculationBase @default(AUTRE)
-  frequency       FeeFrequency       @default(ANNUEL)
-  startYear       Int?
-  endYear         Int?
-  triggerNote     String?
-  minAmount       Decimal?           @db.Decimal(14, 2)
-  maxAmount       Decimal?           @db.Decimal(14, 2)
-  source          String?
-  confidence      String?
+  feeType          FeeType
+  ratePct          Decimal?           @db.Decimal(6, 3)
+  fixedAmount      Decimal?           @db.Decimal(14, 2)
+  calculationBase  FeeCalculationBase @default(AUTRE)
+  frequency        FeeFrequency       @default(ANNUEL)
+  startYear        Int?
+  endYear          Int?
+  triggerNote      String?
+  minAmount        Decimal?           @db.Decimal(14, 2)
+  maxAmount        Decimal?           @db.Decimal(14, 2)
+  source           String?
+  confidence       String?
   scenarioBehavior String?
 
   createdAt DateTime @default(now())
@@ -2713,9 +2756,9 @@ model FractionalWaterfallTier {
 
   order         Int
   type          WaterfallTierType
-  hurdleRatePct Decimal? @db.Decimal(6, 3)
-  catchUpPct    Decimal? @db.Decimal(5, 2)
-  sharePct      Decimal? @db.Decimal(5, 2)
+  hurdleRatePct Decimal?          @db.Decimal(6, 3)
+  catchUpPct    Decimal?          @db.Decimal(5, 2)
+  sharePct      Decimal?          @db.Decimal(5, 2)
   notes         String?
 
   createdAt DateTime @default(now())
@@ -2857,9 +2900,9 @@ model FractionalEliminatoryRule {
   label       String
   metricKey   String
   operator    FractionalScoreComparisonOperator
-  threshold   Decimal                            @db.Decimal(12, 4)
+  threshold   Decimal                           @db.Decimal(12, 4)
   failMessage String
-  sortOrder   Int                                @default(0)
+  sortOrder   Int                               @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
