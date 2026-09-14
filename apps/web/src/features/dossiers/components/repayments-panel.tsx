@@ -20,7 +20,7 @@ import type { Repayment } from '@/types';
 // dead at "240096". Using a plain text field with our own parsing sidesteps
 // that entirely: both "," and "." (plus any thousands spacing) are accepted.
 function parseAmount(raw: string): number {
-  return Number(raw.trim().replace(/[\s  ]/g, '').replace(',', '.'));
+  return Number(raw.trim().replace(/\s/g, '').replace(',', '.'));
 }
 
 const schema = z.object({

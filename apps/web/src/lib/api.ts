@@ -165,7 +165,7 @@ async function postStream(path: string, body: unknown, onDelta: (delta: string) 
     if (typeof parsed.error === 'string') throw new Error(parsed.error);
   };
 
-  while (true) {
+  for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
