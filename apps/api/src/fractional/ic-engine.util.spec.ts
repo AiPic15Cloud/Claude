@@ -28,3 +28,29 @@ describe('computeICRecommendation — capexDataMissing (Data Integrity, spec V2 
     expect(result.status).toBe('APPROVE');
   });
 });
+
+describe('computeICRecommendation — ecart CAPEX ESG vs budgete (spec §12/§28)', () => {
+  it("n'ajoute aucun watch item quand esgCapexToComplyTotal est absent (pas de classe DPE connue)", () => {
+    const result = computeICRecommendation(makeBaseInput({ esgCapexToComplyTotal: null }));
+    expect(result.watchItems.some((w) => w.includes('mise en conformité ESG'))).toBe(false);
+  });
+
+  it("n'ajoute aucun watch item quand le CAPEX budgete couvre deja le CAPEX de mise en conformite ESG", () => {
+    const result = computeICRecommendation(makeBaseInput({ esgCapexToComplyTotal: 20000, budgetedCapexTotal: 25000 }));
+    expect(result.watchItems.some((w) => w.includes('mise en conformité ESG'))).toBe(false);
+  });
+
+  it('signale un ecart en watch item (jamais un hard stop) quand le CAPEX ESG depasse le CAPEX budgete', () => {
+    const result = computeICRecommendation(makeBaseInput({ esgCapexToComplyTotal: 50000, budgetedCapexTotal: 10000 }));
+    const item = result.watchItems.find((w) => w.includes('mise en conformité ESG'));
+    expect(item).toBeDefined();
+    expect(item).toContain('50');
+    expect(item).toContain('40'); // ecart = 50000 - 10000
+    expect(result.hardStops).toHaveLength(0);
+  });
+
+  it('traite un CAPEX budgete absent comme 0, jamais comme "deja couvert"', () => {
+    const result = computeICRecommendation(makeBaseInput({ esgCapexToComplyTotal: 30000 }));
+    expect(result.watchItems.some((w) => w.includes('mise en conformité ESG'))).toBe(true);
+  });
+});

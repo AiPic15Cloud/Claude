@@ -33,6 +33,16 @@ export interface ICRecommendationInput {
   capexDataMissing?: boolean;
   /** Data Confidence Engine (data-confidence.util.ts) — % de champs critiques du dossier vérifiés avec une confiance suffisante. */
   dataConfidencePct?: number;
+  /**
+   * CAPEX de mise en conformité ESG (esg-risk.util.ts, spec §12/§28) — null
+   * si aucune classe DPE connue (aucune base de calcul, jamais un montant
+   * deviné). Comparé à budgetedCapexTotal pour signaler un écart, jamais
+   * injecté silencieusement dans le cash-flow (les lignes CapexItem restent
+   * la seule source de vérité du CAPEX projeté).
+   */
+  esgCapexToComplyTotal?: number | null;
+  /** Total CAPEX déjà budgété (capexByYear, tous horizons confondus). */
+  budgetedCapexTotal?: number;
 }
 
 export interface ICRecommendation {
@@ -76,6 +86,12 @@ export function computeICRecommendation(input: ICRecommendationInput): ICRecomme
   }
   if (input.capexDataMissing) {
     watchItems.push("CAPEX non renseigné (aucune ligne saisie) — donnée manquante, pas un CAPEX nul confirmé : le cash-flow n'est pas stressé sur ce poste.");
+  }
+  if (input.esgCapexToComplyTotal !== undefined && input.esgCapexToComplyTotal !== null && input.esgCapexToComplyTotal > (input.budgetedCapexTotal ?? 0)) {
+    const gap = input.esgCapexToComplyTotal - (input.budgetedCapexTotal ?? 0);
+    watchItems.push(
+      `CAPEX de mise en conformité ESG estimé à ${Math.round(input.esgCapexToComplyTotal).toLocaleString('fr-FR')} € (onglet Risque ESG) — ${Math.round(gap).toLocaleString('fr-FR')} € de plus que le CAPEX actuellement budgété.`,
+    );
   }
   if (input.dataConfidencePct !== undefined && input.dataConfidencePct < DATA_CONFIDENCE_WATCH_THRESHOLD_PCT) {
     watchItems.push(

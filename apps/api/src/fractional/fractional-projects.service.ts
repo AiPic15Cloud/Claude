@@ -41,6 +41,7 @@ import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
 import { CreateProjectActualDto } from './dto/create-project-actual.dto';
 import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
 import { MarketDataService } from './market-data.service';
+import { EsgRiskService } from './esg-risk.service';
 import { computeExitYieldEngine, computeCapRateSensitivity, computeNoiSensitivity, median, solveMaxExitYieldExpansion } from './exit-yield.util';
 
 interface DefaultAssumptionValues {
@@ -97,6 +98,7 @@ export class FractionalProjectsService {
     private readonly dataProvenance: DataProvenanceService,
     private readonly marketIndicators: MarketIndicatorsService,
     private readonly marketData: MarketDataService,
+    private readonly esgRisk: EsgRiskService,
   ) {}
 
   // ── Projects ───────────────────────────────────────────────
@@ -761,12 +763,23 @@ export class FractionalProjectsService {
 
     const baseResult = computeReturnsEngine(baseInput);
 
+    // Prime ESG (spec §12/§28 — "l'ESG doit être traduit en impacts économiques") :
+    // réutilise le même moteur que l'onglet ESG dédié (esg-risk.util.ts via
+    // EsgRiskService), jamais un second calcul de la prime. L'absence
+    // d'évaluation ESG y est déjà traitée comme le pire cas plausible (même
+    // principe que la prime de liquidité ci-dessous pour un WALB manquant) —
+    // Cap Rate Build-Up doit rester cohérent avec ce que montre l'onglet ESG,
+    // pas silencieusement plus optimiste.
+    const { profile: esgProfile } = await this.esgRisk.getProfile(projectId, user);
+    const esgPremiumPct = esgProfile.totalValuationImpactPts;
+
     const entryBuildUp = computeCapRateBuildUp({
       tec10Pct: tec10.value,
       propertyCondition: baseValues.propertyCondition,
       locationTier: baseValues.locationTier,
       marketDepth: baseValues.marketDepth,
       walbYears: baseResult.leaseSecurity.walbYears,
+      esgPremiumPct,
     });
     const entry = compareToImpliedCapRate(entryBuildUp, baseResult.netPropertyYieldPct);
 
@@ -780,6 +793,7 @@ export class FractionalProjectsService {
       locationTier: baseValues.locationTier,
       marketDepth: baseValues.marketDepth,
       walbYears: walbAtExit,
+      esgPremiumPct,
     });
     const lastYear = baseResult.yearlyModel[baseResult.yearlyModel.length - 1];
     const impliedExitYieldPct = lastYear && baseInput.exitValue > 0 ? (lastYear.noi / baseInput.exitValue) * 100 : 0;
@@ -916,6 +930,8 @@ export class FractionalProjectsService {
     const combinedSevere = stressScenarios.find((s) => s.scenario === 'COMBINED_SEVERE');
     const breakDownside = computeBreakEventScenario(baseInput, 'TENANT_BREAK_DOWNSIDE', hurdlePct);
     const dataConfidence = await this.dataProvenance.getDataConfidenceForProject(projectId, user);
+    const { profile: esgProfile } = await this.esgRisk.getProfile(projectId, user);
+    const budgetedCapexTotal = Object.values(baseInput.capexByYear ?? {}).reduce((sum, v) => sum + v, 0);
 
     return computeICRecommendation({
       sourcesUsesBalanced: baseResult.sourcesUsesResult.balanced,
@@ -927,6 +943,8 @@ export class FractionalProjectsService {
       breakDownsideScenario: breakDownside,
       capexDataMissing,
       dataConfidencePct: dataConfidence.scorePct,
+      esgCapexToComplyTotal: esgProfile.capexToComplyTotal,
+      budgetedCapexTotal,
     });
   }
 

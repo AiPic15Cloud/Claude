@@ -3,10 +3,13 @@
  * théorique à partir de composantes nommées et visibles — TEC10 (taux sans
  * risque long terme) + prime immobilière (état de l'actif) + prime de
  * localisation + prime de liquidité (profondeur de marché × durée résiduelle
- * sécurisée) — pour objectiver un écart avec le cap rate implicite du prix
- * payé, plutôt que de prendre pour argent comptant le cap rate affiché par
- * le vendeur. Jamais un chiffre opaque : chaque prime est un barème à seuils
- * explicite, pas une estimation à l'œil.
+ * sécurisée) + prime ESG optionnelle (esg-risk.util.ts, spec §12 — traduit
+ * l'obsolescence énergétique en impact de valorisation plutôt que de la
+ * laisser en risque qualitatif isolé) — pour objectiver un écart avec le
+ * cap rate implicite du prix payé, plutôt que de prendre pour argent
+ * comptant le cap rate affiché par le vendeur. Jamais un chiffre opaque :
+ * chaque prime est un barème à seuils explicite, pas une estimation à
+ * l'œil.
  */
 
 export type PropertyConditionTier = 'CORE' | 'CORE_PLUS' | 'VALUE_ADD' | 'OPPORTUNISTE' | 'DISTRESSED';
@@ -57,6 +60,14 @@ export interface CapRateBuildUpInput {
   locationTier: LocationTier;
   marketDepth: MarketDepth;
   walbYears: number | null;
+  /**
+   * Prime ESG (esg-risk.util.ts, totalValuationImpactPts — spec §12) —
+   * optionnelle et absente par défaut (0), jamais un pire-cas injecté en
+   * silence dès lors qu'aucune évaluation ESG n'existe pour le dossier :
+   * l'appelant (fractional-projects.service.ts) ne la transmet que si une
+   * FractionalEsgAssessment a réellement été saisie.
+   */
+  esgPremiumPct?: number;
 }
 
 export interface CapRateBuildUpResult {
@@ -64,6 +75,7 @@ export interface CapRateBuildUpResult {
   conditionPremiumPct: number;
   locationPremiumPct: number;
   liquidityPremiumPct: number;
+  esgPremiumPct: number;
   capRatePct: number;
 }
 
@@ -71,12 +83,14 @@ export function computeCapRateBuildUp(input: CapRateBuildUpInput): CapRateBuildU
   const conditionPremiumPct = CONDITION_PREMIUM_PCT[input.propertyCondition];
   const locationPremiumPct = LOCATION_PREMIUM_PCT[input.locationTier];
   const liquidityPremiumPct = resolveLiquidityPremiumPct(input.marketDepth, input.walbYears);
+  const esgPremiumPct = input.esgPremiumPct ?? 0;
   return {
     tec10Pct: input.tec10Pct,
     conditionPremiumPct,
     locationPremiumPct,
     liquidityPremiumPct,
-    capRatePct: input.tec10Pct + conditionPremiumPct + locationPremiumPct + liquidityPremiumPct,
+    esgPremiumPct,
+    capRatePct: input.tec10Pct + conditionPremiumPct + locationPremiumPct + liquidityPremiumPct + esgPremiumPct,
   };
 }
 

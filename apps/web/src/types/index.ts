@@ -2486,6 +2486,7 @@ export interface CapRateBuildUpResult {
   conditionPremiumPct: number;
   locationPremiumPct: number;
   liquidityPremiumPct: number;
+  esgPremiumPct: number;
   capRatePct: number;
 }
 

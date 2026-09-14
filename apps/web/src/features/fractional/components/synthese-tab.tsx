@@ -43,7 +43,7 @@ function CapRateBreakdown({ label, result }: { label: string; result: CapRateCom
       <p className="text-lg font-semibold tabular-nums">{buildUp.capRatePct.toFixed(2)} %</p>
       <p className="text-[11px] text-muted-foreground">
         TEC10 {buildUp.tec10Pct.toFixed(2)}% + état {buildUp.conditionPremiumPct.toFixed(2)}pt + localisation {buildUp.locationPremiumPct.toFixed(2)}pt + liquidité{' '}
-        {buildUp.liquidityPremiumPct.toFixed(2)}pt
+        {buildUp.liquidityPremiumPct.toFixed(2)}pt + ESG {buildUp.esgPremiumPct.toFixed(2)}pt
       </p>
       <p className="mt-1 text-[11px]">
         Cap rate implicite : <span className="font-medium tabular-nums">{impliedCapRatePct.toFixed(2)} %</span> — écart{' '}

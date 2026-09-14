@@ -42,6 +42,18 @@ describe('computeCapRateBuildUp', () => {
     const result = computeCapRateBuildUp(input({ propertyCondition: 'DISTRESSED', locationTier: 'TERTIAIRE_C', marketDepth: 'FAIBLE', walbYears: 0.5 }));
     expect(result.capRatePct).toBeCloseTo(3 + 5 + 3 + 3.5, 6);
   });
+
+  it('esgPremiumPct absent (aucune evaluation ESG saisie) -> 0, jamais un pire-cas injecte en silence', () => {
+    const result = computeCapRateBuildUp(input());
+    expect(result.esgPremiumPct).toBe(0);
+    expect(result.capRatePct).toBe(3);
+  });
+
+  it('esgPremiumPct fourni s\'ajoute aux autres primes, comme une composante nommee de plus', () => {
+    const result = computeCapRateBuildUp(input({ esgPremiumPct: 2.5 }));
+    expect(result.esgPremiumPct).toBe(2.5);
+    expect(result.capRatePct).toBeCloseTo(3 + 2.5, 6);
+  });
 });
 
 describe('compareToImpliedCapRate', () => {
