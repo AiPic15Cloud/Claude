@@ -2689,3 +2689,56 @@ export interface TechnicalAssessmentResponse {
   rating: TechnicalRiskRatingResult;
   capexPlan: CapexHorizonBucket[];
 }
+
+// ── Legal, Planning & Tax DD Engine (spec V3.1 §13) ─────────────────────────
+
+export type LegalTaxProfessional = 'AVOCAT' | 'NOTAIRE' | 'FISCALISTE' | 'EXPERT_TECHNIQUE' | 'EXPERT_IMMOBILIER';
+export const LEGAL_TAX_PROFESSIONAL_LABELS: Record<LegalTaxProfessional, string> = {
+  AVOCAT: 'Avocat',
+  NOTAIRE: 'Notaire',
+  FISCALISTE: 'Fiscaliste',
+  EXPERT_TECHNIQUE: 'Expert technique',
+  EXPERT_IMMOBILIER: 'Expert immobilier',
+};
+
+export type LegalTaxBlockKey = 'URBANISME' | 'FISCALITE_VEHICULE' | 'CONTENTIEUX';
+
+export type LegalTaxItemStatusValue = 'NON_CONTROLE' | 'CONFORME' | 'RESERVE';
+export const LEGAL_TAX_ITEM_STATUS_LABELS: Record<LegalTaxItemStatusValue, string> = {
+  NON_CONTROLE: 'Non contrôlé',
+  CONFORME: 'Conforme',
+  RESERVE: 'Réserve',
+};
+
+export interface LegalTaxItemResult {
+  block: LegalTaxBlockKey;
+  itemKey: string;
+  label: string;
+  professional: LegalTaxProfessional;
+  status: LegalTaxItemStatusValue;
+  notes: string | null;
+}
+
+export interface LegalTaxBlockResult {
+  block: LegalTaxBlockKey;
+  label: string;
+  total: number;
+  nonControleCount: number;
+  conformeCount: number;
+  reserveCount: number;
+  items: LegalTaxItemResult[];
+}
+
+export interface LegalTaxValidationNeeded {
+  block: LegalTaxBlockKey;
+  blockLabel: string;
+  itemKey: string;
+  label: string;
+  professional: LegalTaxProfessional;
+  notes: string | null;
+}
+
+export interface LegalTaxDdSummary {
+  blocks: LegalTaxBlockResult[];
+  validationNeeded: LegalTaxValidationNeeded[];
+}

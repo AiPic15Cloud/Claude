@@ -2260,6 +2260,7 @@ model FractionalProject {
   dataRoomItemStatuses FractionalDataRoomItemStatus[]
   esgAssessment        FractionalEsgAssessment?
   technicalAssessments FractionalTechnicalAssessment[]
+  legalTaxItemStatuses FractionalLegalTaxItemStatus[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2475,6 +2476,45 @@ model FractionalTechnicalAssessment {
   @@unique([projectId, subBlock])
   @@index([projectId])
   @@map("fractional_technical_assessments")
+}
+
+enum FractionalLegalTaxItemStatusValue {
+  NON_CONTROLE
+  CONFORME
+  RESERVE
+}
+
+/// Legal, Planning & Tax DD Engine (spec V3.1 §13) — registre fermé des SEULS
+/// sous-blocs non déjà couverts ailleurs dans Atlas (legal-tax-dd.util.ts) :
+/// Titre → Data Room bloc TITLE_LEGAL, Environnement → Data Room +
+/// Technical DD sous-bloc ENVIRONNEMENT, Baux → lease-legal-review.util.ts,
+/// Assurance → Technical DD sous-bloc ASSURANCE. Dupliquer ces 4 blocs ici
+/// romprait le Single Source of Truth ; seuls Urbanisme/Fiscalité véhicule/
+/// Contentieux restent sans registre dédié. Statut à trois états (pas le
+/// vocabulaire OBTAINED/MISSING de la Data Room) : NON_CONTROLE (pas encore
+/// examiné, défaut implicite — Unknown ≠ Zero), CONFORME (examiné, sans
+/// réserve), RESERVE (examiné, réserve levée — signale automatiquement le
+/// type de professionnel requis via le registre fermé LEGAL_TAX_BLOCKS,
+/// jamais une simple case cochée).
+model FractionalLegalTaxItemStatus {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  block   String
+  itemKey String
+
+  status FractionalLegalTaxItemStatusValue
+  notes  String?
+
+  updatedById String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, block, itemKey])
+  @@index([projectId])
+  @@map("fractional_legal_tax_item_statuses")
 }
 
 /// Hypothèses Base/Bear/Severe/Custom versionnées (spec §0 "AssumptionSet",

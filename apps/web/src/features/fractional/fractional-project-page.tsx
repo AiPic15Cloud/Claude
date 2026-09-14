@@ -27,6 +27,7 @@ import { MarcheTab } from './components/marche-tab';
 import { MemoireTab } from './components/memoire-tab';
 import { DataRoomTab } from './components/data-room-tab';
 import { TechnicalDdTab } from './components/technical-dd-tab';
+import { LegalTaxDdTab } from './components/legal-tax-dd-tab';
 import { InvestmentMemoPrintSheet } from './components/investment-memo-print-sheet';
 
 const STATUSES: FractionalProjectStatus[] = ['ANALYSE', 'STRUCTURATION', 'VALIDATION_PLATEFORME', 'COLLECTE', 'ACQUISITION', 'EXPLOITATION', 'SORTIE', 'REFUSE', 'ABANDONNE'];
@@ -100,6 +101,7 @@ export function FractionalProjectPage() {
           <TabsTrigger value="fit">Fit</TabsTrigger>
           <TabsTrigger value="marche">Marché</TabsTrigger>
           <TabsTrigger value="data-room">Data Room</TabsTrigger>
+          <TabsTrigger value="legal-tax">Juridique & Fiscal</TabsTrigger>
           <TabsTrigger value="memoire">Mémoire</TabsTrigger>
         </TabsList>
 
@@ -149,6 +151,10 @@ export function FractionalProjectPage() {
 
         <TabsContent value="data-room">
           <DataRoomTab projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="legal-tax">
+          <LegalTaxDdTab projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="memoire">

@@ -13,13 +13,24 @@ import { EsgRiskController } from './esg-risk.controller';
 import { EsgRiskService } from './esg-risk.service';
 import { TechnicalDdController } from './technical-dd.controller';
 import { TechnicalDdService } from './technical-dd.service';
+import { LegalTaxDdController } from './legal-tax-dd.controller';
+import { LegalTaxDdService } from './legal-tax-dd.service';
 import { FractionalLegalAlertsService } from './fractional-legal-alerts.service';
 import { AlertsModule } from '../alerts/alerts.module';
 import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-marche.module';
 
 @Module({
   imports: [AlertsModule, IntelligenceMarcheModule],
-  controllers: [FractionalProjectsController, MarketDataController, FitScoringController, DataProvenanceController, DataRoomController, EsgRiskController, TechnicalDdController],
+  controllers: [
+    FractionalProjectsController,
+    MarketDataController,
+    FitScoringController,
+    DataProvenanceController,
+    DataRoomController,
+    EsgRiskController,
+    TechnicalDdController,
+    LegalTaxDdController,
+  ],
   providers: [
     FractionalProjectsService,
     MarketDataService,
@@ -28,6 +39,7 @@ import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-ma
     DataRoomService,
     EsgRiskService,
     TechnicalDdService,
+    LegalTaxDdService,
     FractionalLegalAlertsService,
   ],
 })

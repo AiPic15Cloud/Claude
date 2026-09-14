@@ -61,6 +61,9 @@ import type {
   TechnicalAssessmentResponse,
   TechnicalSubBlock,
   TechnicalTier,
+  LegalTaxDdSummary,
+  LegalTaxBlockKey,
+  LegalTaxItemStatusValue,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -926,6 +929,32 @@ export function useUpsertTechnicalAssessment(projectId: string) {
       api.put(`/fractional/projects/${projectId}/technical-dd/${subBlock}`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'technical-dd'] });
+    },
+  });
+}
+
+// ── Legal, Planning & Tax DD Engine (spec V3.1 §13) ─────────────────────────
+
+export function useFractionalLegalTaxDd(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'legal-tax-dd'],
+    queryFn: () => api.get<LegalTaxDdSummary>(`/fractional/projects/${projectId}/legal-tax-dd`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export interface UpsertLegalTaxItemStatusPayload {
+  status: LegalTaxItemStatusValue;
+  notes?: string;
+}
+
+export function useUpsertLegalTaxItemStatus(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ block, itemKey, payload }: { block: LegalTaxBlockKey; itemKey: string; payload: UpsertLegalTaxItemStatusPayload }) =>
+      api.put(`/fractional/projects/${projectId}/legal-tax-dd/${block}/${itemKey}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'legal-tax-dd'] });
     },
   });
 }
