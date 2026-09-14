@@ -54,6 +54,10 @@ import type {
   DataRoomCompletenessResult,
   DataRoomBlockKey,
   DataRoomItemStatusValue,
+  EsgRiskProfileResponse,
+  DpeClass,
+  EsgEquipmentTier,
+  EsgPhysicalRiskTier,
 } from '@/types';
 
 export function useFractionalProjects() {
@@ -862,6 +866,36 @@ export function useUpsertDataRoomItemStatus(projectId: string) {
       api.put(`/fractional/projects/${projectId}/data-room/${block}/${itemKey}`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'data-room', 'completeness'] });
+    },
+  });
+}
+
+// ── ESG, Energy & Obsolescence Risk Engine (spec V3.1 §12) ─────────────────
+
+export function useFractionalEsgRiskProfile(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'esg-risk'],
+    queryFn: () => api.get<EsgRiskProfileResponse>(`/fractional/projects/${projectId}/esg-risk`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export interface UpsertEsgAssessmentPayload {
+  dpeClass?: DpeClass;
+  consumptionKwhM2An?: number;
+  decreeTertiaireSubject?: boolean;
+  equipmentConditionTier?: EsgEquipmentTier;
+  physicalRiskExposure?: EsgPhysicalRiskTier;
+  greenLeaseClauses?: boolean;
+  notes?: string;
+}
+
+export function useUpsertEsgAssessment(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpsertEsgAssessmentPayload) => api.put(`/fractional/projects/${projectId}/esg-risk`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'esg-risk'] });
     },
   });
 }

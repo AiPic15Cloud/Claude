@@ -2258,6 +2258,7 @@ model FractionalProject {
   scoreAssessments     FractionalScoreAssessment[]
   dataProvenance       FractionalDataProvenance[]
   dataRoomItemStatuses FractionalDataRoomItemStatus[]
+  esgAssessment        FractionalEsgAssessment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2366,6 +2367,64 @@ model FractionalDataRoomItemStatus {
   @@unique([projectId, block, itemKey])
   @@index([projectId])
   @@map("fractional_data_room_item_statuses")
+}
+
+enum FractionalDpeClass {
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+}
+
+enum FractionalEsgEquipmentTier {
+  NEUF
+  BON
+  VETUSTE
+  OBSOLETE
+}
+
+enum FractionalEsgPhysicalRiskTier {
+  FAIBLE
+  MODERE
+  ELEVE
+}
+
+/// ESG, Energy & Obsolescence Risk Engine (spec V3.1 §12) — un seul
+/// enregistrement par dossier (contrairement à FractionalDataRoomItemStatus
+/// qui a une ligne par pièce), car chaque dimension ESG est évaluée une fois
+/// pour l'actif entier. Champs volontairement nullables sans défaut implicite
+/// (sauf booléens factuels type decreeTertiaireSubject/greenLeaseClauses,
+/// affirmativement cochés par l'analyste) : esg-risk.util.ts ne devine jamais
+/// une classe DPE ou un niveau d'obsolescence absent, il le signale comme
+/// non évalué plutôt que de l'assimiler à "sans risque" (Unknown ≠ Zero).
+/// Distinct des champs esg* du modèle Deal (dette privée) qui sont
+/// volontairement informatifs sans impact calculatoire — ici au contraire
+/// l'ESG est relié à un impact CAPEX/valorisation chiffré, conformément à
+/// l'exigence explicite de la spec ("pas un score décoratif").
+model FractionalEsgAssessment {
+  id        String            @id @default(cuid())
+  projectId String            @unique
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  dpeClass               FractionalDpeClass?
+  consumptionKwhM2An     Decimal?            @db.Decimal(8, 2)
+  decreeTertiaireSubject Boolean             @default(false)
+
+  equipmentConditionTier FractionalEsgEquipmentTier?
+  physicalRiskExposure   FractionalEsgPhysicalRiskTier?
+  greenLeaseClauses      Boolean                        @default(false)
+
+  notes String?
+
+  updatedById String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("fractional_esg_assessments")
 }
 
 /// Hypothèses Base/Bear/Severe/Custom versionnées (spec §0 "AssumptionSet",

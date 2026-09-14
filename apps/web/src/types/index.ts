@@ -2592,3 +2592,56 @@ export interface DataRoomCompletenessResult {
   missingItems: DataRoomFlaggedItem[];
   inconsistentItems: DataRoomFlaggedItem[];
 }
+
+// ── ESG, Energy & Obsolescence Risk Engine (spec V3.1 §12) ──────────────────
+
+export type DpeClass = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
+export const DPE_CLASS_VALUES: DpeClass[] = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+export type EsgEquipmentTier = 'NEUF' | 'BON' | 'VETUSTE' | 'OBSOLETE';
+export const ESG_EQUIPMENT_TIER_LABELS: Record<EsgEquipmentTier, string> = {
+  NEUF: 'Neuf',
+  BON: 'Bon état',
+  VETUSTE: 'Vétuste',
+  OBSOLETE: 'Obsolète',
+};
+
+export type EsgPhysicalRiskTier = 'FAIBLE' | 'MODERE' | 'ELEVE';
+export const ESG_PHYSICAL_RISK_TIER_LABELS: Record<EsgPhysicalRiskTier, string> = {
+  FAIBLE: 'Faible',
+  MODERE: 'Modéré',
+  ELEVE: 'Élevé',
+};
+
+export interface FractionalEsgAssessment {
+  id: string;
+  projectId: string;
+  dpeClass: DpeClass | null;
+  consumptionKwhM2An: number | null;
+  decreeTertiaireSubject: boolean;
+  equipmentConditionTier: EsgEquipmentTier | null;
+  physicalRiskExposure: EsgPhysicalRiskTier | null;
+  greenLeaseClauses: boolean;
+  notes: string | null;
+  updatedById: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface EsgRiskProfileResult {
+  dpeClassKnown: boolean;
+  capexToComplyPerM2: number | null;
+  capexToComplyTotal: number | null;
+  capexToCompetePerM2: number | null;
+  capexToCompeteTotal: number | null;
+  strandedAssetPremiumPct: number;
+  equipmentObsolescencePremiumPct: number;
+  physicalRiskPremiumPct: number;
+  totalValuationImpactPts: number;
+}
+
+export interface EsgRiskProfileResponse {
+  assessment: FractionalEsgAssessment | null;
+  surfaceM2: number | null;
+  profile: EsgRiskProfileResult;
+}

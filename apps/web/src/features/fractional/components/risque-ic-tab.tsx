@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { useFractionalStressTests, useFractionalICRecommendation, useCreateICDecision, useFractionalTenantReplacementCost } from '../hooks/use-fractional';
 import { STRESS_SCENARIO_LABELS, IC_DECISION_STATUS_LABELS, type FractionalICDecision, type FractionalAssumptionSet, type TenantReplacementCostBreakdown } from '@/types';
 import { AssumptionsCard } from './assumptions-card';
+import { EsgRiskCard } from './esg-risk-card';
 
 const IC_STATUS_VARIANT = {
   APPROVE: 'success',
@@ -157,6 +158,8 @@ export function RisqueIcTab({ projectId, icDecisions, assumptionSets }: { projec
       </Card>
 
       <TenantReplacementCostCard projectId={projectId} />
+
+      <EsgRiskCard projectId={projectId} />
 
       <Card>
         <CardHeader className="pb-3">
