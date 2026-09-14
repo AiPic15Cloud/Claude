@@ -2494,6 +2494,45 @@ export type CapRateBuildUpResponse =
   | { status: 'TEC10_MISSING' }
   | { status: 'OK'; tec10Source: 'OVERRIDE' | 'LIVE'; tec10AsOf: string | null; entry: CapRateComparisonResult; exit: CapRateComparisonResult };
 
+export type ExitYieldScenario = 'BASE' | 'BEAR' | 'SEVERE';
+export const EXIT_YIELD_SCENARIO_LABELS: Record<ExitYieldScenario, string> = { BASE: 'Base', BEAR: 'Bear', SEVERE: 'Severe' };
+
+export interface ExitYieldScenarioResult {
+  scenario: ExitYieldScenario;
+  exitYieldPct: number;
+  impliedExitValueEur: number | null;
+  valueDeltaEur: number | null;
+  valueDeltaPct: number | null;
+}
+
+export interface CapRateSensitivityPoint {
+  deltaBps: number;
+  exitYieldPct: number;
+  impliedExitValueEur: number | null;
+  valueDeltaEur: number | null;
+  valueDeltaPct: number | null;
+}
+
+export interface NoiSensitivityPoint {
+  noiDeltaPct: number;
+  noiEur: number;
+  impliedExitValueEur: number | null;
+  valueDeltaEur: number | null;
+  valueDeltaPct: number | null;
+}
+
+export type ExitYieldResponse =
+  | { status: 'NOT_QUALIFIED' }
+  | { status: 'TEC10_MISSING' }
+  | {
+      status: 'OK';
+      entryYieldPct: number;
+      marketYieldPct: number | null;
+      scenarios: ExitYieldScenarioResult[];
+      capRateSensitivity: CapRateSensitivityPoint[];
+      noiSensitivity: NoiSensitivityPoint[];
+    };
+
 export type TvaRegime = 'NON_ASSUJETTI' | 'MARGE' | 'PRIX_TOTAL_OPTION_LOYERS';
 export const TVA_REGIME_LABELS: Record<TvaRegime, string> = {
   NON_ASSUJETTI: 'Non assujetti',

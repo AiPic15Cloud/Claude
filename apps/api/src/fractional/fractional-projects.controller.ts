@@ -51,6 +51,11 @@ export class FractionalProjectsController {
     return this.service.getCapRateBuildUpForProject(id, user);
   }
 
+  @Get(':id/exit-yield')
+  exitYield(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.getExitYieldEngineForProject(id, user);
+  }
+
   @Get(':id/rental-reversion')
   rentalReversion(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.service.getRentalReversionForProject(id, user);

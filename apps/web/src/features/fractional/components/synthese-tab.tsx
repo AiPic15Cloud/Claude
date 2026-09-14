@@ -2,9 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-import { useFractionalCapRateBuildUp, useFractionalDataConfidence, useFractionalRentalReversion } from '../hooks/use-fractional';
+import { useFractionalCapRateBuildUp, useFractionalDataConfidence, useFractionalExitYield, useFractionalRentalReversion } from '../hooks/use-fractional';
 import {
   ELIGIBILITY_VERDICT_LABELS,
+  EXIT_YIELD_SCENARIO_LABELS,
   IC_DECISION_STATUS_LABELS,
   type CapRateComparisonResult,
   type FractionalSynthese,
@@ -77,6 +78,124 @@ function CapRateBuildUpCard({ projectId }: { projectId: string }) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <CapRateBreakdown label="Entrée" result={data.entry} />
               <CapRateBreakdown label="Sortie" result={data.exit} />
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExitYieldCard({ projectId }: { projectId: string }) {
+  const { data } = useFractionalExitYield(projectId);
+  if (!data || data.status === 'NOT_QUALIFIED') return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Exit Yield Engine (spec V3.1 §11.1)</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {data.status === 'TEC10_MISSING' ? (
+          <p className="text-sm text-warning">
+            TEC10 (taux OAT 10 ans) indisponible — ni override saisi (onglet Hypothèses), ni taux live en base. L'Exit Yield Engine ne peut pas être calculé
+            (dépend du Cap Rate Build-Up).
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">
+              La valeur de sortie n'est jamais une donnée brute : elle est reconstruite depuis un yield de sortie explicite, décliné en trois scénarios
+              nommés — jamais une valeur unique sans dire à quel taux elle correspond.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+              <YieldStat label="Entry Yield" value={pct(data.entryYieldPct)} hint="Yield réellement payé à l'acquisition" />
+              <YieldStat
+                label="Market Yield"
+                value={data.marketYieldPct !== null ? pct(data.marketYieldPct) : '—'}
+                hint={data.marketYieldPct !== null ? 'Médiane des comparables VENTE de la commune' : 'Aucun comparable VENTE avec yield pour cette commune'}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Scénario</TableHead>
+                    <TableHead>Exit Yield</TableHead>
+                    <TableHead>Valeur de sortie impliquée</TableHead>
+                    <TableHead>Value Delta €</TableHead>
+                    <TableHead>Value Delta %</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.scenarios.map((s) => (
+                    <TableRow key={s.scenario}>
+                      <TableCell>{EXIT_YIELD_SCENARIO_LABELS[s.scenario]}</TableCell>
+                      <TableCell>{pct(s.exitYieldPct)}</TableCell>
+                      <TableCell>{s.impliedExitValueEur !== null ? formatCurrency(s.impliedExitValueEur) : '—'}</TableCell>
+                      <TableCell className={s.valueDeltaEur !== null && s.valueDeltaEur < 0 ? 'text-warning' : undefined}>
+                        {s.valueDeltaEur !== null ? `${s.valueDeltaEur >= 0 ? '+' : ''}${formatCurrency(s.valueDeltaEur)}` : '—'}
+                      </TableCell>
+                      <TableCell className={s.valueDeltaPct !== null && s.valueDeltaPct < 0 ? 'text-warning' : undefined}>
+                        {s.valueDeltaPct !== null ? `${s.valueDeltaPct >= 0 ? '+' : ''}${s.valueDeltaPct.toFixed(1)} %` : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Sensibilité au taux de capitalisation (Base ± pts de base)</p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Δ (pts)</TableHead>
+                        <TableHead>Yield</TableHead>
+                        <TableHead>Value Delta %</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.capRateSensitivity.map((p) => (
+                        <TableRow key={p.deltaBps} className={p.deltaBps === 0 ? 'font-medium' : undefined}>
+                          <TableCell>
+                            {p.deltaBps >= 0 ? '+' : ''}
+                            {p.deltaBps}
+                          </TableCell>
+                          <TableCell>{pct(p.exitYieldPct)}</TableCell>
+                          <TableCell>{p.valueDeltaPct !== null ? `${p.valueDeltaPct >= 0 ? '+' : ''}${p.valueDeltaPct.toFixed(1)} %` : '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Sensibilité au NOI (Base ± %, exit yield inchangé)</p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Δ NOI</TableHead>
+                        <TableHead>NOI</TableHead>
+                        <TableHead>Value Delta %</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.noiSensitivity.map((p) => (
+                        <TableRow key={p.noiDeltaPct} className={p.noiDeltaPct === 0 ? 'font-medium' : undefined}>
+                          <TableCell>
+                            {p.noiDeltaPct >= 0 ? '+' : ''}
+                            {p.noiDeltaPct} %
+                          </TableCell>
+                          <TableCell>{formatCurrency(p.noiEur)}</TableCell>
+                          <TableCell>{p.valueDeltaPct !== null ? `${p.valueDeltaPct >= 0 ? '+' : ''}${p.valueDeltaPct.toFixed(1)} %` : '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -246,6 +365,8 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
       <RentalReversionCard projectId={projectId} />
 
       <CapRateBuildUpCard projectId={projectId} />
+
+      <ExitYieldCard projectId={projectId} />
 
       {reverseSolver && (
         <Card>

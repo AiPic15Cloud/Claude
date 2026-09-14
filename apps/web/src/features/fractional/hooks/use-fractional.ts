@@ -49,6 +49,7 @@ import type {
   ProvenanceConfidence,
   TvaRegime,
   CapRateBuildUpResponse,
+  ExitYieldResponse,
   PortfolioReversionResult,
   TenantReplacementCostResponse,
   DataRoomCompletenessResult,
@@ -830,6 +831,14 @@ export function useFractionalCapRateBuildUp(projectId: string | null) {
   return useQuery({
     queryKey: ['fractional', 'projects', projectId, 'cap-rate-build-up'],
     queryFn: () => api.get<CapRateBuildUpResponse>(`/fractional/projects/${projectId}/cap-rate-build-up`),
+    enabled: Boolean(projectId),
+  });
+}
+
+export function useFractionalExitYield(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'exit-yield'],
+    queryFn: () => api.get<ExitYieldResponse>(`/fractional/projects/${projectId}/exit-yield`),
     enabled: Boolean(projectId),
   });
 }

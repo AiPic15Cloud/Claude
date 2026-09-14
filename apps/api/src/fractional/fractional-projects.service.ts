@@ -40,6 +40,8 @@ import { findComparables, type ComparableFeatures } from './comparable-engine.ut
 import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
 import { CreateProjectActualDto } from './dto/create-project-actual.dto';
 import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
+import { MarketDataService } from './market-data.service';
+import { computeExitYieldEngine, computeCapRateSensitivity, computeNoiSensitivity, median } from './exit-yield.util';
 
 interface DefaultAssumptionValues {
   holdPeriodYears: number;
@@ -94,6 +96,7 @@ export class FractionalProjectsService {
     private readonly prisma: PrismaService,
     private readonly dataProvenance: DataProvenanceService,
     private readonly marketIndicators: MarketIndicatorsService,
+    private readonly marketData: MarketDataService,
   ) {}
 
   // ── Projects ───────────────────────────────────────────────
@@ -774,6 +777,51 @@ export class FractionalProjectsService {
     const exit = compareToImpliedCapRate(exitBuildUp, impliedExitYieldPct);
 
     return { status: 'OK' as const, tec10Source: tec10.source, tec10AsOf: tec10.asOf, entry, exit };
+  }
+
+  // ── Exit Yield Engine (spec V3.1 §11.1) ─────────────────────
+
+  /**
+   * Réutilise le Cap Rate Build-Up (getCapRateBuildUpForProject ci-dessus) —
+   * mêmes prérequis (propertyCondition/locationTier/marketDepth + TEC10),
+   * mêmes statuts NOT_QUALIFIED/TEC10_MISSING, jamais une seconde
+   * implémentation de la logique de qualification. Entry Yield = yield
+   * réellement payé (entry.impliedCapRatePct) ; Base Exit Yield = hypothèse
+   * prospective Atlas (exit.buildUp.capRatePct), jamais dérivée de la
+   * valeur de sortie saisie par l'utilisateur ; Market Yield = médiane des
+   * comparables VENTE de la commune du projet, null si le pool est vide
+   * (Unknown ≠ Zero) — table MarketComparablePool partagée (patch V3.2 §2),
+   * jamais une valeur ressaisie par dossier.
+   */
+  async getExitYieldEngineForProject(projectId: string, user: AuthenticatedUser) {
+    const project = await this.findOne(projectId, user);
+    const capRateBuildUp = await this.getCapRateBuildUpForProject(projectId, user);
+    if (capRateBuildUp.status !== 'OK') return { status: capRateBuildUp.status };
+
+    const { baseInput } = await this.buildReturnsEngineInput(project, user.organizationId);
+    const baseResult = computeReturnsEngine(baseInput);
+    const lastYear = baseResult.yearlyModel[baseResult.yearlyModel.length - 1];
+    const lastYearNoi = lastYear?.noi ?? 0;
+    const acquisitionValueEur = baseResult.sourcesUsesResult.coutActeEnMain;
+
+    const comparables = project.city ? await this.marketData.listMarketComparables(user, project.city) : [];
+    const saleYields = comparables.filter((c) => c.type === 'VENTE' && c.yieldPct !== null).map((c) => Number(c.yieldPct));
+    const marketYieldPct = median(saleYields);
+
+    const engine = computeExitYieldEngine({
+      entryYieldPct: capRateBuildUp.entry.impliedCapRatePct,
+      marketYieldPct,
+      baseExitYieldPct: capRateBuildUp.exit.buildUp.capRatePct,
+      lastYearNoi,
+      acquisitionValueEur,
+    });
+
+    return {
+      status: 'OK' as const,
+      ...engine,
+      capRateSensitivity: computeCapRateSensitivity(engine.scenarios[0].exitYieldPct, lastYearNoi, acquisitionValueEur),
+      noiSensitivity: computeNoiSensitivity(engine.scenarios[0].exitYieldPct, lastYearNoi, acquisitionValueEur),
+    };
   }
 
   // ── Rental Market & Rental Reversion Engine (spec V3.1 §9) ──
