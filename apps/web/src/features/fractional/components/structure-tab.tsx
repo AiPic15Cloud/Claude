@@ -19,6 +19,7 @@ import {
 } from '../hooks/use-fractional';
 import { FRACTIONAL_VALUATION_METHOD_LABELS, type FractionalProjectDetail, type FractionalValuationMethod, type FractionalCapexItem, type FractionalValuation } from '@/types';
 import { CreatePlatformProfileDialog } from './create-platform-profile-dialog';
+import { ProvenanceBadge } from './provenance-badge';
 
 const EMPTY_CAPEX_FORM = { annee: String(new Date().getFullYear() + 1), montant: '', nature: '' };
 const EMPTY_VALUATION_FORM: { method: FractionalValuationMethod; value: string; asOfDate: string } = {
@@ -150,7 +151,12 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                 {project.capexItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.annee}</TableCell>
-                    <TableCell>{formatCurrency(item.montant)}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5">
+                        {formatCurrency(item.montant)}
+                        <ProvenanceBadge entityType="CAPEX_ITEM" entityId={item.id} fieldKey="montant" label={`Montant CAPEX (${item.annee})`} />
+                      </span>
+                    </TableCell>
                     <TableCell>{item.nature}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -213,7 +219,12 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                 {project.valuations.map((v) => (
                   <TableRow key={v.id}>
                     <TableCell>{FRACTIONAL_VALUATION_METHOD_LABELS[v.method]}</TableCell>
-                    <TableCell>{formatCurrency(v.value)}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5">
+                        {formatCurrency(v.value)}
+                        <ProvenanceBadge entityType="VALUATION" entityId={v.id} fieldKey="value" label="Valeur de valorisation" />
+                      </span>
+                    </TableCell>
                     <TableCell>{formatDate(v.asOfDate)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

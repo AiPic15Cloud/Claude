@@ -24,6 +24,8 @@ export const CRITICAL_FIELD_KEYS_BY_ENTITY_TYPE: Record<string, { fieldKey: stri
     { fieldKey: 'dateTerme', label: 'Date de terme du bail' },
     { fieldKey: 'breakDates', label: 'Dates de break' },
   ],
+  CAPEX_ITEM: [{ fieldKey: 'montant', label: 'Montant CAPEX' }],
+  VALUATION: [{ fieldKey: 'value', label: 'Valeur de valorisation retenue' }],
 };
 
 export const FIELD_SCORE_TABLE: Record<FractionalProvenanceVerificationStatus, Record<FractionalProvenanceConfidence, number>> = {

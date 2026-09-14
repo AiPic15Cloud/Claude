@@ -1,4 +1,4 @@
-import { computeDataConfidence, type CriticalFieldRef, type ProvenanceRecordLike } from './data-confidence.util';
+import { CRITICAL_FIELD_KEYS_BY_ENTITY_TYPE, computeDataConfidence, type CriticalFieldRef, type ProvenanceRecordLike } from './data-confidence.util';
 
 const fields: CriticalFieldRef[] = [
   { entityType: 'PROJECT', entityId: 'p1', fieldKey: 'prixNetVendeur', label: 'Prix net vendeur' },
@@ -59,5 +59,20 @@ describe('computeDataConfidence', () => {
     const single = [fields[0]];
     const result = computeDataConfidence(single, [{ ...single[0], verificationStatus, confidence }]);
     expect(result.scorePct).toBe(expected);
+  });
+
+  it('registre CAPEX_ITEM et VALUATION (extension de la provenance, Complément H) integres au meme calcul', () => {
+    const extended: CriticalFieldRef[] = [
+      { entityType: 'CAPEX_ITEM', entityId: 'c1', fieldKey: CRITICAL_FIELD_KEYS_BY_ENTITY_TYPE.CAPEX_ITEM[0].fieldKey, label: 'Montant CAPEX (2027)' },
+      { entityType: 'VALUATION', entityId: 'v1', fieldKey: CRITICAL_FIELD_KEYS_BY_ENTITY_TYPE.VALUATION[0].fieldKey, label: 'Valeur de valorisation retenue' },
+    ];
+    const missing = computeDataConfidence(extended, []);
+    expect(missing.missingCount).toBe(2);
+    expect(missing.scorePct).toBe(0);
+
+    const sourced: ProvenanceRecordLike[] = extended.map((f) => ({ ...f, verificationStatus: 'VERIFIED', confidence: 'HIGH' }));
+    const verified = computeDataConfidence(extended, sourced);
+    expect(verified.scorePct).toBe(100);
+    expect(verified.missingCount).toBe(0);
   });
 });
