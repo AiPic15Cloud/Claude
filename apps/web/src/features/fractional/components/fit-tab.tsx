@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Settings2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
 import { useFractionalBareme, useFractionalLatestAssessment, useSubmitScoreAssessment } from '../hooks/use-fractional';
+import { BaremeEditor } from './bareme-editor';
 import { SCORE_TIER_VERDICT_LABELS, ELIMINATORY_OPERATOR_LABELS, ELIMINATORY_METRIC_LABELS, type ScoreTierVerdict } from '@/types';
 
 const VERDICT_VARIANT: Record<ScoreTierVerdict, 'success' | 'warning' | 'destructive'> = {
@@ -22,15 +24,16 @@ const VERDICT_VARIANT: Record<ScoreTierVerdict, 'success' | 'warning' | 'destruc
  * Onglet Fit (Complément H, points 1/8) — barème pondéré décomposable
  * jusqu'au dernier point + règles éliminatoires nommées, réconciliés en un
  * seul verdict (jamais deux verdicts non hiérarchisés côte à côte, cf. H.5).
- * Le barème lui-même (catégories/critères/buckets) est saisi côté
- * organisation via l'API fit-scoring — pas d'éditeur de barème ici, cet
- * onglet sert à noter un dossier avec le barème déjà défini.
+ * Le barème (catégories/critères/buckets/règles) est partagé au niveau
+ * organisation (comme RentIndexSeries) — l'éditeur repliable en tête de
+ * l'onglet le modifie pour tous les dossiers, pas seulement celui-ci.
  */
 export function FitTab({ projectId }: { projectId: string }) {
   const { data: bareme, isLoading: baremeLoading } = useFractionalBareme(projectId);
   const { data: latestAssessment, isLoading: assessmentLoading } = useFractionalLatestAssessment(projectId);
   const submitAssessment = useSubmitScoreAssessment(projectId);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const categories = bareme?.categories ?? [];
   const totalCriteria = categories.reduce((sum, c) => sum + c.criteria.length, 0);
@@ -42,12 +45,21 @@ export function FitTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => setEditorOpen((o) => !o)}>
+          <Settings2 className="h-4 w-4" />
+          {editorOpen ? 'Masquer l\'éditeur de barème' : 'Éditer le barème'}
+        </Button>
+      </div>
+
+      {editorOpen && <BaremeEditor />}
+
       {baremeLoading && <Skeleton className="h-64" />}
 
       {bareme && categories.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Aucun barème de scoring configuré pour ce type d'actif (ni de barème générique) — à définir via l'API fit-scoring.
+            Aucun barème de scoring configuré pour ce type d'actif (ni de barème générique) — utilisez « Éditer le barème » ci-dessus.
           </CardContent>
         </Card>
       )}

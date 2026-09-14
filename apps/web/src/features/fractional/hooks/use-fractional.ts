@@ -634,7 +634,13 @@ export function useCreateScoreCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateScoreCategoryPayload) => api.post<FractionalScoreCategory>('/fractional/fit-scoring/categories', payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] });
+      // Le barème résolu par projet (useFractionalBareme) vit sous une clé
+      // distincte par projectId — invalidée ici par prédicat pour que
+      // l'onglet Fit reflète immédiatement une édition du barème partagé.
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
@@ -642,7 +648,13 @@ export function useDeleteScoreCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/categories/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] });
+      // Le barème résolu par projet (useFractionalBareme) vit sous une clé
+      // distincte par projectId — invalidée ici par prédicat pour que
+      // l'onglet Fit reflète immédiatement une édition du barème partagé.
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
@@ -657,7 +669,13 @@ export function useCreateScoreCriterion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateScoreCriterionPayload) => api.post('/fractional/fit-scoring/criteria', payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] });
+      // Le barème résolu par projet (useFractionalBareme) vit sous une clé
+      // distincte par projectId — invalidée ici par prédicat pour que
+      // l'onglet Fit reflète immédiatement une édition du barème partagé.
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
@@ -665,7 +683,13 @@ export function useDeleteScoreCriterion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/criteria/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] });
+      // Le barème résolu par projet (useFractionalBareme) vit sous une clé
+      // distincte par projectId — invalidée ici par prédicat pour que
+      // l'onglet Fit reflète immédiatement une édition du barème partagé.
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
@@ -681,7 +705,13 @@ export function useCreateScoreBucket() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateScoreBucketPayload) => api.post('/fractional/fit-scoring/buckets', payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] });
+      // Le barème résolu par projet (useFractionalBareme) vit sous une clé
+      // distincte par projectId — invalidée ici par prédicat pour que
+      // l'onglet Fit reflète immédiatement une édition du barème partagé.
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
@@ -689,7 +719,13 @@ export function useDeleteScoreBucket() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/buckets/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'categories'] });
+      // Le barème résolu par projet (useFractionalBareme) vit sous une clé
+      // distincte par projectId — invalidée ici par prédicat pour que
+      // l'onglet Fit reflète immédiatement une édition du barème partagé.
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
@@ -716,7 +752,10 @@ export function useCreateEliminatoryRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateEliminatoryRulePayload) => api.post<FractionalEliminatoryRule>('/fractional/fit-scoring/eliminatory-rules', payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules'] });
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
@@ -724,7 +763,10 @@ export function useDeleteEliminatoryRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/fractional/fit-scoring/eliminatory-rules/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'fit-scoring', 'eliminatory-rules'] });
+      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('bareme') });
+    },
   });
 }
 
