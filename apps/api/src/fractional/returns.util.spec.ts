@@ -158,3 +158,47 @@ describe('computeReturnsEngine', () => {
     expect(result.equityMultiple!).toBeGreaterThan(0);
   });
 });
+
+describe('computeReturnsEngine — Total Return & Yield Dependency (spec §15)', () => {
+  it('sans croissance des loyers ni plus-value a la sortie, la performance provient uniquement des loyers', () => {
+    const result = computeReturnsEngine(makeBaseInput({ rentGrowthPctPerYear: 0, exitValue: 1000000 }));
+    expect(result.yieldDependency.indexationContributionEur).toBeCloseTo(0, 4);
+    expect(result.yieldDependency.resaleContributionEur).toBeCloseTo(0, 4);
+    expect(result.yieldDependency.rentSharePct!).toBeCloseTo(100, 4);
+    expect(result.capitalReturnPct).toBeCloseTo(0, 6);
+    expect(result.totalReturnPct).toBeCloseTo(result.incomeReturnPct, 6);
+  });
+
+  it('la croissance des loyers alimente indexationContributionEur, positif si les loyers augmentent', () => {
+    const result = computeReturnsEngine(makeBaseInput({ rentGrowthPctPerYear: 3, exitValue: 1000000 }));
+    expect(result.yieldDependency.indexationContributionEur).toBeGreaterThan(0);
+    expect(result.yieldDependency.indexationSharePct!).toBeGreaterThan(0);
+  });
+
+  it('une plus-value a la sortie alimente resaleContributionEur et capitalReturnPct, hors retour du capital lui-meme', () => {
+    const result = computeReturnsEngine(makeBaseInput({ rentGrowthPctPerYear: 0, exitValue: 1300000, sellingCostsPct: 0 }));
+    // capitalGainShareInvestorPct=100 et sellingCostsPct=0 => tout le gain (300000) revient a l'investisseur
+    expect(result.yieldDependency.resaleContributionEur).toBeCloseTo(300000, 4);
+    expect(result.capitalReturnPct).toBeCloseTo(30, 4); // 300000 / 1000000 collecte
+  });
+
+  it('les trois parts de yieldDependency somment a 100% quand la performance totale est positive', () => {
+    const result = computeReturnsEngine(makeBaseInput({ rentGrowthPctPerYear: 2, exitValue: 1200000 }));
+    const sum = result.yieldDependency.rentSharePct! + result.yieldDependency.indexationSharePct! + result.yieldDependency.resaleSharePct!;
+    expect(sum).toBeCloseTo(100, 4);
+  });
+
+  it('yieldDependency ne fabrique jamais de part en % quand la performance totale n\'est pas positive (Unknown != Zero)', () => {
+    // Loyer nul, pas de plus-value : performance totale nulle ou negative.
+    const result = computeReturnsEngine(makeBaseInput({ rentGrowthPctPerYear: 0, exitValue: 1000000 }, { loyerFacialAnnuel: 0 }));
+    expect(result.yieldDependency.totalPerformanceEur).toBeLessThanOrEqual(0);
+    expect(result.yieldDependency.rentSharePct).toBeNull();
+    expect(result.yieldDependency.indexationSharePct).toBeNull();
+    expect(result.yieldDependency.resaleSharePct).toBeNull();
+  });
+
+  it('totalReturnPct est toujours la somme d\'incomeReturnPct et capitalReturnPct', () => {
+    const result = computeReturnsEngine(makeBaseInput({ rentGrowthPctPerYear: 1.5, exitValue: 1100000 }));
+    expect(result.totalReturnPct).toBeCloseTo(result.incomeReturnPct + result.capitalReturnPct, 8);
+  });
+});

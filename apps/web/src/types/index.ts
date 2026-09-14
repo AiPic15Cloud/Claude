@@ -1873,6 +1873,18 @@ export interface FractionalReturnsResult {
   equityMultiple: number | null;
   /** Écart de TRI (pts) imputable au seul décalage de trésorerie TVA (tva-cashflow.util.ts) — null si aucun régime PRIX_TOTAL_OPTION_LOYERS n'est modélisé. */
   irrImpactFromTvaTimingPts: number | null;
+  incomeReturnPct: number;
+  capitalReturnPct: number;
+  totalReturnPct: number;
+  yieldDependency: {
+    rentContributionEur: number;
+    indexationContributionEur: number;
+    resaleContributionEur: number;
+    totalPerformanceEur: number;
+    rentSharePct: number | null;
+    indexationSharePct: number | null;
+    resaleSharePct: number | null;
+  };
 }
 
 export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE';

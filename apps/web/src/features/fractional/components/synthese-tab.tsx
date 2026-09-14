@@ -189,6 +189,35 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
               hint="Décalage de trésorerie TVA (H.3) — sans effet sur l'equity multiple"
             />
           )}
+          <YieldStat label="Total Return" value={pct(base.totalReturnPct)} hint="Cumulé sur l'horizon de détention, non annualisé — Income Return + Capital Return" />
+          <YieldStat label="Income Return" value={pct(base.incomeReturnPct)} hint="Distributions cumulées / capital investi" />
+          <YieldStat label="Capital Return" value={pct(base.capitalReturnPct)} hint="Gain de capital part investisseur / capital investi, hors retour du capital lui-même" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Yield Dependency</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-xs text-muted-foreground">
+            D'où vient la performance totale ({formatCurrency(base.yieldDependency.totalPerformanceEur)}) : loyers, indexation, ou revente.
+          </p>
+          {base.yieldDependency.totalPerformanceEur > 0 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <YieldStat label="Loyers" value={pct(base.yieldDependency.rentSharePct, 1)} hint={formatCurrency(base.yieldDependency.rentContributionEur)} />
+              <YieldStat
+                label="Indexation"
+                value={pct(base.yieldDependency.indexationSharePct, 1)}
+                hint={formatCurrency(base.yieldDependency.indexationContributionEur)}
+              />
+              <YieldStat label="Revente" value={pct(base.yieldDependency.resaleSharePct, 1)} hint={formatCurrency(base.yieldDependency.resaleContributionEur)} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Performance totale nulle ou négative sur ce scénario — la répartition par source n'est pas significative.
+            </p>
+          )}
         </CardContent>
       </Card>
 

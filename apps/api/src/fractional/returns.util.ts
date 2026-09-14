@@ -53,6 +53,27 @@ export interface ReturnsEngineInput {
   tva?: { regimeTva: TvaRegime; tauxPct: number | null; recuperationDelaiMois: number | null };
 }
 
+/**
+ * Yield Dependency (spec §15) : décompose la performance investisseur totale
+ * (distributions + revente, hors retour du capital investi) en trois
+ * sources nommées — jamais un ratio composite opaque. rentContributionEur
+ * prend l'année 1 comme référence "loyer plat" (sans indexation) projetée
+ * sur tout l'horizon ; indexationContributionEur est le solde apporté par
+ * la croissance des loyers (peut être négatif si le Break Event Engine
+ * dégrade la trajectoire) ; resaleContributionEur est le seul gain de
+ * capital part investisseur, hors retour du capital lui-même.
+ */
+export interface YieldDependencyBreakdown {
+  rentContributionEur: number;
+  indexationContributionEur: number;
+  resaleContributionEur: number;
+  totalPerformanceEur: number;
+  /** null si totalPerformanceEur <= 0 — une part de "dépendance" n'a pas de sens sur une performance nulle ou négative (Unknown ≠ Zero). */
+  rentSharePct: number | null;
+  indexationSharePct: number | null;
+  resaleSharePct: number | null;
+}
+
 export interface ReturnsEngineResult {
   sourcesUsesResult: SourcesUsesResult;
   leaseSecurity: LeaseSecurityResult;
@@ -71,6 +92,12 @@ export interface ReturnsEngineResult {
   breakScenario: BreakScenario;
   /** Écart de TRI (points) imputable au seul décalage de trésorerie TVA — null si aucun régime PRIX_TOTAL_OPTION_LOYERS n'est modélisé. Négatif = le décalage dégrade le TRI. */
   irrImpactFromTvaTimingPts: number | null;
+
+  /** Total Return (spec §15) = Income Return + Capital Return, cumulés sur tout l'horizon de détention (non annualisés — même convention que equityMultiple). */
+  incomeReturnPct: number;
+  capitalReturnPct: number;
+  totalReturnPct: number;
+  yieldDependency: YieldDependencyBreakdown;
 }
 
 export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineResult {
@@ -164,8 +191,27 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
   const irr = tvaEvents.length > 0 ? computeXirr(cashFlows) : irrBeforeTva;
   const irrImpactFromTvaTimingPts = tvaEvents.length > 0 && irr !== null && irrBeforeTva !== null ? (irr - irrBeforeTva) * 100 : null;
 
-  const totalDistributions = yearlyModel.reduce((sum, y) => sum + y.investorDistribution, 0) + terminalProceeds.investorTerminalProceeds;
+  const cumulativeDistributions = yearlyModel.reduce((sum, y) => sum + y.investorDistribution, 0);
+  const totalDistributions = cumulativeDistributions + terminalProceeds.investorTerminalProceeds;
   const equityMultiple = collecte > 0 ? totalDistributions / collecte : null;
+
+  // Yield Dependency / Total Return (spec §15) — décomposition de la performance, jamais un ratio opaque.
+  const returnOfCapital = Math.min(collecte, terminalProceeds.netSaleProceeds);
+  const resaleContributionEur = terminalProceeds.investorTerminalProceeds - returnOfCapital;
+  const rentContributionEur = year1 ? year1.investorDistribution * input.holdPeriodYears : 0;
+  const indexationContributionEur = cumulativeDistributions - rentContributionEur;
+  const totalPerformanceEur = rentContributionEur + indexationContributionEur + resaleContributionEur;
+  const yieldDependency: YieldDependencyBreakdown = {
+    rentContributionEur,
+    indexationContributionEur,
+    resaleContributionEur,
+    totalPerformanceEur,
+    rentSharePct: totalPerformanceEur > 0 ? (rentContributionEur / totalPerformanceEur) * 100 : null,
+    indexationSharePct: totalPerformanceEur > 0 ? (indexationContributionEur / totalPerformanceEur) * 100 : null,
+    resaleSharePct: totalPerformanceEur > 0 ? (resaleContributionEur / totalPerformanceEur) * 100 : null,
+  };
+  const incomeReturnPct = collecte > 0 ? (cumulativeDistributions / collecte) * 100 : 0;
+  const capitalReturnPct = collecte > 0 ? (resaleContributionEur / collecte) * 100 : 0;
 
   return {
     sourcesUsesResult,
@@ -182,5 +228,9 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
     equityMultiple,
     breakScenario,
     irrImpactFromTvaTimingPts,
+    incomeReturnPct,
+    capitalReturnPct,
+    totalReturnPct: incomeReturnPct + capitalReturnPct,
+    yieldDependency,
   };
 }
