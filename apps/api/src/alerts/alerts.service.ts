@@ -25,7 +25,15 @@ export class AlertsService {
 
   async create(
     organizationId: string,
-    data: { title: string; message: string; severity?: AlertSeverity; dealId?: string; articleId?: string; fractionalProjectId?: string },
+    data: {
+      title: string;
+      message: string;
+      severity?: AlertSeverity;
+      dealId?: string;
+      articleId?: string;
+      fractionalProjectId?: string;
+      projectObservationEventId?: string;
+    },
   ) {
     const alert = await this.prisma.alert.create({
       data: {
@@ -36,6 +44,7 @@ export class AlertsService {
         dealId: data.dealId,
         articleId: data.articleId,
         fractionalProjectId: data.fractionalProjectId,
+        projectObservationEventId: data.projectObservationEventId,
       },
     });
 

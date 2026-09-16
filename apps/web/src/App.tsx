@@ -15,7 +15,7 @@ import { PlatformsPage } from '@/features/intelligence-concurrentielle/platforms
 import { GraphPage } from '@/features/knowledge-graph/graph-page';
 import { RepertoirePage } from '@/features/repertoire/repertoire-page';
 import { MarchePage } from '@/features/intelligence-marche/marche-page';
-import { MarketObservationsPage } from '@/features/market-observations/market-observations-page';
+import { CrowdfundingWatchPage } from '@/features/crowdfunding-watch/crowdfunding-watch-page';
 import { AgentsPage } from '@/features/agents/agents-page';
 import { ProfilePage } from '@/features/auth/profile-page';
 import { FractionalPortfolioPage } from '@/features/fractional/fractional-portfolio-page';
@@ -46,7 +46,7 @@ export default function App() {
           <Route path="/competitors" element={<PlatformsPage />} />
           <Route path="/repertoire" element={<RepertoirePage />} />
           <Route path="/market" element={<MarchePage />} />
-          <Route path="/market-observations" element={<MarketObservationsPage />} />
+          <Route path="/crowdfunding-watch" element={<CrowdfundingWatchPage />} />
           <Route path="/ai" element={<AgentsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>

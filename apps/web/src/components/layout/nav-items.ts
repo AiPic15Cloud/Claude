@@ -33,7 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Répertoire', path: '/repertoire', icon: BookUser },
   { label: 'Marché', path: '/market', icon: Globe2 },
   { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar },
-  { label: 'Observations marché', path: '/market-observations', icon: Radio },
+  { label: 'Veille crowdfunding', path: '/crowdfunding-watch', icon: Radio },
   { label: 'Cartographie', path: '/map', icon: MapIcon },
   { label: 'Knowledge Graph', path: '/graph', icon: Network },
   { label: 'Agents IA', path: '/ai', icon: Bot },

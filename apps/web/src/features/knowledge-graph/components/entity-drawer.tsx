@@ -9,6 +9,7 @@ import { CreateEntityDialog } from './create-entity-dialog';
 import { CreateRelationshipDialog } from './create-relationship-dialog';
 import { CompetitorProjectsPanel } from '@/features/intelligence-concurrentielle/components/competitor-projects-panel';
 import { PlatformStatsPanel } from '@/features/intelligence-concurrentielle/components/platform-stats-panel';
+import { AssociatedCrowdfundingPanel } from '@/features/crowdfunding-watch/components/associated-crowdfunding-panel';
 import type { PlatformMetadata } from '@/features/intelligence-concurrentielle/platform-metadata';
 import { DEAL_ENTITY_ROLE_LABELS, GRAPH_ENTITY_TYPE_LABELS, LEGAL_EVENT_TYPE_LABELS, RELATIONSHIP_COVERAGE_LABELS } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -89,6 +90,11 @@ export function EntityDrawer({ entityId, onClose }: EntityDrawerProps) {
                   </div>
                 </>
               )}
+
+              <div>
+                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Collectes externes associées</h3>
+                <AssociatedCrowdfundingPanel entityId={entity.id} />
+              </div>
 
               <div>
                 <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">

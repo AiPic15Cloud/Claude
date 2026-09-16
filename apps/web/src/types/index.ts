@@ -1496,7 +1496,7 @@ export interface SourceCoverage {
   summary: { total: number; operational: number; degraded: number; broken: number };
 }
 
-/** Pilote Market Intelligence Engine (spec ATLAS v2, C.1-C.3) — observation automatisée d'un projet individuel sur une source pilote. */
+/** Veille crowdfunding (spec ATLAS v2, C.1-C.9 + spec Lot 1) — évolution du pilote Market Intelligence Engine. */
 export type ProjectObservationStatus = 'A_VENIR' | 'EN_COLLECTE' | 'CLOTURE' | 'RETIRE';
 
 export const PROJECT_OBSERVATION_STATUS_LABELS: Record<ProjectObservationStatus, string> = {
@@ -1506,10 +1506,73 @@ export const PROJECT_OBSERVATION_STATUS_LABELS: Record<ProjectObservationStatus,
   RETIRE: 'Retiré',
 };
 
+export type CrowdfundingConnectorStatus = 'OPERATIONAL' | 'PARTIAL' | 'BLOCKED' | 'TO_BUILD';
+
+export const CROWDFUNDING_CONNECTOR_STATUS_LABELS: Record<CrowdfundingConnectorStatus, string> = {
+  OPERATIONAL: 'Opérationnel',
+  PARTIAL: 'Partiel',
+  BLOCKED: 'Bloqué',
+  TO_BUILD: 'À développer',
+};
+
+/** Registre extensible des plateformes (spec §1) — jamais présentée comme "opérationnelle" tant que connectorStatus ne l'est pas explicitement. */
+export interface CrowdfundingPlatform {
+  sourceKey: string;
+  label: string;
+  platformName: string;
+  country: string;
+  listingUrl: string | null;
+  accessMethod: string;
+  connectorStatus: CrowdfundingConnectorStatus;
+  authenticationRequiredForDocuments: boolean;
+  coverageNotes: string | null;
+  targetCheckFrequencySeconds: number;
+  effectiveCheckFrequencySeconds: number | null;
+  baselineCompletedAt: string | null;
+  registryEntry?: SourceRegistryEntry;
+}
+
+export type EntityLinkMatchType = 'DIRECT_ID' | 'DOCUMENTED' | 'POTENTIAL';
+export type EntityLinkConfidence = 'HIGH' | 'MEDIUM' | 'LOW';
+export type EntityLinkStatus = 'SUGGESTED' | 'CONFIRMED' | 'REJECTED';
+
+/** Indicateur 3-états du rapprochement porteur Atlas (spec §4) — "aucun lien" n'est jamais une certitude d'absence, seulement l'état d'un rapprochement déjà tenté. */
+export type AtlasLinkIndicator = 'confirme' | 'potentiel' | 'aucun_lien' | 'non_analyse';
+
+export function computeAtlasLinkIndicator(links: { status: EntityLinkStatus }[] | undefined, enrichedAt: string | null): AtlasLinkIndicator {
+  const active = (links ?? []).filter((l) => l.status !== 'REJECTED');
+  if (active.some((l) => l.status === 'CONFIRMED')) return 'confirme';
+  if (active.length > 0) return 'potentiel';
+  return enrichedAt ? 'aucun_lien' : 'non_analyse';
+}
+
+export const ATLAS_LINK_INDICATOR_LABELS: Record<AtlasLinkIndicator, string> = {
+  confirme: 'Porteur Atlas impliqué : confirmé',
+  potentiel: 'Porteur Atlas impliqué : potentiel',
+  aucun_lien: 'Aucun lien identifié',
+  non_analyse: 'Pas encore analysé',
+};
+
+export interface ProjectObservationEntityLink {
+  id: string;
+  organizationId: string;
+  observationId: string;
+  entityId: string;
+  matchType: EntityLinkMatchType;
+  confidence: EntityLinkConfidence;
+  status: EntityLinkStatus;
+  relationshipId: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  observation?: { id: string; projectName: string; projectUrl: string; sourceKey: string; status: ProjectObservationStatus };
+  entity?: { id: string; name: string; type: string };
+}
+
 export interface ProjectObservation {
   id: string;
   sourceKey: string;
-  platform: string;
   projectName: string;
   projectUrl: string;
   operatorRaw: string | null;
@@ -1521,14 +1584,26 @@ export interface ProjectObservation {
   mappingConfidence: string | null;
   location: string | null;
   status: ProjectObservationStatus;
+  publishedAt: string | null;
+  announcedOpeningAt: string | null;
+  effectiveOpeningAt: string | null;
+  firstDetectedAt: string;
+  lastCheckedAt: string | null;
+  lastSuccessAt: string | null;
+  isBaseline: boolean;
+  enrichedAt: string | null;
   observedAt: string;
   updatedAt: string;
+  platform?: { platformName: string; connectorStatus: CrowdfundingConnectorStatus };
+  /** Forme complète (id/matchType/entity) sur /observations/:id, forme allégée (status/confidence) sur /observations — computeAtlasLinkIndicator accepte les deux. */
+  entityLinks?: { id: string; matchType: EntityLinkMatchType; status: EntityLinkStatus; confidence: EntityLinkConfidence; entity?: { id: string; name: string; type: string } }[];
+  snapshots?: { id: string; data: Record<string, unknown>; observedAt: string }[];
 }
 
 export type MarketObservationEventType = 'PROJECT_DETECTED' | 'FUNDING_OPENED' | 'FUNDING_CLOSED' | 'PROJECT_REMOVED' | 'PROJECT_UPDATED';
 
 export const MARKET_OBSERVATION_EVENT_LABELS: Record<MarketObservationEventType, string> = {
-  PROJECT_DETECTED: 'Projet détecté',
+  PROJECT_DETECTED: 'Nouvelle collecte annoncée',
   FUNDING_OPENED: 'Collecte ouverte',
   FUNDING_CLOSED: 'Collecte clôturée',
   PROJECT_REMOVED: 'Projet retiré',
@@ -1544,6 +1619,8 @@ export interface MarketObservationEvent {
   previousStatus: ProjectObservationStatus | null;
   newStatus: ProjectObservationStatus | null;
   occurredAt: string;
+  isBaseline: boolean;
+  discoveredAlreadyOpen: boolean;
 }
 
 export interface NewsSource {

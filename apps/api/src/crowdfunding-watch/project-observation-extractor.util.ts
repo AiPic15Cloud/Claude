@@ -2,16 +2,21 @@ import type { RawObservationStatus, RawProjectObservation } from './project-obse
 
 /**
  * Extraction générique d'observations de projet depuis une page de listing
- * (spec ATLAS v2, C.3). Même réserve que market-price-extractor.util.ts
- * (C.8) : aucune des 5 pages pilotes n'a pu être observée depuis cet
- * environnement (accès direct bloqué par le proxy sortant, confirmé sur
- * plusieurs plateformes de crowdfunding immobilier). Un extracteur
+ * (spec ATLAS v2, C.3 ; spec Lot 1 §2 — dates séparées). Aucune des
+ * plateformes cibles n'a pu être observée depuis l'environnement de
+ * développement (accès direct bloqué par le proxy sortant). Un extracteur
  * "confiant" par site serait de l'invention — celui-ci reste générique
- * (JSON-LD standard SEO, puis technique RSC Next.js déjà éprouvée par
- * barometer.connector.ts, puis <script id="__NEXT_DATA__"> — le pattern
- * Next.js Pages Router, très répandu et distinct des chunks RSC de l'App
- * Router déjà couverts) et ne retourne jamais une observation inventée :
- * si aucun tableau plausible n'est trouvé, retourne un tableau vide.
+ * (JSON-LD standard SEO, puis technique RSC Next.js, puis
+ * <script id="__NEXT_DATA__">) et ne retourne jamais une observation
+ * inventée : si aucun tableau plausible n'est trouvé, retourne un tableau
+ * vide.
+ *
+ * Règle non négociable (spec §2) : `status` ne doit JAMAIS être dérivé
+ * d'une comparaison entre une date annoncée et l'heure courante — seulement
+ * d'un indicateur textuel explicite trouvé sur la source (normalizeStatus
+ * ci-dessous). Une date annoncée dépassée sans indicateur explicite reste
+ * A_VENIR (valeur par défaut prudente) plutôt que de devenir une fausse
+ * ouverture.
  */
 
 const MIN_PLAUSIBLE_AMOUNT = 1_000;
@@ -31,6 +36,13 @@ function stringField(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
+/** Best-effort — une date illisible reste null, jamais une supposition. */
+function dateField(value: unknown): Date | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function firstDefined(record: Record<string, unknown>, keys: string[]): unknown {
   for (const key of keys) {
     if (record[key] !== undefined && record[key] !== null) return record[key];
@@ -45,12 +57,13 @@ const STATUS_KEYWORDS: Record<RawObservationStatus, string[]> = {
   RETIRE: ['retire', 'retiré', 'annule', 'annulé', 'removed', 'withdrawn'],
 };
 
+/** Absence d'indicateur textuel reconnu → A_VENIR, jamais EN_COLLECTE : le silence de la source ne doit jamais se traduire par une ouverture inventée. */
 function normalizeStatus(raw: unknown): RawObservationStatus {
   const text = typeof raw === 'string' ? raw.toLowerCase() : '';
   for (const [status, keywords] of Object.entries(STATUS_KEYWORDS) as [RawObservationStatus, string[]][]) {
     if (keywords.some((k) => text.includes(k))) return status;
   }
-  return 'EN_COLLECTE';
+  return 'A_VENIR';
 }
 
 /** Devine les champs d'une observation à partir d'un objet de forme inconnue — plusieurs variantes de nom de clé, FR et EN. */
@@ -73,6 +86,8 @@ function mapCandidate(record: Record<string, unknown>): RawProjectObservation | 
     sourceCategory: stringField(firstDefined(record, ['category', 'type', 'segment', 'categorie', 'catégorie'])),
     location: stringField(firstDefined(record, ['location', 'city', 'ville', 'localisation', 'lieu'])),
     status: normalizeStatus(firstDefined(record, ['status', 'statut', 'state'])),
+    publishedAt: dateField(firstDefined(record, ['publishedAt', 'publishedDate', 'datePublication', 'createdAt'])),
+    announcedOpeningAt: dateField(firstDefined(record, ['openingDate', 'startDate', 'dateOuverture', 'launchDate'])),
   };
 }
 

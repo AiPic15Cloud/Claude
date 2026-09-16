@@ -31,7 +31,8 @@ import { PlaybooksModule } from './playbooks/playbooks.module';
 import { SourceRegistryModule } from './source-registry/source-registry.module';
 import { IntelligenceConcurrentielleModule } from './intelligence-concurrentielle/intelligence-concurrentielle.module';
 import { IntelligenceMarcheModule } from './intelligence-marche/intelligence-marche.module';
-import { MarketObservationsModule } from './market-observations/market-observations.module';
+import { CrowdfundingWatchModule } from './crowdfunding-watch/crowdfunding-watch.module';
+import { CrowdfundingWatchApiModule } from './crowdfunding-watch/crowdfunding-watch-api.module';
 import { AgentsModule } from './agents/agents.module';
 import { SearchModule } from './search/search.module';
 import { MarketTickerModule } from './market-ticker/market-ticker.module';
@@ -76,7 +77,8 @@ import { HealthController } from './health/health.controller';
     SourceRegistryModule,
     IntelligenceConcurrentielleModule,
     IntelligenceMarcheModule,
-    MarketObservationsModule,
+    CrowdfundingWatchModule,
+    CrowdfundingWatchApiModule,
     AgentsModule,
     SearchModule,
     MarketTickerModule,

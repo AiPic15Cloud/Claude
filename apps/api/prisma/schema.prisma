@@ -236,36 +236,37 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users              User[]
-  deals              Deal[]
-  tags               Tag[]
-  alerts             Alert[]
-  graphEntities      GraphEntity[]
-  graphRelations     GraphRelation[]
-  newsSources        NewsSource[]
-  articles           Article[]
-  feesTargets        FeesTarget[]
-  pipelineEntries    PipelineEntry[]
-  competitorProjects CompetitorProject[]
-  tasks              Task[]
-  fieldChanges       FieldChange[]
-  dataValidations    DataValidation[]
-  riskScoreSnapshots RiskScoreSnapshot[]
-  riskOverrides      RiskOverride[]
-  dealOverrides      DealOverride[]
-  entities           Entity[]
-  relationships      Relationship[]
-  playbookInstances  PlaybookInstance[]
-  economicGroups     EconomicGroup[]
-  legalEvents        LegalEvent[]
-  financialEvents    FinancialEvent[]
-  contagionSignals   ContagionSignal[]
-  fractionalProjects FractionalProject[]
-  platformProfiles   PlatformFractionalProfile[]
-  rentIndexSeries    RentIndexSeries[]
-  marketComparables  MarketComparablePool[]
-  scoreCategories    FractionalScoreCategory[]
-  eliminatoryRules   FractionalEliminatoryRule[]
+  users                  User[]
+  deals                  Deal[]
+  tags                   Tag[]
+  alerts                 Alert[]
+  graphEntities          GraphEntity[]
+  graphRelations         GraphRelation[]
+  newsSources            NewsSource[]
+  articles               Article[]
+  feesTargets            FeesTarget[]
+  pipelineEntries        PipelineEntry[]
+  competitorProjects     CompetitorProject[]
+  tasks                  Task[]
+  fieldChanges           FieldChange[]
+  dataValidations        DataValidation[]
+  riskScoreSnapshots     RiskScoreSnapshot[]
+  riskOverrides          RiskOverride[]
+  dealOverrides          DealOverride[]
+  entities               Entity[]
+  relationships          Relationship[]
+  playbookInstances      PlaybookInstance[]
+  economicGroups         EconomicGroup[]
+  legalEvents            LegalEvent[]
+  financialEvents        FinancialEvent[]
+  contagionSignals       ContagionSignal[]
+  fractionalProjects     FractionalProject[]
+  platformProfiles       PlatformFractionalProfile[]
+  rentIndexSeries        RentIndexSeries[]
+  marketComparables      MarketComparablePool[]
+  scoreCategories        FractionalScoreCategory[]
+  eliminatoryRules       FractionalEliminatoryRule[]
+  observationEntityLinks ProjectObservationEntityLink[]
 
   @@map("organizations")
 }
@@ -302,30 +303,31 @@ model User {
   twoFactorSecret        String?
   twoFactorRecoveryCodes String[] @default([])
 
-  createdDeals               Deal[]                @relation("DealCreatedBy")
-  assignedDeals              Deal[]                @relation("DealAssignedTo")
-  notes                      Note[]
-  documents                  Document[]
-  repayments                 Repayment[]
-  interestPayments           InterestPayment[]
-  loanExtensions             LoanExtension[]
-  pipelineEntries            PipelineEntry[]
-  tasksAssigned              Task[]                @relation("TaskAssignee")
-  tasksCreated               Task[]                @relation("TaskCreatedBy")
-  tasksCancelled             Task[]                @relation("TaskCancelledBy")
-  activities                 Activity[]
-  refreshTokens              RefreshToken[]
-  competitorProjectsLogged   CompetitorProject[]
-  projectCheckpointsRecorded ProjectCheckpoint[]
-  agentMessages              AgentMessage[]
-  pushSubscriptions          PushSubscription[]
-  fieldChanges               FieldChange[]
-  dataValidations            DataValidation[]
-  financialAssumptionsLocked FinancialAssumption[]
-  dealOverridesCreated       DealOverride[]        @relation("DealOverrideCreatedBy")
-  dealOverridesCleared       DealOverride[]        @relation("DealOverrideClearedBy")
-  relationshipEvidence       Evidence[]
-  fractionalProjectsCreated  FractionalProject[]
+  createdDeals                   Deal[]                         @relation("DealCreatedBy")
+  assignedDeals                  Deal[]                         @relation("DealAssignedTo")
+  notes                          Note[]
+  documents                      Document[]
+  repayments                     Repayment[]
+  interestPayments               InterestPayment[]
+  loanExtensions                 LoanExtension[]
+  pipelineEntries                PipelineEntry[]
+  tasksAssigned                  Task[]                         @relation("TaskAssignee")
+  tasksCreated                   Task[]                         @relation("TaskCreatedBy")
+  tasksCancelled                 Task[]                         @relation("TaskCancelledBy")
+  activities                     Activity[]
+  refreshTokens                  RefreshToken[]
+  competitorProjectsLogged       CompetitorProject[]
+  projectCheckpointsRecorded     ProjectCheckpoint[]
+  agentMessages                  AgentMessage[]
+  pushSubscriptions              PushSubscription[]
+  fieldChanges                   FieldChange[]
+  dataValidations                DataValidation[]
+  financialAssumptionsLocked     FinancialAssumption[]
+  dealOverridesCreated           DealOverride[]                 @relation("DealOverrideCreatedBy")
+  dealOverridesCleared           DealOverride[]                 @relation("DealOverrideClearedBy")
+  relationshipEvidence           Evidence[]
+  fractionalProjectsCreated      FractionalProject[]
+  observationEntityLinksReviewed ProjectObservationEntityLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1058,15 +1060,17 @@ model Activity {
 }
 
 model Alert {
-  id                  String             @id @default(cuid())
-  organizationId      String
-  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  dealId              String?
-  deal                Deal?              @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  articleId           String?
-  article             Article?           @relation(fields: [articleId], references: [id], onDelete: SetNull)
-  fractionalProjectId String?
-  fractionalProject   FractionalProject? @relation(fields: [fractionalProjectId], references: [id], onDelete: Cascade)
+  id                        String                   @id @default(cuid())
+  organizationId            String
+  organization              Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dealId                    String?
+  deal                      Deal?                    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  articleId                 String?
+  article                   Article?                 @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  fractionalProjectId       String?
+  fractionalProject         FractionalProject?       @relation(fields: [fractionalProjectId], references: [id], onDelete: Cascade)
+  projectObservationEventId String?
+  projectObservationEvent   ProjectObservationEvent? @relation(fields: [projectObservationEventId], references: [id], onDelete: SetNull)
 
   severity AlertSeverity @default(INFO)
   title    String
@@ -1409,12 +1413,13 @@ model Entity {
 
   identifiers       EntityIdentifier[]
   aliases           EntityAlias[]
-  relationshipsFrom Relationship[]        @relation("RelFrom")
-  relationshipsTo   Relationship[]        @relation("RelTo")
+  relationshipsFrom Relationship[]                 @relation("RelFrom")
+  relationshipsTo   Relationship[]                 @relation("RelTo")
   groupMemberships  EconomicGroupMember[]
   legalEvents       LegalEvent[]
   financialEvents   FinancialEvent[]
   contagionSignals  ContagionSignal[]
+  observationLinks  ProjectObservationEntityLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1528,8 +1533,9 @@ model Relationship {
   observedAt      DateTime?
   verifiedAt      DateTime?
 
-  evidence Evidence[]
-  events   RelationshipEvent[]
+  evidence         Evidence[]
+  events           RelationshipEvent[]
+  observationLinks ProjectObservationEntityLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1960,6 +1966,8 @@ model SourceRegistryEntry {
 
   updatedAt DateTime @updatedAt
 
+  crowdfundingPlatform CrowdfundingPlatform?
+
   @@map("source_registry_entries")
 }
 
@@ -2038,7 +2046,14 @@ model ArticleEntityLink {
   @@map("article_entity_links")
 }
 
-// ── Pilote Market Intelligence Engine (spec ATLAS v2, C.1-C.3) ─────────────
+// ── Crowdfunding Watch (spec ATLAS v2, C.1-C.9 + spec Lot 1 "Veille crowdfunding") ──
+//
+// Évolution du pilote Market Intelligence Engine (C.1-C.3, modèles conservés
+// et étendus en place — même identité (sourceKey, projectUrl), aucun
+// backfill requis) vers un module de production : registre de plateformes en
+// base (au lieu du tableau TS figé pilot-sources.config.ts), dates
+// annonce/ouverture séparées, règle "premier sync = état initial", et
+// rapprochement avec les entités Atlas via l'Entity Resolution Engine.
 
 enum ProjectObservationStatus {
   A_VENIR
@@ -2047,16 +2062,67 @@ enum ProjectObservationStatus {
   RETIRE
 }
 
+enum CrowdfundingConnectorStatus {
+  /// Vérifié contre une page/réponse réelle en production — jamais posé automatiquement.
+  OPERATIONAL
+  /// Code de collecte existant mais partiellement fiable ou jamais observé contre la source réelle.
+  PARTIAL
+  /// Accès refusé/restreint par la source — pas un problème de code.
+  BLOCKED
+  /// Enregistrement de registre créé, aucun connecteur écrit.
+  TO_BUILD
+}
+
+/// Registre extensible des plateformes de crowdfunding (spec §1 — "ajout de
+/// plateformes sans modification du cœur du système") : une ligne en base
+/// suffit à déclarer une nouvelle plateforme, le PlatformRegistryService la
+/// reconcilie automatiquement dans les jobs répétables de détection. 1:1
+/// avec SourceRegistryEntry (qui reste le registre générique de santé
+/// cross-fonctionnalités, partagé avec intelligence-marche et
+/// intelligence-concurrentielle) : CrowdfundingPlatform porte les champs
+/// spécifiques à ce module.
+model CrowdfundingPlatform {
+  sourceKey     String              @id
+  registryEntry SourceRegistryEntry @relation(fields: [sourceKey], references: [key], onDelete: Cascade)
+
+  label        String
+  platformName String
+  country      String  @default("FR")
+  /// Nullable : une plateforme "à développer" (spec §1) peut être déclarée dans le registre avant même qu'une URL de listing soit confirmée.
+  listingUrl   String?
+  accessMethod String  @default("scraping")
+
+  /// Déclaré par un humain après vérification — jamais promu automatiquement
+  /// par un cycle de synchronisation réussi (spec §1 : "ne jamais présenter
+  /// une plateforme comme surveillée si son connecteur n'est pas opérationnel").
+  connectorStatus                    CrowdfundingConnectorStatus @default(TO_BUILD)
+  authenticationRequiredForDocuments Boolean                     @default(false)
+  coverageNotes                      String?
+
+  /// Fréquence visée — jamais 60s par défaut sans preuve de tolérance réelle de la source (spec §2).
+  targetCheckFrequencySeconds    Int       @default(3600)
+  /// Intervalle moyen mesuré entre deux vérifications réussies — alimenté par le sync, jamais saisi manuellement.
+  effectiveCheckFrequencySeconds Int?
+  /// Posé une seule fois, à l'intérieur du verrou du tout premier cycle réussi — sert à ne jamais notifier rétroactivement l'historique.
+  baselineCompletedAt            DateTime?
+
+  observations ProjectObservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("crowdfunding_platforms")
+}
+
 /// Observation automatisée d'un projet individuel sur une plateforme externe
-/// (spec C.3) — distinct de CompetitorProject, qui est un constat manuel
-/// d'analyste sans flux automatisé (schema.prisma, voir CompetitorProject).
-/// Global, pas d'organizationId : une observation de marché est un fait
-/// externe, pas une donnée par tenant — même doctrine que
-/// SourceRegistryEntry.
+/// (spec C.3 + spec Lot 1 §2-3) — distinct de CompetitorProject, qui est un
+/// constat manuel d'analyste sans flux automatisé. Global, pas
+/// d'organizationId : une observation de marché est un fait externe, pas une
+/// donnée par tenant — même doctrine que SourceRegistryEntry.
 model ProjectObservation {
   id                String                   @id @default(cuid())
   sourceKey         String
-  platform          String
+  platform          CrowdfundingPlatform     @relation(fields: [sourceKey], references: [sourceKey], onDelete: Cascade)
   projectName       String
   projectUrl        String
   operatorRaw       String?
@@ -2070,13 +2136,32 @@ model ProjectObservation {
   mappingConfidence String?
   location          String?
   status            ProjectObservationStatus @default(EN_COLLECTE)
-  observedAt        DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
 
-  snapshots ProjectObservationSnapshot[]
+  /// Conservées séparément (spec §2) — aucune n'est dérivée d'une autre.
+  publishedAt        DateTime?
+  /// Date d'ouverture annoncée par la source — jamais traitée comme une preuve d'ouverture effective.
+  announcedOpeningAt DateTime?
+  /// Posée uniquement quand le connecteur trouve un indicateur explicite d'ouverture sur la source — jamais dérivée d'une date programmée dépassée.
+  effectiveOpeningAt DateTime?
+  /// Immuable — posée une seule fois à la création.
+  firstDetectedAt    DateTime  @default(now())
+  lastCheckedAt      DateTime?
+  /// Dernière vérification réussie pour CETTE observation — distinct du niveau plateforme (CrowdfundingPlatform via SourceRegistryEntry).
+  lastSuccessAt      DateTime?
+  /// Créée lors du tout premier sync réussi de sa plateforme — jamais notifiée (spec §2 : "état initial").
+  isBaseline         Boolean   @default(false)
+  /// Posée une fois le rapprochement d'entités passé pour toutes les organisations courantes — distingue "aucun lien identifié" de "pas encore analysé".
+  enrichedAt         DateTime?
+
+  observedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  snapshots   ProjectObservationSnapshot[]
+  entityLinks ProjectObservationEntityLink[]
 
   @@unique([sourceKey, projectUrl])
   @@index([sourceKey])
+  @@index([enrichedAt])
   @@map("project_observations")
 }
 
@@ -2109,8 +2194,79 @@ model ProjectObservationEvent {
   newStatus      ProjectObservationStatus?
   occurredAt     DateTime                   @default(now())
 
+  /// Événement du tout premier sync d'une plateforme — visible dans le flux, jamais notifié (spec §2).
+  isBaseline            Boolean   @default(false)
+  /// FUNDING_OPENED sans PROJECT_DETECTED préalable observé — déclenche une notification unique et explicitement flaguée (spec §2).
+  discoveredAlreadyOpen Boolean   @default(false)
+  /// Horodatage propre à la source, quand disponible — sert à mesurer le délai réel de détection (occurredAt - sourceObservedAt).
+  sourceObservedAt      DateTime?
+  /// Idempotence de la notification — posé par le NotificationProcessor, permet un sweep de reprise sans doublon.
+  notifiedAt            DateTime?
+
+  alerts Alert[]
+
   @@index([sourceKey])
   @@map("project_observation_events")
+}
+
+enum EntityLinkMatchType {
+  /// Correspondance directe par identifiant légal (SIREN) — auto-confirmée.
+  DIRECT_ID
+  /// Lien documenté par détention, contrôle ou direction.
+  DOCUMENTED
+  /// Correspondance potentielle nécessitant une validation manuelle — jamais fusionnée automatiquement.
+  POTENTIAL
+}
+
+enum EntityLinkConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum EntityLinkStatus {
+  SUGGESTED
+  CONFIRMED
+  REJECTED
+}
+
+/// File de rapprochement entre une observation de marché et une Entity Atlas
+/// (spec §4) — c'est à la fois la file de validation manuelle et
+/// l'enregistrement des liens confirmés. L'absence de toute ligne pour une
+/// observation dont `enrichedAt` est posé signifie "aucun lien identifié"
+/// (jamais une certitude d'absence de lien) ; l'absence de ligne avec
+/// `enrichedAt` nul signifie "pas encore analysé" — les deux cas ne doivent
+/// jamais être confondus à l'affichage.
+model ProjectObservationEntityLink {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  observationId  String
+  observation    ProjectObservation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  entityId       String
+  entity         Entity             @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  matchType  EntityLinkMatchType
+  confidence EntityLinkConfidence
+  status     EntityLinkStatus     @default(SUGGESTED)
+
+  /// Posé uniquement une fois confirmé — matérialise le lien dans le Knowledge Graph v2 (Relationship + Evidence DOCUMENTED).
+  relationshipId String?
+  relationship   Relationship? @relation(fields: [relationshipId], references: [id], onDelete: SetNull)
+
+  reviewedById    String?
+  reviewedBy      User?     @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  /// Idempotence de "l'alerte complémentaire unique si le rapprochement est confirmé après la première notification" (spec §6) — même doctrine que ProjectObservationEvent.notifiedAt.
+  notifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([observationId, organizationId, entityId])
+  @@index([organizationId, status])
+  @@map("project_observation_entity_links")
 }
 
 // ── Fractionné — Underwriting institutionnel (spec V3.0 + patch V3.2) ──────
