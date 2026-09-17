@@ -32,6 +32,16 @@ export default () => ({
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
     anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5',
   },
+  // Redis (Railway plugin déjà provisionné) — première utilisation réelle par
+  // Veille crowdfunding (spec Lot 1 §7, files BullMQ détection/enrichissement/
+  // notification). Pas de garde-fou "dégrade silencieusement" ici : sans
+  // REDIS_URL, BullModule échoue franchement au démarrage plutôt que de
+  // laisser un worker silencieusement inactif — mieux vaut un crash de
+  // déploiement visible qu'une surveillance qui semble tourner sans rien
+  // détecter.
+  redis: {
+    url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  },
   push: {
     // Web Push (VAPID) — degrades the same way as the Anthropic key: no
     // key configured means push sends are silently skipped, not an error.

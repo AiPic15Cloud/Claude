@@ -1496,7 +1496,7 @@ export interface SourceCoverage {
   summary: { total: number; operational: number; degraded: number; broken: number };
 }
 
-/** Pilote Market Intelligence Engine (spec ATLAS v2, C.1-C.3) — observation automatisée d'un projet individuel sur une source pilote. */
+/** Veille crowdfunding (spec ATLAS v2, C.1-C.9 + spec Lot 1) — évolution du pilote Market Intelligence Engine. */
 export type ProjectObservationStatus = 'A_VENIR' | 'EN_COLLECTE' | 'CLOTURE' | 'RETIRE';
 
 export const PROJECT_OBSERVATION_STATUS_LABELS: Record<ProjectObservationStatus, string> = {
@@ -1506,10 +1506,73 @@ export const PROJECT_OBSERVATION_STATUS_LABELS: Record<ProjectObservationStatus,
   RETIRE: 'Retiré',
 };
 
+export type CrowdfundingConnectorStatus = 'OPERATIONAL' | 'PARTIAL' | 'BLOCKED' | 'TO_BUILD';
+
+export const CROWDFUNDING_CONNECTOR_STATUS_LABELS: Record<CrowdfundingConnectorStatus, string> = {
+  OPERATIONAL: 'Opérationnel',
+  PARTIAL: 'Partiel',
+  BLOCKED: 'Bloqué',
+  TO_BUILD: 'À développer',
+};
+
+/** Registre extensible des plateformes (spec §1) — jamais présentée comme "opérationnelle" tant que connectorStatus ne l'est pas explicitement. */
+export interface CrowdfundingPlatform {
+  sourceKey: string;
+  label: string;
+  platformName: string;
+  country: string;
+  listingUrl: string | null;
+  accessMethod: string;
+  connectorStatus: CrowdfundingConnectorStatus;
+  authenticationRequiredForDocuments: boolean;
+  coverageNotes: string | null;
+  targetCheckFrequencySeconds: number;
+  effectiveCheckFrequencySeconds: number | null;
+  baselineCompletedAt: string | null;
+  registryEntry?: SourceRegistryEntry;
+}
+
+export type EntityLinkMatchType = 'DIRECT_ID' | 'DOCUMENTED' | 'POTENTIAL';
+export type EntityLinkConfidence = 'HIGH' | 'MEDIUM' | 'LOW';
+export type EntityLinkStatus = 'SUGGESTED' | 'CONFIRMED' | 'REJECTED';
+
+/** Indicateur 3-états du rapprochement porteur Atlas (spec §4) — "aucun lien" n'est jamais une certitude d'absence, seulement l'état d'un rapprochement déjà tenté. */
+export type AtlasLinkIndicator = 'confirme' | 'potentiel' | 'aucun_lien' | 'non_analyse';
+
+export function computeAtlasLinkIndicator(links: { status: EntityLinkStatus }[] | undefined, enrichedAt: string | null): AtlasLinkIndicator {
+  const active = (links ?? []).filter((l) => l.status !== 'REJECTED');
+  if (active.some((l) => l.status === 'CONFIRMED')) return 'confirme';
+  if (active.length > 0) return 'potentiel';
+  return enrichedAt ? 'aucun_lien' : 'non_analyse';
+}
+
+export const ATLAS_LINK_INDICATOR_LABELS: Record<AtlasLinkIndicator, string> = {
+  confirme: 'Porteur Atlas impliqué : confirmé',
+  potentiel: 'Porteur Atlas impliqué : potentiel',
+  aucun_lien: 'Aucun lien identifié',
+  non_analyse: 'Pas encore analysé',
+};
+
+export interface ProjectObservationEntityLink {
+  id: string;
+  organizationId: string;
+  observationId: string;
+  entityId: string;
+  matchType: EntityLinkMatchType;
+  confidence: EntityLinkConfidence;
+  status: EntityLinkStatus;
+  relationshipId: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  observation?: { id: string; projectName: string; projectUrl: string; sourceKey: string; status: ProjectObservationStatus };
+  entity?: { id: string; name: string; type: string };
+}
+
 export interface ProjectObservation {
   id: string;
   sourceKey: string;
-  platform: string;
   projectName: string;
   projectUrl: string;
   operatorRaw: string | null;
@@ -1521,14 +1584,26 @@ export interface ProjectObservation {
   mappingConfidence: string | null;
   location: string | null;
   status: ProjectObservationStatus;
+  publishedAt: string | null;
+  announcedOpeningAt: string | null;
+  effectiveOpeningAt: string | null;
+  firstDetectedAt: string;
+  lastCheckedAt: string | null;
+  lastSuccessAt: string | null;
+  isBaseline: boolean;
+  enrichedAt: string | null;
   observedAt: string;
   updatedAt: string;
+  platform?: { platformName: string; connectorStatus: CrowdfundingConnectorStatus };
+  /** Forme complète (id/matchType/entity) sur /observations/:id, forme allégée (status/confidence) sur /observations — computeAtlasLinkIndicator accepte les deux. */
+  entityLinks?: { id: string; matchType: EntityLinkMatchType; status: EntityLinkStatus; confidence: EntityLinkConfidence; entity?: { id: string; name: string; type: string } }[];
+  snapshots?: { id: string; data: Record<string, unknown>; observedAt: string }[];
 }
 
 export type MarketObservationEventType = 'PROJECT_DETECTED' | 'FUNDING_OPENED' | 'FUNDING_CLOSED' | 'PROJECT_REMOVED' | 'PROJECT_UPDATED';
 
 export const MARKET_OBSERVATION_EVENT_LABELS: Record<MarketObservationEventType, string> = {
-  PROJECT_DETECTED: 'Projet détecté',
+  PROJECT_DETECTED: 'Nouvelle collecte annoncée',
   FUNDING_OPENED: 'Collecte ouverte',
   FUNDING_CLOSED: 'Collecte clôturée',
   PROJECT_REMOVED: 'Projet retiré',
@@ -1544,6 +1619,8 @@ export interface MarketObservationEvent {
   previousStatus: ProjectObservationStatus | null;
   newStatus: ProjectObservationStatus | null;
   occurredAt: string;
+  isBaseline: boolean;
+  discoveredAlreadyOpen: boolean;
 }
 
 export interface NewsSource {
@@ -2802,4 +2879,422 @@ export interface LegalTaxValidationNeeded {
 export interface LegalTaxDdSummary {
   blocks: LegalTaxBlockResult[];
   validationNeeded: LegalTaxValidationNeeded[];
+}
+
+// ── Préqualification (spec ATLAS "Moteur de préqualification" v1.0, socle
+// P0) — sas d'analyse préparatoire avant qu'un dossier n'entre dans le
+// Portefeuille. Voir apps/api/src/prequalification/ pour le détail du
+// périmètre P0 livré et des sections différées (P1/P2, ex. étude de marché
+// automatisée, exposition groupe).
+
+export type PrequalificationStatus = 'DRAFT' | 'NEEDS_REVIEW' | 'VALIDATED' | 'ARCHIVED';
+export const PREQUALIFICATION_STATUS_LABELS: Record<PrequalificationStatus, string> = {
+  DRAFT: 'Brouillon',
+  NEEDS_REVIEW: 'À revoir',
+  VALIDATED: 'Validé',
+  ARCHIVED: 'Classé',
+};
+
+export type PrequalificationOrientation = 'GO' | 'GO_SOUS_CONDITIONS' | 'WAIT' | 'NO_GO_EN_L_ETAT';
+export const PREQUALIFICATION_ORIENTATION_LABELS: Record<PrequalificationOrientation, string> = {
+  GO: 'Go',
+  GO_SOUS_CONDITIONS: 'Go sous conditions',
+  WAIT: 'Wait',
+  NO_GO_EN_L_ETAT: "No-go en l'état",
+};
+
+export type PrequalificationConfidence = 'LOW' | 'MEDIUM' | 'HIGH';
+export const PREQUALIFICATION_CONFIDENCE_LABELS: Record<PrequalificationConfidence, string> = {
+  LOW: 'Faible',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Élevée',
+};
+
+export type PrequalificationProjectType =
+  | 'LAND_DIVISION'
+  | 'PROPERTY_TRADING_NO_WORKS'
+  | 'PROPERTY_TRADING_WITH_WORKS'
+  | 'BUILDING_DIVISION'
+  | 'RESIDENTIAL_DEVELOPMENT'
+  | 'COMMERCIAL_PROPERTY'
+  | 'REFINANCING'
+  | 'OTHER';
+export const PREQUALIFICATION_PROJECT_TYPE_LABELS: Record<PrequalificationProjectType, string> = {
+  LAND_DIVISION: 'Division foncière',
+  PROPERTY_TRADING_NO_WORKS: 'Marchand de biens sans travaux',
+  PROPERTY_TRADING_WITH_WORKS: 'Marchand de biens avec travaux',
+  BUILDING_DIVISION: 'Division d\'immeuble',
+  RESIDENTIAL_DEVELOPMENT: 'Promotion résidentielle',
+  COMMERCIAL_PROPERTY: 'Immobilier commercial',
+  REFINANCING: 'Refinancement',
+  OTHER: 'Autre',
+};
+
+export type EvidenceStatus =
+  | 'VERIFIED_OFFICIAL'
+  | 'VERIFIED_DOCUMENT'
+  | 'DECLARED_BY_OPERATOR'
+  | 'CALCULATED_BY_ATLAS'
+  | 'ANALYST_ASSESSMENT'
+  | 'MISSING'
+  | 'CONTRADICTORY';
+export const EVIDENCE_STATUS_LABELS: Record<EvidenceStatus, string> = {
+  VERIFIED_OFFICIAL: 'Vérifié (source officielle)',
+  VERIFIED_DOCUMENT: 'Vérifié (document)',
+  DECLARED_BY_OPERATOR: "Déclaré par l'opérateur",
+  CALCULATED_BY_ATLAS: 'Calculé par ATLAS',
+  ANALYST_ASSESSMENT: "Appréciation de l'analyste",
+  MISSING: 'Manquant',
+  CONTRADICTORY: 'Contradictoire',
+};
+
+export interface PrequalEvidence {
+  id: string;
+  prequalificationCaseId: string;
+  entityType: string;
+  entityId: string;
+  fieldKey: string;
+  status: EvidenceStatus;
+  sourceDocumentId?: string | null;
+  /** Auto-déclaré par le modèle lors de l'extraction — jamais une citation API vérifiée. */
+  sourcePage?: number | null;
+  sourceUrl?: string | null;
+  confidence?: number | null;
+  note?: string | null;
+  verifiedById?: string | null;
+  verifiedAt?: string | null;
+}
+
+export type PrequalPersonRole = 'PORTEUR_PRINCIPAL' | 'ASSOCIE' | 'DIRIGEANT' | 'GARANT' | 'AUTRE';
+export const PREQUAL_PERSON_ROLE_LABELS: Record<PrequalPersonRole, string> = {
+  PORTEUR_PRINCIPAL: 'Porteur principal',
+  ASSOCIE: 'Associé',
+  DIRIGEANT: 'Dirigeant',
+  GARANT: 'Garant',
+  AUTRE: 'Autre',
+};
+
+export interface PrequalTrackRecordEntry {
+  date?: string;
+  typology?: string;
+  amount?: number;
+  marginPct?: number;
+  outcome?: string;
+  actualRole?: string;
+}
+
+export interface PrequalPerson {
+  id: string;
+  prequalificationCaseId: string;
+  fullName: string;
+  role: PrequalPersonRole;
+  cv?: string | null;
+  trackRecord: PrequalTrackRecordEntry[];
+  declaredNetWorth?: number | null;
+  availableEquity?: number | null;
+  equityProofNote?: string | null;
+  ongoingDealsNote?: string | null;
+  incidentsNote?: string | null;
+  entityId?: string | null;
+}
+
+export type PrequalCompanyState = 'EXISTANTE' | 'A_CREER' | 'RADIEE' | 'INCONNUE';
+export const PREQUAL_COMPANY_STATE_LABELS: Record<PrequalCompanyState, string> = {
+  EXISTANTE: 'Existante',
+  A_CREER: 'À créer',
+  RADIEE: 'Radiée',
+  INCONNUE: 'Inconnue',
+};
+
+export type PrequalCompanyRole = 'OPERATEUR' | 'SOCIETE_PROJET' | 'HOLDING' | 'GARANTE' | 'ENTREPRISE_TRAVAUX' | 'AUTRE';
+export const PREQUAL_COMPANY_ROLE_LABELS: Record<PrequalCompanyRole, string> = {
+  OPERATEUR: 'Opérateur',
+  SOCIETE_PROJET: 'Société de projet',
+  HOLDING: 'Holding',
+  GARANTE: 'Garante',
+  ENTREPRISE_TRAVAUX: 'Entreprise de travaux',
+  AUTRE: 'Autre',
+};
+
+export interface PrequalExecutive {
+  name?: string;
+  role?: string;
+}
+
+export interface PrequalCompany {
+  id: string;
+  prequalificationCaseId: string;
+  legalName: string;
+  siren?: string | null;
+  legalForm?: string | null;
+  state: PrequalCompanyState;
+  role: PrequalCompanyRole;
+  executives: PrequalExecutive[];
+  accountsAvailable: boolean;
+  knownDebtNote?: string | null;
+  entityId?: string | null;
+}
+
+export type PrequalAcquisitionStatus = 'OFFRE' | 'PROMESSE' | 'ACTE' | 'PROPRIETE';
+export const PREQUAL_ACQUISITION_STATUS_LABELS: Record<PrequalAcquisitionStatus, string> = {
+  OFFRE: 'Offre',
+  PROMESSE: 'Promesse',
+  ACTE: 'Acte',
+  PROPRIETE: 'Propriété',
+};
+
+export interface PrequalCriticalDependency {
+  label?: string;
+  note?: string;
+}
+
+export interface PrequalProjectProfile {
+  id: string;
+  prequalificationCaseId: string;
+  address?: string | null;
+  cadastralRef?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  description?: string | null;
+  existingSurfaceSqm?: number | null;
+  createdSurfaceSqm?: number | null;
+  soldSurfaceSqm?: number | null;
+  lotCount?: number | null;
+  lotType?: string | null;
+  acquisitionStatus?: PrequalAcquisitionStatus | null;
+  conditionsPrecedent: string[];
+  acquisitionPrice?: number | null;
+  worksDescription?: string | null;
+  exitStrategy?: string | null;
+  interimRevenueNote?: string | null;
+  targetTimeline?: string | null;
+  criticalDependencies: PrequalCriticalDependency[];
+}
+
+export interface PrequalCostLineItem {
+  id: string;
+  prequalFinancialModelId: string;
+  category: string;
+  label: string;
+  amount: number;
+  sortOrder: number;
+}
+
+export interface PrequalFinancialModel {
+  id: string;
+  prequalificationCaseId: string;
+  amountRequested?: number | null;
+  declaredEquity?: number | null;
+  provenEquity?: number | null;
+  declaredMarginPct?: number | null;
+  declaredCoutDeRevient?: number | null;
+  declaredChiffreAffaires?: number | null;
+  landPrice?: number | null;
+  bankDebt?: number | null;
+  otherRevenueRetained?: number | null;
+  coutDeRevient?: number | null;
+  chiffreAffaires?: number | null;
+  margeRecalculee?: number | null;
+  margeRecalculeePct?: number | null;
+  besoinMaxFinancement?: number | null;
+  prixSortiePondere?: number | null;
+  pointMortAuM2?: number | null;
+  ltaPct?: number | null;
+  ltcPct?: number | null;
+  ltvPct?: number | null;
+  ratiosIncludeBankDebt: boolean;
+  costLineItems: PrequalCostLineItem[];
+}
+
+export type PrequalLotStatus = 'NOT_MARKETED' | 'MARKETED' | 'INTEREST' | 'OFFER' | 'RESERVATION' | 'PROMISE' | 'DEED';
+export const PREQUAL_LOT_STATUS_LABELS: Record<PrequalLotStatus, string> = {
+  NOT_MARKETED: 'Non commercialisé',
+  MARKETED: 'Commercialisé',
+  INTEREST: 'Intérêt marqué',
+  OFFER: 'Offre',
+  RESERVATION: 'Réservation',
+  PROMISE: 'Promesse',
+  DEED: 'Acte',
+};
+
+export interface PrequalSalesLot {
+  id: string;
+  prequalificationCaseId: string;
+  label: string;
+  assetType?: string | null;
+  surfaceSqm?: number | null;
+  askingPrice?: number | null;
+  expectedPrice?: number | null;
+  status: PrequalLotStatus;
+  conditionsPrecedent: string[];
+  buyerFinancingStatus?: string | null;
+  sortOrder: number;
+}
+
+export interface PrequalDependency {
+  label?: string;
+  note?: string;
+}
+
+export interface PrequalTimelineAssessment {
+  id: string;
+  prequalificationCaseId: string;
+  businessUrgencyNote?: string | null;
+  realisticTimeline?: string | null;
+  dependencies: PrequalDependency[];
+}
+
+export interface PrequalDocument {
+  id: string;
+  prequalificationCaseId: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  storageKey: string;
+  storageDriver: string;
+  classification?: string | null;
+  pageCount?: number | null;
+  uploadedById: string;
+  uploadedBy?: { id: string; firstName: string; lastName: string; avatarUrl?: string | null } | null;
+  createdAt: string;
+}
+
+export type FindingCategory = 'OPERATOR' | 'COMPANY' | 'FINANCIAL' | 'MARKET' | 'PLANNING' | 'COMMERCIALISATION' | 'WORKS' | 'LEGAL' | 'EXPOSURE';
+export const FINDING_CATEGORY_LABELS: Record<FindingCategory, string> = {
+  OPERATOR: 'Opérateur',
+  COMPANY: 'Société',
+  FINANCIAL: 'Financier',
+  MARKET: 'Marché',
+  PLANNING: 'Calendrier',
+  COMMERCIALISATION: 'Commercialisation',
+  WORKS: 'Travaux',
+  LEGAL: 'Juridique',
+  EXPOSURE: 'Exposition',
+};
+
+export type FindingSeverity = 'INFO' | 'POSITIVE' | 'WATCH' | 'MATERIAL' | 'BLOCKING';
+export const FINDING_SEVERITY_LABELS: Record<FindingSeverity, string> = {
+  INFO: 'Info',
+  POSITIVE: 'Point positif',
+  WATCH: 'À surveiller',
+  MATERIAL: 'Matériel',
+  BLOCKING: 'Bloquant',
+};
+
+export type FindingGeneratedBy = 'RULE' | 'MODEL' | 'ANALYST';
+export type FindingReviewStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'AMENDED';
+export const FINDING_REVIEW_STATUS_LABELS: Record<FindingReviewStatus, string> = {
+  PENDING: 'À statuer',
+  ACCEPTED: 'Accepté',
+  REJECTED: 'Rejeté',
+  AMENDED: 'Amendé',
+};
+
+export interface Finding {
+  id: string;
+  prequalificationCaseId: string;
+  category: FindingCategory;
+  severity: FindingSeverity;
+  statement: string;
+  rationale: string;
+  evidenceIds: string[];
+  ruleId?: string | null;
+  generatedBy: FindingGeneratedBy;
+  reviewStatus: FindingReviewStatus;
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+}
+
+export interface PrequalDecisiveQuestion {
+  id: string;
+  prequalificationCaseId: string;
+  question: string;
+  reason: string;
+  affectedFindingIds: string[];
+  answerCouldChangeOrientation: boolean;
+  priority: 'blocking' | 'decisive' | 'instruction' | 'comfort';
+  answer?: string | null;
+  answeredAt?: string | null;
+  createdAt: string;
+}
+
+export interface PrequalDocumentRequest {
+  id: string;
+  prequalificationCaseId: string;
+  label: string;
+  block: string;
+  status: 'requested' | 'received' | 'expired' | 'contradictory' | 'not_usable';
+  linkedDocumentId?: string | null;
+}
+
+export interface PrequalificationCase {
+  id: string;
+  organizationId: string;
+  name: string;
+  status: PrequalificationStatus;
+  orientation?: PrequalificationOrientation | null;
+  confidence?: PrequalificationConfidence | null;
+  projectType?: PrequalificationProjectType | null;
+  version: number;
+  entryChannel?: string | null;
+  introducer?: string | null;
+  assignedAnalystId: string;
+  assignedAnalyst?: { id: string; firstName: string; lastName: string } | null;
+  createdBy?: { id: string; firstName: string; lastName: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  validatedAt?: string | null;
+  promotedDealId?: string | null;
+  _count?: { findings: number; documents: number };
+}
+
+export interface PrequalificationCaseDetail extends PrequalificationCase {
+  people: PrequalPerson[];
+  companies: PrequalCompany[];
+  project: PrequalProjectProfile | null;
+  financial: PrequalFinancialModel | null;
+  planning: PrequalTimelineAssessment | null;
+  lots: PrequalSalesLot[];
+  documents: PrequalDocument[];
+  evidence: PrequalEvidence[];
+  findings: Finding[];
+  questions: PrequalDecisiveQuestion[];
+  requests: PrequalDocumentRequest[];
+}
+
+export interface PrequalPromotionResult {
+  prequalificationId: string;
+  portfolioProjectId: string | null;
+  stage: 'SOURCING' | null;
+  alreadyPromoted: boolean;
+}
+
+export interface PrequalExtractionResult {
+  project: {
+    address: string | null;
+    city: string | null;
+    postcode: string | null;
+    existingSurfaceSqm: number | null;
+    createdSurfaceSqm: number | null;
+    lotCount: number | null;
+    acquisitionPrice: number | null;
+    worksDescription: string | null;
+    sourcePage: number | null;
+  } | null;
+  financial: {
+    amountRequested: number | null;
+    declaredEquity: number | null;
+    declaredMarginPct: number | null;
+    declaredCoutDeRevient: number | null;
+    declaredChiffreAffaires: number | null;
+    sourcePage: number | null;
+  } | null;
+  costLineItems: { category: string; label: string; amount: number; sourcePage: number | null }[];
+  lots: { label: string; surfaceSqm: number | null; askingPrice: number | null; expectedPrice: number | null; sourcePage: number | null }[];
+  people: { fullName: string; role: string | null; sourcePage: number | null }[];
+  companies: { legalName: string; siren: string | null; sourcePage: number | null }[];
+  notes: string;
+  sourceDocumentId: string;
+  sourceDocumentName: string;
 }

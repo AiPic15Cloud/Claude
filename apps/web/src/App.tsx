@@ -15,11 +15,13 @@ import { PlatformsPage } from '@/features/intelligence-concurrentielle/platforms
 import { GraphPage } from '@/features/knowledge-graph/graph-page';
 import { RepertoirePage } from '@/features/repertoire/repertoire-page';
 import { MarchePage } from '@/features/intelligence-marche/marche-page';
-import { MarketObservationsPage } from '@/features/market-observations/market-observations-page';
+import { CrowdfundingWatchPage } from '@/features/crowdfunding-watch/crowdfunding-watch-page';
 import { AgentsPage } from '@/features/agents/agents-page';
 import { ProfilePage } from '@/features/auth/profile-page';
 import { FractionalPortfolioPage } from '@/features/fractional/fractional-portfolio-page';
 import { FractionalProjectPage } from '@/features/fractional/fractional-project-page';
+import { PrequalificationListPage } from '@/features/prequalification/prequalification-list-page';
+import { PrequalificationCasePage } from '@/features/prequalification/prequalification-case-page';
 
 export default function App() {
   return (
@@ -35,6 +37,8 @@ export default function App() {
           <Route path="/portfolio" element={<PortfolioPage />} />
           <Route path="/fractional" element={<FractionalPortfolioPage />} />
           <Route path="/fractional/:id" element={<FractionalProjectPage />} />
+          <Route path="/prequalification" element={<PrequalificationListPage />} />
+          <Route path="/prequalification/:id" element={<PrequalificationCasePage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
           <Route path="/objectifs" element={<ObjectifsPage />} />
           <Route path="/remboursements" element={<RemboursementsPage />} />
@@ -46,7 +50,7 @@ export default function App() {
           <Route path="/competitors" element={<PlatformsPage />} />
           <Route path="/repertoire" element={<RepertoirePage />} />
           <Route path="/market" element={<MarchePage />} />
-          <Route path="/market-observations" element={<MarketObservationsPage />} />
+          <Route path="/crowdfunding-watch" element={<CrowdfundingWatchPage />} />
           <Route path="/ai" element={<AgentsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
