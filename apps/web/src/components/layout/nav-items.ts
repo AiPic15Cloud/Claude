@@ -13,6 +13,7 @@ import {
   Radio,
   KanbanSquare,
   Building2,
+  ClipboardCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,6 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Cockpit', path: '/cockpit', icon: LayoutDashboard },
   { label: 'Portefeuille', path: '/portfolio', icon: Briefcase },
   { label: 'Fractionné', path: '/fractional', icon: Building2 },
+  { label: 'Préqual', path: '/prequalification', icon: ClipboardCheck },
   { label: 'Pipeline', path: '/pipeline', icon: GitBranch },
   { label: 'Objectifs', path: '/objectifs', icon: Target },
   { label: 'Remboursements', path: '/remboursements', icon: Wallet },

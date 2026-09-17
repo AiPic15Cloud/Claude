@@ -20,6 +20,8 @@ import { AgentsPage } from '@/features/agents/agents-page';
 import { ProfilePage } from '@/features/auth/profile-page';
 import { FractionalPortfolioPage } from '@/features/fractional/fractional-portfolio-page';
 import { FractionalProjectPage } from '@/features/fractional/fractional-project-page';
+import { PrequalificationListPage } from '@/features/prequalification/prequalification-list-page';
+import { PrequalificationCasePage } from '@/features/prequalification/prequalification-case-page';
 
 export default function App() {
   return (
@@ -35,6 +37,8 @@ export default function App() {
           <Route path="/portfolio" element={<PortfolioPage />} />
           <Route path="/fractional" element={<FractionalPortfolioPage />} />
           <Route path="/fractional/:id" element={<FractionalProjectPage />} />
+          <Route path="/prequalification" element={<PrequalificationListPage />} />
+          <Route path="/prequalification/:id" element={<PrequalificationCasePage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
           <Route path="/objectifs" element={<ObjectifsPage />} />
           <Route path="/remboursements" element={<RemboursementsPage />} />

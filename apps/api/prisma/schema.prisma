@@ -104,6 +104,7 @@ enum ActivityType {
   RISK_OVERRIDE_TRIGGERED
   ANALYST_OVERRIDE_SET
   STATUS_CHANGED
+  PREQUALIFICATION_PROMOTED
 }
 
 enum GuaranteeType {
@@ -267,6 +268,7 @@ model Organization {
   scoreCategories        FractionalScoreCategory[]
   eliminatoryRules       FractionalEliminatoryRule[]
   observationEntityLinks ProjectObservationEntityLink[]
+  prequalificationCases  PrequalificationCase[]
 
   @@map("organizations")
 }
@@ -328,6 +330,13 @@ model User {
   relationshipEvidence           Evidence[]
   fractionalProjectsCreated      FractionalProject[]
   observationEntityLinksReviewed ProjectObservationEntityLink[]
+  prequalCasesAssigned           PrequalificationCase[]         @relation("PrequalAssignedAnalyst")
+  prequalCasesCreated            PrequalificationCase[]         @relation("PrequalCreatedBy")
+  prequalCasesValidated          PrequalificationCase[]         @relation("PrequalValidatedBy")
+  prequalVersionsValidated       PrequalificationVersion[]
+  prequalDocumentsUploaded       PrequalDocument[]
+  prequalEvidenceVerified        PrequalEvidence[]
+  prequalFindingsReviewed        Finding[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -550,32 +559,37 @@ model Deal {
   assignedToId String?
   assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
 
-  tags                       DealTag[]
-  notes                      Note[]
-  documents                  Document[]
-  tasks                      Task[]
-  activities                 Activity[]
-  alerts                     Alert[]
-  guarantees                 Guarantee[]
-  costLineItems              CostLineItem[]
-  saleLots                   SaleLot[]
-  financialAssumption        FinancialAssumption?
-  entityLinks                DealEntityLink[]
-  repayments                 Repayment[]
-  interestPayments           InterestPayment[]
-  loanExtensions             LoanExtension[]
-  convertedFromPipelineEntry PipelineEntry?       @relation("PipelineConvertedDeal")
-  checkpoints                ProjectCheckpoint[]
-  agentMessages              AgentMessage[]
-  fieldChanges               FieldChange[]
-  dataValidations            DataValidation[]
-  riskScoreSnapshots         RiskScoreSnapshot[]
-  riskOverrides              RiskOverride[]
-  dealOverrides              DealOverride[]
+  tags                         DealTag[]
+  notes                        Note[]
+  documents                    Document[]
+  tasks                        Task[]
+  activities                   Activity[]
+  alerts                       Alert[]
+  guarantees                   Guarantee[]
+  costLineItems                CostLineItem[]
+  saleLots                     SaleLot[]
+  financialAssumption          FinancialAssumption?
+  entityLinks                  DealEntityLink[]
+  repayments                   Repayment[]
+  interestPayments             InterestPayment[]
+  loanExtensions               LoanExtension[]
+  convertedFromPipelineEntry   PipelineEntry?        @relation("PipelineConvertedDeal")
+  checkpoints                  ProjectCheckpoint[]
+  agentMessages                AgentMessage[]
+  fieldChanges                 FieldChange[]
+  dataValidations              DataValidation[]
+  riskScoreSnapshots           RiskScoreSnapshot[]
+  riskOverrides                RiskOverride[]
+  dealOverrides                DealOverride[]
   /// Entité miroir dans le Knowledge Graph (type OPERATION) — voir Entity.mirrorsDealId.
-  entityMirror               Entity?
-  playbookInstances          PlaybookInstance[]
-  contagionSignals           ContagionSignal[]
+  entityMirror                 Entity?
+  playbookInstances            PlaybookInstance[]
+  contagionSignals             ContagionSignal[]
+  milestones                   PortfolioMilestone[]
+  /// Back-relation de PrequalificationCase.promotedDeal — un Deal promu
+  /// depuis une préqualification pointe vers elle, jamais l'inverse dans
+  /// l'autre sens (une préqualification WAIT/NO_GO n'a jamais de Deal).
+  promotedFromPrequalification PrequalificationCase?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1420,6 +1434,8 @@ model Entity {
   financialEvents   FinancialEvent[]
   contagionSignals  ContagionSignal[]
   observationLinks  ProjectObservationEntityLink[]
+  prequalPeople     PrequalPerson[]
+  prequalCompanies  PrequalCompany[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3349,4 +3365,579 @@ model FractionalProjectOutcome {
   recordedAt DateTime @default(now())
 
   @@map("fractional_project_outcomes")
+}
+
+// ── Préqualification (spec ATLAS "Moteur de préqualification" v1.0, socle P0) ──
+//
+// Sas d'analyse préparatoire avant qu'un dossier n'entre dans le Portefeuille.
+// À la validation (GO / GO_SOUS_CONDITIONS), PromotionService crée un Deal
+// réel (stage: SOURCING) — il n'existe PAS de table "portfolio_projects"
+// séparée, Deal EST le Portefeuille (voir Deal.stage ci-dessus). Chaque champ
+// métier porte sa provenance via PrequalEvidence plutôt que par colonne dédiée
+// (des centaines de colonnes de provenance ne seraient pas praticables — même
+// doctrine de simplification que FractionalDataProvenance, mais un modèle
+// dédié : ce dernier a une FK dure vers FractionalProject et 3 axes différents
+// (sourceLevel/verificationStatus/confidence), non réutilisable tel quel ici).
+
+enum PrequalificationStatus {
+  DRAFT
+  NEEDS_REVIEW
+  VALIDATED
+  ARCHIVED
+}
+
+enum PrequalificationOrientation {
+  GO
+  GO_SOUS_CONDITIONS
+  WAIT
+  NO_GO_EN_L_ETAT
+}
+
+enum PrequalificationConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PrequalificationProjectType {
+  LAND_DIVISION
+  PROPERTY_TRADING_NO_WORKS
+  PROPERTY_TRADING_WITH_WORKS
+  BUILDING_DIVISION
+  RESIDENTIAL_DEVELOPMENT
+  COMMERCIAL_PROPERTY
+  REFINANCING
+  OTHER
+}
+
+/// Racine du dossier de préqualification. `version` sert à la fois de
+/// compteur de révision et de garde d'optimistic-concurrency pour la
+/// commande de validation (ValidatePrequalificationCommand.expectedVersion,
+/// spec §16.1) — aucun autre endroit du code ne fait ce genre de contrôle,
+/// c'est un mécanisme nouveau, propre à cette commande.
+model PrequalificationCase {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  status      PrequalificationStatus       @default(DRAFT)
+  orientation PrequalificationOrientation?
+  confidence  PrequalificationConfidence?
+  projectType PrequalificationProjectType?
+  version     Int                          @default(1)
+
+  entryChannel String?
+  introducer   String?
+
+  assignedAnalystId String
+  assignedAnalyst   User   @relation("PrequalAssignedAnalyst", fields: [assignedAnalystId], references: [id])
+
+  /// Snapshot dénormalisé de la synthèse "revue en 90 secondes" (spec §3) —
+  /// recalculé à chaque sauvegarde tant que le dossier n'est pas validé ;
+  /// jamais recalculé après figeage d'une version (voir PrequalificationVersion).
+  summary Json?
+
+  people    PrequalPerson[]
+  companies PrequalCompany[]
+  project   PrequalProjectProfile?
+  financial PrequalFinancialModel?
+  planning  PrequalTimelineAssessment?
+  lots      PrequalSalesLot[]
+  documents PrequalDocument[]
+  evidence  PrequalEvidence[]
+  findings  Finding[]
+  questions PrequalDecisiveQuestion[]
+  requests  PrequalDocumentRequest[]
+  versions  PrequalificationVersion[]
+
+  createdById String
+  createdBy   User   @relation("PrequalCreatedBy", fields: [createdById], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  validatedAt DateTime?
+
+  validatedById String?
+  validatedBy   User?   @relation("PrequalValidatedBy", fields: [validatedById], references: [id], onDelete: SetNull)
+
+  /// Posé une seule fois par PromotionService — garde-fou anti double
+  /// promotion (spec §16.1 : contrainte unique côté portefeuille) en plus du
+  /// contrôle applicatif de version ci-dessus. Un retry/double-clic après un
+  /// premier succès doit retourner le même Deal (`alreadyPromoted: true`),
+  /// jamais en créer un second.
+  promotedDealId        String? @unique
+  promotedDeal          Deal?   @relation(fields: [promotedDealId], references: [id])
+  /// Numéro de la PrequalificationVersion figée au moment de la promotion —
+  /// évite une requête de recherche du "dernier" numéro de version pour
+  /// retrouver le snapshot exact utilisé lors de la décision.
+  promotedVersionNumber Int?
+
+  @@index([organizationId, status])
+  @@map("prequalification_cases")
+}
+
+/// Immuable — un instantané JSON complet posé à chaque validation (spec §17 :
+/// "toute évolution crée une nouvelle version et conserve l'ancienne"). Le
+/// dossier Portefeuille créé à la promotion pointe vers cette version figée,
+/// jamais vers l'état courant, potentiellement modifiable, de la préqual.
+model PrequalificationVersion {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  versionNumber   Int
+  snapshot        Json
+  orientation     PrequalificationOrientation
+  decisionComment String
+
+  validatedById String
+  validatedBy   User     @relation(fields: [validatedById], references: [id])
+  validatedAt   DateTime @default(now())
+
+  @@unique([prequalificationCaseId, versionNumber])
+  @@map("prequalification_versions")
+}
+
+/// Statut de preuve d'une donnée (spec §4) — repris littéralement de l'enum
+/// EvidenceStatus de la spec, pas de la doctrine à 3 axes de
+/// FractionalDataProvenance (domaine différent, choix délibérément distinct).
+enum EvidenceStatus {
+  VERIFIED_OFFICIAL
+  VERIFIED_DOCUMENT
+  DECLARED_BY_OPERATOR
+  CALCULATED_BY_ATLAS
+  ANALYST_ASSESSMENT
+  MISSING
+  CONTRADICTORY
+}
+
+/// Provenance par champ (spec §4, SourcedValue<T>). `entityType` est une
+/// chaîne libre plutôt qu'un enum fermé — même doctrine que FieldChange
+/// .entityType — pour ne pas exiger de migration à chaque nouvelle sous-entité
+/// tracée (aujourd'hui : PROJECT / PERSON / COMPANY / FINANCIAL / LOT).
+model PrequalEvidence {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  entityType String
+  entityId   String
+  fieldKey   String
+  status     EvidenceStatus
+
+  sourceDocumentId String?
+  sourceDocument   PrequalDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  /// Numéro de page auto-déclaré par le modèle lors de l'extraction — une
+  /// estimation, jamais une citation API vérifiée (Anthropic `citations`
+  /// n'est pas câblé dans ce P0, voir document-content.util.ts). Ne jamais
+  /// afficher ce champ comme une preuve certaine côté UI.
+  sourcePage       Int?
+  sourceUrl        String?
+  confidence       Int?
+  note             String?
+
+  verifiedById String?
+  verifiedBy   User?     @relation(fields: [verifiedById], references: [id], onDelete: SetNull)
+  verifiedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([prequalificationCaseId, entityType, entityId, fieldKey])
+  @@index([prequalificationCaseId])
+  @@map("prequalification_evidence")
+}
+
+enum PrequalPersonRole {
+  PORTEUR_PRINCIPAL
+  ASSOCIE
+  DIRIGEANT
+  GARANT
+  AUTRE
+}
+
+model PrequalPerson {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  fullName String
+  role     PrequalPersonRole
+
+  cv               String?
+  /// Chaque élément : { date, typology, amount, marginPct, outcome, actualRole }
+  /// — jamais un simple compteur d'opérations, toujours le détail exploitable.
+  trackRecord      Json[]   @default([])
+  declaredNetWorth Decimal? @db.Decimal(14, 2)
+  availableEquity  Decimal? @db.Decimal(14, 2)
+  equityProofNote  String?
+  ongoingDealsNote String?
+  incidentsNote    String?
+
+  /// Rapprochement Knowledge Graph optionnel (EntityResolutionService,
+  /// type PERSON) — jamais auto-créé sans confirmation, voir doctrine
+  /// resolveCompany "aucune relation créée sur la seule similarité d'un nom".
+  entityId String?
+  entity   Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([prequalificationCaseId])
+  @@map("prequalification_people")
+}
+
+enum PrequalCompanyState {
+  EXISTANTE
+  A_CREER
+  RADIEE
+  INCONNUE
+}
+
+enum PrequalCompanyRole {
+  OPERATEUR
+  SOCIETE_PROJET
+  HOLDING
+  GARANTE
+  ENTREPRISE_TRAVAUX
+  AUTRE
+}
+
+model PrequalCompany {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  legalName String
+  siren     String?
+  legalForm String?
+  state     PrequalCompanyState @default(INCONNUE)
+  role      PrequalCompanyRole
+
+  /// [{ name, role }] — dirigeants/bénéficiaires accessibles légalement,
+  /// jamais déduits, toujours une déclaration ou une source citée via evidence.
+  executives        Json[]  @default([])
+  accountsAvailable Boolean @default(false)
+  knownDebtNote     String?
+
+  entityId String?
+  entity   Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([prequalificationCaseId])
+  @@map("prequalification_companies")
+}
+
+enum PrequalAcquisitionStatus {
+  OFFRE
+  PROMESSE
+  ACTE
+  PROPRIETE
+}
+
+model PrequalProjectProfile {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String               @unique
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  address            String?
+  cadastralRef       String?
+  city               String?
+  postcode           String?
+  description        String?
+  existingSurfaceSqm Decimal? @db.Decimal(10, 2)
+  createdSurfaceSqm  Decimal? @db.Decimal(10, 2)
+  soldSurfaceSqm     Decimal? @db.Decimal(10, 2)
+  lotCount           Int?
+  lotType            String?
+
+  acquisitionStatus   PrequalAcquisitionStatus?
+  conditionsPrecedent String[]                  @default([])
+  acquisitionPrice    Decimal?                  @db.Decimal(14, 2)
+
+  worksDescription   String?
+  exitStrategy       String?
+  interimRevenueNote String?
+  targetTimeline     String?
+
+  /// [{ label, note }] — ex. "acquisition préalable d'une parcelle communale".
+  criticalDependencies Json[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("prequalification_project_profiles")
+}
+
+model PrequalFinancialModel {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String               @unique
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  amountRequested         Decimal? @db.Decimal(14, 2)
+  declaredEquity          Decimal? @db.Decimal(14, 2)
+  provenEquity            Decimal? @db.Decimal(14, 2)
+  declaredMarginPct       Decimal? @db.Decimal(6, 3)
+  /// Version opérateur — pour comparaison explicite à la version ATLAS
+  /// recalculée ci-dessous (spec §15, point 8 : "version opérateur, version
+  /// ATLAS, écarts et sources"), jamais une simple confiance sur la marge
+  /// annoncée seule.
+  declaredCoutDeRevient   Decimal? @db.Decimal(14, 2)
+  declaredChiffreAffaires Decimal? @db.Decimal(14, 2)
+  landPrice               Decimal? @db.Decimal(14, 2) // pour le ratio LTA
+  bankDebt                Decimal? @db.Decimal(14, 2) // pour les ratios "avec dette bancaire" — voir ratiosIncludeBankDebt
+  /// Loyers/produits intermédiaires retenus pendant le portage (spec §9.2) — jamais un encaissement de stock résiduel.
+  otherRevenueRetained    Decimal? @db.Decimal(14, 2)
+
+  // Champs recalculés par prequal-financial.util.ts à chaque sauvegarde du
+  // bilan — jamais saisis directement, toujours dérivés des costLineItems/lots.
+  coutDeRevient        Decimal? @db.Decimal(14, 2)
+  chiffreAffaires      Decimal? @db.Decimal(14, 2)
+  margeRecalculee      Decimal? @db.Decimal(14, 2)
+  margeRecalculeePct   Decimal? @db.Decimal(6, 3)
+  besoinMaxFinancement Decimal? @db.Decimal(14, 2)
+  prixSortiePondere    Decimal? @db.Decimal(14, 2)
+  pointMortAuM2        Decimal? @db.Decimal(14, 2)
+
+  // Ratios LTA/LTC/LTV — numérateur/dénominateur et inclusion dette bancaire
+  // toujours affichés explicitement côté UI (spec §9.3), jamais un ratio nu.
+  ltaPct                Decimal? @db.Decimal(6, 3)
+  ltcPct                Decimal? @db.Decimal(6, 3)
+  ltvPct                Decimal? @db.Decimal(6, 3)
+  ratiosIncludeBankDebt Boolean  @default(false)
+
+  costLineItems PrequalCostLineItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("prequalification_financial_models")
+}
+
+/// Même forme que CostLineItem (category/label/amount/sortOrder) — permet une
+/// copie directe vers de vraies lignes CostLineItem à la promotion (spec §9.1).
+model PrequalCostLineItem {
+  id                      String                @id @default(cuid())
+  prequalFinancialModelId String
+  financialModel          PrequalFinancialModel @relation(fields: [prequalFinancialModelId], references: [id], onDelete: Cascade)
+
+  category  String
+  label     String
+  amount    Decimal @db.Decimal(14, 2)
+  sortOrder Int     @default(0)
+
+  @@index([prequalFinancialModelId])
+  @@map("prequalification_cost_line_items")
+}
+
+/// Même intention que SalesLot (spec §8) mais vocabulaire distinct de
+/// SaleLot.status (chaîne libre EN_VENTE/OFFRE/.../VENDU) : l'enum ci-dessous
+/// suit la spec littéralement (7 valeurs, avec not_marketed et interest qui
+/// n'ont pas d'équivalent dans SaleLot) — la promotion vers SaleLot applique
+/// un mapping explicite documenté dans promotion.service.ts, pas une
+/// coïncidence de nommage à ne pas supposer identique.
+enum PrequalLotStatus {
+  NOT_MARKETED
+  MARKETED
+  INTEREST
+  OFFER
+  RESERVATION
+  PROMISE
+  DEED
+}
+
+model PrequalSalesLot {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  label                String
+  assetType            String?
+  surfaceSqm           Decimal?         @db.Decimal(10, 2)
+  askingPrice          Decimal?         @db.Decimal(14, 2)
+  expectedPrice        Decimal?         @db.Decimal(14, 2)
+  status               PrequalLotStatus @default(NOT_MARKETED)
+  conditionsPrecedent  String[]         @default([])
+  buyerFinancingStatus String?
+  sortOrder            Int              @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([prequalificationCaseId])
+  @@map("prequalification_sales_lots")
+}
+
+model PrequalTimelineAssessment {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String               @unique
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  businessUrgencyNote String?
+  realisticTimeline   String?
+  /// [{ label, note }]
+  dependencies        Json[]  @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("prequalification_timeline_assessments")
+}
+
+model PrequalDocument {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  name           String
+  mimeType       String
+  size           Int
+  storageKey     String
+  storageDriver  String  @default("local")
+  classification String?
+  pageCount      Int?
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  evidence PrequalEvidence[]
+
+  createdAt              DateTime                 @default(now())
+  PrequalDocumentRequest PrequalDocumentRequest[]
+
+  @@index([prequalificationCaseId])
+  @@map("prequalification_documents")
+}
+
+enum FindingCategory {
+  OPERATOR
+  COMPANY
+  FINANCIAL
+  MARKET
+  PLANNING
+  COMMERCIALISATION
+  WORKS
+  LEGAL
+  EXPOSURE
+}
+
+enum FindingSeverity {
+  INFO
+  POSITIVE
+  WATCH
+  MATERIAL
+  BLOCKING
+}
+
+enum FindingGeneratedBy {
+  RULE
+  MODEL
+  ANALYST
+}
+
+enum FindingReviewStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  AMENDED
+}
+
+/// Une orientation GO n'est jamais délivrée s'il subsiste un Finding
+/// BLOCKING dont reviewStatus est PENDING ou ACCEPTED (voir
+/// promotion.service.ts) — REJECTED/AMENDED signifie que l'analyste a
+/// explicitement statué sur le point, GO redevient possible.
+model Finding {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  category    FindingCategory
+  severity    FindingSeverity
+  statement   String
+  rationale   String
+  evidenceIds String[]           @default([])
+  ruleId      String?
+  generatedBy FindingGeneratedBy
+
+  reviewStatus FindingReviewStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   User?               @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([prequalificationCaseId, severity])
+  @@map("prequalification_findings")
+}
+
+model PrequalDecisiveQuestion {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  question                     String
+  reason                       String
+  affectedFindingIds           String[] @default([])
+  answerCouldChangeOrientation Boolean
+  /// 'blocking' | 'decisive' | 'instruction' | 'comfort' — chaîne libre
+  /// validée côté DTO (@IsIn), même doctrine que SaleLot.status.
+  priority                     String
+
+  answer     String?
+  answeredAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([prequalificationCaseId])
+  @@map("prequalification_decisive_questions")
+}
+
+model PrequalDocumentRequest {
+  id                     String               @id @default(cuid())
+  prequalificationCaseId String
+  case                   PrequalificationCase @relation(fields: [prequalificationCaseId], references: [id], onDelete: Cascade)
+
+  label  String
+  /// identite/travaux/urbanisme/division/parcellaire/commercialisation/
+  /// acquisition_conditionnelle/revenus_locatifs/autres_plateformes
+  block  String
+  /// requested/received/expired/contradictory/not_usable — chaîne libre validée côté DTO.
+  status String @default("requested")
+
+  linkedDocumentId String?
+  linkedDocument   PrequalDocument? @relation(fields: [linkedDocumentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([prequalificationCaseId])
+  @@map("prequalification_document_requests")
+}
+
+/// Jalon bloquant du Portefeuille (spec §16.1, "chaque réserve décisive
+/// devient un portfolio_milestone bloquant") — distinct de ProjectCheckpoint,
+/// qui suit l'avancement travaux/commercialisation en cours de vie du deal,
+/// pas des conditions de sortie de SOURCING.
+model PortfolioMilestone {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  label       String
+  description String?
+  blocking    Boolean @default(true)
+  status      String  @default("PENDING") // PENDING/RESOLVED/WAIVED — chaîne libre validée côté DTO
+
+  /// Traçabilité vers le Finding d'origine, quand le jalon vient d'une
+  /// condition de préqualification plutôt que d'un ajout manuel ultérieur.
+  sourceFindingId String?
+
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([dealId])
+  @@map("portfolio_milestones")
 }

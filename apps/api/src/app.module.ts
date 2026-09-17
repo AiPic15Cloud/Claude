@@ -42,6 +42,7 @@ import { InterestPaymentsModule } from './interest-payments/interest-payments.mo
 import { PipelineModule } from './pipeline/pipeline.module';
 import { PushModule } from './push/push.module';
 import { FractionalModule } from './fractional/fractional.module';
+import { PrequalificationModule } from './prequalification/prequalification.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -88,6 +89,7 @@ import { HealthController } from './health/health.controller';
     PipelineModule,
     PushModule,
     FractionalModule,
+    PrequalificationModule,
   ],
   controllers: [HealthController],
   providers: [
