@@ -9,6 +9,10 @@ import { ExtractionController } from './extraction.controller';
 import { ExtractionService } from './extraction.service';
 import { PromotionController } from './promotion.controller';
 import { PromotionService } from './promotion.service';
+import { ExposureController } from './exposure.controller';
+import { ExposureService } from './exposure.service';
+import { VersionsController } from './versions.controller';
+import { VersionsService } from './versions.service';
 import { StorageModule } from '../common/storage/storage.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { DealsModule } from '../deals/deals.module';
@@ -22,8 +26,18 @@ import { DealsModule } from '../deals/deals.module';
     PrequalLocalDocumentsController,
     ExtractionController,
     PromotionController,
+    ExposureController,
+    VersionsController,
   ],
-  providers: [PrequalificationService, EvidenceService, PrequalDocumentsService, ExtractionService, PromotionService],
+  providers: [
+    PrequalificationService,
+    EvidenceService,
+    PrequalDocumentsService,
+    ExtractionService,
+    PromotionService,
+    ExposureService,
+    VersionsService,
+  ],
   exports: [PrequalificationService],
 })
 export class PrequalificationModule {}

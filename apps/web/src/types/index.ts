@@ -3089,9 +3089,47 @@ export interface PrequalFinancialModel {
   declaredMarginPct?: number | null;
   declaredCoutDeRevient?: number | null;
   declaredChiffreAffaires?: number | null;
-  landPrice?: number | null;
-  bankDebt?: number | null;
   otherRevenueRetained?: number | null;
+
+  // Foncier
+  landPrice?: number | null;
+  notaryFees?: number | null;
+
+  // Honoraires techniques — 4 champs fixes
+  diagnosticsCost?: number | null;
+  insuranceCost?: number | null;
+  propertyTaxCost?: number | null;
+  surveyStudiesCost?: number | null;
+
+  // Autres frais
+  agencyFees?: number | null;
+  referralFees?: number | null;
+  bankMiscFees?: number | null;
+
+  // Financement ATLAS (équivalent "Modalités LPB")
+  interestRatePct?: number | null;
+  durationMinMonths?: number | null;
+  durationTargetMonths?: number | null;
+  durationMaxMonths?: number | null;
+  feesPctHT?: number | null;
+  tvaApplicable: boolean;
+  tvaRatePct?: number | null;
+  latePenaltyApplied: boolean;
+  hypothequeEnvisagee: boolean;
+
+  // Financement bancaire optionnel
+  bankName?: string | null;
+  bankLoanAcquisition?: number | null;
+  bankLoanAccompagnement?: number | null;
+  bankInterestRatePct?: number | null;
+  bankFileFees?: number | null;
+  bankGuaranteeFees?: number | null;
+
+  // Covenants ICR/DSCR
+  resultatOperationnelEstime?: number | null;
+  fluxTresorerieDisponibleEstime?: number | null;
+
+  // Recalculés par prequal-financial.util.ts
   coutDeRevient?: number | null;
   chiffreAffaires?: number | null;
   margeRecalculee?: number | null;
@@ -3102,8 +3140,36 @@ export interface PrequalFinancialModel {
   ltaPct?: number | null;
   ltcPct?: number | null;
   ltvPct?: number | null;
-  ratiosIncludeBankDebt: boolean;
+
+  baselineLockedAt?: string | null;
+
   costLineItems: PrequalCostLineItem[];
+
+  /** Décomposition complète recalculée à la volée à la lecture — formes identiques à FinancialSynthesis/FinancialScenario/Covenants du Deal (voir prequalification.service.ts). */
+  synthesis?: FinancialSynthesis;
+  sensitivity?: FinancialScenario[];
+  covenants?: Covenants;
+}
+
+export interface PrequalBpComparisonLine {
+  key: string;
+  label: string;
+  initial: number;
+  current: number;
+  deltaAbs: number;
+  deltaPct: number | null;
+  initialPct?: number;
+  currentPct?: number;
+}
+
+export interface PrequalBpComparison {
+  hasData: boolean;
+  locked: boolean;
+  lockedAt: string | null;
+  lines: PrequalBpComparisonLine[];
+  sensitivity: { initial: FinancialScenario[]; current: FinancialScenario[] } | null;
+  marginAlert: { level: 'ATTENTION' | 'URGENT'; message: string } | null;
+  disclaimer: string | null;
 }
 
 export type PrequalLotStatus = 'NOT_MARKETED' | 'MARKETED' | 'INTEREST' | 'OFFER' | 'RESERVATION' | 'PROMISE' | 'DEED';
@@ -3297,4 +3363,77 @@ export interface PrequalExtractionResult {
   notes: string;
   sourceDocumentId: string;
   sourceDocumentName: string;
+}
+
+// ── Préqualification P1 (spec ATLAS v1.0, §21 "Gain analytique") ──
+
+export interface PrequalExposureDeal {
+  dealId: string;
+  dealName: string;
+  dealReference: string;
+  matchedOn: string;
+  stage: string;
+  status: string;
+  amountRaised: number;
+  interestRate: number | null;
+  outstandingCapital: number;
+  expectedInterest: number | null;
+  dateMax: string | null;
+  recoveryStatus: string;
+  isLate: boolean;
+}
+
+export interface PrequalExternalFinancing {
+  entityName: string;
+  platformName: string;
+  projectName: string;
+  amountTarget: number | null;
+  status: string;
+}
+
+export interface PrequalExposureSummary {
+  deals: PrequalExposureDeal[];
+  totalOutstandingCapital: number;
+  totalExpectedInterest: number;
+  lateCount: number;
+  amountRequested: number | null;
+  newExposureAfterFinancing: number | null;
+  concentrationPct: number | null;
+  externalFinancings: PrequalExternalFinancing[];
+}
+
+export interface PrequalVersionSummary {
+  id: string;
+  versionNumber: number;
+  orientation: PrequalificationOrientation;
+  decisionComment: string;
+  validatedAt: string;
+  validatedBy: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface PrequalFieldDelta {
+  field: string;
+  before: number | string | null;
+  after: number | string | null;
+}
+
+export type FindingSeverityKey = 'INFO' | 'POSITIVE' | 'WATCH' | 'MATERIAL' | 'BLOCKING';
+
+export interface PrequalVersionDiff {
+  versionA: number;
+  versionB: number;
+  orientationA: string | null;
+  orientationB: string | null;
+  orientationChanged: boolean;
+  financialChanges: PrequalFieldDelta[];
+  findingsCountA: Record<FindingSeverityKey, number>;
+  findingsCountB: Record<FindingSeverityKey, number>;
+  peopleCountA: number;
+  peopleCountB: number;
+  companiesCountA: number;
+  companiesCountB: number;
+  lotsCountA: number;
+  lotsCountB: number;
+  documentsCountA: number;
+  documentsCountB: number;
 }

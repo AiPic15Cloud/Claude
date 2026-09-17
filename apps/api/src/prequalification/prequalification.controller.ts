@@ -68,6 +68,18 @@ export class PrequalificationController {
     return this.service.upsertFinancialModel(user.organizationId, id, dto);
   }
 
+  @Get(':id/financial/bp-comparison')
+  getBpComparison(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.service.getBpComparison(user.organizationId, id);
+  }
+
+  @Post(':id/financial/lock-baseline')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  lockBaseline(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.service.lockBaseline(user.organizationId, id, user.id);
+  }
+
   @Patch(':id/timeline')
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')

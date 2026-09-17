@@ -23,6 +23,10 @@ import type {
   EvidenceStatus,
   PrequalPromotionResult,
   PrequalExtractionResult,
+  PrequalExposureSummary,
+  PrequalVersionSummary,
+  PrequalVersionDiff,
+  PrequalBpComparison,
 } from '@/types';
 
 function invalidateCase(qc: ReturnType<typeof useQueryClient>, caseId: string) {
@@ -337,6 +341,51 @@ export function useValidateAndPromote(caseId: string) {
     onSuccess: () => {
       invalidateCase(qc, caseId);
       qc.invalidateQueries({ queryKey: ['prequalification', 'cases', 'list'] });
+    },
+  });
+}
+
+// ── P1 ──
+
+export function usePrequalExposure(caseId: string) {
+  return useQuery({
+    queryKey: ['prequalification', 'cases', caseId, 'exposure'],
+    queryFn: () => api.get<PrequalExposureSummary>(`/prequalification/cases/${caseId}/exposure`),
+    enabled: Boolean(caseId),
+  });
+}
+
+export function usePrequalVersions(caseId: string) {
+  return useQuery({
+    queryKey: ['prequalification', 'cases', caseId, 'versions'],
+    queryFn: () => api.get<PrequalVersionSummary[]>(`/prequalification/cases/${caseId}/versions`),
+    enabled: Boolean(caseId),
+  });
+}
+
+export function usePrequalVersionCompare(caseId: string, versionA: number | null, versionB: number | null) {
+  return useQuery({
+    queryKey: ['prequalification', 'cases', caseId, 'versions', 'compare', versionA, versionB],
+    queryFn: () => api.get<PrequalVersionDiff>(`/prequalification/cases/${caseId}/versions/compare?a=${versionA}&b=${versionB}`),
+    enabled: Boolean(caseId) && versionA != null && versionB != null && versionA !== versionB,
+  });
+}
+
+export function usePrequalBpComparison(caseId: string) {
+  return useQuery({
+    queryKey: ['prequalification', 'cases', caseId, 'financial', 'bp-comparison'],
+    queryFn: () => api.get<PrequalBpComparison>(`/prequalification/cases/${caseId}/financial/bp-comparison`),
+    enabled: Boolean(caseId),
+  });
+}
+
+export function usePrequalLockBaseline(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<void>(`/prequalification/cases/${caseId}/financial/lock-baseline`, {}),
+    onSuccess: () => {
+      invalidateCase(qc, caseId);
+      qc.invalidateQueries({ queryKey: ['prequalification', 'cases', caseId, 'financial', 'bp-comparison'] });
     },
   });
 }

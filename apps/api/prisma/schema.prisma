@@ -305,38 +305,39 @@ model User {
   twoFactorSecret        String?
   twoFactorRecoveryCodes String[] @default([])
 
-  createdDeals                   Deal[]                         @relation("DealCreatedBy")
-  assignedDeals                  Deal[]                         @relation("DealAssignedTo")
-  notes                          Note[]
-  documents                      Document[]
-  repayments                     Repayment[]
-  interestPayments               InterestPayment[]
-  loanExtensions                 LoanExtension[]
-  pipelineEntries                PipelineEntry[]
-  tasksAssigned                  Task[]                         @relation("TaskAssignee")
-  tasksCreated                   Task[]                         @relation("TaskCreatedBy")
-  tasksCancelled                 Task[]                         @relation("TaskCancelledBy")
-  activities                     Activity[]
-  refreshTokens                  RefreshToken[]
-  competitorProjectsLogged       CompetitorProject[]
-  projectCheckpointsRecorded     ProjectCheckpoint[]
-  agentMessages                  AgentMessage[]
-  pushSubscriptions              PushSubscription[]
-  fieldChanges                   FieldChange[]
-  dataValidations                DataValidation[]
-  financialAssumptionsLocked     FinancialAssumption[]
-  dealOverridesCreated           DealOverride[]                 @relation("DealOverrideCreatedBy")
-  dealOverridesCleared           DealOverride[]                 @relation("DealOverrideClearedBy")
-  relationshipEvidence           Evidence[]
-  fractionalProjectsCreated      FractionalProject[]
-  observationEntityLinksReviewed ProjectObservationEntityLink[]
-  prequalCasesAssigned           PrequalificationCase[]         @relation("PrequalAssignedAnalyst")
-  prequalCasesCreated            PrequalificationCase[]         @relation("PrequalCreatedBy")
-  prequalCasesValidated          PrequalificationCase[]         @relation("PrequalValidatedBy")
-  prequalVersionsValidated       PrequalificationVersion[]
-  prequalDocumentsUploaded       PrequalDocument[]
-  prequalEvidenceVerified        PrequalEvidence[]
-  prequalFindingsReviewed        Finding[]
+  createdDeals                    Deal[]                         @relation("DealCreatedBy")
+  assignedDeals                   Deal[]                         @relation("DealAssignedTo")
+  notes                           Note[]
+  documents                       Document[]
+  repayments                      Repayment[]
+  interestPayments                InterestPayment[]
+  loanExtensions                  LoanExtension[]
+  pipelineEntries                 PipelineEntry[]
+  tasksAssigned                   Task[]                         @relation("TaskAssignee")
+  tasksCreated                    Task[]                         @relation("TaskCreatedBy")
+  tasksCancelled                  Task[]                         @relation("TaskCancelledBy")
+  activities                      Activity[]
+  refreshTokens                   RefreshToken[]
+  competitorProjectsLogged        CompetitorProject[]
+  projectCheckpointsRecorded      ProjectCheckpoint[]
+  agentMessages                   AgentMessage[]
+  pushSubscriptions               PushSubscription[]
+  fieldChanges                    FieldChange[]
+  dataValidations                 DataValidation[]
+  financialAssumptionsLocked      FinancialAssumption[]
+  dealOverridesCreated            DealOverride[]                 @relation("DealOverrideCreatedBy")
+  dealOverridesCleared            DealOverride[]                 @relation("DealOverrideClearedBy")
+  relationshipEvidence            Evidence[]
+  fractionalProjectsCreated       FractionalProject[]
+  observationEntityLinksReviewed  ProjectObservationEntityLink[]
+  prequalCasesAssigned            PrequalificationCase[]         @relation("PrequalAssignedAnalyst")
+  prequalCasesCreated             PrequalificationCase[]         @relation("PrequalCreatedBy")
+  prequalCasesValidated           PrequalificationCase[]         @relation("PrequalValidatedBy")
+  prequalVersionsValidated        PrequalificationVersion[]
+  prequalDocumentsUploaded        PrequalDocument[]
+  prequalEvidenceVerified         PrequalEvidence[]
+  prequalFindingsReviewed         Finding[]
+  prequalFinancialBaselinesLocked PrequalFinancialModel[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3672,6 +3673,18 @@ model PrequalProjectProfile {
   @@map("prequalification_project_profiles")
 }
 
+// Modèle financier v2 (P1) — aligné sur le modèle financier réel du Deal
+// (FinancialAssumption / financial-model.service.ts), à la demande explicite
+// de l'utilisateur qui a fourni le classeur d'audit réel (Excel) comme
+// référence : Foncier / Travaux / Honoraires techniques / Autres frais /
+// Financement ATLAS (équivalent LPB) / Financement bancaire optionnel /
+// Ratios de couverture et de covenant / BP initial vs actualisé / Sensibilité.
+// `amountRequested`/`landPrice`/`declaredMarginPct`/etc. (v1, P0) sont
+// conservés tels quels ; `bankDebt`/`ratiosIncludeBankDebt` (v1, ratio "avec
+// dette bancaire" au forfait) sont remplacés par le bloc "Financement
+// bancaire" détaillé ci-dessous, plus riche et cohérent avec le Deal — aucune
+// donnée de production n'existe encore sur ce champ (module encore en P1),
+// pas de migration de compatibilité nécessaire.
 model PrequalFinancialModel {
   id                     String               @id @default(cuid())
   prequalificationCaseId String               @unique
@@ -3687,13 +3700,63 @@ model PrequalFinancialModel {
   /// annoncée seule.
   declaredCoutDeRevient   Decimal? @db.Decimal(14, 2)
   declaredChiffreAffaires Decimal? @db.Decimal(14, 2)
-  landPrice               Decimal? @db.Decimal(14, 2) // pour le ratio LTA
-  bankDebt                Decimal? @db.Decimal(14, 2) // pour les ratios "avec dette bancaire" — voir ratiosIncludeBankDebt
   /// Loyers/produits intermédiaires retenus pendant le portage (spec §9.2) — jamais un encaissement de stock résiduel.
   otherRevenueRetained    Decimal? @db.Decimal(14, 2)
 
+  // Foncier
+  landPrice  Decimal? @db.Decimal(14, 2) // pour le ratio LTA
+  notaryFees Decimal? @db.Decimal(14, 2)
+
+  // Honoraires techniques — 4 champs fixes (classeur d'audit réel) + postes
+  // additionnels libres (PrequalCostLineItem, category HONORAIRES_TECHNIQUES).
+  diagnosticsCost   Decimal? @db.Decimal(14, 2)
+  insuranceCost     Decimal? @db.Decimal(14, 2)
+  propertyTaxCost   Decimal? @db.Decimal(14, 2)
+  surveyStudiesCost Decimal? @db.Decimal(14, 2)
+
+  // Autres frais — hors frais de financement (calculés, jamais saisis ici)
+  agencyFees   Decimal? @db.Decimal(14, 2)
+  referralFees Decimal? @db.Decimal(14, 2)
+  bankMiscFees Decimal? @db.Decimal(14, 2)
+
+  // Financement ATLAS (équivalent "Modalités LPB" du classeur d'audit) — la
+  // collecte réutilise amountRequested ci-dessus, pas de doublon de saisie.
+  interestRatePct      Decimal? @db.Decimal(5, 2)
+  durationMinMonths    Int?
+  durationTargetMonths Int?
+  durationMaxMonths    Int?
+  feesPctHT            Decimal? @db.Decimal(5, 2)
+  tvaApplicable        Boolean  @default(false)
+  tvaRatePct           Decimal? @db.Decimal(5, 2)
+  /// Simulation "et si le projet est en retard" : +5 points sur le taux
+  /// utilisé pour les intérêts sur durée cible — jamais automatique.
+  latePenaltyApplied   Boolean  @default(false)
+  /// Hypothèque envisagée sur le foncier — déclenche l'estimation de frais de
+  /// garantie (1,5 % de la collecte, même taux que le Deal) ; aucune vraie
+  /// sûreté n'existe avant la promotion en Deal (pas de modèle Guarantee ici).
+  hypothequeEnvisagee  Boolean  @default(false)
+
+  // Financement bancaire optionnel — activé dès qu'un nom de banque est renseigné
+  bankName               String?
+  bankLoanAcquisition    Decimal? @db.Decimal(14, 2)
+  bankLoanAccompagnement Decimal? @db.Decimal(14, 2)
+  bankInterestRatePct    Decimal? @db.Decimal(5, 2)
+  bankFileFees           Decimal? @db.Decimal(14, 2)
+  bankGuaranteeFees      Decimal? @db.Decimal(14, 2)
+
+  // Covenants ICR/DSCR (spec ATLAS v2, module MARKO F.3) — saisie manuelle,
+  // pertinence à juger au cas par cas pour du marchand de biens à cycle court.
+  resultatOperationnelEstime     Decimal? @db.Decimal(14, 2)
+  fluxTresorerieDisponibleEstime Decimal? @db.Decimal(14, 2)
+
   // Champs recalculés par prequal-financial.util.ts à chaque sauvegarde du
-  // bilan — jamais saisis directement, toujours dérivés des costLineItems/lots.
+  // bilan — jamais saisis directement, toujours dérivés des champs/postes/lots
+  // ci-dessus.
+  // Sous-ensemble minimal nécessaire à prequal-rules.util.ts (findings) et à
+  // la promotion vers Deal — le détail complet de la décomposition (Foncier/
+  // Travaux/Honoraires/financement/ratios avec banque/sensibilité) est
+  // recalculé à la volée en lecture par computePrequalFinancials() à partir
+  // des champs bruts ci-dessus + costLineItems/lots, jamais dupliqué en base.
   coutDeRevient        Decimal? @db.Decimal(14, 2)
   chiffreAffaires      Decimal? @db.Decimal(14, 2)
   margeRecalculee      Decimal? @db.Decimal(14, 2)
@@ -3702,12 +3765,20 @@ model PrequalFinancialModel {
   prixSortiePondere    Decimal? @db.Decimal(14, 2)
   pointMortAuM2        Decimal? @db.Decimal(14, 2)
 
-  // Ratios LTA/LTC/LTV — numérateur/dénominateur et inclusion dette bancaire
-  // toujours affichés explicitement côté UI (spec §9.3), jamais un ratio nu.
-  ltaPct                Decimal? @db.Decimal(6, 3)
-  ltcPct                Decimal? @db.Decimal(6, 3)
-  ltvPct                Decimal? @db.Decimal(6, 3)
-  ratiosIncludeBankDebt Boolean  @default(false)
+  // Ratios LTA/LTC/LTV — numérateur/dénominateur toujours affichés
+  // explicitement côté UI (spec §9.3), jamais un ratio nu.
+  ltaPct Decimal? @db.Decimal(6, 3)
+  ltcPct Decimal? @db.Decimal(6, 3)
+  ltvPct Decimal? @db.Decimal(6, 3)
+
+  // BP initial figé — même doctrine que FinancialAssumption.baselineSnapshot :
+  // instantané gelé au clic sur "Figer le BP initial", tant que
+  // baselineLockedAt est null aucune comparaison initial/actualisé n'est
+  // affichée (évite un écart fictif dès qu'un champ encore vide est rempli).
+  baselineSnapshot   Json?
+  baselineLockedAt   DateTime?
+  baselineLockedById String?
+  baselineLockedBy   User?     @relation(fields: [baselineLockedById], references: [id], onDelete: SetNull)
 
   costLineItems PrequalCostLineItem[]
 
