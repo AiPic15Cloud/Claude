@@ -109,7 +109,7 @@ export function PrequalificationCasePage() {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsTab caseId={prequalCase.id} documents={prequalCase.documents} />
+          <DocumentsTab caseId={prequalCase.id} documents={prequalCase.documents} requests={prequalCase.requests} />
         </TabsContent>
 
         <TabsContent value="findings">

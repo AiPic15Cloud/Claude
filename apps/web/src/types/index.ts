@@ -3285,13 +3285,52 @@ export interface PrequalDecisiveQuestion {
   createdAt: string;
 }
 
+export type PrequalDocumentRequestStatus = 'requested' | 'received' | 'expired' | 'contradictory' | 'not_usable';
+export const PREQUAL_DOCUMENT_REQUEST_STATUS_LABELS: Record<PrequalDocumentRequestStatus, string> = {
+  requested: 'Demandée',
+  received: 'Reçue',
+  expired: 'Périmée',
+  contradictory: 'Contradictoire',
+  not_usable: 'Non exploitable',
+};
+
 export interface PrequalDocumentRequest {
   id: string;
   prequalificationCaseId: string;
   label: string;
   block: string;
-  status: 'requested' | 'received' | 'expired' | 'contradictory' | 'not_usable';
+  status: PrequalDocumentRequestStatus;
   linkedDocumentId?: string | null;
+}
+
+/** Data room dynamique (spec §14) — les 8 blocs conditionnels, jamais suggérés tous ensemble (voir prequal-data-room.util.ts). */
+export type DataRoomBlock =
+  | 'identite'
+  | 'travaux'
+  | 'urbanisme'
+  | 'division'
+  | 'parcellaire'
+  | 'commercialisation'
+  | 'acquisition_conditionnelle'
+  | 'revenus_locatifs'
+  | 'autres_plateformes';
+
+export const DATA_ROOM_BLOCK_LABELS: Record<DataRoomBlock, string> = {
+  identite: 'Identité & solvabilité',
+  travaux: 'Travaux',
+  urbanisme: 'Urbanisme',
+  division: 'Division',
+  parcellaire: 'Parcellaire',
+  commercialisation: 'Commercialisation',
+  acquisition_conditionnelle: 'Acquisition conditionnelle',
+  revenus_locatifs: 'Revenus locatifs',
+  autres_plateformes: 'Autres plateformes',
+};
+
+export interface PrequalDataRoomSuggestion {
+  block: DataRoomBlock;
+  reason: string;
+  documents: string[];
 }
 
 export interface PrequalificationCase {

@@ -11,7 +11,8 @@ import {
   useDownloadPrequalDocument,
   useExtractPrequalDocument,
 } from '../hooks/use-prequalification';
-import type { PrequalDocument, PrequalExtractionResult } from '@/types';
+import { DataRoomPanel } from './data-room-panel';
+import type { PrequalDocument, PrequalDocumentRequest, PrequalExtractionResult } from '@/types';
 
 /**
  * Documents (spec §7) — l'extraction assistée par IA reste une suggestion
@@ -19,7 +20,7 @@ import type { PrequalDocument, PrequalExtractionResult } from '@/types';
  * chaque champ manuellement dans les autres onglets. `sourcePage` est
  * indiqué par le modèle, jamais une citation API vérifiée.
  */
-export function DocumentsTab({ caseId, documents }: { caseId: string; documents: PrequalDocument[] }) {
+export function DocumentsTab({ caseId, documents, requests }: { caseId: string; documents: PrequalDocument[]; requests: PrequalDocumentRequest[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadPrequalDocument(caseId);
   const remove = useDeletePrequalDocument(caseId);
@@ -100,6 +101,8 @@ export function DocumentsTab({ caseId, documents }: { caseId: string; documents:
           )}
         </CardContent>
       </Card>
+
+      <DataRoomPanel caseId={caseId} requests={requests} />
 
       {extractionResult && (
         <Card>

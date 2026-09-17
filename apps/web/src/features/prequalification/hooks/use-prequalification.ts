@@ -27,6 +27,7 @@ import type {
   PrequalVersionSummary,
   PrequalVersionDiff,
   PrequalBpComparison,
+  PrequalDataRoomSuggestion,
 } from '@/types';
 
 function invalidateCase(qc: ReturnType<typeof useQueryClient>, caseId: string) {
@@ -240,7 +241,10 @@ export function useCreateDocumentRequest(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: { label: string; block: string }) => api.post<PrequalDocumentRequest>(`/prequalification/cases/${caseId}/document-requests`, payload),
-    onSuccess: () => invalidateCase(qc, caseId),
+    onSuccess: () => {
+      invalidateCase(qc, caseId);
+      qc.invalidateQueries({ queryKey: ['prequalification', 'cases', caseId, 'data-room-suggestions'] });
+    },
   });
 }
 
@@ -375,6 +379,14 @@ export function usePrequalBpComparison(caseId: string) {
   return useQuery({
     queryKey: ['prequalification', 'cases', caseId, 'financial', 'bp-comparison'],
     queryFn: () => api.get<PrequalBpComparison>(`/prequalification/cases/${caseId}/financial/bp-comparison`),
+    enabled: Boolean(caseId),
+  });
+}
+
+export function usePrequalDataRoomSuggestions(caseId: string) {
+  return useQuery({
+    queryKey: ['prequalification', 'cases', caseId, 'data-room-suggestions'],
+    queryFn: () => api.get<PrequalDataRoomSuggestion[]>(`/prequalification/cases/${caseId}/data-room-suggestions`),
     enabled: Boolean(caseId),
   });
 }

@@ -13,6 +13,8 @@ import { ExposureController } from './exposure.controller';
 import { ExposureService } from './exposure.service';
 import { VersionsController } from './versions.controller';
 import { VersionsService } from './versions.service';
+import { DataRoomController } from './data-room.controller';
+import { DataRoomService } from './data-room.service';
 import { StorageModule } from '../common/storage/storage.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { DealsModule } from '../deals/deals.module';
@@ -28,6 +30,7 @@ import { DealsModule } from '../deals/deals.module';
     PromotionController,
     ExposureController,
     VersionsController,
+    DataRoomController,
   ],
   providers: [
     PrequalificationService,
@@ -37,6 +40,7 @@ import { DealsModule } from '../deals/deals.module';
     PromotionService,
     ExposureService,
     VersionsService,
+    DataRoomService,
   ],
   exports: [PrequalificationService],
 })
