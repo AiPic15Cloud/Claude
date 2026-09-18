@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ApiError } from '@/lib/api';
 import { useValidateAndPromote } from '../hooks/use-prequalification';
+import { PostPromotionPanel } from './post-promotion-panel';
 import { PREQUALIFICATION_ORIENTATION_LABELS, FINDING_SEVERITY_LABELS, type Finding, type PrequalificationOrientation } from '@/types';
 
 const ORIENTATIONS = Object.keys(PREQUALIFICATION_ORIENTATION_LABELS) as PrequalificationOrientation[];
@@ -25,12 +26,14 @@ export function DecisionTab({
   currentOrientation,
   findings,
   promotedDealId,
+  promotedVersionNumber,
 }: {
   caseId: string;
   version: number;
   currentOrientation: PrequalificationOrientation | null | undefined;
   findings: Finding[];
   promotedDealId: string | null | undefined;
+  promotedVersionNumber: number | null | undefined;
 }) {
   const validate = useValidateAndPromote(caseId);
   const [orientation, setOrientation] = useState<PrequalificationOrientation>(currentOrientation ?? 'GO');
@@ -50,15 +53,18 @@ export function DecisionTab({
 
   if (promotedDealId) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-          <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-          <p className="font-medium">Dossier promu dans le Portefeuille</p>
-          <Link to={`/deals/${promotedDealId}`}>
-            <Button>Voir le dossier dans le Portefeuille</Button>
-          </Link>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-4">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+            <p className="font-medium">Dossier promu dans le Portefeuille</p>
+            <Link to={`/deals/${promotedDealId}`}>
+              <Button>Voir le dossier dans le Portefeuille</Button>
+            </Link>
+          </CardContent>
+        </Card>
+        <PostPromotionPanel caseId={caseId} promotedDealId={promotedDealId} promotedVersionNumber={promotedVersionNumber} />
+      </div>
     );
   }
 

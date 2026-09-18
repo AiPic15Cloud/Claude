@@ -86,6 +86,7 @@ export function PrequalificationCasePage() {
             currentOrientation={prequalCase.orientation}
             findings={prequalCase.findings}
             promotedDealId={prequalCase.promotedDealId}
+            promotedVersionNumber={prequalCase.promotedVersionNumber}
           />
         </TabsContent>
 
