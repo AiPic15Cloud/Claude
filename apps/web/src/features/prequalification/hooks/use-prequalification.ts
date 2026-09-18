@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 import type {
   PrequalificationCase,
   PrequalificationCaseDetail,
@@ -291,6 +291,27 @@ export function useDownloadPrequalDocument(caseId: string) {
       const link = document.createElement('a');
       link.href = objectUrl;
       link.download = doc.name;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    },
+  });
+}
+
+/**
+ * Export pré-comité en PDF (spec "vraie correction" — `window.print()` ne
+ * fonctionne quasiment jamais sur Chrome Android, limitation du navigateur
+ * ; le PDF est donc généré côté serveur et téléchargé comme un fichier via
+ * ce même mécanisme blob qu'utilise déjà useDownloadPrequalDocument,
+ * fonctionne identiquement sur desktop et mobile, tous navigateurs).
+ */
+export function useExportPrequalPdf(caseId: string) {
+  return useMutation({
+    mutationFn: async (caseName: string) => {
+      const blob = await api.getBlob(`${API_URL}/prequalification/cases/${caseId}/export-pdf`);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `prequalification-${caseName}.pdf`;
       link.click();
       URL.revokeObjectURL(objectUrl);
     },

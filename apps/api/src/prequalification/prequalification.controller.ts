@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PrequalificationService } from './prequalification.service';
+import { PdfRenderService } from '../pdf-export/pdf-render.service';
+import { buildPrequalMemoHtml } from './prequal-pdf.util';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { UpsertProjectProfileDto } from './dto/upsert-project-profile.dto';
@@ -28,11 +31,31 @@ import { CreateDocumentRequestDto, UpdateDocumentRequestDto } from './dto/create
 @UseGuards(JwtAuthGuard)
 @Controller('prequalification/cases')
 export class PrequalificationController {
-  constructor(private readonly service: PrequalificationService) {}
+  constructor(
+    private readonly service: PrequalificationService,
+    private readonly pdfRender: PdfRenderService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Query('status') status?: string, @Query('assignedAnalystId') assignedAnalystId?: string) {
     return this.service.list(user.organizationId, { status, assignedAnalystId });
+  }
+
+  /**
+   * Export pré-comité en PDF, généré côté serveur (spec "vraie correction" —
+   * `window.print()` ne fonctionne quasiment jamais sur Chrome Android,
+   * limitation du navigateur ; un fichier téléchargé fonctionne partout).
+   * Doit rester avant `:id` GET dans l'ordre des routes Express serait sans
+   * incidence ici (segment fixe /:id/export-pdf, pas de conflit de pattern).
+   */
+  @Get(':id/export-pdf')
+  async exportPdf(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Res() res: Response) {
+    const prequalCase = await this.service.getById(user.organizationId, id);
+    const html = buildPrequalMemoHtml(prequalCase);
+    const pdf = await this.pdfRender.renderHtmlToPdf(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="prequalification-${id}.pdf"`);
+    res.send(pdf);
   }
 
   @Get(':id')
