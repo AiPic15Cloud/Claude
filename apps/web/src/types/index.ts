@@ -3351,6 +3351,8 @@ export interface PrequalificationCase {
   updatedAt: string;
   validatedAt?: string | null;
   promotedDealId?: string | null;
+  /** Numéro de la PrequalificationVersion figée au moment de la promotion (spec §17) — permet de retrouver la décision d'origine exacte pour la comparer à la réalité du Deal (P2, suivi post-promotion). */
+  promotedVersionNumber?: number | null;
   _count?: { findings: number; documents: number };
 }
 
