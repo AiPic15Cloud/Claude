@@ -29,6 +29,6 @@ import { SourceRegistryModule } from '../source-registry/source-registry.module'
     ManualConnector,
   ],
   controllers: [IntelligenceMarcheController],
-  exports: [IntelligenceMarcheService, MarketIndicatorsService],
+  exports: [IntelligenceMarcheService, MarketIndicatorsService, DvfSearchService],
 })
 export class IntelligenceMarcheModule {}

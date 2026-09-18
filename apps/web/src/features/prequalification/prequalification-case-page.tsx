@@ -2,7 +2,6 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PREQUALIFICATION_STATUS_LABELS } from '@/types';
@@ -18,12 +17,12 @@ import { FindingsTab } from './components/findings-tab';
 import { QuestionsTab } from './components/questions-tab';
 import { ExposureTab } from './components/exposure-tab';
 import { HistoryTab } from './components/history-tab';
+import { MarketTab } from './components/market-tab';
 import { PrequalMemoPrintSheet } from './components/prequal-memo-print-sheet';
 
 /**
  * Dossier de préqualification (spec §15) — les 16 sections de la spec sont
- * regroupées en onglets P0 ; Marché et Exposition groupe restent des
- * placeholders "à venir" (P1/P2, spec §21), jamais omis silencieusement.
+ * regroupées en onglets.
  */
 export function PrequalificationCasePage() {
   const { id } = useParams<{ id: string }>();
@@ -125,9 +124,7 @@ export function PrequalificationCasePage() {
         </TabsContent>
 
         <TabsContent value="marche">
-          <Card>
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">Étude de marché automatisée — à venir.</CardContent>
-          </Card>
+          <MarketTab caseId={prequalCase.id} />
         </TabsContent>
 
         <TabsContent value="historique">
