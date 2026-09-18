@@ -8,11 +8,42 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ApiError } from '@/lib/api';
-import { useValidateAndPromote } from '../hooks/use-prequalification';
+import { useValidateAndPromote, useUpdatePrequalificationCase } from '../hooks/use-prequalification';
 import { PostPromotionPanel } from './post-promotion-panel';
 import { PREQUALIFICATION_ORIENTATION_LABELS, FINDING_SEVERITY_LABELS, type Finding, type PrequalificationOrientation } from '@/types';
 
 const ORIENTATIONS = Object.keys(PREQUALIFICATION_ORIENTATION_LABELS) as PrequalificationOrientation[];
+
+/** Ressenti du chargé d'affaires (Trame Prequal §6) — appréciation personnelle, éditable en continu, distincte du commentaire de décision figé à la validation. */
+function AnalystImpressionCard({ caseId, note }: { caseId: string; note: string | null | undefined }) {
+  const update = useUpdatePrequalificationCase(caseId);
+  const [value, setValue] = useState(note ?? '');
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Ressenti du chargé d'affaires sur le projet</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            update.mutate({ analystImpressionNote: value || undefined });
+          }}
+          className="flex flex-col gap-3"
+        >
+          <Textarea rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="Appréciation qualitative du chargé d'affaires — pas un fait vérifié, un ressenti assumé comme tel." />
+          <div>
+            <Button type="submit" size="sm" variant="outline" disabled={update.isPending}>
+              {update.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Enregistrer
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
 
 /**
  * Décision (spec §3/§16.1) : synthèse des findings, choix d'orientation,
@@ -27,6 +58,7 @@ export function DecisionTab({
   findings,
   promotedDealId,
   promotedVersionNumber,
+  analystImpressionNote,
 }: {
   caseId: string;
   version: number;
@@ -34,6 +66,7 @@ export function DecisionTab({
   findings: Finding[];
   promotedDealId: string | null | undefined;
   promotedVersionNumber: number | null | undefined;
+  analystImpressionNote: string | null | undefined;
 }) {
   const validate = useValidateAndPromote(caseId);
   const [orientation, setOrientation] = useState<PrequalificationOrientation>(currentOrientation ?? 'GO');
@@ -64,12 +97,14 @@ export function DecisionTab({
           </CardContent>
         </Card>
         <PostPromotionPanel caseId={caseId} promotedDealId={promotedDealId} promotedVersionNumber={promotedVersionNumber} />
+        <AnalystImpressionCard caseId={caseId} note={analystImpressionNote} />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      <AnalystImpressionCard caseId={caseId} note={analystImpressionNote} />
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Synthèse des findings</CardTitle>

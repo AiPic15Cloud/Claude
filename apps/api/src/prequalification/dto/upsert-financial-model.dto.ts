@@ -167,6 +167,17 @@ export class UpsertFinancialModelDto {
   @IsBoolean()
   hypothequeEnvisagee?: boolean;
 
+  @ApiProperty({ required: false, description: 'Montant décaissé chez le notaire à l\'acte (email de conditions, Trame Prequal).' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  montantDecaisseNotaire?: number;
+
+  @ApiProperty({ required: false, description: 'Garanties envisagées, en texte libre.' })
+  @IsOptional()
+  @IsString()
+  guaranteesNote?: string;
+
   // Financement bancaire optionnel
   @ApiProperty({ required: false })
   @IsOptional()

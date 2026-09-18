@@ -39,7 +39,7 @@ export function PrequalificationCasePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 print:hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link to="/prequalification">
@@ -87,6 +87,7 @@ export function PrequalificationCasePage() {
             findings={prequalCase.findings}
             promotedDealId={prequalCase.promotedDealId}
             promotedVersionNumber={prequalCase.promotedVersionNumber}
+            analystImpressionNote={prequalCase.analystImpressionNote}
           />
         </TabsContent>
 
@@ -99,7 +100,7 @@ export function PrequalificationCasePage() {
         </TabsContent>
 
         <TabsContent value="project">
-          <ProjectTab caseId={prequalCase.id} project={prequalCase.project} />
+          <ProjectTab caseId={prequalCase.id} project={prequalCase.project} projectType={prequalCase.projectType} planning={prequalCase.planning} />
         </TabsContent>
 
         <TabsContent value="financial">

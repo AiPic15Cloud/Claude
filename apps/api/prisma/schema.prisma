@@ -3431,6 +3431,11 @@ model PrequalificationCase {
   entryChannel String?
   introducer   String?
 
+  /// Ressenti qualitatif du chargé d'affaires sur le projet (Trame Prequal
+  /// §6) — une appréciation personnelle assumée comme telle, distincte du
+  /// commentaire de décision figé à la validation (PrequalificationVersion).
+  analystImpressionNote String?
+
   assignedAnalystId String
   assignedAnalyst   User   @relation("PrequalAssignedAnalyst", fields: [assignedAnalystId], references: [id])
 
@@ -3664,6 +3669,13 @@ model PrequalProjectProfile {
   interimRevenueNote String?
   targetTimeline     String?
 
+  /// Section "Urbanisme" de la Trame Prequal — texte libre (statut du
+  /// dossier d'urbanisme, servitudes, PLU...), jamais déduit d'autres champs.
+  urbanismeNote String?
+  /// Section "Commercialisation" de la Trame Prequal — appréciation qualitative
+  /// (au-delà des statuts par lot déjà suivis dans PrequalSalesLot).
+  commercialisationNote String?
+
   /// [{ label, note }] — ex. "acquisition préalable d'une parcelle communale".
   criticalDependencies Json[] @default([])
 
@@ -3735,6 +3747,14 @@ model PrequalFinancialModel {
   /// garantie (1,5 % de la collecte, même taux que le Deal) ; aucune vraie
   /// sûreté n'existe avant la promotion en Deal (pas de modèle Guarantee ici).
   hypothequeEnvisagee  Boolean  @default(false)
+  /// Montant réellement décaissé chez le notaire à l'acte — communiqué tel
+  /// quel au porteur (email de conditions, "Trame Prequal"), jamais recalculé
+  /// depuis Foncier (peut différer : phasage des appels de fonds).
+  montantDecaisseNotaire Decimal? @db.Decimal(14, 2)
+  /// Garanties envisagées, en texte libre (hypothèque, caution personnelle,
+  /// nantissement, GFA...) — pas un simple booléen, la liste réelle varie par
+  /// dossier et doit apparaître telle quelle dans l'email de conditions.
+  guaranteesNote         String?
 
   // Financement bancaire optionnel — activé dès qu'un nom de banque est renseigné
   bankName               String?

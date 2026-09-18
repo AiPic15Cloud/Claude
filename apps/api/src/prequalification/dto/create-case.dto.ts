@@ -27,4 +27,9 @@ export class CreateCaseDto {
   @IsOptional()
   @IsEnum(PrequalificationProjectType)
   projectType?: PrequalificationProjectType;
+
+  @ApiProperty({ required: false, description: 'Ressenti qualitatif du chargé d\'affaires sur le projet (Trame Prequal §6).' })
+  @IsOptional()
+  @IsString()
+  analystImpressionNote?: string;
 }

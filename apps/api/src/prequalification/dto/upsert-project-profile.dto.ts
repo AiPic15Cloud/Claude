@@ -98,4 +98,14 @@ export class UpsertProjectProfileDto {
   @IsOptional()
   @IsArray()
   criticalDependencies?: Record<string, unknown>[];
+
+  @ApiProperty({ required: false, description: 'Section "Urbanisme" de la Trame Prequal.' })
+  @IsOptional()
+  @IsString()
+  urbanismeNote?: string;
+
+  @ApiProperty({ required: false, description: 'Section "Commercialisation" de la Trame Prequal.' })
+  @IsOptional()
+  @IsString()
+  commercialisationNote?: string;
 }
