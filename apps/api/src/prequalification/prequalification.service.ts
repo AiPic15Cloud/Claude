@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, PrequalFinancialModel, PrequalCostLineItem, PrequalificationProjectType } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { computePrequalFinancials, type PrequalCostLineItemInput, type PrequalLotInput } from './prequal-financial.util';
+import { computePrequalFinancials, type PrequalCostLineItemInput, type PrequalLotInput, type PrequalFinancialResult, type PrequalScenario } from './prequal-financial.util';
+import { computePrequalCovenants, type PrequalCovenantResult } from './prequal-covenant.util';
 import { evaluatePrequalFinancialFindings } from './prequal-rules.util';
 import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
@@ -17,6 +18,81 @@ import { CreateDecisiveQuestionDto, AnswerDecisiveQuestionDto } from './dto/crea
 import { CreateDocumentRequestDto, UpdateDocumentRequestDto } from './dto/create-document-request.dto';
 
 const num = (value: { toNumber(): number } | null | undefined): number | null => (value != null ? Number(value) : null);
+
+/**
+ * Formes de réponse alignées sur `FinancialSynthesis`/`Covenants`/
+ * `BpComparison`/`FinancialScenario` du Deal (apps/web/src/types/index.ts) —
+ * pas des types Deal réutilisés directement (couplage), mais des formes
+ * identiques exprès pour pouvoir réutiliser telles quelles côté frontend les
+ * cartes déjà construites pour le Deal (FinancialSynthesisCard, CovenantsCard,
+ * SensitivityComparisonCard), sans dupliquer ce code de présentation.
+ */
+export interface PrequalFinancialSynthesis {
+  foncierTotal: number;
+  travauxTotal: number;
+  honorairesTechniquesTotal: number;
+  agencyFees: number;
+  referralFees: number;
+  bankMiscFees: number;
+  lpb: {
+    collecte: number;
+    tauxPct: number;
+    tauxPctEffectif: number;
+    latePenaltyApplied: boolean;
+    latePenaltyEffective: boolean;
+    dureeCibleMonths: number;
+    interestOnDurationCible: number;
+    feesHT: number;
+    feesTTC: number;
+    guaranteeFeesEstimate: number;
+    hasActiveHypotheque: boolean;
+    totalFees: number;
+    netDisbursed: number;
+  };
+  bank: { enabled: false } | { enabled: true; name: string; loanTotal: number; interestOnDurationCible: number; totalFees: number };
+  coutDeRevient: number;
+  prixDeVente: number;
+  prixDeVenteSource: 'LOTS';
+  saleLotsSummary: { count: number; soldCount: number; totalSurfaceSqm: number; totalSalePrice: number; avgPricePerSqm: number | null } | null;
+  marge: number;
+  margePct: number;
+  expositionFinale: number;
+  ratios: { lta: number | null; ltc: number | null; ltv: number | null; ltaAvecBanque: number | null; ltcAvecBanque: number | null; ltvAvecBanque: number | null };
+}
+
+export interface PrequalBpComparisonLine {
+  key: string;
+  label: string;
+  initial: number;
+  current: number;
+  deltaAbs: number;
+  deltaPct: number | null;
+  initialPct?: number;
+  currentPct?: number;
+}
+
+export interface PrequalBpComparison {
+  hasData: boolean;
+  locked: boolean;
+  lockedAt: Date | null;
+  lines: PrequalBpComparisonLine[];
+  sensitivity: { initial: PrequalScenario[]; current: PrequalScenario[] } | null;
+  marginAlert: { level: 'ATTENTION' | 'URGENT'; message: string } | null;
+  disclaimer: string | null;
+}
+
+interface PrequalBaselineSnapshot {
+  prixDeVente: number;
+  foncier: number;
+  travaux: number;
+  honorairesTechniques: number;
+  autresFrais: number;
+  financementLpb: number;
+  coutDeRevient: number;
+  marge: number;
+  margePct: number | null;
+  sensitivity: PrequalScenario[];
+}
 
 const CASE_DETAIL_INCLUDE = {
   people: true,
@@ -80,7 +156,9 @@ export class PrequalificationService {
       include: CASE_DETAIL_INCLUDE,
     });
     if (!found) throw new NotFoundException('Dossier de préqualification introuvable.');
-    return found;
+    if (!found.financial) return found;
+    const detail = this.buildFinancialDetail(found.financial, found.lots, found.projectType);
+    return { ...found, financial: { ...found.financial, ...detail } };
   }
 
   async update(organizationId: string, caseId: string, dto: UpdateCaseDto) {
@@ -129,10 +207,257 @@ export class PrequalificationService {
     });
 
     await this.recomputeFinancials(caseId);
-    return this.prisma.prequalFinancialModel.findUniqueOrThrow({
-      where: { prequalificationCaseId: caseId },
-      include: { costLineItems: { orderBy: { sortOrder: 'asc' } } },
+    const [model, lots, prequalCase] = await Promise.all([
+      this.prisma.prequalFinancialModel.findUniqueOrThrow({
+        where: { prequalificationCaseId: caseId },
+        include: { costLineItems: { orderBy: { sortOrder: 'asc' } } },
+      }),
+      this.prisma.prequalSalesLot.findMany({ where: { prequalificationCaseId: caseId } }),
+      this.prisma.prequalificationCase.findUniqueOrThrow({ where: { id: caseId }, select: { projectType: true } }),
+    ]);
+    return { ...model, ...this.buildFinancialDetail(model, lots, prequalCase.projectType) };
+  }
+
+  /**
+   * Fige le BP initial — instantané des totaux calculés maintenant (Foncier,
+   * Travaux, Honoraires, financement, marge, sensibilité). Même doctrine que
+   * FinancialModelService.lockBaseline() côté Deal : l'utilisateur choisit
+   * explicitement le moment où sa saisie est terminée, jamais reconstruit
+   * depuis la première sauvegarde (potentiellement partielle).
+   */
+  async lockBaseline(organizationId: string, caseId: string, userId: string) {
+    await this.getOwnedCase(organizationId, caseId);
+    const model = await this.prisma.prequalFinancialModel.findUnique({ where: { prequalificationCaseId: caseId }, include: { costLineItems: true } });
+    if (!model) throw new NotFoundException('Aucun bilan financier à figer pour ce dossier.');
+    const lots = await this.prisma.prequalSalesLot.findMany({ where: { prequalificationCaseId: caseId } });
+    const result = this.computeResult(model, lots);
+
+    const snapshot: PrequalBaselineSnapshot = {
+      prixDeVente: result.chiffreAffaires,
+      foncier: result.foncierTotal,
+      travaux: result.travauxTotal,
+      honorairesTechniques: result.honorairesTechniquesTotal,
+      autresFrais: result.autresFraisScalaires,
+      financementLpb: result.financing.totalFees,
+      coutDeRevient: result.coutDeRevient,
+      marge: result.marge,
+      margePct: result.margePct,
+      sensitivity: result.sensitivity,
+    };
+
+    await this.prisma.prequalFinancialModel.update({
+      where: { id: model.id },
+      data: { baselineSnapshot: snapshot as unknown as Prisma.InputJsonValue, baselineLockedAt: new Date(), baselineLockedById: userId },
     });
+  }
+
+  /**
+   * BP initial vs actualisé — ne compare que si un instantané a été figé
+   * (voir lockBaseline). Seuils d'alerte de marge identiques à
+   * FinancialModelService.computeMarginAlert() côté Deal, validés
+   * explicitement avec l'utilisateur pour ce module.
+   */
+  async getBpComparison(organizationId: string, caseId: string): Promise<PrequalBpComparison> {
+    await this.getOwnedCase(organizationId, caseId);
+    const model = await this.prisma.prequalFinancialModel.findUnique({ where: { prequalificationCaseId: caseId }, include: { costLineItems: true } });
+    if (!model) return { hasData: false, locked: false, lockedAt: null, lines: [], sensitivity: null, marginAlert: null, disclaimer: null };
+
+    if (!model.baselineLockedAt || !model.baselineSnapshot) {
+      return {
+        hasData: true,
+        locked: false,
+        lockedAt: null,
+        lines: [],
+        sensitivity: null,
+        marginAlert: null,
+        disclaimer:
+          "Le BP initial n'est pas encore figé. Terminez la saisie du bilan (Foncier, Travaux, Honoraires, grille de lots…) puis cliquez sur « Figer le BP initial » : à partir de ce moment, tout changement apparaîtra comme un écart dans le BP actualisé.",
+      };
+    }
+
+    const snap = model.baselineSnapshot as unknown as PrequalBaselineSnapshot;
+    const lots = await this.prisma.prequalSalesLot.findMany({ where: { prequalificationCaseId: caseId } });
+    const current = this.computeResult(model, lots);
+
+    const line = (key: string, label: string, initial: number, curr: number): PrequalBpComparisonLine => {
+      const deltaAbs = curr - initial;
+      const deltaPct = initial !== 0 ? Math.round((deltaAbs / Math.abs(initial)) * 1000) / 10 : null;
+      return { key, label, initial: Math.round(initial), current: Math.round(curr), deltaAbs: Math.round(deltaAbs), deltaPct };
+    };
+
+    return {
+      hasData: true,
+      locked: true,
+      lockedAt: model.baselineLockedAt,
+      lines: [
+        line('prixDeVente', "Chiffre d'affaires", snap.prixDeVente, current.chiffreAffaires),
+        line('foncier', 'Foncier', snap.foncier, current.foncierTotal),
+        line('travaux', 'Travaux', snap.travaux, current.travauxTotal),
+        line('honorairesTechniques', 'Honoraires techniques', snap.honorairesTechniques, current.honorairesTechniquesTotal),
+        line('autresFrais', 'Autres frais (hors financement)', snap.autresFrais, current.autresFraisScalaires),
+        line('financementLpb', 'Frais de financement', snap.financementLpb, current.financing.totalFees),
+        line('coutDeRevient', 'Coût de revient', snap.coutDeRevient, current.coutDeRevient),
+        {
+          key: 'marge',
+          label: 'Marge avant impôts',
+          initial: Math.round(snap.marge),
+          current: Math.round(current.marge),
+          deltaAbs: Math.round(current.marge - snap.marge),
+          deltaPct: null,
+          initialPct: snap.margePct ?? undefined,
+          currentPct: current.margePct ?? undefined,
+        },
+      ],
+      sensitivity: { initial: snap.sensitivity, current: current.sensitivity },
+      marginAlert: PrequalificationService.computeMarginAlert(snap.margePct ?? 0, current.margePct ?? 0),
+      disclaimer: `BP initial figé le ${model.baselineLockedAt.toLocaleDateString('fr-FR')}. Tout écart provient d'une modification réelle survenue après cette date — cliquez à nouveau sur « Figer le BP initial » pour redémarrer le suivi à partir d'aujourd'hui.`,
+    };
+  }
+
+  private static computeMarginAlert(initialPct: number, currentPct: number): { level: 'ATTENTION' | 'URGENT'; message: string } | null {
+    const drop = Math.round((initialPct - currentPct) * 10) / 10;
+    if (currentPct < 0 || drop >= 20) {
+      return currentPct < 0
+        ? { level: 'URGENT', message: `Marge actualisée négative (${currentPct}%) — ce dossier ne dégage plus de marge au bilan actuel.` }
+        : { level: 'URGENT', message: `Marge dégradée de ${drop} pts depuis le BP initial (${initialPct}% → ${currentPct}%) — écart significatif à examiner.` };
+    }
+    if (currentPct < 10 || drop >= 10) {
+      return currentPct < 10
+        ? { level: 'ATTENTION', message: `Marge actualisée faible (${currentPct}%) — sous le seuil de vigilance de 10 %.` }
+        : { level: 'ATTENTION', message: `Marge en baisse de ${drop} pts depuis le BP initial (${initialPct}% → ${currentPct}%).` };
+    }
+    return null;
+  }
+
+  private computeResult(
+    model: PrequalFinancialModel & { costLineItems: PrequalCostLineItem[] },
+    lots: { surfaceSqm: Prisma.Decimal | null; askingPrice: Prisma.Decimal | null; expectedPrice: Prisma.Decimal | null }[],
+  ): PrequalFinancialResult {
+    const travauxItems: PrequalCostLineItemInput[] = model.costLineItems
+      .filter((i) => i.category === 'TRAVAUX')
+      .map((i) => ({ category: i.category, label: i.label, amount: Number(i.amount) }));
+    const honorairesTechniquesItems: PrequalCostLineItemInput[] = model.costLineItems
+      .filter((i) => i.category === 'HONORAIRES_TECHNIQUES')
+      .map((i) => ({ category: i.category, label: i.label, amount: Number(i.amount) }));
+    const lotInputs: PrequalLotInput[] = lots.map((lot) => ({
+      label: '',
+      surfaceSqm: num(lot.surfaceSqm),
+      askingPrice: num(lot.askingPrice),
+      expectedPrice: num(lot.expectedPrice),
+    }));
+
+    return computePrequalFinancials({
+      travauxItems,
+      honorairesTechniquesItems,
+      lots: lotInputs,
+      otherRevenueRetained: num(model.otherRevenueRetained),
+      provenEquity: num(model.provenEquity),
+      declaredEquity: num(model.declaredEquity),
+      declaredMarginPct: num(model.declaredMarginPct),
+      declaredCoutDeRevient: num(model.declaredCoutDeRevient),
+      declaredChiffreAffaires: num(model.declaredChiffreAffaires),
+      amountRequested: num(model.amountRequested),
+      landPrice: num(model.landPrice),
+      notaryFees: num(model.notaryFees),
+      diagnosticsCost: num(model.diagnosticsCost),
+      insuranceCost: num(model.insuranceCost),
+      propertyTaxCost: num(model.propertyTaxCost),
+      surveyStudiesCost: num(model.surveyStudiesCost),
+      agencyFees: num(model.agencyFees),
+      referralFees: num(model.referralFees),
+      bankMiscFees: num(model.bankMiscFees),
+      interestRatePct: num(model.interestRatePct),
+      durationTargetMonths: model.durationTargetMonths,
+      feesPctHT: num(model.feesPctHT),
+      tvaApplicable: model.tvaApplicable,
+      tvaRatePct: num(model.tvaRatePct),
+      latePenaltyApplied: model.latePenaltyApplied,
+      hypothequeEnvisagee: model.hypothequeEnvisagee,
+      bankName: model.bankName,
+      bankLoanAcquisition: num(model.bankLoanAcquisition),
+      bankLoanAccompagnement: num(model.bankLoanAccompagnement),
+      bankInterestRatePct: num(model.bankInterestRatePct),
+      bankFileFees: num(model.bankFileFees),
+      bankGuaranteeFees: num(model.bankGuaranteeFees),
+    });
+  }
+
+  /**
+   * Reformate PrequalFinancialResult (moteur pur) en formes identiques à
+   * FinancialSynthesis/Covenants du Deal — voir commentaire en tête de
+   * fichier. `lots` doit porter surfaceSqm/status pour saleLotsSummary.
+   */
+  private buildFinancialDetail(
+    model: PrequalFinancialModel & { costLineItems: PrequalCostLineItem[] },
+    lots: { surfaceSqm: Prisma.Decimal | null; askingPrice: Prisma.Decimal | null; expectedPrice: Prisma.Decimal | null; status: string }[],
+    projectType: PrequalificationProjectType | null,
+  ): { synthesis: PrequalFinancialSynthesis; sensitivity: PrequalScenario[]; covenants: PrequalCovenantResult } {
+    const result = this.computeResult(model, lots);
+
+    const totalSurfaceSqm = Math.round(lots.reduce((sum, lot) => sum + (num(lot.surfaceSqm) ?? 0), 0) * 100) / 100;
+    const saleLotsSummary =
+      lots.length > 0
+        ? {
+            count: lots.length,
+            soldCount: lots.filter((lot) => lot.status === 'DEED').length,
+            totalSurfaceSqm,
+            totalSalePrice: result.chiffreAffaires,
+            avgPricePerSqm: totalSurfaceSqm > 0 ? Math.round(result.chiffreAffaires / totalSurfaceSqm) : null,
+          }
+        : null;
+
+    const synthesis: PrequalFinancialSynthesis = {
+      foncierTotal: result.foncierTotal,
+      travauxTotal: result.travauxTotal,
+      honorairesTechniquesTotal: result.honorairesTechniquesTotal,
+      agencyFees: num(model.agencyFees) ?? 0,
+      referralFees: num(model.referralFees) ?? 0,
+      bankMiscFees: num(model.bankMiscFees) ?? 0,
+      lpb: {
+        collecte: result.financing.collecte,
+        tauxPct: result.financing.tauxPct ?? 0,
+        tauxPctEffectif: result.financing.tauxPctEffectif ?? 0,
+        latePenaltyApplied: model.latePenaltyApplied,
+        latePenaltyEffective: result.financing.latePenaltyEffective,
+        dureeCibleMonths: result.financing.dureeCibleMonths ?? 0,
+        interestOnDurationCible: result.financing.interestOnDurationCible,
+        feesHT: result.financing.feesHT,
+        feesTTC: result.financing.feesTTC,
+        guaranteeFeesEstimate: result.financing.guaranteeFeesEstimate,
+        hasActiveHypotheque: model.hypothequeEnvisagee,
+        totalFees: result.financing.totalFees,
+        netDisbursed: result.financing.netDisbursed,
+      },
+      bank: result.bank.enabled
+        ? { enabled: true, name: result.bank.name ?? '', loanTotal: result.bank.loanTotal, interestOnDurationCible: result.bank.interestOnDurationCible, totalFees: result.bank.totalFees }
+        : { enabled: false },
+      coutDeRevient: result.coutDeRevient,
+      prixDeVente: result.chiffreAffaires,
+      prixDeVenteSource: 'LOTS',
+      saleLotsSummary,
+      marge: result.marge,
+      margePct: result.margePct ?? 0,
+      expositionFinale: result.expositionFinale,
+      ratios: {
+        lta: result.ltaPct !== null ? result.ltaPct / 100 : null,
+        ltc: result.ltcPct !== null ? result.ltcPct / 100 : null,
+        ltv: result.ltvPct !== null ? result.ltvPct / 100 : null,
+        ltaAvecBanque: result.ltaAvecBanquePct !== null ? result.ltaAvecBanquePct / 100 : null,
+        ltcAvecBanque: result.ltcAvecBanquePct !== null ? result.ltcAvecBanquePct / 100 : null,
+        ltvAvecBanque: result.ltvAvecBanquePct !== null ? result.ltvAvecBanquePct / 100 : null,
+      },
+    };
+
+    const covenants = computePrequalCovenants({
+      projectType,
+      ltvPct: result.ltvPct,
+      financingInterestOnDurationCible: result.financing.interestOnDurationCible,
+      totalFinancingExposure: result.financing.collecte + result.bank.loanTotal,
+      resultatOperationnelEstime: num(model.resultatOperationnelEstime),
+      fluxTresorerieDisponibleEstime: num(model.fluxTresorerieDisponibleEstime),
+    });
+
+    return { synthesis, sensitivity: result.sensitivity, covenants };
   }
 
   // ── Porteurs ──
@@ -277,33 +602,7 @@ export class PrequalificationService {
     if (!model) return;
 
     const lots = await this.prisma.prequalSalesLot.findMany({ where: { prequalificationCaseId: caseId } });
-
-    const costLineItems: PrequalCostLineItemInput[] = model.costLineItems.map((item) => ({
-      category: item.category,
-      label: item.label,
-      amount: Number(item.amount),
-    }));
-    const lotInputs: PrequalLotInput[] = lots.map((lot) => ({
-      label: lot.label,
-      surfaceSqm: num(lot.surfaceSqm),
-      askingPrice: num(lot.askingPrice),
-      expectedPrice: num(lot.expectedPrice),
-    }));
-
-    const result = computePrequalFinancials({
-      costLineItems,
-      lots: lotInputs,
-      otherRevenueRetained: num(model.otherRevenueRetained),
-      provenEquity: num(model.provenEquity),
-      declaredEquity: num(model.declaredEquity),
-      declaredMarginPct: num(model.declaredMarginPct),
-      declaredCoutDeRevient: num(model.declaredCoutDeRevient),
-      declaredChiffreAffaires: num(model.declaredChiffreAffaires),
-      amountRequested: num(model.amountRequested),
-      landPrice: num(model.landPrice),
-      bankDebt: model.ratiosIncludeBankDebt ? num(model.bankDebt) : null,
-      includeBankDebtInRatios: model.ratiosIncludeBankDebt,
-    });
+    const result = this.computeResult(model, lots);
 
     await this.prisma.prequalFinancialModel.update({
       where: { id: model.id },

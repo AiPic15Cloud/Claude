@@ -1,0 +1,35 @@
+-- AlterTable
+ALTER TABLE "prequalification_financial_models" DROP COLUMN "bankDebt",
+DROP COLUMN "ratiosIncludeBankDebt",
+ADD COLUMN     "agencyFees" DECIMAL(14,2),
+ADD COLUMN     "bankFileFees" DECIMAL(14,2),
+ADD COLUMN     "bankGuaranteeFees" DECIMAL(14,2),
+ADD COLUMN     "bankInterestRatePct" DECIMAL(5,2),
+ADD COLUMN     "bankLoanAccompagnement" DECIMAL(14,2),
+ADD COLUMN     "bankLoanAcquisition" DECIMAL(14,2),
+ADD COLUMN     "bankMiscFees" DECIMAL(14,2),
+ADD COLUMN     "bankName" TEXT,
+ADD COLUMN     "baselineLockedAt" TIMESTAMP(3),
+ADD COLUMN     "baselineLockedById" TEXT,
+ADD COLUMN     "baselineSnapshot" JSONB,
+ADD COLUMN     "diagnosticsCost" DECIMAL(14,2),
+ADD COLUMN     "durationMaxMonths" INTEGER,
+ADD COLUMN     "durationMinMonths" INTEGER,
+ADD COLUMN     "durationTargetMonths" INTEGER,
+ADD COLUMN     "feesPctHT" DECIMAL(5,2),
+ADD COLUMN     "fluxTresorerieDisponibleEstime" DECIMAL(14,2),
+ADD COLUMN     "hypothequeEnvisagee" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "insuranceCost" DECIMAL(14,2),
+ADD COLUMN     "interestRatePct" DECIMAL(5,2),
+ADD COLUMN     "latePenaltyApplied" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "notaryFees" DECIMAL(14,2),
+ADD COLUMN     "propertyTaxCost" DECIMAL(14,2),
+ADD COLUMN     "referralFees" DECIMAL(14,2),
+ADD COLUMN     "resultatOperationnelEstime" DECIMAL(14,2),
+ADD COLUMN     "surveyStudiesCost" DECIMAL(14,2),
+ADD COLUMN     "tvaApplicable" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "tvaRatePct" DECIMAL(5,2);
+
+-- AddForeignKey
+ALTER TABLE "prequalification_financial_models" ADD CONSTRAINT "prequalification_financial_models_baselineLockedById_fkey" FOREIGN KEY ("baselineLockedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+

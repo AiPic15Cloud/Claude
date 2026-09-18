@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,9 @@ import { LotsTab } from './components/lots-tab';
 import { DocumentsTab } from './components/documents-tab';
 import { FindingsTab } from './components/findings-tab';
 import { QuestionsTab } from './components/questions-tab';
+import { ExposureTab } from './components/exposure-tab';
+import { HistoryTab } from './components/history-tab';
+import { PrequalMemoPrintSheet } from './components/prequal-memo-print-sheet';
 
 /**
  * Dossier de préqualification (spec §15) — les 16 sections de la spec sont
@@ -52,7 +55,12 @@ export function PrequalificationCasePage() {
             <span className="text-sm text-muted-foreground">Version {prequalCase.version}</span>
           </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => window.print()}>
+          <Printer className="h-4 w-4" />
+          Export pré-comité
+        </Button>
       </div>
+      <PrequalMemoPrintSheet prequalCase={prequalCase} />
 
       <Tabs defaultValue="decision">
         <TabsList className="flex-wrap">
@@ -65,7 +73,9 @@ export function PrequalificationCasePage() {
           <TabsTrigger value="documents">Documents ({prequalCase.documents.length})</TabsTrigger>
           <TabsTrigger value="findings">Findings ({prequalCase.findings.length})</TabsTrigger>
           <TabsTrigger value="questions">Questions ({prequalCase.questions.length})</TabsTrigger>
+          <TabsTrigger value="exposition">Exposition</TabsTrigger>
           <TabsTrigger value="marche">Marché</TabsTrigger>
+          <TabsTrigger value="historique">Historique</TabsTrigger>
         </TabsList>
 
         <TabsContent value="decision">
@@ -99,7 +109,7 @@ export function PrequalificationCasePage() {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsTab caseId={prequalCase.id} documents={prequalCase.documents} />
+          <DocumentsTab caseId={prequalCase.id} documents={prequalCase.documents} requests={prequalCase.requests} />
         </TabsContent>
 
         <TabsContent value="findings">
@@ -110,12 +120,18 @@ export function PrequalificationCasePage() {
           <QuestionsTab caseId={prequalCase.id} questions={prequalCase.questions} />
         </TabsContent>
 
+        <TabsContent value="exposition">
+          <ExposureTab caseId={prequalCase.id} />
+        </TabsContent>
+
         <TabsContent value="marche">
           <Card>
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Étude de marché automatisée et exposition groupe consolidée — à venir (P1/P2, hors socle de cette version).
-            </CardContent>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">Étude de marché automatisée — à venir.</CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="historique">
+          <HistoryTab caseId={prequalCase.id} />
         </TabsContent>
       </Tabs>
     </div>
