@@ -23,9 +23,10 @@ import { StorageModule } from '../common/storage/storage.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { DealsModule } from '../deals/deals.module';
 import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-marche.module';
+import { PdfExportModule } from '../pdf-export/pdf-export.module';
 
 @Module({
-  imports: [StorageModule, ActivitiesModule, DealsModule, IntelligenceMarcheModule],
+  imports: [StorageModule, ActivitiesModule, DealsModule, IntelligenceMarcheModule, PdfExportModule],
   controllers: [
     PrequalificationController,
     EvidenceController,

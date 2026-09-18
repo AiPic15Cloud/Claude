@@ -1,11 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PREQUALIFICATION_STATUS_LABELS } from '@/types';
-import { usePrequalificationCase } from './hooks/use-prequalification';
+import { usePrequalificationCase, useExportPrequalPdf } from './hooks/use-prequalification';
 import { DecisionTab } from './components/decision-tab';
 import { PeopleTab } from './components/people-tab';
 import { CompaniesTab } from './components/companies-tab';
@@ -19,7 +19,6 @@ import { ExposureTab } from './components/exposure-tab';
 import { HistoryTab } from './components/history-tab';
 import { MarketTab } from './components/market-tab';
 import { StressTestsTab } from './components/stress-tests-tab';
-import { PrequalMemoPrintSheet } from './components/prequal-memo-print-sheet';
 
 /**
  * Dossier de préqualification (spec §15) — les 16 sections de la spec sont
@@ -28,6 +27,7 @@ import { PrequalMemoPrintSheet } from './components/prequal-memo-print-sheet';
 export function PrequalificationCasePage() {
   const { id } = useParams<{ id: string }>();
   const { data: prequalCase, isLoading } = usePrequalificationCase(id ?? null);
+  const exportPdf = useExportPrequalPdf(id ?? '');
 
   if (isLoading || !prequalCase) {
     return (
@@ -55,12 +55,11 @@ export function PrequalificationCasePage() {
             <span className="text-sm text-muted-foreground">Version {prequalCase.version}</span>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => window.print()}>
-          <Printer className="h-4 w-4" />
+        <Button variant="outline" size="sm" disabled={exportPdf.isPending} onClick={() => exportPdf.mutate(prequalCase.name)}>
+          {exportPdf.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
           Export pré-comité
         </Button>
       </div>
-      <PrequalMemoPrintSheet prequalCase={prequalCase} />
 
       <Tabs defaultValue="decision">
         <TabsList className="flex-wrap">
