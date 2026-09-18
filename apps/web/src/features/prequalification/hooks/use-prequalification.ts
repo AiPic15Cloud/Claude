@@ -29,6 +29,7 @@ import type {
   PrequalBpComparison,
   PrequalDataRoomSuggestion,
   PrequalMarketStudy,
+  PrequalStressScenario,
 } from '@/types';
 
 function invalidateCase(qc: ReturnType<typeof useQueryClient>, caseId: string) {
@@ -391,6 +392,14 @@ export function usePrequalMarketStudy(caseId: string) {
     // null — api.get() le résout donc en `undefined`, que react-query refuse comme valeur de
     // query (throw "Query data cannot be undefined"). Normalisé explicitement en `null`.
     queryFn: () => api.get<PrequalMarketStudy | null>(`/prequalification/cases/${caseId}/market-study`).then((result) => result ?? null),
+    enabled: Boolean(caseId),
+  });
+}
+
+export function usePrequalStressTests(caseId: string) {
+  return useQuery({
+    queryKey: ['prequalification', 'cases', caseId, 'stress-tests'],
+    queryFn: () => api.get<PrequalStressScenario[]>(`/prequalification/cases/${caseId}/stress-tests`),
     enabled: Boolean(caseId),
   });
 }

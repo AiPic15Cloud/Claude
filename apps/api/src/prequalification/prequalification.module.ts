@@ -17,6 +17,8 @@ import { DataRoomController } from './data-room.controller';
 import { DataRoomService } from './data-room.service';
 import { MarketStudyController } from './market-study.controller';
 import { MarketStudyService } from './market-study.service';
+import { StressTestController } from './stress-test.controller';
+import { StressTestService } from './stress-test.service';
 import { StorageModule } from '../common/storage/storage.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { DealsModule } from '../deals/deals.module';
@@ -35,6 +37,7 @@ import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-ma
     VersionsController,
     DataRoomController,
     MarketStudyController,
+    StressTestController,
   ],
   providers: [
     PrequalificationService,
@@ -46,6 +49,7 @@ import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-ma
     VersionsService,
     DataRoomService,
     MarketStudyService,
+    StressTestService,
   ],
   exports: [PrequalificationService],
 })

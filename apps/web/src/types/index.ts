@@ -3524,3 +3524,28 @@ export interface PrequalMarketStudy {
   positioning: MarketPositioning;
   liquidity: MarketLiquidity;
 }
+
+// ── Stress tests (spec §11) ──
+
+export type PrequalStressCapacity = 'OK' | 'TENDUE' | 'INSUFFISANTE' | 'NON_QUANTIFIABLE';
+
+export const PREQUAL_STRESS_CAPACITY_LABELS: Record<PrequalStressCapacity, string> = {
+  OK: 'OK',
+  TENDUE: 'Tendue',
+  INSUFFISANTE: 'Insuffisante',
+  NON_QUANTIFIABLE: 'Non quantifiable',
+};
+
+export interface PrequalStressScenario {
+  key: string;
+  label: string;
+  description: string;
+  applicable: boolean;
+  unavailableReason: string | null;
+  margeEuros: number | null;
+  margePct: number | null;
+  besoinComplementaire: number | null;
+  ltcPct: number | null;
+  ltvPct: number | null;
+  capaciteRemboursement: PrequalStressCapacity;
+}

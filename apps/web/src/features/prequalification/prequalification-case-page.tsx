@@ -18,6 +18,7 @@ import { QuestionsTab } from './components/questions-tab';
 import { ExposureTab } from './components/exposure-tab';
 import { HistoryTab } from './components/history-tab';
 import { MarketTab } from './components/market-tab';
+import { StressTestsTab } from './components/stress-tests-tab';
 import { PrequalMemoPrintSheet } from './components/prequal-memo-print-sheet';
 
 /**
@@ -74,6 +75,7 @@ export function PrequalificationCasePage() {
           <TabsTrigger value="questions">Questions ({prequalCase.questions.length})</TabsTrigger>
           <TabsTrigger value="exposition">Exposition</TabsTrigger>
           <TabsTrigger value="marche">Marché</TabsTrigger>
+          <TabsTrigger value="stress">Stress tests</TabsTrigger>
           <TabsTrigger value="historique">Historique</TabsTrigger>
         </TabsList>
 
@@ -125,6 +127,10 @@ export function PrequalificationCasePage() {
 
         <TabsContent value="marche">
           <MarketTab caseId={prequalCase.id} />
+        </TabsContent>
+
+        <TabsContent value="stress">
+          <StressTestsTab caseId={prequalCase.id} />
         </TabsContent>
 
         <TabsContent value="historique">
