@@ -3069,6 +3069,10 @@ export interface PrequalProjectProfile {
   interimRevenueNote?: string | null;
   targetTimeline?: string | null;
   criticalDependencies: PrequalCriticalDependency[];
+  /** Section "Urbanisme" de la Trame Prequal. */
+  urbanismeNote?: string | null;
+  /** Section "Commercialisation" de la Trame Prequal. */
+  commercialisationNote?: string | null;
 }
 
 export interface PrequalCostLineItem {
@@ -3116,6 +3120,10 @@ export interface PrequalFinancialModel {
   tvaRatePct?: number | null;
   latePenaltyApplied: boolean;
   hypothequeEnvisagee: boolean;
+  /** Montant décaissé chez le notaire à l'acte (email de conditions, Trame Prequal). */
+  montantDecaisseNotaire?: number | null;
+  /** Garanties envisagées, en texte libre. */
+  guaranteesNote?: string | null;
 
   // Financement bancaire optionnel
   bankName?: string | null;
@@ -3344,6 +3352,8 @@ export interface PrequalificationCase {
   version: number;
   entryChannel?: string | null;
   introducer?: string | null;
+  /** Ressenti qualitatif du chargé d'affaires sur le projet (Trame Prequal §6). */
+  analystImpressionNote?: string | null;
   assignedAnalystId: string;
   assignedAnalyst?: { id: string; firstName: string; lastName: string } | null;
   createdBy?: { id: string; firstName: string; lastName: string } | null;

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/lib/format';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
 import { cn } from '@/lib/utils';
@@ -115,6 +116,8 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
     bankGuaranteeFees: s(financial?.bankGuaranteeFees),
     resultatOperationnelEstime: s(financial?.resultatOperationnelEstime),
     fluxTresorerieDisponibleEstime: s(financial?.fluxTresorerieDisponibleEstime),
+    montantDecaisseNotaire: s(financial?.montantDecaisseNotaire),
+    guaranteesNote: financial?.guaranteesNote ?? '',
   });
 
   const [travauxItems, setTravauxItems] = useState<CostItem[]>(
@@ -167,6 +170,8 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
       bankGuaranteeFees: opt(form.bankGuaranteeFees),
       resultatOperationnelEstime: opt(form.resultatOperationnelEstime),
       fluxTresorerieDisponibleEstime: opt(form.fluxTresorerieDisponibleEstime),
+      montantDecaisseNotaire: opt(form.montantDecaisseNotaire),
+      guaranteesNote: form.guaranteesNote || undefined,
       costLineItems: [
         ...travauxItems.filter((i) => i.label && i.amount).map((i) => ({ category: 'TRAVAUX', label: i.label, amount: Number(i.amount) })),
         ...honorairesItems.filter((i) => i.label && i.amount).map((i) => ({ category: 'HONORAIRES_TECHNIQUES', label: i.label, amount: Number(i.amount) })),
@@ -264,6 +269,18 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
                 <Label htmlFor="latePenaltyApplied" className="cursor-pointer font-normal">
                   Simuler la pénalité de retard (+5 pts sur le taux)
                 </Label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Montant décaissé chez le notaire (€)" value={form.montantDecaisseNotaire} onChange={(v) => setForm((p) => ({ ...p, montantDecaisseNotaire: v }))} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Garanties</Label>
+                <Textarea
+                  rows={2}
+                  placeholder="Ex. Hypothèque de premier rang, caution personnelle..."
+                  value={form.guaranteesNote}
+                  onChange={(e) => setForm((p) => ({ ...p, guaranteesNote: e.target.value }))}
+                />
               </div>
             </section>
 

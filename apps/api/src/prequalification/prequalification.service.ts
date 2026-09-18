@@ -129,6 +129,7 @@ export class PrequalificationService {
         entryChannel: dto.entryChannel,
         introducer: dto.introducer,
         projectType: dto.projectType,
+        analystImpressionNote: dto.analystImpressionNote,
         assignedAnalystId: dto.assignedAnalystId ?? userId,
         createdById: userId,
       },

@@ -61,6 +61,7 @@ export interface CreateCasePayload {
   introducer?: string;
   assignedAnalystId?: string;
   projectType?: PrequalificationProjectType;
+  analystImpressionNote?: string;
 }
 
 export function useCreatePrequalificationCase() {
