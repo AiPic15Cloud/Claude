@@ -15,12 +15,15 @@ import { VersionsController } from './versions.controller';
 import { VersionsService } from './versions.service';
 import { DataRoomController } from './data-room.controller';
 import { DataRoomService } from './data-room.service';
+import { MarketStudyController } from './market-study.controller';
+import { MarketStudyService } from './market-study.service';
 import { StorageModule } from '../common/storage/storage.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { DealsModule } from '../deals/deals.module';
+import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-marche.module';
 
 @Module({
-  imports: [StorageModule, ActivitiesModule, DealsModule],
+  imports: [StorageModule, ActivitiesModule, DealsModule, IntelligenceMarcheModule],
   controllers: [
     PrequalificationController,
     EvidenceController,
@@ -31,6 +34,7 @@ import { DealsModule } from '../deals/deals.module';
     ExposureController,
     VersionsController,
     DataRoomController,
+    MarketStudyController,
   ],
   providers: [
     PrequalificationService,
@@ -41,6 +45,7 @@ import { DealsModule } from '../deals/deals.module';
     ExposureService,
     VersionsService,
     DataRoomService,
+    MarketStudyService,
   ],
   exports: [PrequalificationService],
 })

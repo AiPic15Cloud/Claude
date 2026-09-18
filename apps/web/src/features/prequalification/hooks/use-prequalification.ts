@@ -28,6 +28,7 @@ import type {
   PrequalVersionDiff,
   PrequalBpComparison,
   PrequalDataRoomSuggestion,
+  PrequalMarketStudy,
 } from '@/types';
 
 function invalidateCase(qc: ReturnType<typeof useQueryClient>, caseId: string) {
@@ -379,6 +380,17 @@ export function usePrequalBpComparison(caseId: string) {
   return useQuery({
     queryKey: ['prequalification', 'cases', caseId, 'financial', 'bp-comparison'],
     queryFn: () => api.get<PrequalBpComparison>(`/prequalification/cases/${caseId}/financial/bp-comparison`),
+    enabled: Boolean(caseId),
+  });
+}
+
+export function usePrequalMarketStudy(caseId: string) {
+  return useQuery({
+    queryKey: ['prequalification', 'cases', caseId, 'market-study'],
+    // Nest renvoie un corps vide (pas le littéral JSON "null") pour un contrôleur qui retourne
+    // null — api.get() le résout donc en `undefined`, que react-query refuse comme valeur de
+    // query (throw "Query data cannot be undefined"). Normalisé explicitement en `null`.
+    queryFn: () => api.get<PrequalMarketStudy | null>(`/prequalification/cases/${caseId}/market-study`).then((result) => result ?? null),
     enabled: Boolean(caseId),
   });
 }

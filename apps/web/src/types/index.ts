@@ -3476,3 +3476,51 @@ export interface PrequalVersionDiff {
   documentsCountA: number;
   documentsCountB: number;
 }
+
+// ── Étude de marché automatisée (spec §10) ──
+
+export interface MarketStudyFilters {
+  source: string;
+  dateExtraction: string;
+  commune: string | null;
+  natureBien: string;
+  sampleSize: number;
+}
+
+export interface MarketPopulationStats {
+  median: number | null;
+  average: number | null;
+  q1: number | null;
+  q3: number | null;
+  min: number | null;
+  max: number | null;
+  count: number;
+}
+
+export interface MarketPositioning {
+  prixSortiePondereParM2: number | null;
+  ecartMedianePct: number | null;
+  percentileRank: number | null;
+  ventesAuDessusDuProjetCount: number | null;
+  ticketMaxObserve: number | null;
+  ecartPointMortPct: number | null;
+  margeSiVenteMediane: number | null;
+  margeSiVenteMedianePct: number | null;
+  prixMinimalPourMargeCibleParM2: number | null;
+}
+
+export interface MarketLiquidity {
+  ventesComparablesSurPeriode: number;
+  ventesParMois: number | null;
+  delaiMoyenEntreDeuxVentesJours: number | null;
+  nombreDeLotsDuProjet: number;
+  dureeTheoriqueEcoulementMois: number | null;
+  echantillonTropFaible: boolean;
+}
+
+export interface PrequalMarketStudy {
+  filters: MarketStudyFilters;
+  population: MarketPopulationStats;
+  positioning: MarketPositioning;
+  liquidity: MarketLiquidity;
+}
