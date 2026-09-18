@@ -21,13 +21,13 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen print:min-h-0">
       <div className="fixed inset-0 -z-10 bg-background" />
 
       <div className="print:hidden">
         <Sidebar />
       </div>
-      <div className={cn('flex min-h-screen flex-col transition-[margin] duration-200', sidebarCollapsed ? 'md:ml-16' : 'md:ml-60', 'print:ml-0')}>
+      <div className={cn('flex min-h-screen flex-col transition-[margin] duration-200', sidebarCollapsed ? 'md:ml-16' : 'md:ml-60', 'print:ml-0 print:min-h-0')}>
         <div className="print:hidden">
           <Topbar />
         </div>
