@@ -12,7 +12,7 @@ import { useDealActivities } from '../hooks/use-activities';
 import { useFinancialModel, useComputeScenarios } from '../hooks/use-financial-model';
 import { useMarketPrice, type MarketPriceTypology } from '../hooks/use-market-price';
 import { useComparables } from '../hooks/use-comparables';
-import { InvestmentNotePrintSheet } from './investment-note-print-sheet';
+import { useExportInvestmentNotePdf } from '@/features/portfolio/hooks/use-deals';
 import { formatCurrency, formatDate } from '@/lib/format';
 import {
   DEAL_TYPE_LABELS,
@@ -54,22 +54,10 @@ function generatePresentation(deal: Deal): string {
   );
 }
 
-export function InvestmentNoteSheet({
-  dealId,
-  deal,
-  onOpenChange,
-}: {
-  dealId: string;
-  deal: Deal;
-  /** Permet à DossierPage de masquer temporairement DealPrintSheet — les deux ne doivent jamais être print:block en même temps, sous peine d'imprimer les deux documents empilés. */
-  onOpenChange?: (open: boolean) => void;
-}) {
-  const [open, setOpenState] = useState(false);
-  const setOpen = (next: boolean) => {
-    setOpenState(next);
-    onOpenChange?.(next);
-  };
+export function InvestmentNoteSheet({ dealId, deal }: { dealId: string; deal: Deal }) {
+  const [open, setOpen] = useState(false);
   const seeded = useRef(false);
+  const exportPdf = useExportInvestmentNotePdf(dealId);
 
   const risk = useDealRisk(dealId);
   const riskHistory = useRiskHistory(dealId, 90);
@@ -166,10 +154,7 @@ export function InvestmentNoteSheet({
         <FileText className="h-3.5 w-3.5" /> Note d'investissement
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        {/* print:hidden — le Sheet est portalé hors de l'arbre de DossierPage (donc hors de portée du print:hidden
-            posé sur le reste de la page), il faut donc le masquer explicitement ici, sans quoi son contenu interactif
-            (textareas, boutons) s'imprimerait par-dessus/à la place d'InvestmentNotePrintSheet. */}
-        <SheetContent className="overflow-y-auto print:hidden sm:max-w-4xl">
+        <SheetContent className="overflow-y-auto sm:max-w-4xl">
           <SheetHeader>
             <SheetTitle>Note d'investissement — {deal.name}</SheetTitle>
             <SheetDescription>
@@ -272,18 +257,23 @@ export function InvestmentNoteSheet({
               </section>
             )}
 
-            <Button type="button" onClick={() => window.print()} className="self-end">
+            <Button
+              type="button"
+              disabled={exportPdf.isPending}
+              className="self-end"
+              onClick={() =>
+                exportPdf.mutate({
+                  dealName: deal.name,
+                  sections: { resume: resumeText, presentation: presentationText, marche: marcheText, financier: financierText, risque: risqueText, suivi: suiviText },
+                })
+              }
+            >
+              {exportPdf.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Exporter en PDF
             </Button>
           </div>
         </SheetContent>
       </Sheet>
-      {open && (
-        <InvestmentNotePrintSheet
-          deal={deal}
-          sections={{ resume: resumeText, presentation: presentationText, marche: marcheText, financier: financierText, risque: risqueText, suivi: suiviText }}
-        />
-      )}
     </>
   );
 }

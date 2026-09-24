@@ -10,5 +10,6 @@ import { RiskEngineModule } from '../risk-engine/risk-engine.module';
   imports: [ActivitiesModule, AlertsModule, RiskEngineModule],
   providers: [GuaranteesService, GuaranteeExpiryAlertsService],
   controllers: [GuaranteesController],
+  exports: [GuaranteesService],
 })
 export class GuaranteesModule {}

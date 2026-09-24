@@ -19,6 +19,32 @@ export function text(value: string | null | undefined): string {
   return value && value.trim() ? escapeHtml(value) : '—';
 }
 
+/** Même format que `formatCurrency` côté frontend (apps/web/src/lib/format.ts) — partagé par tous les exports PDF serveur. */
+export function money(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return '—';
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: amount >= 100_000 ? 0 : 2,
+    notation: amount >= 1_000_000 ? 'compact' : 'standard',
+  }).format(amount);
+}
+
+/** Même format que le `pct()` local de chaque print sheet côté frontend — partagé ici. */
+export function pct(value: unknown, digits = 1): string {
+  if (value === null || value === undefined) return '—';
+  const n = Number(value);
+  return Number.isNaN(n) ? '—' : `${n.toFixed(digits)} %`;
+}
+
+/** Même format que `formatDate` côté frontend (jour/mois abrégé/année). */
+export function formatDate(value: Date | string): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
 /** Style partagé par tous les exports PDF générés côté serveur — même esthétique (noir sur blanc, A4) que les anciens exports `window.print()` côté client. */
 export const PRINT_BASE_STYLE = `
   * { box-sizing: border-box; }
@@ -38,6 +64,11 @@ export const PRINT_BASE_STYLE = `
   .grid-2 { grid-template-columns: repeat(2, 1fr); }
   .muted { color: rgba(0,0,0,0.6); }
   .small { font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 3px 6px 3px 0; }
+  th { border-bottom: 1px solid #000; font-weight: 600; }
+  td { border-bottom: 1px solid rgba(0,0,0,0.1); }
+  .num { text-align: right; }
   footer.doc-footer { border-top: 1px solid #000; padding-top: 8px; margin-top: 24px; font-size: 10px; color: rgba(0,0,0,0.5); }
 `;
 

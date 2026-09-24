@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 import type {
   FractionalProject,
   FractionalProjectDetail,
@@ -87,6 +87,25 @@ export function useFractionalSynthese(id: string | null) {
     queryKey: ['fractional', 'projects', id, 'synthese'],
     queryFn: () => api.get<FractionalSynthese>(`/fractional/projects/${id}/synthese`),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * Investment Memo en PDF, généré côté serveur (même "vraie correction" que
+ * l'export pré-comité Préqual — window.print() ne fonctionne quasiment pas
+ * sur Chrome Android).
+ */
+export function useExportInvestmentMemoPdf(id: string) {
+  return useMutation({
+    mutationFn: async (projectName: string) => {
+      const blob = await api.getBlob(`${API_URL}/fractional/projects/${id}/export-pdf`);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `investment-memo-${projectName}.pdf`;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    },
   });
 }
 

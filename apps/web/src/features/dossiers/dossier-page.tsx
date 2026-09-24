@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useDeal, useDeleteDeal, useExportDealReport } from '@/features/portfolio/hooks/use-deals';
+import { useDeal, useDeleteDeal, useExportDealReport, useExportDealPdf } from '@/features/portfolio/hooks/use-deals';
 import { useCanValidate } from '@/features/auth/use-auth';
 import { exportToJson } from '@/lib/export-json';
 import {
@@ -45,7 +45,6 @@ import { CheckpointsPanel } from './components/checkpoints-panel';
 import { DocumentsPanel } from './components/documents-panel';
 import { EntitiesPanel } from './components/entities-panel';
 import { DealAssistantPanel } from './components/deal-assistant-panel';
-import { DealPrintSheet } from './components/deal-print-sheet';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { CrdDetailPopover } from './components/crd-detail-popover';
@@ -68,10 +67,10 @@ export function DossierPage() {
   const guaranteeWarnings = guarantees.filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE');
   const deleteDeal = useDeleteDeal();
   const exportReport = useExportDealReport(id ?? '');
+  const exportPdf = useExportDealPdf(id ?? '');
   const canValidate = useCanValidate();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [activeTab, setActiveTab] = useState('risk');
-  const [investmentNoteOpen, setInvestmentNoteOpen] = useState(false);
   const [financialPrefill, setFinancialPrefill] = useState<(Partial<FinancialModelFormValues> & { sourceDocumentId?: string }) | null>(null);
 
   const createCostLineItem = useCreateCostLineItem(id ?? '');
@@ -120,8 +119,7 @@ export function DossierPage() {
   }
 
   return (
-    <>
-    <div className="flex flex-col gap-5 print:hidden">
+    <div className="flex flex-col gap-5">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2">
           <Link to="/portfolio">
@@ -153,10 +151,11 @@ export function DossierPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 print:hidden">
-            <Button size="sm" variant="outline" onClick={() => window.print()}>
-              <Printer className="h-3.5 w-3.5" /> Exporter en PDF
+            <Button size="sm" variant="outline" disabled={exportPdf.isPending} onClick={() => exportPdf.mutate(deal.name)}>
+              {exportPdf.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+              Exporter en PDF
             </Button>
-            <InvestmentNoteSheet dealId={id ?? ''} deal={deal} onOpenChange={setInvestmentNoteOpen} />
+            <InvestmentNoteSheet dealId={id ?? ''} deal={deal} />
             <Button
               size="sm"
               variant="outline"
@@ -468,7 +467,5 @@ export function DossierPage() {
         </TabsContent>
       </Tabs>
     </div>
-    {!investmentNoteOpen && <DealPrintSheet deal={deal} guarantees={guarantees} />}
-    </>
   );
 }

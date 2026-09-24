@@ -4,9 +4,10 @@ import { CockpitController } from './cockpit.controller';
 import { DealsModule } from '../deals/deals.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { RiskEngineModule } from '../risk-engine/risk-engine.module';
+import { PdfExportModule } from '../pdf-export/pdf-export.module';
 
 @Module({
-  imports: [DealsModule, ActivitiesModule, RiskEngineModule],
+  imports: [DealsModule, ActivitiesModule, RiskEngineModule, PdfExportModule],
   providers: [CockpitService],
   controllers: [CockpitController],
 })

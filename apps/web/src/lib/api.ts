@@ -117,6 +117,31 @@ async function getBlob(path: string): Promise<Blob> {
   return response.blob();
 }
 
+// Même besoin que getBlob (fichier binaire, auth par header impossible via un
+// simple <a href>) mais pour un export dont le contenu est envoyé par le
+// client plutôt que recalculé côté serveur (ex. Note d'investissement —
+// texte édité en local, jamais persisté).
+async function postBlob(path: string, body: unknown): Promise<Blob> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const doFetch = (token: string | null) =>
+    fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body ?? {}),
+    });
+
+  let response = await doFetch(accessToken);
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await doFetch(newToken);
+  }
+  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  return response.blob();
+}
+
 // NDJSON body: one {"delta": "..."} object per line, a trailing {"done": true},
 // or {"error": "..."} if the model call fails mid-stream (after the 200 has
 // already been sent, so it can't surface as an HTTP error status — see
@@ -179,6 +204,7 @@ async function postStream(path: string, body: unknown, onDelta: (delta: string) 
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'GET' }),
   getBlob,
+  postBlob,
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, { ...options, method: 'POST', body }),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>

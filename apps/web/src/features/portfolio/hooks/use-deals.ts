@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, API_URL } from '@/lib/api';
 import type { Deal, DealDetail, DealKpis, DealReport, DealStage, DealStatus, DealType, EsgAssessment, PaginatedResult, PortfolioOverview } from '@/types';
+
+function downloadBlob(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
+}
 
 export interface DealsFilters {
   search?: string;
@@ -60,6 +69,43 @@ export function usePortfolioOverview() {
 export function useExportDealReport(dealId: string) {
   return useMutation({
     mutationFn: () => api.get<DealReport>(`/deals/${dealId}/export`),
+  });
+}
+
+/**
+ * Fiche dossier en PDF, générée côté serveur (même "vraie correction" que
+ * l'export pré-comité Préqual — window.print() ne fonctionne quasiment pas
+ * sur Chrome Android).
+ */
+export function useExportDealPdf(dealId: string) {
+  return useMutation({
+    mutationFn: async (dealName: string) => {
+      const blob = await api.getBlob(`${API_URL}/deals/${dealId}/export-pdf`);
+      downloadBlob(blob, `dossier-${dealName}.pdf`);
+    },
+  });
+}
+
+export interface InvestmentNoteSections {
+  resume: string;
+  presentation: string;
+  marche: string;
+  financier: string;
+  risque: string;
+  suivi: string;
+}
+
+/**
+ * Note d'investissement en PDF. Le contenu des sections vit uniquement côté
+ * client (jamais persisté) — on l'envoie donc au serveur pour le rendu,
+ * plutôt que de le laisser recalculer depuis la base.
+ */
+export function useExportInvestmentNotePdf(dealId: string) {
+  return useMutation({
+    mutationFn: async ({ dealName, sections }: { dealName: string; sections: InvestmentNoteSections }) => {
+      const blob = await api.postBlob(`/deals/${dealId}/investment-note-pdf`, sections);
+      downloadBlob(blob, `note-investissement-${dealName}.pdf`);
+    },
   });
 }
 

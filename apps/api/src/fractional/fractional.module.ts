@@ -18,9 +18,10 @@ import { LegalTaxDdService } from './legal-tax-dd.service';
 import { FractionalLegalAlertsService } from './fractional-legal-alerts.service';
 import { AlertsModule } from '../alerts/alerts.module';
 import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-marche.module';
+import { PdfExportModule } from '../pdf-export/pdf-export.module';
 
 @Module({
-  imports: [AlertsModule, IntelligenceMarcheModule],
+  imports: [AlertsModule, IntelligenceMarcheModule, PdfExportModule],
   controllers: [
     FractionalProjectsController,
     MarketDataController,
