@@ -20,6 +20,8 @@ import { ActivitiesModule } from './activities/activities.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { CockpitModule } from './cockpit/cockpit.module';
 import { GuaranteesModule } from './guarantees/guarantees.module';
+import { ProjectMilestonesModule } from './project-milestones/project-milestones.module';
+import { WorkloadModule } from './workload/workload.module';
 import { FinancialModelModule } from './financial-model/financial-model.module';
 import { ProjectCheckpointsModule } from './project-checkpoints/project-checkpoints.module';
 import { RiskEngineModule } from './risk-engine/risk-engine.module';
@@ -67,6 +69,8 @@ import { HealthController } from './health/health.controller';
     AlertsModule,
     CockpitModule,
     GuaranteesModule,
+    ProjectMilestonesModule,
+    WorkloadModule,
     FinancialModelModule,
     ProjectCheckpointsModule,
     RiskEngineModule,

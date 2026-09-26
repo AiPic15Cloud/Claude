@@ -196,7 +196,7 @@ export class PromotionService {
     if (dto.orientation === 'GO_SOUS_CONDITIONS') {
       for (const finding of unresolvedBlocking) {
         await this.prisma.portfolioMilestone.create({
-          data: { dealId: deal.id, label: finding.statement, description: finding.rationale, blocking: true, sourceFindingId: finding.id },
+          data: { dealId: deal.id, organizationId, label: finding.statement, description: finding.rationale, blocking: true, sourceFindingId: finding.id },
         });
       }
     }

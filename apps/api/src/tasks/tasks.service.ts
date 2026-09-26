@@ -34,6 +34,8 @@ export class TasksService {
         assigneeId: dto.assigneeId ?? userId,
         createdById: userId,
         typeTache: dto.typeTache,
+        estimatedHours: dto.estimatedHours,
+        milestoneId: dto.milestoneId,
       },
       include: { deal: { select: { id: true, name: true, reference: true } } },
     });
@@ -103,6 +105,8 @@ export class TasksService {
         // elle réapparaîtrait dans cette colonne si jamais rouverte plus
         // tard, avec un état "en cours" qui n'aurait plus de sens.
         inProgress: dto.done === true ? false : dto.inProgress,
+        estimatedHours: dto.estimatedHours,
+        milestoneId: dto.milestoneId,
       },
       include: { deal: { select: { id: true, name: true, reference: true } } },
     });

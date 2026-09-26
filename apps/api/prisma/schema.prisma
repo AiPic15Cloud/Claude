@@ -105,6 +105,8 @@ enum ActivityType {
   ANALYST_OVERRIDE_SET
   STATUS_CHANGED
   PREQUALIFICATION_PROMOTED
+  MILESTONE_ADDED
+  MILESTONE_STATUS_CHANGED
 }
 
 enum GuaranteeType {
@@ -269,6 +271,7 @@ model Organization {
   eliminatoryRules       FractionalEliminatoryRule[]
   observationEntityLinks ProjectObservationEntityLink[]
   prequalificationCases  PrequalificationCase[]
+  portfolioMilestones    PortfolioMilestone[]
 
   @@map("organizations")
 }
@@ -316,6 +319,7 @@ model User {
   tasksAssigned                   Task[]                         @relation("TaskAssignee")
   tasksCreated                    Task[]                         @relation("TaskCreatedBy")
   tasksCancelled                  Task[]                         @relation("TaskCancelledBy")
+  milestonesCreated               PortfolioMilestone[]
   activities                      Activity[]
   refreshTokens                   RefreshToken[]
   competitorProjectsLogged        CompetitorProject[]
@@ -1038,6 +1042,22 @@ model Task {
   /// commencée) ; `done` reste la seule source de vérité pour "Terminé".
   inProgress Boolean @default(false)
 
+  /// Estimation en heures pour le calcul de charge de travail par analyste
+  /// (WorkloadService) — nullable et jamais dérivée à 0 quand absente : une
+  /// tâche sans estimation reste comptée séparément ("non estimées"), pas
+  /// fondue silencieusement dans le total d'heures engagées (doctrine
+  /// "Unknown ≠ Zero", déjà appliquée partout ailleurs dans ce codebase).
+  estimatedHours Decimal? @db.Decimal(6, 2)
+
+  /// Rattachement optionnel à un jalon de planification (PortfolioMilestone,
+  /// étendu au-delà de son usage d'origine — conditions de promotion
+  /// Préqual — pour devenir le jalon générique de la gestion de projet) —
+  /// une tâche peut exister sans jalon (fonctionnement actuel inchangé),
+  /// mais quand elle en porte un, elle contribue à la progression calculée
+  /// de ce jalon (PortfolioMilestonesService.computeProgress).
+  milestoneId String?
+  milestone   PortfolioMilestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+
   assigneeId  String
   assignee    User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdById String
@@ -1060,8 +1080,10 @@ model Task {
   @@index([organizationId])
   @@index([assigneeId])
   @@index([dueDate])
+  @@index([milestoneId])
   @@map("tasks")
 }
+
 
 model Activity {
   id     String @id @default(cuid())
@@ -4028,23 +4050,61 @@ model PrequalDocumentRequest {
 /// devient un portfolio_milestone bloquant") — distinct de ProjectCheckpoint,
 /// qui suit l'avancement travaux/commercialisation en cours de vie du deal,
 /// pas des conditions de sortie de SOURCING.
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  AT_RISK
+  BLOCKED
+  DONE
+  WAIVED
+}
+
+// Née comme un sous-produit de la promotion Préqual→Deal (une condition
+// bloquante devenue jalon à lever), ce modèle était jusqu'ici créé mais
+// jamais relu ni modifié (aucun endpoint, aucune UI). Étendu ici en jalon
+// générique de planification de projet — label/description/blocking sont
+// inchangés, targetDate/order/createdBy/tasks sont ajoutés pour porter un
+// vrai calendrier de projet (jalons manuels + conditions de promotion dans
+// la même liste, distingués par sourceFindingId).
 model PortfolioMilestone {
   id     String @id @default(cuid())
   dealId String
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
+  /// Ajouté pour aligner ce modèle sur la doctrine de scoping direct déjà
+  /// appliquée à Task/PrequalificationCase — chaque requête filtre sur cette
+  /// colonne, jamais dérivée via `deal`. Nullable pour les lignes créées
+  /// avant cet ajout (aucune n'existe en pratique : aucune lecture/écriture
+  /// ne référence encore ce modèle en dehors de sa création à la promotion).
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   label       String
   description String?
-  blocking    Boolean @default(true)
-  status      String  @default("PENDING") // PENDING/RESOLVED/WAIVED — chaîne libre validée côté DTO
+  targetDate  DateTime?
+  blocking    Boolean         @default(true)
+  status      MilestoneStatus @default(PENDING)
+
+  /// Ordre d'affichage manuel dans la timeline d'un dossier — pas dérivé de
+  /// targetDate, deux jalons pouvant partager une date ou n'en avoir aucune.
+  order Int @default(0)
 
   /// Traçabilité vers le Finding d'origine, quand le jalon vient d'une
   /// condition de préqualification plutôt que d'un ajout manuel ultérieur.
   sourceFindingId String?
 
+  /// Nullable : les jalons créés automatiquement à la promotion n'ont pas
+  /// d'auteur humain direct — seuls les jalons ajoutés manuellement en ont un.
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+
   resolvedAt DateTime?
   createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+
+  tasks Task[]
 
   @@index([dealId])
+  @@index([organizationId])
   @@map("portfolio_milestones")
 }
