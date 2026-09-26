@@ -5,12 +5,14 @@ import { z } from 'zod';
 import { Loader2, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateRelationship, useEntities, useRelationshipTypes } from '../hooks/use-graph';
 import { EVIDENCE_LEVEL_LABELS, type EvidenceLevel } from '@/types';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
 
 const schema = z.object({
   targetEntityId: z.string().min(1, 'Choisissez une entité'),
@@ -60,8 +62,8 @@ export function CreateRelationshipDialog({ entityId }: { entityId: string }) {
         sourceEntityId: entityId,
         targetEntityId: values.targetEntityId,
         typeKey: values.typeKey,
-        amount: values.amount ? Number(values.amount) : undefined,
-        percentage: values.percentage ? Number(values.percentage) : undefined,
+        amount: values.amount ? parseLocaleNumber(values.amount) : undefined,
+        percentage: values.percentage ? parseLocaleNumber(values.percentage) : undefined,
         evidenceLevel: values.evidenceLevel as EvidenceLevel,
         evidenceSource: values.evidenceSource,
         evidenceReference: values.evidenceReference || undefined,
@@ -131,11 +133,11 @@ export function CreateRelationshipDialog({ entityId }: { entityId: string }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amount">Montant (€, optionnel)</Label>
-              <Input id="amount" type="number" step="0.01" {...register('amount')} />
+              <DecimalInput id="amount" {...register('amount')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="percentage">Pourcentage (optionnel)</Label>
-              <Input id="percentage" type="number" step="0.1" {...register('percentage')} />
+              <DecimalInput id="percentage" {...register('percentage')} />
             </div>
           </div>
 

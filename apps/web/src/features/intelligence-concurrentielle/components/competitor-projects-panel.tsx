@@ -5,6 +5,7 @@ import { Globe, History, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   useCompetitorProjects,
@@ -15,6 +16,7 @@ import {
 } from '../hooks/use-competitor-projects';
 import { COMPETITOR_PROJECT_EVENT_LABELS, COMPETITOR_PROJECT_STATUS_LABELS, type CompetitorProject, type CompetitorProjectStatus } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { cn } from '@/lib/utils';
 
 const STATUS_VARIANT: Record<CompetitorProjectStatus, 'default' | 'warning' | 'secondary'> = {
@@ -74,7 +76,7 @@ export function CompetitorProjectsPanel({ entityId }: { entityId: string }) {
         id: editing.id,
         name: form.name.trim(),
         status: form.status,
-        targetAmount: form.targetAmount ? Number(form.targetAmount) : undefined,
+        targetAmount: form.targetAmount ? parseLocaleNumber(form.targetAmount) : undefined,
         expectedDate: form.expectedDate || undefined,
         url: form.url || undefined,
         note: form.note || undefined,
@@ -146,9 +148,7 @@ export function CompetitorProjectsPanel({ entityId }: { entityId: string }) {
                 value={form.expectedDate}
                 onChange={(e) => setForm((f) => ({ ...f, expectedDate: e.target.value }))}
               />
-              <Input
-                type="number"
-                min={0}
+              <DecimalInput
                 placeholder="Montant cible (€)"
                 value={form.targetAmount}
                 onChange={(e) => setForm((f) => ({ ...f, targetAmount: e.target.value }))}

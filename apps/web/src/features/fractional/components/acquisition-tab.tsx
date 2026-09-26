@@ -3,9 +3,11 @@ import { Loader2, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpsertSourcesUses } from '../hooks/use-fractional';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { TVA_REGIME_LABELS, type FractionalSourcesUses, type TvaRegime } from '@/types';
 
 const TVA_REGIMES: TvaRegime[] = ['NON_ASSUJETTI', 'MARGE', 'PRIX_TOTAL_OPTION_LOYERS'];
@@ -68,10 +70,10 @@ export function AcquisitionTab({ projectId, sourcesUses }: { projectId: string; 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = Object.fromEntries(FIELDS.map((f) => [f.key, Number(form[f.key]) || 0])) as unknown as Parameters<typeof upsert.mutate>[0];
+    const payload = Object.fromEntries(FIELDS.map((f) => [f.key, parseLocaleNumber(form[f.key]) || 0])) as unknown as Parameters<typeof upsert.mutate>[0];
     payload.regimeTva = regimeTva;
     if (regimeTva === 'PRIX_TOTAL_OPTION_LOYERS') {
-      payload.tvaTauxPct = Number(tvaTauxPct) || 20;
+      payload.tvaTauxPct = parseLocaleNumber(tvaTauxPct) || 20;
       payload.tvaRecuperationDelaiMois = Number(tvaRecuperationDelaiMois) || 3;
     }
     upsert.mutate(payload);
@@ -88,11 +90,8 @@ export function AcquisitionTab({ projectId, sourcesUses }: { projectId: string; 
             {FIELDS.map((f) => (
               <div key={f.key} className="flex flex-col gap-1.5">
                 <Label htmlFor={f.key}>{f.label}</Label>
-                <Input
+                <DecimalInput
                   id={f.key}
-                  type="number"
-                  step="0.01"
-                  min={0}
                   required={f.required}
                   value={form[f.key]}
                   onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
@@ -122,11 +121,8 @@ export function AcquisitionTab({ projectId, sourcesUses }: { projectId: string; 
                 <>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="tvaTauxPct">Taux de TVA (%)</Label>
-                    <Input
+                    <DecimalInput
                       id="tvaTauxPct"
-                      type="number"
-                      step="0.1"
-                      min={0}
                       value={tvaTauxPct}
                       onChange={(e) => setTvaTauxPct(e.target.value)}
                     />

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -12,17 +13,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCreateDeal } from '../hooks/use-deals';
 import { DEAL_TYPE_LABELS, DEAL_TYPES, type DealType } from '@/types';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
+
+// Normalise "1 234,56" en valeur exploitable par z.coerce.number() — sinon un
+// <input type="number"> rejette silencieusement le "," sous une locale française
+// et un champ texte transmettrait "1234,56" tel quel, coercé en NaN.
+const normalizeDecimal = (v: unknown) => (typeof v === 'string' ? parseLocaleNumber(v) : v);
 
 // register()-bound number inputs pass the raw string through, and an empty
 // field coerces to 0 (not undefined) — which then fails .positive()/.int()
 // with no visible error, silently blocking submission. Preprocessing blank
-// strings to undefined first lets "left empty" actually mean "not set".
-const blankToUndefined = (v: unknown) => (v === '' ? undefined : v);
+// strings to undefined first lets "left empty" actually mean "not set". Also
+// normalises the locale comma before coercion, same reason as normalizeDecimal.
+const blankToUndefined = (v: unknown) => {
+  if (v === '') return undefined;
+  return typeof v === 'string' ? parseLocaleNumber(v) : v;
+};
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
   type: z.enum(DEAL_TYPES as [DealType, ...DealType[]]),
-  amountTarget: z.coerce.number().positive('Montant requis'),
+  amountTarget: z.preprocess(normalizeDecimal, z.coerce.number().positive('Montant requis')),
   interestRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   durationMonths: z.preprocess(blankToUndefined, z.coerce.number().int().positive().optional()),
@@ -101,7 +112,7 @@ export function CreateDealDialog() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amountTarget">Montant cible (€)</Label>
-              <Input id="amountTarget" type="number" min={0} step={1000} {...register('amountTarget')} />
+              <DecimalInput id="amountTarget" {...register('amountTarget')} />
               {errors.amountTarget && <p className="text-xs text-destructive">{errors.amountTarget.message}</p>}
             </div>
           </div>
@@ -109,11 +120,11 @@ export function CreateDealDialog() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="interestRate">Taux (%)</Label>
-              <Input id="interestRate" type="number" min={0} max={100} step={0.1} {...register('interestRate')} />
+              <DecimalInput id="interestRate" {...register('interestRate')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="feesRate">Fees (%)</Label>
-              <Input id="feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              <DecimalInput id="feesRate" {...register('feesRate')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="durationMonths">Durée (mois)</Label>

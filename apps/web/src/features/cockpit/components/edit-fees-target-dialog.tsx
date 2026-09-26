@@ -4,13 +4,16 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Loader2, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useSetFeesTarget } from '../hooks/use-fees';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
 
-const schema = z.object({ targetAmount: z.coerce.number().min(0, 'Montant requis') });
+const schema = z.object({
+  targetAmount: z.preprocess((v) => (typeof v === 'string' ? parseLocaleNumber(v) : v), z.coerce.number().min(0, 'Montant requis')),
+});
 type FormValues = z.infer<typeof schema>;
 
 export function EditFeesTargetDialog({ year, currentTarget }: { year: number; currentTarget: number | null }) {
@@ -41,7 +44,7 @@ export function EditFeesTargetDialog({ year, currentTarget }: { year: number; cu
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="targetAmount">Objectif (€)</Label>
-            <Input id="targetAmount" type="number" min={0} step={1000} {...register('targetAmount')} />
+            <DecimalInput id="targetAmount" {...register('targetAmount')} />
             {errors.targetAmount && <p className="text-xs text-destructive">{errors.targetAmount.message}</p>}
           </div>
           {setTarget.isError && (

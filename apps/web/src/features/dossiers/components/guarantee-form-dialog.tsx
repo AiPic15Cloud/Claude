@@ -5,11 +5,13 @@ import { z } from 'zod';
 import { Loader2, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCreateGuarantee, useUpdateGuarantee } from '../hooks/use-guarantees';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { EXPIRABLE_GUARANTEE_TYPES, GUARANTEE_TYPE_LABELS, type Guarantee, type GuaranteeType } from '@/types';
 
 const GUARANTEE_TYPES: GuaranteeType[] = ['HYPOTHEQUE', 'FIDUCIE', 'CAUTION', 'GAGE', 'NANTISSEMENT', 'PRIVILEGE', 'AUTRE'];
@@ -17,7 +19,7 @@ const GUARANTEE_TYPES: GuaranteeType[] = ['HYPOTHEQUE', 'FIDUCIE', 'CAUTION', 'G
 const schema = z.object({
   type: z.enum(['HYPOTHEQUE', 'FIDUCIE', 'CAUTION', 'GAGE', 'NANTISSEMENT', 'PRIVILEGE', 'AUTRE']),
   description: z.string().min(2, 'Description requise'),
-  amount: z.coerce.number().positive('Montant requis'),
+  amount: z.preprocess((v) => (typeof v === 'string' ? parseLocaleNumber(v) : v), z.coerce.number().positive('Montant requis')),
   rank: z.coerce.number().int().positive().optional(),
   endDate: z.string().optional(),
 });
@@ -120,7 +122,7 @@ export function GuaranteeFormDialog({ dealId, guarantee }: GuaranteeFormDialogPr
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amount">Montant (€)</Label>
-              <Input id="amount" type="number" min={0} step={1000} {...register('amount')} />
+              <DecimalInput id="amount" {...register('amount')} />
               {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">

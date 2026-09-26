@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Loader2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -53,7 +55,7 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
   const handleAddBucket = (e: React.FormEvent) => {
     e.preventDefault();
     createBucket.mutate(
-      { criterionId: criterion.id, label: bucketForm.label, points: Number(bucketForm.points) || 0, isEliminatory: bucketForm.isEliminatory },
+      { criterionId: criterion.id, label: bucketForm.label, points: parseLocaleNumber(bucketForm.points) || 0, isEliminatory: bucketForm.isEliminatory },
       { onSuccess: () => setBucketForm({ label: '', points: '', isEliminatory: false }) },
     );
   };
@@ -87,9 +89,8 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-[11px]">Points</Label>
-          <Input
+          <DecimalInput
             className="h-7 w-20 text-xs"
-            type="number"
             required
             value={bucketForm.points}
             onChange={(e) => setBucketForm((p) => ({ ...p, points: e.target.value }))}
@@ -182,7 +183,7 @@ export function BaremeEditor() {
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
     createCategory.mutate(
-      { assetType: categoryForm.assetType || undefined, label: categoryForm.label, maxPoints: Number(categoryForm.maxPoints) || 0 },
+      { assetType: categoryForm.assetType || undefined, label: categoryForm.label, maxPoints: parseLocaleNumber(categoryForm.maxPoints) || 0 },
       { onSuccess: () => setCategoryForm(EMPTY_CATEGORY_FORM) },
     );
   };
@@ -196,7 +197,7 @@ export function BaremeEditor() {
         label: ruleForm.label,
         metricKey: ruleForm.metricKey,
         operator: ruleForm.operator,
-        threshold: Number(ruleForm.threshold) || 0,
+        threshold: parseLocaleNumber(ruleForm.threshold) || 0,
         failMessage: ruleForm.failMessage,
       },
       { onSuccess: () => setRuleForm(EMPTY_RULE_FORM) },
@@ -228,7 +229,7 @@ export function BaremeEditor() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Points max</Label>
-              <Input className="w-24" type="number" required value={categoryForm.maxPoints} onChange={(e) => setCategoryForm((p) => ({ ...p, maxPoints: e.target.value }))} />
+              <DecimalInput className="w-24" required value={categoryForm.maxPoints} onChange={(e) => setCategoryForm((p) => ({ ...p, maxPoints: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Typologie (optionnel)</Label>
@@ -301,7 +302,7 @@ export function BaremeEditor() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Seuil</Label>
-                <Input type="number" step="0.01" required value={ruleForm.threshold} onChange={(e) => setRuleForm((p) => ({ ...p, threshold: e.target.value }))} />
+                <DecimalInput required value={ruleForm.threshold} onChange={(e) => setRuleForm((p) => ({ ...p, threshold: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Typologie (optionnel)</Label>

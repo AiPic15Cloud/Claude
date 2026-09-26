@@ -5,19 +5,26 @@ import { z } from 'zod';
 import { Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCreatePlatformProfile } from '../hooks/use-fractional';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
+
+// Normalise une saisie texte ("6,5") en valeur exploitable par z.coerce.number()
+// avant coercition — sinon "6,5" (locale française) donne NaN plutôt que 6.5,
+// voir lib/locale-number.ts.
+const normalizeDecimal = (v: unknown) => (typeof v === 'string' ? parseLocaleNumber(v) : v);
 
 const schema = z.object({
   platformName: z.string().min(2, 'Requis'),
   effectiveFrom: z.string().min(1, 'Requis'),
-  minNetInvestorYieldPct: z.coerce.number().min(0),
-  acquisitionFeePct: z.coerce.number().min(0).optional(),
-  annualManagementFeePct: z.coerce.number().min(0).optional(),
-  incomeShareInvestorPct: z.coerce.number().min(0).max(100),
-  capitalGainShareInvestorPct: z.coerce.number().min(0).max(100),
+  minNetInvestorYieldPct: z.preprocess(normalizeDecimal, z.coerce.number().min(0)),
+  acquisitionFeePct: z.preprocess(normalizeDecimal, z.coerce.number().min(0).optional()),
+  annualManagementFeePct: z.preprocess(normalizeDecimal, z.coerce.number().min(0).optional()),
+  incomeShareInvestorPct: z.preprocess(normalizeDecimal, z.coerce.number().min(0).max(100)),
+  capitalGainShareInvestorPct: z.preprocess(normalizeDecimal, z.coerce.number().min(0).max(100)),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -69,28 +76,28 @@ export function CreatePlatformProfileDialog() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="minNetInvestorYieldPct">Hurdle net investisseur (%)</Label>
-              <Input id="minNetInvestorYieldPct" type="number" step="0.1" {...register('minNetInvestorYieldPct')} />
+              <DecimalInput id="minNetInvestorYieldPct" {...register('minNetInvestorYieldPct')} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="acquisitionFeePct">Frais d'acquisition (%)</Label>
-              <Input id="acquisitionFeePct" type="number" step="0.1" {...register('acquisitionFeePct')} />
+              <DecimalInput id="acquisitionFeePct" {...register('acquisitionFeePct')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="annualManagementFeePct">Frais de gestion annuels (%)</Label>
-              <Input id="annualManagementFeePct" type="number" step="0.1" {...register('annualManagementFeePct')} />
+              <DecimalInput id="annualManagementFeePct" {...register('annualManagementFeePct')} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="incomeShareInvestorPct">Part investisseur — revenus (%)</Label>
-              <Input id="incomeShareInvestorPct" type="number" step="1" {...register('incomeShareInvestorPct')} />
+              <DecimalInput id="incomeShareInvestorPct" {...register('incomeShareInvestorPct')} />
               {errors.incomeShareInvestorPct && <p className="text-xs text-destructive">{errors.incomeShareInvestorPct.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="capitalGainShareInvestorPct">Part investisseur — plus-value (%)</Label>
-              <Input id="capitalGainShareInvestorPct" type="number" step="1" {...register('capitalGainShareInvestorPct')} />
+              <DecimalInput id="capitalGainShareInvestorPct" {...register('capitalGainShareInvestorPct')} />
               {errors.capitalGainShareInvestorPct && <p className="text-xs text-destructive">{errors.capitalGainShareInvestorPct.message}</p>}
             </div>
           </div>

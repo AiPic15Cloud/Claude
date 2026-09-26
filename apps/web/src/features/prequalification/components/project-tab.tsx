@@ -3,9 +3,11 @@ import { Loader2, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { useUpsertProjectProfile, useUpdatePrequalificationCase, useUpsertTimeline } from '../hooks/use-prequalification';
 import {
   PREQUAL_ACQUISITION_STATUS_LABELS,
@@ -150,11 +152,11 @@ export function ProjectTab({
       postcode: form.postcode || undefined,
       cadastralRef: form.cadastralRef || undefined,
       description: form.description || undefined,
-      existingSurfaceSqm: form.existingSurfaceSqm ? Number(form.existingSurfaceSqm) : undefined,
-      createdSurfaceSqm: form.createdSurfaceSqm ? Number(form.createdSurfaceSqm) : undefined,
+      existingSurfaceSqm: form.existingSurfaceSqm ? parseLocaleNumber(form.existingSurfaceSqm) : undefined,
+      createdSurfaceSqm: form.createdSurfaceSqm ? parseLocaleNumber(form.createdSurfaceSqm) : undefined,
       lotCount: form.lotCount ? Number(form.lotCount) : undefined,
       acquisitionStatus: (form.acquisitionStatus as PrequalAcquisitionStatus) || undefined,
-      acquisitionPrice: form.acquisitionPrice ? Number(form.acquisitionPrice) : undefined,
+      acquisitionPrice: form.acquisitionPrice ? parseLocaleNumber(form.acquisitionPrice) : undefined,
       worksDescription: form.worksDescription || undefined,
       exitStrategy: form.exitStrategy || undefined,
       targetTimeline: form.targetTimeline || undefined,
@@ -200,19 +202,19 @@ export function ProjectTab({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="flex flex-col gap-1.5">
                 <Label>Surface existante (m²)</Label>
-                <Input type="number" min={0} value={form.existingSurfaceSqm} onChange={(e) => setForm((p) => ({ ...p, existingSurfaceSqm: e.target.value }))} />
+                <DecimalInput value={form.existingSurfaceSqm} onChange={(e) => setForm((p) => ({ ...p, existingSurfaceSqm: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Surface créée (m²)</Label>
-                <Input type="number" min={0} value={form.createdSurfaceSqm} onChange={(e) => setForm((p) => ({ ...p, createdSurfaceSqm: e.target.value }))} />
+                <DecimalInput value={form.createdSurfaceSqm} onChange={(e) => setForm((p) => ({ ...p, createdSurfaceSqm: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Nombre de lots</Label>
-                <Input type="number" min={0} value={form.lotCount} onChange={(e) => setForm((p) => ({ ...p, lotCount: e.target.value }))} />
+                <Input type="number" min={0} step={1} value={form.lotCount} onChange={(e) => setForm((p) => ({ ...p, lotCount: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Prix d'acquisition</Label>
-                <Input type="number" min={0} value={form.acquisitionPrice} onChange={(e) => setForm((p) => ({ ...p, acquisitionPrice: e.target.value }))} />
+                <DecimalInput value={form.acquisitionPrice} onChange={(e) => setForm((p) => ({ ...p, acquisitionPrice: e.target.value }))} />
               </div>
             </div>
 

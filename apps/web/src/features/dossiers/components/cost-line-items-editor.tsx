@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Check, Loader2, Pencil, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Button } from '@/components/ui/button';
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { useCreateCostLineItem, useUpdateCostLineItem, useDeleteCostLineItem, type CostLineItemCategory } from '../hooks/use-cost-line-items';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import type { CostLineItem } from '@/types';
 
 interface DraftItem {
@@ -45,7 +47,7 @@ export function CostLineItemsEditor({
 
   const save = () => {
     if (!draft) return;
-    const amount = Number(draft.amount);
+    const amount = parseLocaleNumber(draft.amount);
     if (!draft.label.trim() || Number.isNaN(amount)) return;
     if (draft.id) {
       update.mutate({ itemId: draft.id, label: draft.label, amount }, { onSuccess: () => setDraft(null) });
@@ -62,7 +64,7 @@ export function CostLineItemsEditor({
         draft?.id === item.id ? (
           <div key={item.id} className="flex items-center gap-1.5">
             <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Poste" className="flex-1" />
-            <Input type="number" step="any" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
+            <DecimalInput value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
             <Button size="icon" variant="ghost" onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
             </Button>
@@ -86,7 +88,7 @@ export function CostLineItemsEditor({
       {draft?.id === null && (
         <div className="flex items-center gap-1.5">
           <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder={placeholder} className="flex-1" autoFocus />
-          <Input type="number" step="any" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
+          <DecimalInput value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
           <Button size="icon" variant="ghost" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
           </Button>

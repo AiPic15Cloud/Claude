@@ -3,11 +3,13 @@ import { Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { useCreateProjectActual, useUpsertProjectOutcome, useFractionalPerformanceAttribution, useFractionalComparables } from '../hooks/use-fractional';
 import { PROJECT_OUTCOME_STATUS_LABELS, type FractionalProjectActual, type FractionalProjectOutcome, type ProjectOutcomeStatus } from '@/types';
 
@@ -41,9 +43,9 @@ export function MemoireTab({
     createActual.mutate(
       {
         period: actualForm.period,
-        loyersReels: actualForm.loyersReels ? Number(actualForm.loyersReels) : undefined,
-        opexReel: actualForm.opexReel ? Number(actualForm.opexReel) : undefined,
-        distributionsReelles: actualForm.distributionsReelles ? Number(actualForm.distributionsReelles) : undefined,
+        loyersReels: actualForm.loyersReels ? parseLocaleNumber(actualForm.loyersReels) : undefined,
+        opexReel: actualForm.opexReel ? parseLocaleNumber(actualForm.opexReel) : undefined,
+        distributionsReelles: actualForm.distributionsReelles ? parseLocaleNumber(actualForm.distributionsReelles) : undefined,
       },
       { onSuccess: () => setActualForm({ ...actualForm, loyersReels: '', opexReel: '', distributionsReelles: '' }) },
     );
@@ -53,8 +55,8 @@ export function MemoireTab({
     e.preventDefault();
     upsertOutcome.mutate({
       status: outcomeForm.status,
-      triRealise: outcomeForm.triRealise ? Number(outcomeForm.triRealise) : undefined,
-      multipleRealise: outcomeForm.multipleRealise ? Number(outcomeForm.multipleRealise) : undefined,
+      triRealise: outcomeForm.triRealise ? parseLocaleNumber(outcomeForm.triRealise) : undefined,
+      multipleRealise: outcomeForm.multipleRealise ? parseLocaleNumber(outcomeForm.multipleRealise) : undefined,
     });
   };
 
@@ -94,15 +96,15 @@ export function MemoireTab({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="actualLoyers">Loyers réels</Label>
-              <Input id="actualLoyers" type="number" className="w-36" value={actualForm.loyersReels} onChange={(e) => setActualForm((p) => ({ ...p, loyersReels: e.target.value }))} />
+              <DecimalInput id="actualLoyers" className="w-36" value={actualForm.loyersReels} onChange={(e) => setActualForm((p) => ({ ...p, loyersReels: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="actualOpex">OPEX réel</Label>
-              <Input id="actualOpex" type="number" className="w-36" value={actualForm.opexReel} onChange={(e) => setActualForm((p) => ({ ...p, opexReel: e.target.value }))} />
+              <DecimalInput id="actualOpex" className="w-36" value={actualForm.opexReel} onChange={(e) => setActualForm((p) => ({ ...p, opexReel: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="actualDist">Distributions réelles</Label>
-              <Input id="actualDist" type="number" className="w-40" value={actualForm.distributionsReelles} onChange={(e) => setActualForm((p) => ({ ...p, distributionsReelles: e.target.value }))} />
+              <DecimalInput id="actualDist" className="w-40" value={actualForm.distributionsReelles} onChange={(e) => setActualForm((p) => ({ ...p, distributionsReelles: e.target.value }))} />
             </div>
             <Button type="submit" size="sm" disabled={createActual.isPending}>
               {createActual.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -151,11 +153,11 @@ export function MemoireTab({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="triRealise">TRI réalisé (%)</Label>
-              <Input id="triRealise" type="number" step="0.1" className="w-32" value={outcomeForm.triRealise} onChange={(e) => setOutcomeForm((p) => ({ ...p, triRealise: e.target.value }))} />
+              <DecimalInput id="triRealise" className="w-32" value={outcomeForm.triRealise} onChange={(e) => setOutcomeForm((p) => ({ ...p, triRealise: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="multipleRealise">Multiple réalisé</Label>
-              <Input id="multipleRealise" type="number" step="0.01" className="w-32" value={outcomeForm.multipleRealise} onChange={(e) => setOutcomeForm((p) => ({ ...p, multipleRealise: e.target.value }))} />
+              <DecimalInput id="multipleRealise" className="w-32" value={outcomeForm.multipleRealise} onChange={(e) => setOutcomeForm((p) => ({ ...p, multipleRealise: e.target.value }))} />
             </div>
             <Button type="submit" size="sm" disabled={upsertOutcome.isPending}>
               {upsertOutcome.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
