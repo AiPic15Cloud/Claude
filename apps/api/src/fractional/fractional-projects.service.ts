@@ -697,7 +697,13 @@ export class FractionalProjectsService {
       ? (stressValues.exitValueOverride ?? exitValueBase)
       : exitValueBase * (1 - FALLBACK_STRESS_EXIT_VALUE_HAIRCUT_PCT / 100);
 
-    const stressResult = computeReturnsEngine({ ...baseInput, ...stressValues, exitValue: exitValueStress });
+    // Le scénario stressé (AssumptionSet BEAR/SEVERE ou haircut FALLBACK_STRESS_*)
+    // ne réécrit que rentGrowthPctPerYear/vacancyCreditLossPct/exitValue : sans
+    // remettre indexGrowthRates à {}, un bail indexé ILC/ILAT/IRL/ICC garderait
+    // le taux de marché "live" de baseInput (resolveLeaseGrowthPct le préfère
+    // au taux de repli — rent-indexation.util.ts) et échapperait au stress test,
+    // exactement comme RENT_DOWNSIDE le corrige déjà dans stress-testing.util.ts.
+    const stressResult = computeReturnsEngine({ ...baseInput, ...stressValues, exitValue: exitValueStress, indexGrowthRates: {} });
 
     const eligibility = computeEligibility(baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null, hurdlePct);
 

@@ -110,7 +110,21 @@ export class AuthService {
 
     const tokenHash = hashToken(refreshToken);
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+
+    // A *revoked* token being replayed (as opposed to one that's simply
+    // unknown/malformed, or expired but never revoked) is a reuse-detection
+    // signal per OWASP's refresh-token rotation guidance: rotation already
+    // retired this token once, so someone presenting it again means either
+    // the legitimate client double-sent a request, or an attacker replayed a
+    // stolen token after the real user already rotated past it. We can't
+    // tell those apart, so we treat it as theft and revoke every active
+    // refresh token for this user, forcing a full re-login everywhere.
+    if (stored?.revokedAt) {
+      await this.prisma.refreshToken.updateMany({ where: { userId: stored.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+      throw new UnauthorizedException('Refresh token expiré ou révoqué');
+    }
+
+    if (!stored || stored.expiresAt < new Date()) {
       throw new UnauthorizedException('Refresh token expiré ou révoqué');
     }
 

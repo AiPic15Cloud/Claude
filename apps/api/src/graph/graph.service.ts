@@ -43,6 +43,14 @@ export class GraphService {
     return this.prisma.graphEntity.findMany({
       where,
       orderBy: { name: 'asc' },
+      // Plafond de sécurité — cet endpoint alimente aussi des sélecteurs
+      // (liaison d'entité à un dossier, création de relation) qui ont besoin
+      // de la liste complète, pas d'une page : pas de véritable pagination
+      // ici pour ne pas casser ces usages, seulement une borne pour éviter
+      // une réponse non bornée si l'organisation accumule des milliers
+      // d'entités. Une vraie pagination reste à faire pour la vue "Registre"
+      // dédiée si ce plafond devient un problème réel.
+      take: 1000,
       include: { _count: { select: { dealLinks: true, relationsFrom: true, relationsTo: true } } },
     });
   }
@@ -109,6 +117,14 @@ export class GraphService {
     if (dto.fromEntityId === dto.toEntityId) {
       throw new ConflictException('Une entité ne peut pas être reliée à elle-même');
     }
+    // Pas de contrainte unique en base sur (fromEntityId, toEntityId, type) —
+    // un double-submit (double clic, requête réseau rejouée) créerait sinon
+    // une arête dupliquée dans le graphe. Vérification applicative : réutilise
+    // la relation existante plutôt que d'en recréer une identique.
+    const existing = await this.prisma.graphRelation.findFirst({
+      where: { organizationId, fromEntityId: dto.fromEntityId, toEntityId: dto.toEntityId, type: dto.type },
+    });
+    if (existing) return existing;
     return this.prisma.graphRelation.create({ data: { organizationId, ...dto } });
   }
 

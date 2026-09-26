@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateSecret, generateURI, verify } from 'otplib';
 import * as QRCode from 'qrcode';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import Redis from 'ioredis';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { decryptTotpSecret, encryptTotpSecret } from './totp-secret-encryption.util';
 
@@ -15,43 +16,78 @@ const LOCKOUT_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class TwoFactorService {
+  private readonly logger = new Logger(TwoFactorService.name);
+
   // Per-user failed-attempt counter, independent of source IP — the global
   // per-IP throttle on POST /2fa/verify doesn't stop a distributed attacker
   // rotating IPs from brute-forcing one account's TOTP/recovery code.
-  // In-memory only (single API replica); resets on deploy/restart.
-  private readonly failedAttempts = new Map<string, { count: number; lockedUntil?: number }>();
+  // Backed by Redis — the same REDIS_URL/ioredis already provisioned for
+  // crowdfunding-watch's BullMQ queues (see crowdfunding-watch.module.ts) —
+  // rather than an in-memory Map, so the lockout survives horizontal
+  // scaling: with a per-process Map, an attacker simply gets load-balanced
+  // across replicas to reset their attempt count. Unlike the detection
+  // queues (which crash loudly without Redis, see configuration.ts), a
+  // Redis hiccup here fails OPEN — logged, lockout temporarily unenforced —
+  // rather than breaking login for every 2FA-enabled user; the underlying
+  // TOTP/recovery-code check still runs regardless.
+  private readonly redis: Redis;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    this.redis = new Redis(this.config.get<string>('redis.url')!);
+    this.redis.on('error', (err) => this.logger.warn(`Redis (2FA lockout) connection error: ${err.message}`));
+  }
 
   private get encryptionKey(): string {
     return this.config.get<string>('security.twoFactorEncryptionKey')!;
   }
 
-  private assertNotLocked(userId: string) {
-    const entry = this.failedAttempts.get(userId);
-    if (entry?.lockedUntil && entry.lockedUntil > Date.now()) {
-      const remainingMin = Math.ceil((entry.lockedUntil - Date.now()) / 60_000);
-      throw new UnauthorizedException(
-        `Trop de tentatives échouées — réessayez dans ${remainingMin} min`,
-      );
+  private lockKey(userId: string): string {
+    return `2fa:lockout:${userId}`;
+  }
+
+  private failKey(userId: string): string {
+    return `2fa:failcount:${userId}`;
+  }
+
+  private async assertNotLocked(userId: string): Promise<void> {
+    try {
+      const lockedUntil = await this.redis.get(this.lockKey(userId));
+      if (lockedUntil && Number(lockedUntil) > Date.now()) {
+        const remainingMin = Math.ceil((Number(lockedUntil) - Date.now()) / 60_000);
+        throw new UnauthorizedException(
+          `Trop de tentatives échouées — réessayez dans ${remainingMin} min`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      this.logger.warn(`2FA lockout check failed, failing open: ${err instanceof Error ? err.message : err}`);
     }
   }
 
-  private registerFailure(userId: string) {
-    const entry = this.failedAttempts.get(userId) ?? { count: 0 };
-    entry.count += 1;
-    if (entry.count >= MAX_FAILED_ATTEMPTS) {
-      entry.lockedUntil = Date.now() + LOCKOUT_MS;
-      entry.count = 0;
+  private async registerFailure(userId: string): Promise<void> {
+    try {
+      const count = await this.redis.incr(this.failKey(userId));
+      if (count === 1) {
+        await this.redis.pexpire(this.failKey(userId), LOCKOUT_MS);
+      }
+      if (count >= MAX_FAILED_ATTEMPTS) {
+        await this.redis.set(this.lockKey(userId), String(Date.now() + LOCKOUT_MS), 'PX', LOCKOUT_MS);
+        await this.redis.del(this.failKey(userId));
+      }
+    } catch (err) {
+      this.logger.warn(`2FA failure counter update failed: ${err instanceof Error ? err.message : err}`);
     }
-    this.failedAttempts.set(userId, entry);
   }
 
-  private registerSuccess(userId: string) {
-    this.failedAttempts.delete(userId);
+  private async registerSuccess(userId: string): Promise<void> {
+    try {
+      await this.redis.del(this.failKey(userId), this.lockKey(userId));
+    } catch (err) {
+      this.logger.warn(`2FA lockout reset failed: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   async generateSetup(userId: string, email: string) {
@@ -73,9 +109,13 @@ export class TwoFactorService {
     if (!user?.twoFactorSecret) {
       throw new BadRequestException('Aucune configuration 2FA en attente — relancez la mise en place');
     }
-    const { secret } = decryptTotpSecret(user.twoFactorSecret, this.encryptionKey);
-    const result = await verify({ token: code, secret }).catch(() => ({ valid: false }));
-    if (!result.valid) {
+
+    // Routed through verifyCode() rather than calling verify() directly so
+    // this step shares the exact same assertNotLocked/registerFailure
+    // lockout as every other TOTP verification path — the secret is already
+    // persisted (unconfirmed) at this point, so verifyCode() can check it.
+    const valid = await this.verifyCode(userId, code);
+    if (!valid) {
       throw new UnauthorizedException('Code invalide');
     }
 
@@ -108,7 +148,7 @@ export class TwoFactorService {
   }
 
   async verifyCode(userId: string, code: string): Promise<boolean> {
-    this.assertNotLocked(userId);
+    await this.assertNotLocked(userId);
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.twoFactorSecret) return false;
@@ -127,7 +167,7 @@ export class TwoFactorService {
     if (/^\d{6}$/.test(code)) {
       const result = await verify({ token: code, secret }).catch(() => ({ valid: false }));
       if (result.valid) {
-        this.registerSuccess(userId);
+        await this.registerSuccess(userId);
         return true;
       }
     }
@@ -138,12 +178,12 @@ export class TwoFactorService {
           where: { id: userId },
           data: { twoFactorRecoveryCodes: user.twoFactorRecoveryCodes.filter((h) => h !== hash) },
         });
-        this.registerSuccess(userId);
+        await this.registerSuccess(userId);
         return true;
       }
     }
 
-    this.registerFailure(userId);
+    await this.registerFailure(userId);
     return false;
   }
 

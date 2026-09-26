@@ -105,10 +105,10 @@ export class ProjectObservationService {
     await this.updateEffectiveFrequency(sourceKey, previousCheckedAt);
 
     for (const eventId of outcome.eventIds) {
-      await this.notificationQueue.add('notify-event', { eventId }, { jobId: notifyEventJobId(eventId), removeOnComplete: true, removeOnFail: 200 });
+      await this.notificationQueue.add('notify-event', { eventId }, { jobId: notifyEventJobId(eventId), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
     for (const observationId of outcome.touchedObservationIds) {
-      await this.enrichmentQueue.add('enrich-observation', { observationId }, { jobId: enrichmentJobId(observationId), removeOnComplete: true, removeOnFail: 200 });
+      await this.enrichmentQueue.add('enrich-observation', { observationId }, { jobId: enrichmentJobId(observationId), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
   }
 
@@ -327,12 +327,12 @@ export class ProjectObservationService {
   async sweepPending(): Promise<void> {
     const pendingEvents = await this.prisma.projectObservationEvent.findMany({ where: { notifiedAt: null }, select: { id: true }, take: 500 });
     for (const event of pendingEvents) {
-      await this.notificationQueue.add('notify-event', { eventId: event.id }, { jobId: notifyEventJobId(event.id), removeOnComplete: true, removeOnFail: 200 });
+      await this.notificationQueue.add('notify-event', { eventId: event.id }, { jobId: notifyEventJobId(event.id), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
 
     const pendingObservations = await this.prisma.projectObservation.findMany({ where: { enrichedAt: null }, select: { id: true }, take: 500 });
     for (const observation of pendingObservations) {
-      await this.enrichmentQueue.add('enrich-observation', { observationId: observation.id }, { jobId: enrichmentJobId(observation.id), removeOnComplete: true, removeOnFail: 200 });
+      await this.enrichmentQueue.add('enrich-observation', { observationId: observation.id }, { jobId: enrichmentJobId(observation.id), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
 
     if (pendingEvents.length > 0 || pendingObservations.length > 0) {

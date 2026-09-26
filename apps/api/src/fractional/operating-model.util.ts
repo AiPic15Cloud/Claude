@@ -42,7 +42,15 @@ export function computeOperatingModelYear(input: OperatingModelYearInput): Opera
   const operatingExpenses = effectiveGrossIncome * (input.opexPct / 100);
   const noi = effectiveGrossIncome - operatingExpenses;
   const platformVehicleCosts = input.managementFeeBase * (input.annualManagementFeePct / 100);
-  const distributableCashFlow = Math.max(0, noi - input.capexThisYear - platformVehicleCosts);
+  // Pas de plancher à 0 ici : un CAPEX (ou des coûts plateforme) qui dépasse
+  // le NOI de l'année doit rester visible comme un déficit négatif (cf.
+  // YearContext.propertyLevelCashFlow dans stakeholder-waterfall.util.ts, qui
+  // documente explicitement "NOI - CAPEX de l'année" comme pouvant être
+  // négatif) — le zéroter ici masquerait un appel de trésorerie réel. Les
+  // consommateurs en aval (ex. stakeholder-waterfall.util.ts) clampent déjà
+  // le pool à 0 là où c'est financièrement correct (pas de frais négatifs,
+  // pas de distribution négative aux tiers).
+  const distributableCashFlow = noi - input.capexThisYear - platformVehicleCosts;
   const investorDistribution = distributableCashFlow * (input.incomeShareInvestorPct / 100);
 
   return {

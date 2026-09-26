@@ -52,7 +52,7 @@ export class ProjectObservationController {
   async triggerSync(@Query('sourceKey') sourceKey?: string) {
     const platforms = sourceKey ? [sourceKey] : (await this.platformRegistry.list()).map((p) => p.sourceKey);
     for (const key of platforms) {
-      await this.detectionQueue.add('sync-platform', { sourceKey: key }, { removeOnComplete: true, removeOnFail: 50 });
+      await this.detectionQueue.add('sync-platform', { sourceKey: key }, { removeOnComplete: true, removeOnFail: 50, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
     return { queued: platforms.length };
   }

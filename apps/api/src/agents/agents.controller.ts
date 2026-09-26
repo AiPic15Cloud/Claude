@@ -115,6 +115,13 @@ export class AgentsController {
       } catch {
         throw new BadRequestException('Historique de conversation invalide');
       }
+      // history arrives JSON-encoded (see ChatWithFileDto), so class-validator
+      // can't cap the array size or per-message length the way ChatDto does —
+      // enforce the same bounds here, once decoded.
+      if (history.length > 50) throw new BadRequestException('Historique de conversation trop long (50 messages maximum)');
+      if (history.some((m) => m.content.length > 20000)) {
+        throw new BadRequestException('Message trop long dans l\'historique (20000 caractères maximum)');
+      }
     }
 
     const { system, messages } = await this.agentsService.prepareChatWithFile(

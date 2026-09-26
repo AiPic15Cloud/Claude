@@ -184,12 +184,18 @@ export class AgentsService {
    * explicitement plutôt que de laisser la coupure silencieuse.
    */
   async *streamText(system: string, messages: Anthropic.MessageParam[]): AsyncGenerator<string> {
-    const stream = this.client!.messages.stream({
-      model: this.config.get<string>('ai.anthropicModel')!,
-      max_tokens: 64000,
-      system,
-      messages,
-    });
+    const stream = this.client!.messages.stream(
+      {
+        model: this.config.get<string>('ai.anthropicModel')!,
+        max_tokens: 64000,
+        system,
+        messages,
+      },
+      // Longer-form generation than a simple HTTP call — cap it well above a
+      // typical response so a stalled upstream connection fails fast instead
+      // of hanging the request indefinitely.
+      { timeout: 120_000 },
+    );
 
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
@@ -248,18 +254,21 @@ export class AgentsService {
     const built = await buildDocumentContentBlock(buffer, mimeType, name);
     if (!built.ok) throw new BadRequestException(built.error);
 
-    const response = await this.client.messages.parse({
-      model: this.config.get<string>('ai.anthropicModel')!,
-      max_tokens: 4096,
-      system: EXTRACTION_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: [built.block, { type: 'text', text: `Extrait les données financières du document « ${name} ».` }],
-        },
-      ],
-      output_config: { format: zodOutputFormat(FinancialExtractionSchema) },
-    });
+    const response = await this.client.messages.parse(
+      {
+        model: this.config.get<string>('ai.anthropicModel')!,
+        max_tokens: 4096,
+        system: EXTRACTION_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: [built.block, { type: 'text', text: `Extrait les données financières du document « ${name} ».` }],
+          },
+        ],
+        output_config: { format: zodOutputFormat(FinancialExtractionSchema) },
+      },
+      { timeout: 60_000 },
+    );
 
     const parsed = response.parsed_output;
     if (!parsed) {

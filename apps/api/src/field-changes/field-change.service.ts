@@ -9,6 +9,13 @@ export interface FieldChangeInput {
   newValue: unknown;
 }
 
+// Ensemble fermé des entityType réellement utilisés par recordDiff() dans
+// tout le code (grep sur les appels) — validé côté contrôleur pour éviter
+// qu'un entityType mal orthographié dans l'URL crée une ligne DataValidation
+// orpheline qu'aucun vrai recordDiff() ne pourra jamais invalider.
+export const VALID_FIELD_CHANGE_ENTITY_TYPES = ['Deal', 'CostLineItem', 'SaleLot', 'FinancialAssumption', 'ProjectCheckpoint'] as const;
+export type FieldChangeEntityType = (typeof VALID_FIELD_CHANGE_ENTITY_TYPES)[number];
+
 function stringify(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return value.toISOString();

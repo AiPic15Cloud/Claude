@@ -120,19 +120,38 @@ export function computeLoanLifecycle(input: LoanLifecycleInput, now: Date = new 
 
   const finDate = terminal ? terminal.date : now;
 
+  // dateDureeCible (startDate + durationMonths) est en principe ≤
+  // dateEcheanceInitiale, mais rien ne le garantit : un analyste peut saisir
+  // une durée cible plus longue que le délai jusqu'à l'échéance
+  // contractuelle. Sans ce plafond, le segment NORMAL (borné par
+  // dateDureeCible) s'étendrait au-delà de dateEcheanceInitiale et
+  // chevaucherait le(s) segment(s) HORS_CONTRAT/PROROGE produits par
+  // computePostEcheanceSegments (qui, eux, partent toujours de
+  // dateEcheanceInitiale) — et retardDays, calculé contre dateDureeCible,
+  // resterait à 0 alors que le prêt est déjà contractuellement en retard. Le
+  // prêt ne peut jamais être "dans les clous" au-delà de son échéance
+  // contractuelle réelle, quelle que soit la durée cible saisie : on borne
+  // donc tout calcul de segment/retard à min(dateDureeCible, dateEcheanceInitiale).
+  // Le champ dateDureeCible renvoyé à l'appelant, lui, reste la vraie date
+  // cible saisie (valeur informative, non plafonnée).
+  const effectiveDureeCible = dateDureeCible.getTime() < dateEcheanceInitiale.getTime() ? dateDureeCible : dateEcheanceInitiale;
+
   const segments: LoanLifecycleSegment[] = [];
 
   // Segment 1 — en cours normal.
-  const segment1End = dateDureeCible.getTime() < finDate.getTime() ? dateDureeCible : finDate;
+  const segment1End = effectiveDureeCible.getTime() < finDate.getTime() ? effectiveDureeCible : finDate;
   if (segment1End.getTime() > startDate.getTime()) {
     segments.push({ kind: 'NORMAL', start: startDate, end: segment1End });
   }
 
   // Segment 2 — durée cible dépassée, toujours contractuellement normal.
-  if (finDate.getTime() > dateDureeCible.getTime()) {
+  // Ne peut jamais dépasser dateEcheanceInitiale (effectiveDureeCible en
+  // tient déjà lieu quand la durée cible dépasse l'échéance contractuelle,
+  // auquel cas ce segment devient vide — voir plus haut).
+  if (finDate.getTime() > effectiveDureeCible.getTime()) {
     const segment2End = dateEcheanceInitiale.getTime() < finDate.getTime() ? dateEcheanceInitiale : finDate;
-    if (segment2End.getTime() > dateDureeCible.getTime()) {
-      segments.push({ kind: 'DEPASSEMENT', start: dateDureeCible, end: segment2End });
+    if (segment2End.getTime() > effectiveDureeCible.getTime()) {
+      segments.push({ kind: 'DEPASSEMENT', start: effectiveDureeCible, end: segment2End });
     }
   }
 
@@ -143,7 +162,7 @@ export function computeLoanLifecycle(input: LoanLifecycleInput, now: Date = new 
   // chronologique en avant, jamais de passe de correction du passé.
   segments.push(...computePostEcheanceSegments(dateEcheanceInitiale, extensions, finDate));
 
-  const retardMs = Math.max(0, finDate.getTime() - dateDureeCible.getTime());
+  const retardMs = Math.max(0, finDate.getTime() - effectiveDureeCible.getTime());
   const retardDays = Math.floor(retardMs / DAY_MS);
 
   return {

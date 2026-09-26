@@ -34,32 +34,45 @@ export class InterestPaymentAlertsService implements OnApplicationBootstrap {
     });
 
     const now = new Date();
-    let created = 0;
+    const dealIds = deals.map((d) => d.id);
+
+    // Dernier paiement par deal en un seul groupBy plutôt qu'un findFirst
+    // par deal (N+1) — seule la date la plus récente nous intéresse ici,
+    // exactement ce qu'exprime _max.
+    const lastPayments = dealIds.length
+      ? await this.prisma.interestPayment.groupBy({ by: ['dealId'], where: { dealId: { in: dealIds } }, _max: { paidDate: true } })
+      : [];
+    const lastPaymentByDeal = new Map(lastPayments.map((p) => [p.dealId, p._max.paidDate]));
+
+    const overdue: { deal: (typeof deals)[number]; title: string; message: string }[] = [];
     for (const deal of deals) {
+      if (!deal.organizationId || deal.interestPaymentDay === null) continue;
+      const status = computeInterestPaymentStatus(deal.interestPaymentDay, lastPaymentByDeal.get(deal.id) ?? null, now);
+      if (status.level !== 'OVERDUE') continue;
+
+      const dueDateLabel = status.currentDueDate.toLocaleDateString('fr-FR');
+      overdue.push({
+        deal,
+        title: `Paiement d'intérêts en retard — ${deal.reference} (échéance ${dueDateLabel})`,
+        message: `${deal.name} — paiement des intérêts non constaté depuis ${status.daysOverdue} jour(s) après l'échéance du ${dueDateLabel}.`,
+      });
+    }
+
+    if (overdue.length === 0) return;
+
+    // Idem pour la vérification d'existence : un findMany groupé sur les
+    // seuls deals réellement en retard plutôt qu'un findFirst par deal.
+    const existingAlerts = await this.prisma.alert.findMany({
+      where: { dealId: { in: overdue.map((o) => o.deal.id) } },
+      select: { dealId: true, title: true },
+    });
+    const existingAlertKeys = new Set(existingAlerts.map((a) => `${a.dealId}::${a.title}`));
+
+    let created = 0;
+    for (const { deal, title, message } of overdue) {
       try {
-        if (!deal.organizationId || deal.interestPaymentDay === null) continue;
-
-        const lastPayment = await this.prisma.interestPayment.findFirst({
-          where: { dealId: deal.id },
-          orderBy: { paidDate: 'desc' },
-          select: { paidDate: true },
-        });
-        const status = computeInterestPaymentStatus(deal.interestPaymentDay, lastPayment?.paidDate ?? null, now);
-        if (status.level !== 'OVERDUE') continue;
-
-        const dueDateLabel = status.currentDueDate.toLocaleDateString('fr-FR');
-        const alertTitle = `Paiement d'intérêts en retard — ${deal.reference} (échéance ${dueDateLabel})`;
-        const existingAlert = await this.prisma.alert.findFirst({
-          where: { organizationId: deal.organizationId, dealId: deal.id, title: alertTitle },
-        });
-        if (existingAlert) continue;
-
-        await this.alerts.create(deal.organizationId, {
-          title: alertTitle,
-          message: `${deal.name} — paiement des intérêts non constaté depuis ${status.daysOverdue} jour(s) après l'échéance du ${dueDateLabel}.`,
-          severity: 'CRITICAL',
-          dealId: deal.id,
-        });
+        if (existingAlertKeys.has(`${deal.id}::${title}`)) continue;
+        await this.alerts.create(deal.organizationId, { title, message, severity: 'CRITICAL', dealId: deal.id });
         created += 1;
       } catch (err) {
         this.logger.error(`Échec du contrôle de paiement d'intérêts pour le deal ${deal.id}`, err instanceof Error ? err.stack : err);

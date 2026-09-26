@@ -6,6 +6,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { RiskEngineService } from './risk-engine.service';
 import { RiskHistoryService } from './risk-history.service';
+import { QueryRiskHistoryDto } from './dto/query-risk-history.dto';
 
 @ApiTags('risk-engine')
 @ApiBearerAuth()
@@ -30,7 +31,7 @@ export class RiskEngineController {
   }
 
   @Get('history')
-  history(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Query('days') days?: string) {
-    return this.riskHistory.getTrajectory(user.organizationId, dealId, days ? parseInt(days, 10) : 90);
+  history(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Query() query: QueryRiskHistoryDto) {
+    return this.riskHistory.getTrajectory(user.organizationId, dealId, query.days ?? 90);
   }
 }

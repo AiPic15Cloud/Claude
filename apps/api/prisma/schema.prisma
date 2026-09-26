@@ -663,6 +663,11 @@ model PipelineEntry {
 
   @@index([organizationId])
   @@index([committee])
+  // findAll() filtre systématiquement par organizationId et trie toujours
+  // par date desc — un index composite couvre ce chemin d'accès sans forcer
+  // un tri complet du résultat par organisation à mesure que le pipeline
+  // grossit (l'index simple sur organizationId seul ne le permet pas).
+  @@index([organizationId, date])
   @@map("pipeline_entries")
 }
 

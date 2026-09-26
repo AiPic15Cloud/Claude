@@ -173,12 +173,22 @@ export class DealsService {
     const year = new Date().getFullYear();
     const prefix = `ATL-${year}-`;
 
-    const seedRow = await this.prisma.deal.findFirst({
+    // `orderBy: { reference: 'desc' }` would be a lexicographic STRING sort,
+    // which breaks once the zero-padded suffix grows past 4 digits: e.g.
+    // "ATL-2026-9999" sorts above "ATL-2026-10004" as strings even though
+    // 10004 > 9999 numerically. Pull every matching reference for this
+    // (org, year) prefix instead and take the true numeric max in
+    // application code — this is only the seed/recovery path (the hot path
+    // is the atomic reference_counters upsert below), so the extra rows are
+    // not a concern.
+    const seedRows = await this.prisma.deal.findMany({
       where: { organizationId, reference: { startsWith: prefix } },
-      orderBy: { reference: 'desc' },
       select: { reference: true },
     });
-    const seed = seedRow ? parseInt(seedRow.reference.slice(prefix.length), 10) || 0 : 0;
+    const seed = seedRows.reduce((max, row) => {
+      const n = parseInt(row.reference.slice(prefix.length), 10);
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
 
     const rows = await this.prisma.$queryRaw<{ value: number }[]>`
       INSERT INTO reference_counters ("organizationId", "year", "value")
@@ -1243,16 +1253,24 @@ export class DealsService {
       },
     });
 
-    let created = 0;
-    for (const deal of deals) {
+    const overdueDeals = deals.filter((deal) => {
       const { daysSince } = computeNewsletterStatus(deal.lastNewsletterDate, deal.newsletterTargetDays);
-      if (daysSince === null || daysSince < deal.newsletterTargetDays) continue;
+      return daysSince !== null && daysSince >= deal.newsletterTargetDays;
+    });
 
-      const existing = await this.prisma.task.findFirst({
-        where: { dealId: deal.id, title: NEWSLETTER_TASK_TITLE, done: false, cancelledAt: null },
-        select: { id: true },
-      });
-      if (existing) continue;
+    // Un seul findMany groupé plutôt qu'un findFirst par deal dans la
+    // boucle (N+1) — le nombre de dossiers en retard peut être significatif
+    // à l'échelle de toutes les organisations, ce job tournant une fois par
+    // jour pour l'ensemble du portefeuille.
+    const existingTasks = await this.prisma.task.findMany({
+      where: { dealId: { in: overdueDeals.map((d) => d.id) }, title: NEWSLETTER_TASK_TITLE, done: false, cancelledAt: null },
+      select: { dealId: true },
+    });
+    const dealsWithOpenReminder = new Set(existingTasks.map((t) => t.dealId));
+
+    let created = 0;
+    for (const deal of overdueDeals) {
+      if (dealsWithOpenReminder.has(deal.id)) continue;
 
       const assigneeId = deal.assignedToId ?? deal.createdById;
       await this.tasks.create(deal.organizationId, assigneeId, {
