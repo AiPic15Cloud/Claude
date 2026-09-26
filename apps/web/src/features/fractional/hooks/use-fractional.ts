@@ -527,6 +527,7 @@ export interface ProjectOutcomePayload {
   triRealise?: number;
   multipleRealise?: number;
   notes?: string;
+  exitDate?: string;
 }
 
 export function useUpsertProjectOutcome(projectId: string) {

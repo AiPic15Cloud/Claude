@@ -108,6 +108,16 @@ export interface EliminatoryRuleResult {
   operator: ComparisonOperator;
   threshold: number;
   passed: boolean;
+  /**
+   * Vrai uniquement quand `observedValue` est absent — la règle n'a pas pu
+   * être vérifiée, elle n'a jamais été évaluée comme échouée. Distinct de
+   * `passed: false` (spec Cockpit/Fractionné §5.4 : un hard stop n'est
+   * valide que si son fait déclencheur est établi et sourcé — une donnée
+   * manquante reste "à vérifier", jamais un NO_GO automatique). Les
+   * appelants (weighted-score.util.ts) ne doivent jamais traiter
+   * `unverifiable: true` comme une règle en échec.
+   */
+  unverifiable: boolean;
   /** Non nul uniquement si passed=false — failMessage de la règle, ou message générique si la métrique est indisponible. */
   failMessage: string | null;
 }
@@ -118,9 +128,29 @@ export function evaluateEliminatoryRules(rules: EliminatoryRuleInput[], metrics:
   return rules.map((rule) => {
     const observedValue = resolveMetric(rule.metricKey, metrics);
     if (observedValue === null) {
-      return { ruleId: rule.id, label: rule.label, metricKey: rule.metricKey, observedValue, operator: rule.operator, threshold: rule.threshold, passed: false, failMessage: METRIC_UNAVAILABLE_MESSAGE };
+      return {
+        ruleId: rule.id,
+        label: rule.label,
+        metricKey: rule.metricKey,
+        observedValue,
+        operator: rule.operator,
+        threshold: rule.threshold,
+        passed: false,
+        unverifiable: true,
+        failMessage: METRIC_UNAVAILABLE_MESSAGE,
+      };
     }
     const passed = compare(observedValue, rule.operator, rule.threshold);
-    return { ruleId: rule.id, label: rule.label, metricKey: rule.metricKey, observedValue, operator: rule.operator, threshold: rule.threshold, passed, failMessage: passed ? null : rule.failMessage };
+    return {
+      ruleId: rule.id,
+      label: rule.label,
+      metricKey: rule.metricKey,
+      observedValue,
+      operator: rule.operator,
+      threshold: rule.threshold,
+      passed,
+      unverifiable: false,
+      failMessage: passed ? null : rule.failMessage,
+    };
   });
 }

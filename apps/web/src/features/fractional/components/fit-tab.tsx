@@ -176,16 +176,26 @@ export function FitTab({ projectId }: { projectId: string }) {
                           {ELIMINATORY_OPERATOR_LABELS[r.operator]} {r.threshold}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={r.passed ? 'success' : 'destructive'}>{r.passed ? 'Conforme' : 'Non conforme'}</Badge>
+                          <Badge variant={r.unverifiable ? 'outline' : r.passed ? 'success' : 'destructive'}>
+                            {r.unverifiable ? 'À vérifier' : r.passed ? 'Conforme' : 'Non conforme'}
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-                {latestAssessment.eliminatoryResults.some((r) => !r.passed) && (
+                {latestAssessment.eliminatoryResults.some((r) => !r.passed && !r.unverifiable) && (
                   <p className="mt-2 text-sm text-destructive">
                     {latestAssessment.eliminatoryResults
-                      .filter((r) => !r.passed && r.failMessage)
+                      .filter((r) => !r.passed && !r.unverifiable && r.failMessage)
+                      .map((r) => r.failMessage)
+                      .join(' · ')}
+                  </p>
+                )}
+                {latestAssessment.eliminatoryResults.some((r) => r.unverifiable) && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {latestAssessment.eliminatoryResults
+                      .filter((r) => r.unverifiable)
                       .map((r) => r.failMessage)
                       .join(' · ')}
                   </p>
@@ -193,7 +203,7 @@ export function FitTab({ projectId }: { projectId: string }) {
               </div>
             )}
 
-            {latestAssessment.finalVerdict === 'NO_GO' && latestAssessment.eliminatoryResults.some((r) => !r.passed) && (
+            {latestAssessment.finalVerdict === 'NO_GO' && latestAssessment.eliminatoryResults.some((r) => !r.passed && !r.unverifiable) && (
               <p className="text-xs text-muted-foreground">
                 Verdict NO GO déterminé par une règle éliminatoire en échec — pas par le score pondéré (cf. tableau ci-dessus). Une règle dure supplante toujours le score, jamais l'inverse.
               </p>

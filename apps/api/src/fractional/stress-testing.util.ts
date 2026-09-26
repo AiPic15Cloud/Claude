@@ -118,7 +118,8 @@ export interface StressScenarioResult {
   exitValue: number;
   /** Capital non récupéré si multiple < 1, sinon 0. */
   maxLoss: number;
-  yearsUnderHurdle: number;
+  /** `null` si aucun profil plateforme n'est rattaché — voir eligibility.util.ts. */
+  yearsUnderHurdle: number | null;
   eligibility: EligibilityResult;
 }
 
@@ -133,13 +134,20 @@ function buildStressScenarioResult(
   input: ReturnsEngineInput,
   result: ReturnsEngineResult,
   hurdlePct: number,
+  hasPlatformProfile: boolean,
 ): StressScenarioResult {
   const collecte = input.sourcesUses.collecteMontant;
 
-  const yearsUnderHurdle = result.yearlyModel.filter((y) => {
-    const yearYieldPct = collecte > 0 ? (y.investorDistribution / collecte) * 100 : 0;
-    return yearYieldPct < hurdlePct;
-  }).length;
+  // Sans profil plateforme, `hurdlePct` reste un `0` de convention interne
+  // (jamais affiché tel quel — voir eligibility.util.ts) : compter les
+  // années "sous un hurdle" fabriqué n'aurait pas de sens, donc `null` ici
+  // plutôt qu'un compte silencieusement faux.
+  const yearsUnderHurdle = hasPlatformProfile
+    ? result.yearlyModel.filter((y) => {
+        const yearYieldPct = collecte > 0 ? (y.investorDistribution / collecte) * 100 : 0;
+        return yearYieldPct < hurdlePct;
+      }).length
+    : null;
 
   const maxLoss = result.equityMultiple !== null && result.equityMultiple < 1 ? collecte * (1 - result.equityMultiple) : 0;
 
@@ -153,14 +161,19 @@ function buildStressScenarioResult(
     exitValue: input.exitValue,
     maxLoss,
     yearsUnderHurdle,
-    eligibility: computeEligibility(collecte > 0 ? result.securedNetYieldPct : null, hurdlePct),
+    eligibility: computeEligibility(collecte > 0 ? result.securedNetYieldPct : null, hasPlatformProfile ? hurdlePct : null),
   };
 }
 
-export function computeStressScenario(base: ReturnsEngineInput, scenario: StressScenarioKey, hurdlePct: number): StressScenarioResult {
+export function computeStressScenario(
+  base: ReturnsEngineInput,
+  scenario: StressScenarioKey,
+  hurdlePct: number,
+  hasPlatformProfile: boolean,
+): StressScenarioResult {
   const input = applyScenario(base, scenario);
   const result: ReturnsEngineResult = computeReturnsEngine(input);
-  return buildStressScenarioResult(scenario, input, result, hurdlePct);
+  return buildStressScenarioResult(scenario, input, result, hurdlePct, hasPlatformProfile);
 }
 
 export const ALL_STRESS_SCENARIOS: StressScenarioKey[] = [
@@ -176,8 +189,8 @@ export const ALL_STRESS_SCENARIOS: StressScenarioKey[] = [
   'COMBINED_SEVERE',
 ];
 
-export function computeAllStressScenarios(base: ReturnsEngineInput, hurdlePct: number): StressScenarioResult[] {
-  return ALL_STRESS_SCENARIOS.map((scenario) => computeStressScenario(base, scenario, hurdlePct));
+export function computeAllStressScenarios(base: ReturnsEngineInput, hurdlePct: number, hasPlatformProfile: boolean): StressScenarioResult[] {
+  return ALL_STRESS_SCENARIOS.map((scenario) => computeStressScenario(base, scenario, hurdlePct, hasPlatformProfile));
 }
 
 /**
@@ -199,12 +212,17 @@ const BREAK_STRESS_SCENARIO_TO_BREAK_SCENARIO: Record<BreakStressScenarioKey, Br
 
 export const ALL_BREAK_STRESS_SCENARIOS: BreakStressScenarioKey[] = ['TENANT_BREAK_DOWNSIDE', 'TENANT_BREAK_SEVERE'];
 
-export function computeBreakEventScenario(base: ReturnsEngineInput, scenario: BreakStressScenarioKey, hurdlePct: number): StressScenarioResult {
+export function computeBreakEventScenario(
+  base: ReturnsEngineInput,
+  scenario: BreakStressScenarioKey,
+  hurdlePct: number,
+  hasPlatformProfile: boolean,
+): StressScenarioResult {
   const input: ReturnsEngineInput = { ...base, breakScenario: BREAK_STRESS_SCENARIO_TO_BREAK_SCENARIO[scenario] };
   const result: ReturnsEngineResult = computeReturnsEngine(input);
-  return buildStressScenarioResult(scenario, input, result, hurdlePct);
+  return buildStressScenarioResult(scenario, input, result, hurdlePct, hasPlatformProfile);
 }
 
-export function computeAllBreakEventScenarios(base: ReturnsEngineInput, hurdlePct: number): StressScenarioResult[] {
-  return ALL_BREAK_STRESS_SCENARIOS.map((scenario) => computeBreakEventScenario(base, scenario, hurdlePct));
+export function computeAllBreakEventScenarios(base: ReturnsEngineInput, hurdlePct: number, hasPlatformProfile: boolean): StressScenarioResult[] {
+  return ALL_BREAK_STRESS_SCENARIOS.map((scenario) => computeBreakEventScenario(base, scenario, hurdlePct, hasPlatformProfile));
 }

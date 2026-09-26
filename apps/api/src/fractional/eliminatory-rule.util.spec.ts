@@ -61,6 +61,16 @@ describe('evaluateEliminatoryRules', () => {
     expect(result.failMessage).toMatch(/indisponible/);
   });
 
+  it('marque unverifiable=true seulement quand la métrique est absente — jamais sur une règle réellement en échec (spec Cockpit/Fractionné §5.4)', () => {
+    const [unverifiable] = evaluateEliminatoryRules([rule({ metricKey: 'WALB_YEARS', threshold: 3 })], { ...metrics, walbYears: null });
+    expect(unverifiable.unverifiable).toBe(true);
+    const [genuinelyFailed] = evaluateEliminatoryRules([rule()], metrics);
+    expect(genuinelyFailed.passed).toBe(false);
+    expect(genuinelyFailed.unverifiable).toBe(false);
+    const [genuinelyPassed] = evaluateEliminatoryRules([rule({ threshold: 5 })], metrics);
+    expect(genuinelyPassed.unverifiable).toBe(false);
+  });
+
   it('SOURCES_USES_BALANCED se lit comme 1 (équilibré) ou 0 (déséquilibré)', () => {
     const [balanced] = evaluateEliminatoryRules([rule({ metricKey: 'SOURCES_USES_BALANCED', operator: 'EQ', threshold: 1 })], metrics);
     expect(balanced.passed).toBe(true);

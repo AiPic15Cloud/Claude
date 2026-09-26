@@ -104,6 +104,13 @@ export interface FitAssessmentResult {
   finalVerdict: ScoreTierVerdict;
   /** Vrai si au moins une règle éliminatoire a fait basculer finalVerdict en NO_GO alors que le score seul aurait dit autre chose — toujours affiché explicitement (H.5). */
   supplantedByEliminatoryRule: boolean;
+  /**
+   * Vrai si au moins une règle n'a pas pu être vérifiée faute de donnée —
+   * jamais confondu avec une règle en échec (`supplantedByEliminatoryRule`).
+   * Un finalVerdict même favorable reste à confirmer tant que ceci est vrai
+   * (spec Cockpit/Fractionné §5.4).
+   */
+  hasUnverifiableRule: boolean;
 }
 
 export function computeFitAssessment(
@@ -115,7 +122,11 @@ export function computeFitAssessment(
   const score = computeWeightedScore(categories, answers);
   const scoreVerdict = computeScoreTierVerdict(score.pct);
   const eliminatoryResults = evaluateEliminatoryRules(rules, metrics);
-  const anyRuleFailed = eliminatoryResults.some((r) => !r.passed);
+  // Une règle non vérifiable (donnée absente) ne doit jamais, à elle seule,
+  // précipiter un NO_GO — seule une règle réellement évaluée et en échec le
+  // peut (spec Cockpit/Fractionné §5.4, "à vérifier" jamais "hard stop").
+  const anyRuleFailed = eliminatoryResults.some((r) => !r.passed && !r.unverifiable);
+  const hasUnverifiableRule = eliminatoryResults.some((r) => r.unverifiable);
 
   return {
     score,
@@ -123,5 +134,6 @@ export function computeFitAssessment(
     eliminatoryResults,
     finalVerdict: anyRuleFailed ? 'NO_GO' : scoreVerdict,
     supplantedByEliminatoryRule: anyRuleFailed && scoreVerdict !== 'NO_GO',
+    hasUnverifiableRule,
   };
 }

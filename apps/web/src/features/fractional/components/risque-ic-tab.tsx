@@ -8,7 +8,14 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useFractionalStressTests, useFractionalICRecommendation, useCreateICDecision, useFractionalTenantReplacementCost } from '../hooks/use-fractional';
-import { STRESS_SCENARIO_LABELS, IC_DECISION_STATUS_LABELS, type FractionalICDecision, type FractionalAssumptionSet, type TenantReplacementCostBreakdown } from '@/types';
+import {
+  STRESS_SCENARIO_LABELS,
+  IC_DECISION_STATUS_LABELS,
+  ELIGIBILITY_VERDICT_LABELS,
+  type FractionalICDecision,
+  type FractionalAssumptionSet,
+  type TenantReplacementCostBreakdown,
+} from '@/types';
 import { AssumptionsCard } from './assumptions-card';
 import { EsgRiskCard } from './esg-risk-card';
 
@@ -144,10 +151,20 @@ export function RisqueIcTab({ projectId, icDecisions, assumptionSets }: { projec
                       <TableCell>{pct(s.irrPct)}</TableCell>
                       <TableCell>{s.equityMultiple !== null ? `${s.equityMultiple.toFixed(2)}x` : '—'}</TableCell>
                       <TableCell>{s.maxLoss > 0 ? formatCurrency(s.maxLoss) : '—'}</TableCell>
-                      <TableCell>{s.yearsUnderHurdle}</TableCell>
+                      <TableCell>{s.yearsUnderHurdle === null ? '—' : s.yearsUnderHurdle}</TableCell>
                       <TableCell>
-                        <Badge variant={s.eligibility.verdict === 'ELIGIBLE' ? 'success' : s.eligibility.verdict === 'MARGINAL' ? 'warning' : 'destructive'}>
-                          {s.eligibility.verdict}
+                        <Badge
+                          variant={
+                            s.eligibility.verdict === 'ELIGIBLE'
+                              ? 'success'
+                              : s.eligibility.verdict === 'MARGINAL'
+                                ? 'warning'
+                                : s.eligibility.verdict === 'NOT_EVALUABLE'
+                                  ? 'outline'
+                                  : 'destructive'
+                          }
+                        >
+                          {ELIGIBILITY_VERDICT_LABELS[s.eligibility.verdict]}
                         </Badge>
                       </TableCell>
                     </TableRow>

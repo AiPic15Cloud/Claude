@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { FractionalLeaseRenewalStatus, FractionalIndexationType, FractionalCapexResponsable, FractionalValuationMethod } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -722,7 +722,10 @@ export class FractionalProjectsService {
     // exactement comme RENT_DOWNSIDE le corrige déjà dans stress-testing.util.ts.
     const stressResult = computeReturnsEngine({ ...baseInput, ...stressValues, exitValue: exitValueStress, indexGrowthRates: {} });
 
-    const eligibility = computeEligibility(baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null, hurdlePct);
+    const eligibility = computeEligibility(
+      baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null,
+      platformProfile ? hurdlePct : null,
+    );
 
     let reverseSolver: {
       maxAcquisitionPrice: ReturnType<typeof solveMaxAcquisitionPrice>;
@@ -938,8 +941,12 @@ export class FractionalProjectsService {
 
   async computeStressTests(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
-    const { baseInput, hurdlePct } = await this.buildReturnsEngineInput(project, user.organizationId);
-    return [...computeAllStressScenarios(baseInput, hurdlePct), ...computeAllBreakEventScenarios(baseInput, hurdlePct)];
+    const { baseInput, hurdlePct, platformProfile } = await this.buildReturnsEngineInput(project, user.organizationId);
+    const hasPlatformProfile = Boolean(platformProfile);
+    return [
+      ...computeAllStressScenarios(baseInput, hurdlePct, hasPlatformProfile),
+      ...computeAllBreakEventScenarios(baseInput, hurdlePct, hasPlatformProfile),
+    ];
   }
 
   // ── IC Engine (spec §17) ─────────────────────────────────────
@@ -947,11 +954,15 @@ export class FractionalProjectsService {
   async computeICRecommendationForProject(projectId: string, user: AuthenticatedUser) {
     const project = await this.findOne(projectId, user);
     const { baseInput, hurdlePct, platformProfile, capexDataMissing } = await this.buildReturnsEngineInput(project, user.organizationId);
+    const hasPlatformProfile = Boolean(platformProfile);
     const baseResult = computeReturnsEngine(baseInput);
-    const eligibility = computeEligibility(baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null, hurdlePct);
-    const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
+    const eligibility = computeEligibility(
+      baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null,
+      hasPlatformProfile ? hurdlePct : null,
+    );
+    const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct, hasPlatformProfile);
     const combinedSevere = stressScenarios.find((s) => s.scenario === 'COMBINED_SEVERE');
-    const breakDownside = computeBreakEventScenario(baseInput, 'TENANT_BREAK_DOWNSIDE', hurdlePct);
+    const breakDownside = computeBreakEventScenario(baseInput, 'TENANT_BREAK_DOWNSIDE', hurdlePct, hasPlatformProfile);
     const dataConfidence = await this.dataProvenance.getDataConfidenceForProject(projectId, user);
     const { profile: esgProfile } = await this.esgRisk.getProfile(projectId, user);
     const budgetedCapexTotal = Object.values(baseInput.capexByYear ?? {}).reduce((sum, v) => sum + v, 0);
@@ -997,12 +1008,23 @@ export class FractionalProjectsService {
     return this.prisma.fractionalProjectActual.create({ data: { projectId, ...dto } });
   }
 
+  /**
+   * Un résultat final (Succès/Perte/...) n'a de sens que si la sortie est
+   * effectivement intervenue — jamais une conclusion enregistrée par anti-
+   * cipation ou par défaut sur un dossier encore en vie (spec Cockpit/
+   * Fractionné P0 : le front n'impose plus SUCCES comme valeur initiale,
+   * ce garde-fou empêche l'écriture même si l'appel API est forgé).
+   */
   async upsertProjectOutcome(projectId: string, dto: UpsertProjectOutcomeDto, user: AuthenticatedUser) {
-    await this.findOne(projectId, user);
+    const project = await this.findOne(projectId, user);
+    if (project.status !== 'SORTIE') {
+      throw new BadRequestException('Le résultat final ne peut être enregistré que pour un dossier en statut SORTIE.');
+    }
+    const data = { ...dto, exitDate: dto.exitDate ? new Date(dto.exitDate) : undefined };
     return this.prisma.fractionalProjectOutcome.upsert({
       where: { projectId },
-      create: { projectId, ...dto },
-      update: dto,
+      create: { projectId, ...data },
+      update: data,
     });
   }
 
