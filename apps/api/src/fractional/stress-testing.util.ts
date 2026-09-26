@@ -122,9 +122,18 @@ export interface StressScenarioResult {
   eligibility: EligibilityResult;
 }
 
-export function computeStressScenario(base: ReturnsEngineInput, scenario: StressScenarioKey, hurdlePct: number): StressScenarioResult {
-  const input = applyScenario(base, scenario);
-  const result: ReturnsEngineResult = computeReturnsEngine(input);
+/**
+ * Assemble un StressScenarioResult à partir d'un ReturnsEngineResult déjà
+ * calculé — logique partagée par computeStressScenario (10 scénarios
+ * standards) et computeBreakEventScenario (2 scénarios de break), qui ne
+ * diffèrent que dans la façon dont `input`/`result` sont obtenus.
+ */
+function buildStressScenarioResult(
+  scenario: StressScenarioKey | BreakStressScenarioKey,
+  input: ReturnsEngineInput,
+  result: ReturnsEngineResult,
+  hurdlePct: number,
+): StressScenarioResult {
   const collecte = input.sourcesUses.collecteMontant;
 
   const yearsUnderHurdle = result.yearlyModel.filter((y) => {
@@ -146,6 +155,12 @@ export function computeStressScenario(base: ReturnsEngineInput, scenario: Stress
     yearsUnderHurdle,
     eligibility: computeEligibility(collecte > 0 ? result.securedNetYieldPct : null, hurdlePct),
   };
+}
+
+export function computeStressScenario(base: ReturnsEngineInput, scenario: StressScenarioKey, hurdlePct: number): StressScenarioResult {
+  const input = applyScenario(base, scenario);
+  const result: ReturnsEngineResult = computeReturnsEngine(input);
+  return buildStressScenarioResult(scenario, input, result, hurdlePct);
 }
 
 export const ALL_STRESS_SCENARIOS: StressScenarioKey[] = [
@@ -187,27 +202,7 @@ export const ALL_BREAK_STRESS_SCENARIOS: BreakStressScenarioKey[] = ['TENANT_BRE
 export function computeBreakEventScenario(base: ReturnsEngineInput, scenario: BreakStressScenarioKey, hurdlePct: number): StressScenarioResult {
   const input: ReturnsEngineInput = { ...base, breakScenario: BREAK_STRESS_SCENARIO_TO_BREAK_SCENARIO[scenario] };
   const result: ReturnsEngineResult = computeReturnsEngine(input);
-  const collecte = input.sourcesUses.collecteMontant;
-
-  const yearsUnderHurdle = result.yearlyModel.filter((y) => {
-    const yearYieldPct = collecte > 0 ? (y.investorDistribution / collecte) * 100 : 0;
-    return yearYieldPct < hurdlePct;
-  }).length;
-
-  const maxLoss = result.equityMultiple !== null && result.equityMultiple < 1 ? collecte * (1 - result.equityMultiple) : 0;
-
-  return {
-    scenario,
-    noi: result.yearlyModel[0]?.noi ?? 0,
-    investorNetYieldPct: result.investorNetYieldPct,
-    securedNetYieldPct: result.securedNetYieldPct,
-    irrPct: result.irrPct,
-    equityMultiple: result.equityMultiple,
-    exitValue: input.exitValue,
-    maxLoss,
-    yearsUnderHurdle,
-    eligibility: computeEligibility(collecte > 0 ? result.securedNetYieldPct : null, hurdlePct),
-  };
+  return buildStressScenarioResult(scenario, input, result, hurdlePct);
 }
 
 export function computeAllBreakEventScenarios(base: ReturnsEngineInput, hurdlePct: number): StressScenarioResult[] {

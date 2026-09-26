@@ -89,9 +89,9 @@ export function MemoireTab({
                 {actuals.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell>{a.period}</TableCell>
-                    <TableCell>{a.loyersReels ? formatCurrency(a.loyersReels) : '—'}</TableCell>
-                    <TableCell>{a.opexReel ? formatCurrency(a.opexReel) : '—'}</TableCell>
-                    <TableCell>{a.distributionsReelles ? formatCurrency(a.distributionsReelles) : '—'}</TableCell>
+                    <TableCell>{a.loyersReels !== null && a.loyersReels !== undefined ? formatCurrency(a.loyersReels) : '—'}</TableCell>
+                    <TableCell>{a.opexReel !== null && a.opexReel !== undefined ? formatCurrency(a.opexReel) : '—'}</TableCell>
+                    <TableCell>{a.distributionsReelles !== null && a.distributionsReelles !== undefined ? formatCurrency(a.distributionsReelles) : '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

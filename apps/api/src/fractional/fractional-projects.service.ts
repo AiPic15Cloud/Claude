@@ -91,6 +91,18 @@ function parseAssumptionValues(values: unknown): Partial<DefaultAssumptionValues
   return values as Partial<DefaultAssumptionValues & { capexByYear: Record<number, number> }>;
 }
 
+/**
+ * Convertit une année calendaire (ex. CAPEX/actuals `annee`) en offset
+ * 1-indexé relatif à `asOfDate`, tel qu'attendu par capexByYear/yearlyModel
+ * du Returns Engine (année 1 = l'année de asOfDate). Partagé par
+ * buildDealEconomicsContext, buildReturnsEngineInput et
+ * computePerformanceAttributionForProject, qui appliquaient jusqu'ici la
+ * même formule dupliquée trois fois.
+ */
+function yearOffsetFromAsOfDate(annee: number, asOfDate: Date): number {
+  return annee - asOfDate.getFullYear() + 1;
+}
+
 @Injectable()
 export class FractionalProjectsService {
   constructor(
@@ -122,6 +134,11 @@ export class FractionalProjectsService {
         _count: { select: { leases: true, capexItems: true, valuations: true } },
         createdBy: { select: { firstName: true, lastName: true } },
       },
+      // Plafond de sécurité — le consommateur front (use-fractional.ts,
+      // useFractionalProjects) affiche la liste complète sans pagination ;
+      // même pattern que GraphService.listEntities / getGraph pour éviter
+      // une réponse non bornée sans changer la forme de la réponse.
+      take: 1000,
     });
   }
 
@@ -456,7 +473,7 @@ export class FractionalProjectsService {
 
     const capexByYear: Record<number, number> = {};
     for (const item of project.capexItems) {
-      const offset = item.annee - asOfDate.getFullYear() + 1;
+      const offset = yearOffsetFromAsOfDate(item.annee, asOfDate);
       if (offset >= 1) capexByYear[offset] = (capexByYear[offset] ?? 0) + Number(item.montant);
     }
 
@@ -619,7 +636,7 @@ export class FractionalProjectsService {
 
     const capexByYear: Record<number, number> = {};
     for (const item of project.capexItems) {
-      const offset = item.annee - asOfDate.getFullYear() + 1;
+      const offset = yearOffsetFromAsOfDate(item.annee, asOfDate);
       if (offset >= 1) capexByYear[offset] = (capexByYear[offset] ?? 0) + Number(item.montant);
     }
 
@@ -1000,11 +1017,10 @@ export class FractionalProjectsService {
     const project = await this.findOne(projectId, user);
     const { baseInput } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
-    const asOfYear = baseInput.asOfDate.getFullYear();
 
     return project.actuals.map((actual) => {
       const periodYear = Number(actual.period);
-      const offset = Number.isFinite(periodYear) ? periodYear - asOfYear + 1 : null;
+      const offset = Number.isFinite(periodYear) ? yearOffsetFromAsOfDate(periodYear, baseInput.asOfDate) : null;
       const bpYear = offset !== null ? baseResult.yearlyModel.find((y) => y.year === offset) : undefined;
       const capexBp = offset !== null ? (baseInput.capexByYear?.[offset] ?? 0) : 0;
 

@@ -184,6 +184,11 @@ export class GraphService {
   async getGraph(organizationId: string, types?: GraphEntityType[]): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
     const entities = await this.prisma.graphEntity.findMany({
       where: { organizationId, ...(types?.length ? { type: { in: types } } : {}) },
+      // Même plafond de sécurité que listEntities ci-dessus — cette visualisation
+      // a besoin du graphe complet (pas de pagination possible sans casser la
+      // vue), mais doit rester bornée si l'organisation accumule des milliers
+      // d'entités.
+      take: 1000,
     });
     const entityIds = new Set(entities.map((e) => e.id));
 

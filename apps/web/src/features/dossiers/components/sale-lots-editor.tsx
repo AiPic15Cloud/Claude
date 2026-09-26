@@ -11,6 +11,10 @@ import { parseLocaleNumber } from '@/lib/locale-number';
 import { cn } from '@/lib/utils';
 import { SALE_LOT_STATUSES, SALE_LOT_STATUS_LABELS, type SaleLot, type SaleLotStatus } from '@/types';
 
+// Même pattern liste + brouillon inline que cost-line-items-editor.tsx, gardé
+// séparé car ce fichier ajoute un <Select> de statut (avec sa propre carte de
+// couleurs) que l'autre n'a pas — vérifier là-bas si un correctif ici s'y
+// applique aussi.
 interface DraftLot {
   id: string | null;
   label: string;

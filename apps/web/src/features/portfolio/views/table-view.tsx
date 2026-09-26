@@ -38,7 +38,11 @@ export function TableView({ deals, onSelectDeal, sortBy, sortOrder, onSort }: Ta
         <TableHeader>
           <TableRow className="bg-secondary/40 hover:bg-secondary/40">
             {COLUMNS.map((col) => (
-              <TableHead key={col.key} className={cn('whitespace-nowrap', col.align === 'right' && 'text-right')}>
+              <TableHead
+                key={col.key}
+                className={cn('whitespace-nowrap', col.align === 'right' && 'text-right')}
+                aria-sort={col.sortable ? (sortBy === col.key ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none') : undefined}
+              >
                 {col.sortable ? (
                   <button
                     onClick={() => onSort(col.key)}

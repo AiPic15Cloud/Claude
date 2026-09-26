@@ -1,7 +1,6 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DEAL_STAGE_LABELS, type PipelineStage } from '@/types';
-import { formatCurrency } from '@/lib/format';
 
 interface PipelineChartProps {
   pipeline: PipelineStage[];
@@ -11,7 +10,6 @@ export function PipelineChart({ pipeline }: PipelineChartProps) {
   const data = pipeline.map((p) => ({
     stage: DEAL_STAGE_LABELS[p.stage],
     count: p.count,
-    totalAmount: p.totalAmount,
   }));
 
   return (
@@ -43,9 +41,7 @@ export function PipelineChart({ pipeline }: PipelineChartProps) {
                 borderRadius: 8,
                 fontSize: 12,
               }}
-              formatter={(value: number, name: string) =>
-                name === 'count' ? [value, "Opérations"] : [formatCurrency(value), 'Montant']
-              }
+              formatter={(value: number) => [value, 'Opérations']}
             />
             <Bar dataKey="count" fill="hsl(var(--chart-accent))" radius={[4, 4, 0, 0]} maxBarSize={36} />
           </BarChart>

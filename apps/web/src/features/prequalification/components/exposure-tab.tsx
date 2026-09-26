@@ -111,8 +111,8 @@ export function ExposureTab({ caseId }: { caseId: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.externalFinancings.map((f, index) => (
-                  <TableRow key={index}>
+                {data.externalFinancings.map((f) => (
+                  <TableRow key={`${f.entityName}-${f.platformName}-${f.projectName}`}>
                     <TableCell>{f.platformName}</TableCell>
                     <TableCell>{f.projectName}</TableCell>
                     <TableCell>{f.amountTarget != null ? formatCurrency(f.amountTarget) : '—'}</TableCell>

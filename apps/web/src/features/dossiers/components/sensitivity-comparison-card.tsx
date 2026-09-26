@@ -2,11 +2,8 @@ import { Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
 import { cn } from '@/lib/utils';
+import { formatCurrencyExact as formatEuro } from '@/lib/format';
 import type { FinancialScenario } from '@/types';
-
-function formatEuro(value: number): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
-}
 
 /**
  * Sensibilité initiale vs actualisée — même principe que BP initial vs

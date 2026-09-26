@@ -85,16 +85,17 @@ export class PlatformsController {
   @Patch(':id/projects/:projectId')
   updateProject(
     @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
     @Param('projectId') projectId: string,
     @Body() dto: UpdateCompetitorProjectDto,
   ) {
-    return this.competitorProjects.update(user.organizationId, projectId, dto);
+    return this.competitorProjects.update(user.organizationId, id, projectId, dto);
   }
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')
   @Delete(':id/projects/:projectId')
-  removeProject(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
-    return this.competitorProjects.remove(user.organizationId, projectId);
+  removeProject(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Param('projectId') projectId: string) {
+    return this.competitorProjects.remove(user.organizationId, id, projectId);
   }
 }

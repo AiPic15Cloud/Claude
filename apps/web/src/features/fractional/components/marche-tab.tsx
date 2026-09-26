@@ -109,7 +109,7 @@ export function MarcheTab({ projectId }: { projectId: string }) {
                   <TableRow key={s.id}>
                     <TableCell>{RENT_INDEX_TYPE_LABELS[s.indexType]}</TableCell>
                     <TableCell>{s.period}</TableCell>
-                    <TableCell>{s.value}</TableCell>
+                    <TableCell>{s.value.toFixed(2)} pts</TableCell>
                     <TableCell>{s.cagr5y !== null ? `${s.cagr5y}%` : '—'}</TableCell>
                     <TableCell>{s.cagr10y !== null ? `${s.cagr10y}%` : '—'}</TableCell>
                     <TableCell>{formatDate(s.asOfDate)}</TableCell>

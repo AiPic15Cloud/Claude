@@ -34,7 +34,12 @@ export function bisect(lowValue: number, highValue: number, targetHurdlePct: num
   // croissante (loyer ↑ ⇒ yield ↑) selon `decreasing` — sinon pas de racine unique.
   const boundsBracketTarget = decreasing ? yieldLow >= targetHurdlePct && yieldHigh <= targetHurdlePct : yieldLow <= targetHurdlePct && yieldHigh >= targetHurdlePct;
   if (!boundsBracketTarget) {
-    const achievable = decreasing ? Math.max(yieldLow, yieldHigh) : Math.max(yieldLow, yieldHigh);
+    // Toujours le meilleur yield atteignable aux bornes, quelle que soit la
+    // direction : par monotonicité (garantie par boundsBracketTarget
+    // ci-dessus), yieldLow >= yieldHigh quand `decreasing` est vrai et
+    // yieldHigh >= yieldLow sinon — Math.max donne donc déjà la bonne borne
+    // dans les deux cas, sans avoir besoin de brancher sur `decreasing` ici.
+    const achievable = Math.max(yieldLow, yieldHigh);
     return { value: null, achievedYieldPct: achievable, iterations: 0 };
   }
 

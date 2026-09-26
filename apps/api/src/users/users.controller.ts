@@ -48,6 +48,6 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('me/2fa/disable')
   disableTwoFactor(@CurrentUser() user: AuthenticatedUser, @Body() dto: TwoFactorDisableDto) {
-    return this.twoFactorService.disable(user.id, dto.password);
+    return this.twoFactorService.disable(user.id, dto.password, dto.code);
   }
 }

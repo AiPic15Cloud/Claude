@@ -2,14 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
 import { cn } from '@/lib/utils';
+import { formatCurrencyExact as formatCurrency } from '@/lib/format';
 import type { FinancialSynthesis } from '@/types';
-
-// formatCurrency() abrège au-delà de 1M (ex. "1 M€") — trop imprécis pour une
-// carte dont le but est justement de donner des chiffres exacts pour décider.
-// Toujours la valeur exacte ici, arrondie à l'euro.
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
-}
 
 function HeroTile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'vert' | 'jaune' | 'orange' | 'rouge' | null }) {
   const style = tone ? MARGIN_TIER_STYLES[tone] : null;

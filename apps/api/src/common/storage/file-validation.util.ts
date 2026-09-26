@@ -27,6 +27,18 @@ export const DOCUMENT_MIME_ALLOWLIST = new Set([
 /** Note-image uploads: raster formats only — image/svg+xml can embed <script> and must never be allowed. */
 export const IMAGE_MIME_ALLOWLIST = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
+/**
+ * Agent chat file uploads (see agents/document-content.util.ts): only PDF and
+ * Excel are ever turned into content Claude can read, so anything else is
+ * rejected up front rather than accepted and only failing later inside the
+ * service.
+ */
+export const AGENT_CHAT_FILE_MIME_ALLOWLIST = new Set([
+  'application/pdf',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+
 type MulterFileFilter = (
   req: Request,
   file: Express.Multer.File,

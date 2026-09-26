@@ -17,7 +17,7 @@ const MAX_IMAGES = 6;
 function NoteThumbnail({ image, onClick }: { image: NoteImage; onClick: () => void }) {
   const src = useAuthenticatedImage(image.url);
   return (
-    <button type="button" onClick={onClick} disabled={!src}>
+    <button type="button" onClick={onClick} disabled={!src} aria-label="Voir la photo de la note">
       <img
         src={src}
         alt=""

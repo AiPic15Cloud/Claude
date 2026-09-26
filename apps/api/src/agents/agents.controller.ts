@@ -21,6 +21,7 @@ import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-use
 import { AgentsService } from './agents.service';
 import { ChatDto } from './dto/chat.dto';
 import { ChatWithFileDto } from './dto/chat-with-file.dto';
+import { AGENT_CHAT_FILE_MIME_ALLOWLIST, mimeAllowlistFilter } from '../common/storage/file-validation.util';
 
 // Newline-delimited JSON: one {"delta": "..."} object per text chunk, a
 // trailing {"done": true}, or {"error": "..."} if generation fails midway
@@ -93,7 +94,12 @@ export class AgentsController {
   @Roles('ADMIN', 'ANALYST')
   @Post(':key/chat-with-file')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 25 * 1024 * 1024 },
+      fileFilter: mimeAllowlistFilter(AGENT_CHAT_FILE_MIME_ALLOWLIST),
+    }),
+  )
   async chatWithFile(
     @CurrentUser() user: AuthenticatedUser,
     @Param('key') key: string,

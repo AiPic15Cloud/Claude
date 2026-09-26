@@ -17,6 +17,21 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   skipAuth?: boolean;
 }
 
+// Same error-body parsing as request()'s failure branch below, reused by
+// getBlob/postBlob so a JSON error body (blob endpoints can still fail before
+// ever producing a blob) surfaces its message instead of just the generic
+// HTTP status text.
+async function toApiError(response: Response): Promise<ApiError> {
+  let message = response.statusText;
+  try {
+    const data = await response.json();
+    message = data.message ?? message;
+  } catch {
+    // response has no JSON body
+  }
+  return new ApiError(response.status, Array.isArray(message) ? message.join(', ') : message);
+}
+
 let refreshPromise: Promise<string | null> | null = null;
 
 export async function refreshAccessToken(): Promise<string | null> {
@@ -113,7 +128,7 @@ async function getBlob(path: string): Promise<Blob> {
     const newToken = await refreshAccessToken();
     if (newToken) response = await doFetch(newToken);
   }
-  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  if (!response.ok) throw await toApiError(response);
   return response.blob();
 }
 
@@ -138,7 +153,7 @@ async function postBlob(path: string, body: unknown): Promise<Blob> {
     const newToken = await refreshAccessToken();
     if (newToken) response = await doFetch(newToken);
   }
-  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  if (!response.ok) throw await toApiError(response);
   return response.blob();
 }
 

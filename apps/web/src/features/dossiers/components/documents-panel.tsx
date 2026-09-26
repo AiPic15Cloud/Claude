@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Download, File, Loader2, Sparkles, Trash2, Upload } from 'lucide-react';
+import { Download, File, Loader2, Sparkles, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { useDocuments, useUploadDocument, useDeleteDocument, useDownloadDocument, useExtractFinancials } from '../hooks/use-documents';
 import { ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
@@ -133,7 +134,6 @@ function DocumentRow({
   const download = useDownloadDocument(dealId);
   const remove = useDeleteDocument(dealId);
   const extract = useExtractFinancials(dealId);
-  const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<FinancialExtraction | null>(null);
   const extractable = isDocumentReadableByAgent(doc);
 
@@ -166,27 +166,12 @@ function DocumentRow({
         <Button size="sm" variant="ghost" onClick={() => download.mutate(doc)} disabled={download.isPending}>
           {download.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
         </Button>
-        {confirming ? (
-          <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
-              Annuler
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => remove.mutate(doc.id)} disabled={remove.isPending}>
-              {remove.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Confirmer'}
-            </Button>
-          </div>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-            aria-label="Supprimer le document"
-            title="Supprimer le document"
-            onClick={() => setConfirming(true)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        )}
+        <ConfirmDeleteButton
+          onConfirm={() => remove.mutate(doc.id)}
+          pending={remove.isPending}
+          label="Supprimer le document"
+          size="sm"
+        />
       </div>
 
       {result && (

@@ -20,7 +20,7 @@ const PHYSICAL_RISK_TIERS: EsgPhysicalRiskTier[] = ['FAIBLE', 'MODERE', 'ELEVE']
 const NONE_VALUE = '__none__';
 
 function pts(value: number): string {
-  return `${value.toFixed(2).replace(/\.?0+$/, '')} pt${value >= 2 ? 's' : ''}`;
+  return `${value.toFixed(2).replace(/\.?0+$/, '')} pt${Math.abs(value) >= 2 ? 's' : ''}`;
 }
 
 /**

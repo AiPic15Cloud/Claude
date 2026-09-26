@@ -268,6 +268,7 @@ export function useMarkPerteDefinitive(dealId: string) {
       queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals', 'portfolio-overview'] });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['cockpit'] });
     },
   });
 }

@@ -349,17 +349,31 @@ export class ProjectObservationService {
   async checkDataCaptureReliability(): Promise<void> {
     const now = new Date();
     const platforms = await this.prisma.crowdfundingPlatform.findMany({ select: { sourceKey: true, label: true } });
-    for (const platform of platforms) {
-      const currentWeekCount = await this.prisma.projectObservationEvent.count({
-        where: { sourceKey: platform.sourceKey, eventType: 'PROJECT_DETECTED', occurredAt: { gte: new Date(now.getTime() - 7 * DAY_MS) } },
-      });
-      const priorFourWeeksCount = await this.prisma.projectObservationEvent.count({
+
+    // Un count() par plateforme et par fenêtre (2×N requêtes) — remplacé par
+    // un groupBy par fenêtre (2 requêtes au total, quel que soit le nombre
+    // de plateformes).
+    const [currentWeekGroups, priorFourWeeksGroups] = await Promise.all([
+      this.prisma.projectObservationEvent.groupBy({
+        by: ['sourceKey'],
+        where: { eventType: 'PROJECT_DETECTED', occurredAt: { gte: new Date(now.getTime() - 7 * DAY_MS) } },
+        _count: { _all: true },
+      }),
+      this.prisma.projectObservationEvent.groupBy({
+        by: ['sourceKey'],
         where: {
-          sourceKey: platform.sourceKey,
           eventType: 'PROJECT_DETECTED',
           occurredAt: { gte: new Date(now.getTime() - 35 * DAY_MS), lt: new Date(now.getTime() - 7 * DAY_MS) },
         },
-      });
+        _count: { _all: true },
+      }),
+    ]);
+    const currentWeekCounts = new Map(currentWeekGroups.map((g) => [g.sourceKey, g._count._all]));
+    const priorFourWeeksCounts = new Map(priorFourWeeksGroups.map((g) => [g.sourceKey, g._count._all]));
+
+    for (const platform of platforms) {
+      const currentWeekCount = currentWeekCounts.get(platform.sourceKey) ?? 0;
+      const priorFourWeeksCount = priorFourWeeksCounts.get(platform.sourceKey) ?? 0;
       const weeklyBaseline = priorFourWeeksCount / 4;
 
       if (weeklyBaseline < MIN_WEEKLY_BASELINE) continue;

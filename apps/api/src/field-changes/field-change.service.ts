@@ -74,6 +74,10 @@ export class FieldChangeService {
         sourceDocument: { select: { id: true, name: true } },
       },
       orderBy: { changedAt: 'desc' },
+      // Plafond de sécurité — le consommateur front (use-field-changes.ts)
+      // affiche la liste complète sans pagination ; un dossier très modifié
+      // ne doit pas pour autant renvoyer un nombre illimité de lignes.
+      take: 500,
     });
   }
 }

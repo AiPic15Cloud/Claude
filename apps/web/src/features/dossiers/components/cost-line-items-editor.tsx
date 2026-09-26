@@ -20,6 +20,11 @@ interface DraftItem {
  * saisit ligne par ligne dans son classeur réel (pas des champs fixes) :
  * ajouter/renommer/supprimer un poste, chaque action persistée immédiatement
  * et tracée dans l'historique des valeurs (FieldChangeService côté API).
+ *
+ * Même pattern liste + brouillon inline que sale-lots-editor.tsx, gardé
+ * séparé car ce dernier ajoute un <Select> de statut (avec sa propre carte
+ * de couleurs) que ces postes n'ont pas — vérifier là-bas si un correctif
+ * ici s'y applique aussi.
  */
 export function CostLineItemsEditor({
   dealId,

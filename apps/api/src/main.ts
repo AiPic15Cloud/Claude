@@ -2,12 +2,14 @@ import 'reflect-metadata';
 import helmet from 'helmet';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false });
+  const configService = app.get(ConfigService);
 
   // Railway terminates TLS and proxies every request through one hop before
   // it reaches this process — without this, Express's req.ip resolves to
@@ -20,7 +22,7 @@ async function bootstrap() {
 
   app.use(helmet());
   app.enableCors({
-    origin: process.env.API_CORS_ORIGIN?.split(',') ?? 'http://localhost:5173',
+    origin: configService.get<string>('corsOrigin')!.split(','),
     credentials: true,
   });
 
@@ -53,9 +55,7 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  // Railway (and most PaaS hosts) inject PORT — it takes priority over the
-  // local-dev-oriented API_PORT variable.
-  const port = process.env.PORT ?? process.env.API_PORT ?? 3001;
+  const port = configService.get<number>('port')!;
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`ATLAS API listening on port ${port}`);

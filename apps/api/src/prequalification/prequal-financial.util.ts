@@ -29,6 +29,11 @@
 const LATE_PENALTY_RATE_POINTS = 5;
 /** Frais de garantie hypothécaire estimés — même taux forfaitaire que le Deal (financial-model.service.ts). */
 const GUARANTEE_FEES_RATE = 0.015;
+// Même majoration non documentée que financial-model.service.ts (frais de
+// dossier bancaires). Meilleure hypothèse : une majoration de 20% type TVA
+// (frais de dossier HT -> TTC) — à vérifier avec la personne ayant fixé
+// cette valeur, ne pas modifier le nombre sans confirmation métier.
+const BANK_FILE_FEES_VAT_FACTOR = 1.2;
 
 export interface PrequalCostLineItemInput {
   category: string;
@@ -228,7 +233,7 @@ export function computePrequalFinancials(input: PrequalFinancialInput): PrequalF
     bankEnabled && input.bankInterestRatePct !== null && dureeCibleMonths !== null
       ? round2((bankLoanTotal * (input.bankInterestRatePct / 100) * dureeCibleMonths) / 12)
       : 0;
-  const bankTotalFees = bankEnabled ? round2(bankInterestOnDurationCible + (input.bankGuaranteeFees ?? 0) + (input.bankFileFees ?? 0) * 1.2) : 0;
+  const bankTotalFees = bankEnabled ? round2(bankInterestOnDurationCible + (input.bankGuaranteeFees ?? 0) + (input.bankFileFees ?? 0) * BANK_FILE_FEES_VAT_FACTOR) : 0;
 
   const bank: PrequalBankFinancingBlock = {
     enabled: bankEnabled,

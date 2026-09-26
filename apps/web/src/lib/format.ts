@@ -9,6 +9,13 @@ export function formatCurrency(value: number | string, currency = 'EUR'): string
   }).format(amount);
 }
 
+// Contrairement à formatCurrency(), n'abrège jamais (pas de notation
+// "compact" au-delà de 1M) — pour les cartes dont le but est de donner des
+// montants exacts, arrondis à l'euro, plutôt qu'un résumé lisible.
+export function formatCurrencyExact(value: number): string {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
+}
+
 export function formatCompactNumber(value: number): string {
   return new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }

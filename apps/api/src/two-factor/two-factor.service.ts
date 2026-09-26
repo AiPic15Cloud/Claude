@@ -130,11 +130,18 @@ export class TwoFactorService {
     return { recoveryCodes };
   }
 
-  async disable(userId: string, password: string) {
+  async disable(userId: string, password: string, code: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
     if (!(await bcrypt.compare(password, user.passwordHash))) {
       throw new UnauthorizedException('Mot de passe incorrect');
+    }
+    // Password alone only proves knowledge of the first factor — a stolen
+    // password (or a hijacked authenticated session) must not be enough to
+    // turn off the second one. Require a currently-valid TOTP/recovery code
+    // too, in addition to the password check above.
+    if (!(await this.verifyCode(userId, code))) {
+      throw new UnauthorizedException('Code invalide');
     }
     await this.prisma.user.update({
       where: { id: userId },

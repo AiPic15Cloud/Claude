@@ -23,29 +23,30 @@ function pct(value: number | null | undefined): string {
 }
 
 interface CostItem {
+  id: string;
   label: string;
   amount: string;
 }
 
 function CostItemsList({ items, onChange, placeholder }: { items: CostItem[]; onChange: (items: CostItem[]) => void; placeholder: string }) {
-  const [draft, setDraft] = useState<CostItem>({ label: '', amount: '' });
+  const [draft, setDraft] = useState<{ label: string; amount: string }>({ label: '', amount: '' });
   const total = items.reduce((sum, i) => sum + (parseLocaleNumber(i.amount) || 0), 0);
 
   const add = () => {
     if (!draft.label || !draft.amount) return;
-    onChange([...items, draft]);
+    onChange([...items, { ...draft, id: crypto.randomUUID() }]);
     setDraft({ label: '', amount: '' });
   };
-  const remove = (index: number) => onChange(items.filter((_, i) => i !== index));
+  const remove = (id: string) => onChange(items.filter((i) => i.id !== id));
 
   return (
     <div className="flex flex-col gap-1.5">
-      {items.map((item, index) => (
-        <div key={index} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5">
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5">
           <span className="text-sm">{item.label}</span>
           <div className="flex items-center gap-1">
             <span className="text-sm font-medium tabular-nums">{formatCurrency(parseLocaleNumber(item.amount) || 0)}</span>
-            <Button type="button" size="icon" variant="ghost" onClick={() => remove(index)}>
+            <Button type="button" size="icon" variant="ghost" onClick={() => remove(item.id)}>
               <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           </div>
@@ -122,7 +123,7 @@ function buildFinancialForm(financial: PrequalFinancialModel | null) {
 }
 
 function buildCostItems(financial: PrequalFinancialModel | null, category: string): CostItem[] {
-  return financial?.costLineItems.filter((i) => i.category === category).map((i) => ({ label: i.label, amount: String(i.amount) })) ?? [];
+  return financial?.costLineItems.filter((i) => i.category === category).map((i) => ({ id: crypto.randomUUID(), label: i.label, amount: String(i.amount) })) ?? [];
 }
 
 export function FinancialTab({ caseId, financial }: { caseId: string; financial: PrequalFinancialModel | null }) {

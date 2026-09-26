@@ -80,6 +80,13 @@ export interface RiskScoreParams {
 
 const REPORTING_STALE_DAYS = 60; // fixe en Phase 1 — cadence configurable par dossier en Phase 4
 
+// Doit rester égal au maxPoints de l'entrée GARANTIE_DEGRADEE dans
+// RISK_INDICATOR_DEFINITIONS ci-dessous — comme tout autre indicateur de ce
+// fichier (voir ex. RETARD_DUREE_CIBLE, RECOUVREMENT), ce plafond documenté
+// est un vrai plafond appliqué en code (voir pushGarantieDegradee), pas un
+// ordre de grandeur indicatif.
+const GARANTIE_DEGRADEE_MAX_POINTS = 60;
+
 /**
  * Documentation exposée par GET /risk-model/methodology — les points réels
  * sont calculés dans les fonctions pushXxx() ci-dessous, jamais dupliqués ici.
@@ -113,7 +120,7 @@ export const RISK_INDICATOR_DEFINITIONS: RiskIndicatorDefinition[] = [
   { key: 'RETARD_ADMINISTRATIF_ECHEANCE', label: 'Échéance de vote proche/dépassée', maxPoints: 20, rationale: 'Réutilise directement les paliers J-60/J-30/J-15/contentieux déjà en place pour le suivi des échéances.' },
   { key: 'RETARD_DUREE_CIBLE', label: 'Retard sur la durée cible du financement', maxPoints: 25, rationale: 'Paliers progressifs +5 pts à J+10, +15 pts à J+30, +25 pts à J+60 sur le dépassement de la durée cible du financement.' },
   { key: 'RETARD_REPORTING', label: 'Reporting en retard', maxPoints: 10, rationale: "Un dossier sans point de suivi récent prive l'analyste de visibilité — seuil fixe de 60 jours." },
-  { key: 'GARANTIE_DEGRADEE', label: 'Garantie dégradée', maxPoints: 60, rationale: '15 pts (non valide) ou 7 pts (expire bientôt) par sûreté concernée, pas un seul pire-cas global.' },
+  { key: 'GARANTIE_DEGRADEE', label: 'Garantie dégradée', maxPoints: GARANTIE_DEGRADEE_MAX_POINTS, rationale: '15 pts (non valide) ou 7 pts (expire bientôt) par sûreté concernée, plafonné au total.' },
   { key: 'RECOUVREMENT', label: 'Situation juridique dégradée', maxPoints: 40, rationale: 'Mise en demeure (+20), contentieux (+25) ou procédure collective (+40, déclenche aussi un plancher dur CRITIQUE indépendant de ce score).' },
   { key: 'PORTEUR', label: 'Santé administrative du porteur', maxPoints: 30, rationale: 'Une procédure collective ou une radiation chez le porteur conditionne sa capacité à mener le projet à terme.' },
   { key: 'MARGE_VS_BP', label: 'Marge réelle vs BP', maxPoints: 20, rationale: "Dérive entre la marge réelle et le business plan figé — seuil -10% déclenche une alerte de surveillance." },
@@ -299,20 +306,26 @@ function pushRetardReporting(out: TriggeredIndicator[], daysSince: number | null
 }
 
 function pushGarantieDegradee(out: TriggeredIndicator[], nonValideCount: number, expireBientotCount: number) {
+  // Les garanties non valides sont le signal le plus sévère des deux : si le
+  // plafond combiné est atteint, c'est le budget des garanties "expire
+  // bientôt" qui est réduit en premier.
+  const nonValidePoints = Math.min(15 * nonValideCount, GARANTIE_DEGRADEE_MAX_POINTS);
+  const expireBientotPoints = Math.min(7 * expireBientotCount, GARANTIE_DEGRADEE_MAX_POINTS - nonValidePoints);
+
   if (nonValideCount > 0) {
     out.push({
       key: 'GARANTIE_DEGRADEE_NON_VALIDE',
       label: 'Garantie(s) expirée(s)',
-      points: 15 * nonValideCount,
-      explanation: `${nonValideCount} garantie(s) active(s) ayant dépassé leur date de validité (15 pts chacune).`,
+      points: nonValidePoints,
+      explanation: `${nonValideCount} garantie(s) active(s) ayant dépassé leur date de validité (15 pts chacune, plafonné à ${GARANTIE_DEGRADEE_MAX_POINTS} pts au total pour cet indicateur).`,
     });
   }
   if (expireBientotCount > 0) {
     out.push({
       key: 'GARANTIE_DEGRADEE_EXPIRE_BIENTOT',
       label: 'Garantie(s) expirant bientôt',
-      points: 7 * expireBientotCount,
-      explanation: `${expireBientotCount} garantie(s) expirant dans les 6 mois (7 pts chacune).`,
+      points: expireBientotPoints,
+      explanation: `${expireBientotCount} garantie(s) expirant dans les 6 mois (7 pts chacune, plafonné à ${GARANTIE_DEGRADEE_MAX_POINTS} pts au total pour cet indicateur).`,
     });
   }
 }

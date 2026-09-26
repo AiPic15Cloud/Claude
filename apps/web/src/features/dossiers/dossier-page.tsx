@@ -344,7 +344,7 @@ export function DossierPage() {
               </p>
               <p className="text-lg font-semibold tabular-nums">{deal.realizedPerformance.triRealisePct}%</p>
               <p className="text-[11px] text-muted-foreground">
-                Multiple {deal.realizedPerformance.multipleCapital?.toFixed(2)}x
+                Multiple {deal.realizedPerformance.multipleCapital !== null ? `${deal.realizedPerformance.multipleCapital.toFixed(2)}x` : '—'}
               </p>
             </CardContent>
           </Card>

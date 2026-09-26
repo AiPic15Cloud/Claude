@@ -8,7 +8,7 @@ import { usePrequalStressTests } from '../hooks/use-prequalification';
 import { PREQUAL_STRESS_CAPACITY_LABELS, type PrequalStressCapacity } from '@/types';
 
 function capacityBadge(capacity: PrequalStressCapacity) {
-  const variant = capacity === 'OK' ? 'success' : capacity === 'TENDUE' ? 'outline' : capacity === 'INSUFFISANTE' ? 'destructive' : 'outline';
+  const variant = capacity === 'OK' ? 'success' : capacity === 'TENDUE' ? 'outline' : capacity === 'INSUFFISANTE' ? 'destructive' : 'secondary';
   return <Badge variant={variant}>{PREQUAL_STRESS_CAPACITY_LABELS[capacity]}</Badge>;
 }
 

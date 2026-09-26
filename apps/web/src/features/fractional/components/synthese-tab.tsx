@@ -311,7 +311,7 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           />
           <YieldStat label="Yield on Cost" value={pct(base.yieldOnCostPct)} hint="NOI an 1 / coût total" />
           <YieldStat label="IRR (TRI)" value={pct(base.irrPct)} />
-          <YieldStat label="Equity Multiple" value={base.equityMultiple ? `${base.equityMultiple.toFixed(2)}x` : '—'} />
+          <YieldStat label="Equity Multiple" value={base.equityMultiple !== null && base.equityMultiple !== undefined ? `${base.equityMultiple.toFixed(2)}x` : '—'} />
           {base.irrImpactFromTvaTimingPts !== null && (
             <YieldStat
               label="Impact TVA sur IRR"

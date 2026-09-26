@@ -7,6 +7,7 @@ import { UsersService } from '../users/users.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { TwoFactorService } from '../two-factor/two-factor.service';
+import { sanitizeUser } from '../users/sanitize-user.util';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
@@ -16,6 +17,12 @@ interface TwoFactorChallengePayload {
 }
 
 const SALT_ROUNDS = 12;
+
+// Used to run a bcrypt compare even when the email isn't found, so both the
+// "no such user" and "wrong password" paths do comparable work — otherwise
+// the early return for an unknown email is measurably faster than a real
+// password check and leaks whether an email is registered.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('dummy-password-for-timing', 10);
 
 export interface TokenPair {
   accessToken: string;
@@ -54,12 +61,15 @@ export class AuthService {
     });
 
     const tokens = await this.issueTokenPair(user.id, user.email, user.role, user.organizationId);
-    return { user: this.sanitize(user), organization, ...tokens };
+    return { user: sanitizeUser(user), organization, ...tokens };
   }
 
   async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
-    if (!user) return null;
+    if (!user) {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+      return null;
+    }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return null;
     return user;
@@ -68,7 +78,7 @@ export class AuthService {
   async login(user: { id: string; email: string; role: string; organizationId: string }) {
     const tokens = await this.issueTokenPair(user.id, user.email, user.role, user.organizationId);
     const fullUser = await this.usersService.findById(user.id);
-    return { user: this.sanitize(fullUser!), ...tokens };
+    return { user: sanitizeUser(fullUser!), ...tokens };
   }
 
   createTwoFactorChallenge(user: { id: string }) {
@@ -147,7 +157,7 @@ export class AuthService {
   async me(userId: string) {
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException();
-    return this.sanitize(user);
+    return sanitizeUser(user);
   }
 
   private async issueTokenPair(
@@ -186,10 +196,5 @@ export class AuthService {
     const unit = match[2];
     const multipliers: Record<string, number> = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 };
     return value * multipliers[unit];
-  }
-
-  private sanitize(user: { passwordHash: string; twoFactorSecret?: string | null; twoFactorRecoveryCodes?: string[]; [key: string]: unknown }) {
-    const { passwordHash: _passwordHash, twoFactorSecret: _twoFactorSecret, twoFactorRecoveryCodes: _twoFactorRecoveryCodes, ...rest } = user;
-    return rest;
   }
 }

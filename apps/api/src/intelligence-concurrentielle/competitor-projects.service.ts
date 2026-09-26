@@ -87,9 +87,15 @@ export class CompetitorProjectsService {
     return project;
   }
 
-  async update(organizationId: string, id: string, dto: UpdateCompetitorProjectDto) {
+  async update(organizationId: string, entityId: string, id: string, dto: UpdateCompetitorProjectDto) {
     const project = await this.prisma.competitorProject.findFirst({ where: { id, organizationId } });
-    if (!project) throw new NotFoundException('Projet concurrent introuvable');
+    // Le projet doit bien appartenir à la plateforme (:id) de l'URL — sans
+    // cette vérification, un projectId valide mais rattaché à une autre
+    // plateforme de la même organisation passerait quand même, ce qui
+    // permettrait de modifier un projet via l'URL d'une plateforme qui n'est
+    // pas la sienne. NotFoundException plutôt que Forbidden pour ne pas
+    // révéler que le projet existe ailleurs.
+    if (!project || project.entityId !== entityId) throw new NotFoundException('Projet concurrent introuvable');
     const updated = await this.prisma.competitorProject.update({
       where: { id },
       data: {
@@ -120,7 +126,12 @@ export class CompetitorProjectsService {
           newStatus: updated.status,
         },
       });
-    } else if (updated.name !== project.name || Number(updated.targetAmount ?? 0) !== Number(project.targetAmount ?? 0) || updated.url !== project.url) {
+    }
+    // Indépendant du bloc status ci-dessus (pas un "else if") : un même PATCH
+    // peut changer le statut ET le nom/montant/url, et les deux événements
+    // doivent alors être enregistrés — sinon l'un des deux était
+    // silencieusement perdu.
+    if (updated.name !== project.name || Number(updated.targetAmount ?? 0) !== Number(project.targetAmount ?? 0) || updated.url !== project.url) {
       await this.prisma.competitorProjectEvent.create({
         data: { entityId: updated.entityId, projectId: updated.id, projectName: updated.name, eventType: 'PROJECT_UPDATED' },
       });
@@ -129,9 +140,11 @@ export class CompetitorProjectsService {
     return updated;
   }
 
-  async remove(organizationId: string, id: string) {
+  async remove(organizationId: string, entityId: string, id: string) {
     const project = await this.prisma.competitorProject.findFirst({ where: { id, organizationId } });
-    if (!project) throw new NotFoundException('Projet concurrent introuvable');
+    // Même vérification que update() ci-dessus : le projet doit bien
+    // appartenir à la plateforme (:id) de l'URL.
+    if (!project || project.entityId !== entityId) throw new NotFoundException('Projet concurrent introuvable');
     await this.prisma.competitorProjectEvent.create({
       data: { entityId: project.entityId, projectId: project.id, projectName: project.name, eventType: 'PROJECT_REMOVED', previousStatus: project.status },
     });
