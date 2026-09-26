@@ -22,9 +22,22 @@ export type DataRoomBlockKey =
   | 'VALUATION'
   | 'VEHICLE_PLATFORM';
 
+// Checklist progressive (spec Cockpit/Fractionné P1 §5.6/§4.1) — remplace le
+// traitement à plat des 48 pièces (même poids, même urgence quelle que soit
+// l'étape, dénoncé explicitement par la spec) par 3 paliers cumulatifs :
+// une pièce "avant présentation" reste due à l'étape "avant acquisition".
+export type DataRoomItemTier = 'NOW' | 'BEFORE_PRESENTATION' | 'BEFORE_ACQUISITION';
+export const DATA_ROOM_ITEM_TIER_ORDER: DataRoomItemTier[] = ['NOW', 'BEFORE_PRESENTATION', 'BEFORE_ACQUISITION'];
+export const DATA_ROOM_ITEM_TIER_LABELS: Record<DataRoomItemTier, string> = {
+  NOW: 'Maintenant',
+  BEFORE_PRESENTATION: 'Avant présentation',
+  BEFORE_ACQUISITION: 'Avant acquisition',
+};
+
 export interface DataRoomItemDefinition {
   itemKey: string;
   label: string;
+  tier: DataRoomItemTier;
 }
 
 export interface DataRoomBlockDefinition {
@@ -36,94 +49,94 @@ export const DATA_ROOM_BLOCKS: Record<DataRoomBlockKey, DataRoomBlockDefinition>
   CORPORATE_KYC: {
     label: 'Corporate / KYC',
     items: [
-      { itemKey: 'kbis', label: 'Kbis' },
-      { itemKey: 'statuts', label: 'Statuts' },
-      { itemKey: 'beneficiairesEffectifs', label: 'Bénéficiaires effectifs' },
-      { itemKey: 'organigramme', label: 'Organigramme' },
-      { itemKey: 'pouvoirs', label: 'Pouvoirs' },
+      { itemKey: 'kbis', label: 'Kbis', tier: 'NOW' },
+      { itemKey: 'statuts', label: 'Statuts', tier: 'NOW' },
+      { itemKey: 'beneficiairesEffectifs', label: 'Bénéficiaires effectifs', tier: 'NOW' },
+      { itemKey: 'organigramme', label: 'Organigramme', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'pouvoirs', label: 'Pouvoirs', tier: 'BEFORE_PRESENTATION' },
     ],
   },
   TITLE_LEGAL: {
     label: 'Title / Legal',
     items: [
-      { itemKey: 'titrePropriete', label: 'Titre de propriété' },
-      { itemKey: 'cadastre', label: 'Cadastre' },
-      { itemKey: 'servitudes', label: 'Servitudes' },
-      { itemKey: 'hypotheques', label: 'Hypothèques' },
-      { itemKey: 'contentieux', label: 'Contentieux' },
+      { itemKey: 'titrePropriete', label: 'Titre de propriété', tier: 'NOW' },
+      { itemKey: 'cadastre', label: 'Cadastre', tier: 'NOW' },
+      { itemKey: 'servitudes', label: 'Servitudes', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'hypotheques', label: 'Hypothèques', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'contentieux', label: 'Contentieux', tier: 'BEFORE_PRESENTATION' },
     ],
   },
   LEASES: {
     label: 'Leases',
     items: [
-      { itemKey: 'baux', label: 'Baux' },
-      { itemKey: 'avenants', label: 'Avenants' },
-      { itemKey: 'garanties', label: 'Garanties' },
-      { itemKey: 'depots', label: 'Dépôts' },
-      { itemKey: 'quittancement', label: 'Quittancement' },
-      { itemKey: 'impayes', label: 'Impayés' },
+      { itemKey: 'baux', label: 'Baux', tier: 'NOW' },
+      { itemKey: 'avenants', label: 'Avenants', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'garanties', label: 'Garanties', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'depots', label: 'Dépôts', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'quittancement', label: 'Quittancement', tier: 'BEFORE_ACQUISITION' },
+      { itemKey: 'impayes', label: 'Impayés', tier: 'BEFORE_PRESENTATION' },
     ],
   },
   TECHNICAL: {
     label: 'Technical',
     items: [
-      { itemKey: 'diagnostics', label: 'Diagnostics' },
-      { itemKey: 'plans', label: 'Plans' },
-      { itemKey: 'doe', label: 'DOE' },
-      { itemKey: 'controlesReglementaires', label: 'Contrôles réglementaires' },
-      { itemKey: 'sinistres', label: 'Sinistres' },
-      { itemKey: 'capexHistorique', label: 'CAPEX historique' },
-      { itemKey: 'conformite', label: 'Conformité' },
+      { itemKey: 'diagnostics', label: 'Diagnostics', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'plans', label: 'Plans', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'doe', label: 'DOE', tier: 'BEFORE_ACQUISITION' },
+      { itemKey: 'controlesReglementaires', label: 'Contrôles réglementaires', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'sinistres', label: 'Sinistres', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'capexHistorique', label: 'CAPEX historique', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'conformite', label: 'Conformité', tier: 'BEFORE_ACQUISITION' },
     ],
   },
   ENVIRONMENTAL_ESG: {
     label: 'Environmental / ESG',
     items: [
-      { itemKey: 'dpeEnergie', label: 'DPE / Énergie' },
-      { itemKey: 'operat', label: 'OPERAT (si applicable)' },
-      { itemKey: 'pollutionSols', label: 'Pollution des sols' },
-      { itemKey: 'risquesNaturelsTechnologiques', label: 'Risques naturels / technologiques' },
-      { itemKey: 'consommations', label: 'Consommations' },
+      { itemKey: 'dpeEnergie', label: 'DPE / Énergie', tier: 'NOW' },
+      { itemKey: 'operat', label: 'OPERAT (si applicable)', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'pollutionSols', label: 'Pollution des sols', tier: 'BEFORE_ACQUISITION' },
+      { itemKey: 'risquesNaturelsTechnologiques', label: 'Risques naturels / technologiques', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'consommations', label: 'Consommations', tier: 'BEFORE_PRESENTATION' },
     ],
   },
   FINANCIAL: {
     label: 'Financial',
     items: [
-      { itemKey: 'prix', label: 'Prix' },
-      { itemKey: 'taxesFoncieres', label: 'Taxes foncières' },
-      { itemKey: 'charges', label: 'Charges' },
-      { itemKey: 'budgets', label: 'Budgets' },
-      { itemKey: 'facturesTravaux', label: 'Factures travaux' },
-      { itemKey: 'assurance', label: 'Assurance' },
+      { itemKey: 'prix', label: 'Prix', tier: 'NOW' },
+      { itemKey: 'taxesFoncieres', label: 'Taxes foncières', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'charges', label: 'Charges', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'budgets', label: 'Budgets', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'facturesTravaux', label: 'Factures travaux', tier: 'BEFORE_ACQUISITION' },
+      { itemKey: 'assurance', label: 'Assurance', tier: 'BEFORE_ACQUISITION' },
     ],
   },
   MARKET: {
     label: 'Market',
     items: [
-      { itemKey: 'compsLoyers', label: 'Comparables loyers' },
-      { itemKey: 'compsVentes', label: 'Comparables ventes' },
-      { itemKey: 'tauxCapitalisation', label: 'Taux de capitalisation' },
-      { itemKey: 'vacance', label: 'Vacance' },
+      { itemKey: 'compsLoyers', label: 'Comparables loyers', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'compsVentes', label: 'Comparables ventes', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'tauxCapitalisation', label: 'Taux de capitalisation', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'vacance', label: 'Vacance', tier: 'NOW' },
     ],
   },
   VALUATION: {
     label: 'Valuation',
     items: [
-      { itemKey: 'expertiseIndependante', label: 'Expertise indépendante' },
-      { itemKey: 'methode', label: 'Méthode' },
-      { itemKey: 'date', label: 'Date' },
-      { itemKey: 'hypotheses', label: 'Hypothèses' },
+      { itemKey: 'expertiseIndependante', label: 'Expertise indépendante', tier: 'BEFORE_ACQUISITION' },
+      { itemKey: 'methode', label: 'Méthode', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'date', label: 'Date', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'hypotheses', label: 'Hypothèses', tier: 'BEFORE_PRESENTATION' },
     ],
   },
   VEHICLE_PLATFORM: {
     label: 'Vehicle / Platform',
     items: [
-      { itemKey: 'termSheet', label: 'Term sheet' },
-      { itemKey: 'frais', label: 'Frais' },
-      { itemKey: 'obligationsActions', label: 'Obligations / actions' },
-      { itemKey: 'waterfall', label: 'Waterfall' },
-      { itemKey: 'gouvernance', label: 'Gouvernance' },
-      { itemKey: 'sortie', label: 'Sortie' },
+      { itemKey: 'termSheet', label: 'Term sheet', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'frais', label: 'Frais', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'obligationsActions', label: 'Obligations / actions', tier: 'BEFORE_ACQUISITION' },
+      { itemKey: 'waterfall', label: 'Waterfall', tier: 'BEFORE_PRESENTATION' },
+      { itemKey: 'gouvernance', label: 'Gouvernance', tier: 'BEFORE_ACQUISITION' },
+      { itemKey: 'sortie', label: 'Sortie', tier: 'BEFORE_ACQUISITION' },
     ],
   },
 };
@@ -139,8 +152,17 @@ export interface DataRoomItemResult {
   block: DataRoomBlockKey;
   itemKey: string;
   label: string;
+  tier: DataRoomItemTier;
   status: FractionalDataRoomItemStatusValue;
   notes: string | null;
+}
+
+export interface DataRoomTierResult {
+  tier: DataRoomItemTier;
+  /** Cumulatif : "avant acquisition" inclut aussi les pièces "maintenant" et "avant présentation" — un palier franchi reste dû. */
+  total: number;
+  obtainedCount: number;
+  completenessPct: number;
 }
 
 export interface DataRoomBlockResult {
@@ -168,6 +190,8 @@ export interface DataRoomCompletenessResult {
   blocks: DataRoomBlockResult[];
   missingItems: DataRoomFlaggedItem[];
   inconsistentItems: DataRoomFlaggedItem[];
+  /** Complétude par palier cumulatif (spec §5.6 : "pièces nécessaires maintenant, avant présentation, avant acquisition"). */
+  tiers: DataRoomTierResult[];
 }
 
 function statusKey(block: string, itemKey: string): string {
@@ -182,6 +206,11 @@ export function computeDataRoomCompleteness(statuses: DataRoomItemStatusLike[]):
 
   let overallObtained = 0;
   let overallApplicableTotal = 0;
+  const tierStats: Record<DataRoomItemTier, { obtained: number; applicableTotal: number }> = {
+    NOW: { obtained: 0, applicableTotal: 0 },
+    BEFORE_PRESENTATION: { obtained: 0, applicableTotal: 0 },
+    BEFORE_ACQUISITION: { obtained: 0, applicableTotal: 0 },
+  };
 
   const blocks: DataRoomBlockResult[] = (Object.keys(DATA_ROOM_BLOCKS) as DataRoomBlockKey[]).map((blockKey) => {
     const blockDef = DATA_ROOM_BLOCKS[blockKey];
@@ -201,10 +230,22 @@ export function computeDataRoomCompleteness(statuses: DataRoomItemStatusLike[]):
       else if (status === 'INCONSISTENT') inconsistentCount += 1;
       else missingCount += 1;
 
+      if (status !== 'NOT_APPLICABLE') {
+        // Cumulatif : un item "NOW" compte aussi dans les paliers ultérieurs
+        // — franchir une étape ne rend jamais une pièce antérieure due
+        // "de nouveau non requise".
+        const itemTierIndex = DATA_ROOM_ITEM_TIER_ORDER.indexOf(itemDef.tier);
+        for (let i = itemTierIndex; i < DATA_ROOM_ITEM_TIER_ORDER.length; i++) {
+          const tier = DATA_ROOM_ITEM_TIER_ORDER[i];
+          tierStats[tier].applicableTotal += 1;
+          if (status === 'OBTAINED') tierStats[tier].obtained += 1;
+        }
+      }
+
       if (status === 'MISSING') missingItems.push({ block: blockKey, blockLabel: blockDef.label, itemKey: itemDef.itemKey, label: itemDef.label, notes });
       if (status === 'INCONSISTENT') inconsistentItems.push({ block: blockKey, blockLabel: blockDef.label, itemKey: itemDef.itemKey, label: itemDef.label, notes });
 
-      return { block: blockKey, itemKey: itemDef.itemKey, label: itemDef.label, status, notes };
+      return { block: blockKey, itemKey: itemDef.itemKey, label: itemDef.label, tier: itemDef.tier, status, notes };
     });
 
     const total = blockDef.items.length;
@@ -218,6 +259,10 @@ export function computeDataRoomCompleteness(statuses: DataRoomItemStatusLike[]):
   });
 
   const overallCompletenessPct = overallApplicableTotal > 0 ? Math.round((overallObtained / overallApplicableTotal) * 100) : 100;
+  const tiers: DataRoomTierResult[] = DATA_ROOM_ITEM_TIER_ORDER.map((tier) => {
+    const { obtained, applicableTotal } = tierStats[tier];
+    return { tier, total: applicableTotal, obtainedCount: obtained, completenessPct: applicableTotal > 0 ? Math.round((obtained / applicableTotal) * 100) : 100 };
+  });
 
-  return { overallCompletenessPct, blocks, missingItems, inconsistentItems };
+  return { overallCompletenessPct, blocks, missingItems, inconsistentItems, tiers };
 }

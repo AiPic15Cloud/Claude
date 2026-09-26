@@ -272,6 +272,7 @@ model Organization {
   observationEntityLinks ProjectObservationEntityLink[]
   prequalificationCases  PrequalificationCase[]
   portfolioMilestones    PortfolioMilestone[]
+  actionItems            ActionItem[]
 
   @@map("organizations")
 }
@@ -308,17 +309,17 @@ model User {
   twoFactorSecret        String?
   twoFactorRecoveryCodes String[] @default([])
 
-  createdDeals                    Deal[]                         @relation("DealCreatedBy")
-  assignedDeals                   Deal[]                         @relation("DealAssignedTo")
+  createdDeals                    Deal[]                          @relation("DealCreatedBy")
+  assignedDeals                   Deal[]                          @relation("DealAssignedTo")
   notes                           Note[]
   documents                       Document[]
   repayments                      Repayment[]
   interestPayments                InterestPayment[]
   loanExtensions                  LoanExtension[]
   pipelineEntries                 PipelineEntry[]
-  tasksAssigned                   Task[]                         @relation("TaskAssignee")
-  tasksCreated                    Task[]                         @relation("TaskCreatedBy")
-  tasksCancelled                  Task[]                         @relation("TaskCancelledBy")
+  tasksAssigned                   Task[]                          @relation("TaskAssignee")
+  tasksCreated                    Task[]                          @relation("TaskCreatedBy")
+  tasksCancelled                  Task[]                          @relation("TaskCancelledBy")
   milestonesCreated               PortfolioMilestone[]
   activities                      Activity[]
   refreshTokens                   RefreshToken[]
@@ -329,19 +330,24 @@ model User {
   fieldChanges                    FieldChange[]
   dataValidations                 DataValidation[]
   financialAssumptionsLocked      FinancialAssumption[]
-  dealOverridesCreated            DealOverride[]                 @relation("DealOverrideCreatedBy")
-  dealOverridesCleared            DealOverride[]                 @relation("DealOverrideClearedBy")
+  dealOverridesCreated            DealOverride[]                  @relation("DealOverrideCreatedBy")
+  dealOverridesCleared            DealOverride[]                  @relation("DealOverrideClearedBy")
   relationshipEvidence            Evidence[]
   fractionalProjectsCreated       FractionalProject[]
   observationEntityLinksReviewed  ProjectObservationEntityLink[]
-  prequalCasesAssigned            PrequalificationCase[]         @relation("PrequalAssignedAnalyst")
-  prequalCasesCreated             PrequalificationCase[]         @relation("PrequalCreatedBy")
-  prequalCasesValidated           PrequalificationCase[]         @relation("PrequalValidatedBy")
+  prequalCasesAssigned            PrequalificationCase[]          @relation("PrequalAssignedAnalyst")
+  prequalCasesCreated             PrequalificationCase[]          @relation("PrequalCreatedBy")
+  prequalCasesValidated           PrequalificationCase[]          @relation("PrequalValidatedBy")
   prequalVersionsValidated        PrequalificationVersion[]
   prequalDocumentsUploaded        PrequalDocument[]
   prequalEvidenceVerified         PrequalEvidence[]
   prequalFindingsReviewed         Finding[]
   prequalFinancialBaselinesLocked PrequalFinancialModel[]
+  fractionalNextActionFor         FractionalProject[]             @relation("FractionalNextActionOwner")
+  fractionalPlatformApplications  FractionalPlatformApplication[] @relation("FractionalPlatformApplicationCreatedBy")
+  fractionalStatusChangesMade     FractionalStatusHistory[]       @relation("FractionalStatusChangedBy")
+  actionItemsOwned                ActionItem[]                    @relation("ActionItemOwner")
+  actionItemsCreated              ActionItem[]                    @relation("ActionItemCreatedBy")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -591,6 +597,7 @@ model Deal {
   playbookInstances            PlaybookInstance[]
   contagionSignals             ContagionSignal[]
   milestones                   PortfolioMilestone[]
+  actionItems                  ActionItem[]
   /// Back-relation de PrequalificationCase.promotedDeal — un Deal promu
   /// depuis une préqualification pointe vers elle, jamais l'inverse dans
   /// l'autre sens (une préqualification WAIT/NO_GO n'a jamais de Deal).
@@ -1083,7 +1090,6 @@ model Task {
   @@index([milestoneId])
   @@map("tasks")
 }
-
 
 model Activity {
   id     String @id @default(cuid())
@@ -2340,7 +2346,17 @@ model ProjectObservationEntityLink {
 // valeur individuelle — des centaines de champs avec provenance dédiée
 // chacun n'est pas tractable pour un premier lot fonctionnel.
 
+/// PISTE et QUALIFICATION (spec Cockpit/Fractionné P1 §5.1/§5.2) précèdent
+/// ANALYSE — une piste peut être saisie et qualifiée en quelques minutes
+/// sans renseigner les données d'analyse approfondie. Les valeurs
+/// existantes ne sont ni renommées ni réordonnées : des dossiers réels
+/// (ex. "Le parc 149") sont déjà en STRUCTURATION en production, et la
+/// correspondance avec le vocabulaire à 9 étapes de la spec se fait par
+/// libellé côté UI (FRACTIONAL_PROJECT_STATUS_LABELS), jamais par migration
+/// de données.
 enum FractionalProjectStatus {
+  PISTE
+  QUALIFICATION
   ANALYSE
   STRUCTURATION
   VALIDATION_PLATEFORME
@@ -2429,7 +2445,9 @@ model FractionalProject {
 
   name      String
   reference String                  @unique
-  status    FractionalProjectStatus @default(ANALYSE)
+  // PISTE par défaut (spec Cockpit/Fractionné P1 §5.2) — un nouveau dossier
+  // est une piste tout juste saisie, jamais présumé déjà en analyse.
+  status    FractionalProjectStatus @default(PISTE)
 
   /// Regroupe les scénarios de périmètre d'un même dossier physique (ex.
   /// Meyzieu "parc seul" / "terrain" / "ensemble", spec §22) — chaque
@@ -2453,6 +2471,28 @@ model FractionalProject {
 
   notes String?
 
+  /// Qualification courte (spec P1 §5.2) — formulaire une page, tout le
+  /// reste reste explicitement "inconnu" si absent, jamais deviné. Canal
+  /// d'entrée et contact vendeur pour une piste tout juste saisie.
+  entryChannel     String?
+  vendorContact    String?
+  priceRangeMinEur Decimal? @db.Decimal(14, 2)
+  priceRangeMaxEur Decimal? @db.Decimal(14, 2)
+
+  /// Fiche de décision courte générée à la sortie de la qualification —
+  /// thèse, 3 atouts et 3 risques maximum (bornés côté DTO, pas ici),
+  /// questions à résoudre. Distincte de l'analyse approfondie des autres
+  /// onglets : peut rester vide bien après la qualification si le dossier a
+  /// été saisi directement en ANALYSE (dossiers migrés, pas de perte).
+  qualificationThesis        String?
+  qualificationStrengths     String[] @default([])
+  qualificationRisks         String[] @default([])
+  qualificationOpenQuestions String[] @default([])
+
+  nextActionLabel   String?
+  nextActionOwnerId String?
+  nextActionOwner   User?   @relation("FractionalNextActionOwner", fields: [nextActionOwnerId], references: [id])
+
   sourcesUses          FractionalSourcesUses?
   assumptionSets       FractionalAssumptionSet[]
   leases               FractionalLease[]
@@ -2466,12 +2506,15 @@ model FractionalProject {
   actuals              FractionalProjectActual[]
   outcome              FractionalProjectOutcome?
   alerts               Alert[]
+  actionItems          ActionItem[]
   scoreAssessments     FractionalScoreAssessment[]
   dataProvenance       FractionalDataProvenance[]
   dataRoomItemStatuses FractionalDataRoomItemStatus[]
   esgAssessment        FractionalEsgAssessment?
   technicalAssessments FractionalTechnicalAssessment[]
   legalTaxItemStatuses FractionalLegalTaxItemStatus[]
+  platformApplications FractionalPlatformApplication[]
+  statusHistory        FractionalStatusHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2926,8 +2969,9 @@ model PlatformFractionalProfile {
   source     String?
   confidence String?
 
-  vehicleStructures FractionalVehicleStructure[]
-  eliminatoryRules  FractionalEliminatoryRule[]
+  vehicleStructures    FractionalVehicleStructure[]
+  eliminatoryRules     FractionalEliminatoryRule[]
+  platformApplications FractionalPlatformApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2956,6 +3000,151 @@ model FractionalVehicleStructure {
 
   @@index([platformProfileId])
   @@map("fractional_vehicle_structures")
+}
+
+enum FractionalPlatformApplicationStatus {
+  PROSPECT
+  CONTACTE
+  CRITERES_PARTAGES
+  OFFRE_RECUE
+  ACCEPTEE
+  REFUSEE
+  ABANDONNEE
+}
+
+/// Candidature d'un dossier à une plateforme (spec P1 §5.3 : "une même
+/// opération peut avoir plusieurs platform_applications"). Indépendant de
+/// FractionalVehicleStructure.platformProfileId, qui reste la plateforme
+/// opérationnelle utilisée pour les calculs d'éligibilité (P0) — modifier
+/// une candidature ne duplique jamais l'actif ni ses baux et ne modifie pas
+/// les autres candidatures du même dossier.
+model FractionalPlatformApplication {
+  id                String                    @id @default(cuid())
+  projectId         String
+  project           FractionalProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  platformProfileId String
+  platformProfile   PlatformFractionalProfile @relation(fields: [platformProfileId], references: [id], onDelete: Cascade)
+
+  status FractionalPlatformApplicationStatus @default(PROSPECT)
+
+  contactName      String?
+  contactEmail     String?
+  firstContactDate DateTime?
+  lastResponseDate DateTime?
+  nextFollowUpDate DateTime?
+
+  /// Snapshot des critères comparés à la date de comparaison — les critères
+  /// non communiqués par la plateforme restent "à confirmer" (spec §5.3),
+  /// jamais silencieusement absents de la comparaison.
+  comparedCriteria Json?
+  offerSummary     String?
+  /// Spec §5.4 : ne jamais utiliser "Refusé" sans préciser qui a refusé —
+  /// ici le "qui" est explicite (platformProfile.platformName), distinct
+  /// d'un refus du comité interne (FractionalProject.status = REFUSE).
+  rejectionReason  String?
+
+  createdById String
+  createdBy   User   @relation("FractionalPlatformApplicationCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([platformProfileId])
+  @@map("fractional_platform_applications")
+}
+
+/// Journal des transitions d'étape (spec P1 §5.1 : "la transition est
+/// journalisée : avant, après, auteur, date, motif"). FractionalProject
+/// n'a aucune relation avec le modèle Activity générique (hardcodé à
+/// dealId) — table dédiée plutôt que d'élargir Activity à une nouvelle
+/// polymorphie pour un seul type d'objet.
+model FractionalStatusHistory {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  fromStatus FractionalProjectStatus?
+  toStatus   FractionalProjectStatus
+  reason     String?
+
+  changedById String
+  changedBy   User     @relation("FractionalStatusChangedBy", fields: [changedById], references: [id])
+  changedAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@map("fractional_status_history")
+}
+
+enum ActionItemStatus {
+  A_FAIRE
+  EN_ATTENTE_EXTERNE
+  A_DECIDER
+  TERMINEE
+  ECARTEE
+}
+
+/// File de décisions et d'actions générique (spec P1 §4.2/§6) — remplace,
+/// pour tout ce qui doit apparaître dans le cockpit comme "à décider" ou "à
+/// faire", le calcul à la volée jamais persisté de Deal (cockpit.service.ts
+/// buildDecisions()). Additif : Task/Alert/PortfolioMilestone gardent leurs
+/// usages actuels, ActionItem est la seule nouvelle couche cockpit
+/// transverse. FK nommées (dealId/fractionalProjectId) plutôt qu'une
+/// polymorphie générique source_object_type/id — même doctrine que Alert.
+model ActionItem {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  dealId              String?
+  deal                Deal?              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  fractionalProjectId String?
+  fractionalProject   FractionalProject? @relation(fields: [fractionalProjectId], references: [id], onDelete: Cascade)
+
+  /// Clé de déduplication stable ET motif technique (spec §4.2 : "la même
+  /// cause ne génère qu'une action ouverte par dossier") — ex.
+  /// "NO_PLATFORM_PROFILE", "RENT_ROLL_MISSING", "IC_HOLD". L'unicité par
+  /// (dealId|fractionalProjectId, cause) est appliquée côté service
+  /// (find-or-reopen), pas par contrainte SQL : dealId/fractionalProjectId
+  /// nullables rendraient une contrainte @@unique inefficace (NULL ≠ NULL).
+  cause String
+
+  /// Type de CTA libre validé côté DTO (@IsIn), pas un enum Prisma — même
+  /// doctrine que SaleLot.status/PrequalDecisiveQuestion.priority : le
+  /// vocabulaire des actions est amené à s'étendre sans migration.
+  actionType String
+  /// Motif affiché en une phrase sur la carte — ex. "47/47 champs
+  /// critiques non sourcés".
+  label      String
+
+  ownerId String
+  owner   User   @relation("ActionItemOwner", fields: [ownerId], references: [id])
+
+  createdById String?
+  createdBy   User?   @relation("ActionItemCreatedBy", fields: [createdById], references: [id])
+
+  status   ActionItemStatus @default(A_FAIRE)
+  dueAt    DateTime?
+  /// Priorité calculée principalement à partir de ce caractère bloquant et
+  /// de dueAt (spec §4.2) — jamais un score de risque opaque recyclé.
+  blocking Boolean          @default(false)
+  deepLink String
+
+  resolutionReason String?
+  resolvedAt       DateTime?
+
+  /// Historique léger des réouvertures (spec §4.2 : "une modification
+  /// ultérieure peut la rouvrir avec historique") — [{status, at, reason}].
+  history Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([ownerId, status])
+  @@index([dealId, cause])
+  @@index([fractionalProjectId, cause])
+  @@map("action_items")
 }
 
 /// Séries d'indices de référence (ILC/ILAT/IRL/ICC) — table partagée au
@@ -3716,7 +3905,7 @@ model PrequalProjectProfile {
 
   /// Section "Urbanisme" de la Trame Prequal — texte libre (statut du
   /// dossier d'urbanisme, servitudes, PLU...), jamais déduit d'autres champs.
-  urbanismeNote String?
+  urbanismeNote         String?
   /// Section "Commercialisation" de la Trame Prequal — appréciation qualitative
   /// (au-delà des statuts par lot déjà suivis dans PrequalSalesLot).
   commercialisationNote String?
@@ -3778,20 +3967,20 @@ model PrequalFinancialModel {
 
   // Financement ATLAS (équivalent "Modalités LPB" du classeur d'audit) — la
   // collecte réutilise amountRequested ci-dessus, pas de doublon de saisie.
-  interestRatePct      Decimal? @db.Decimal(5, 2)
-  durationMinMonths    Int?
-  durationTargetMonths Int?
-  durationMaxMonths    Int?
-  feesPctHT            Decimal? @db.Decimal(5, 2)
-  tvaApplicable        Boolean  @default(false)
-  tvaRatePct           Decimal? @db.Decimal(5, 2)
+  interestRatePct        Decimal? @db.Decimal(5, 2)
+  durationMinMonths      Int?
+  durationTargetMonths   Int?
+  durationMaxMonths      Int?
+  feesPctHT              Decimal? @db.Decimal(5, 2)
+  tvaApplicable          Boolean  @default(false)
+  tvaRatePct             Decimal? @db.Decimal(5, 2)
   /// Simulation "et si le projet est en retard" : +5 points sur le taux
   /// utilisé pour les intérêts sur durée cible — jamais automatique.
-  latePenaltyApplied   Boolean  @default(false)
+  latePenaltyApplied     Boolean  @default(false)
   /// Hypothèque envisagée sur le foncier — déclenche l'estimation de frais de
   /// garantie (1,5 % de la collecte, même taux que le Deal) ; aucune vraie
   /// sûreté n'existe avant la promotion en Deal (pas de modèle Guarantee ici).
-  hypothequeEnvisagee  Boolean  @default(false)
+  hypothequeEnvisagee    Boolean  @default(false)
   /// Montant réellement décaissé chez le notaire à l'acte — communiqué tel
   /// quel au porteur (email de conditions, "Trame Prequal"), jamais recalculé
   /// depuis Foncier (peut différer : phasage des appels de fonds).

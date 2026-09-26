@@ -8,11 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { DecisionRow } from '@/types';
-
-const TIER_DOT: Record<DecisionRow['tier'], string> = { HIGH: 'bg-destructive', WATCH: 'bg-warning' };
-const TIER_LABEL: Record<DecisionRow['tier'], string> = { HIGH: 'Critique', WATCH: 'Vigilance' };
-const TIER_TEXT: Record<DecisionRow['tier'], string> = { HIGH: 'text-destructive', WATCH: 'text-warning' };
 
 /**
  * Cockpit mobile — même doctrine que le Portefeuille mobile (voir son
@@ -37,9 +32,10 @@ export function MobileCockpitPage() {
     return 'Bonsoir';
   })();
 
-  const openDeal = (id: string, name: string) => {
-    addRecentDeal({ id, name });
-    navigate(`/deals/${id}`);
+  const openCard = (deepLink: string, operation: string) => {
+    const dealMatch = /^\/deals\/([^/?]+)/.exec(deepLink);
+    if (dealMatch) addRecentDeal({ id: dealMatch[1], name: operation });
+    navigate(deepLink);
   };
 
   if (isLoading || !data) {
@@ -70,24 +66,24 @@ export function MobileCockpitPage() {
       </div>
 
       <div className="pt-10">
-        <p className="pb-1 text-xs text-muted-foreground">Nécessite une action</p>
-        {data.decisions.length === 0 ? (
+        <p className="pb-1 text-xs text-muted-foreground">À décider</p>
+        {data.actionQueue.aDecider.length === 0 ? (
           <p className="py-3 text-sm text-muted-foreground">Aucun dossier ne nécessite d'attention immédiate.</p>
         ) : (
           <div className="flex flex-col">
-            {data.decisions.map((d) => (
+            {data.actionQueue.aDecider.map((card) => (
               <button
-                key={d.dealId}
-                onClick={() => openDeal(d.dealId, d.dealName)}
+                key={card.id}
+                onClick={() => openCard(card.deepLink, card.operation)}
                 className="flex items-start gap-3 border-b border-border/60 py-4 text-left last:border-b-0"
               >
-                <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', TIER_DOT[d.tier])} />
+                <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', card.blocking ? 'bg-destructive' : 'bg-warning')} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="truncate text-[15px] font-medium">{d.dealName}</span>
-                    <span className={cn('shrink-0 text-[11px] font-medium', TIER_TEXT[d.tier])}>{TIER_LABEL[d.tier]}</span>
+                    <span className="truncate text-[15px] font-medium">{card.operation}</span>
+                    <span className={cn('shrink-0 text-[11px] font-medium', card.blocking ? 'text-destructive' : 'text-warning')}>{card.ctaLabel}</span>
                   </span>
-                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{d.signalLabel}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{card.motif}</span>
                 </span>
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
               </button>

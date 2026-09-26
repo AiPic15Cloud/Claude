@@ -8,7 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFractionalDataRoomCompleteness, useUpsertDataRoomItemStatus } from '../hooks/use-fractional';
-import { DATA_ROOM_ITEM_STATUS_LABELS, type DataRoomBlockKey, type DataRoomItemResult, type DataRoomItemStatusValue } from '@/types';
+import {
+  DATA_ROOM_ITEM_STATUS_LABELS,
+  DATA_ROOM_ITEM_TIER_LABELS,
+  type DataRoomBlockKey,
+  type DataRoomItemResult,
+  type DataRoomItemStatusValue,
+  type DataRoomTierResult,
+} from '@/types';
 
 const STATUS_VALUES: DataRoomItemStatusValue[] = ['OBTAINED', 'MISSING', 'NOT_APPLICABLE', 'INCONSISTENT'];
 
@@ -53,7 +60,21 @@ export function DataRoomTab({ projectId }: { projectId: string }) {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Complétude de la data room</CardTitle>
+          <CardTitle className="text-base">Pièces nécessaires maintenant</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Checklist progressive (spec §5.6) : ce qui bloque la prochaine décision d'abord — la complétude globale n'est qu'une vue secondaire.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {data.tiers.map((tier) => (
+            <TierRow key={tier.tier} tier={tier} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Complétude globale</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
@@ -106,6 +127,18 @@ export function DataRoomTab({ projectId }: { projectId: string }) {
   );
 }
 
+function TierRow({ tier }: { tier: DataRoomTierResult }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-40 shrink-0 text-sm font-medium">{DATA_ROOM_ITEM_TIER_LABELS[tier.tier]}</span>
+      <Progress value={tier.completenessPct} className="flex-1" indicatorClassName={completenessTone(tier.completenessPct)} />
+      <span className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+        {tier.obtainedCount}/{tier.total}
+      </span>
+    </div>
+  );
+}
+
 function DataRoomItemRow({ projectId, block, item }: { projectId: string; block: DataRoomBlockKey; item: DataRoomItemResult }) {
   const upsert = useUpsertDataRoomItemStatus(projectId);
   const [notes, setNotes] = useState(item.notes ?? '');
@@ -128,6 +161,7 @@ function DataRoomItemRow({ projectId, block, item }: { projectId: string; block:
     <div className="flex flex-col gap-1.5 border-b border-border py-2 last:border-b-0">
       <div className="flex flex-wrap items-center gap-3">
         <span className="flex-1 text-sm">{item.label}</span>
+        <span className="text-xs text-muted-foreground">{DATA_ROOM_ITEM_TIER_LABELS[item.tier]}</span>
         <Badge variant={statusBadgeVariant(item.status)}>{DATA_ROOM_ITEM_STATUS_LABELS[item.status]}</Badge>
         <Select value={item.status} onValueChange={(v) => handleStatusChange(v as DataRoomItemStatusValue)}>
           <SelectTrigger className="w-40">

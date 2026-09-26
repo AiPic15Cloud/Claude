@@ -3,8 +3,25 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { DealsService } from '../deals/deals.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { RiskEngineService, DISCLAIMER } from '../risk-engine/risk-engine.service';
+import { ActionItemsService } from '../action-items/action-items.service';
+import { ACTION_TYPE_CTA_LABELS } from '../action-items/dto/create-action-item.dto';
 import { computeDeadlineAlert } from '../deals/deadline.util';
 import { computeCrd } from '../deals/crd.util';
+
+const MAX_A_DECIDER_CARDS = 5;
+
+export interface ActionQueueCard {
+  id: string;
+  operation: string;
+  reference: string | null;
+  motif: string;
+  ownerLabel: string | null;
+  dueAt: string | null;
+  blocking: boolean;
+  status: 'A_FAIRE' | 'EN_ATTENTE_EXTERNE' | 'A_DECIDER' | 'TERMINEE' | 'ECARTEE';
+  ctaLabel: string;
+  deepLink: string;
+}
 
 const NEEDS_ATTENTION = new Set(['SOUS_SURVEILLANCE', 'ELEVE', 'CRITIQUE']);
 import { computeGuaranteeExpiry, isExpirableGuaranteeType } from '../guarantees/guarantee-expiry.util';
@@ -28,6 +45,7 @@ export class CockpitService {
     private readonly dealsService: DealsService,
     private readonly activitiesService: ActivitiesService,
     private readonly riskEngine: RiskEngineService,
+    private readonly actionItems: ActionItemsService,
   ) {}
 
   async summary(organizationId: string, userId: string) {
@@ -125,6 +143,8 @@ export class CockpitService {
     ]);
 
     const decisions = await this.buildDecisions(organizationId, riskDeals);
+    const openActionItems = await this.actionItems.findOpenForOrganization(organizationId);
+    const actionQueue = this.buildActionQueue(decisions, openActionItems);
     const pipeline = this.buildPipeline(pipelineDeals);
     const aumHistory = this.buildAumHistory(historyDeals);
     const deadlineAlerts = deadlineDeals
@@ -171,8 +191,68 @@ export class CockpitService {
       guaranteesToRenew,
       autoSummary,
       decisions,
+      actionQueue,
       overdueTasks: { total: overdueTasksTotal, urgent: overdueTasksUrgent },
     };
+  }
+
+  /**
+   * Fusionne le Decision Center existant (Deal, calculé à la volée) et la
+   * nouvelle file ActionItem persistée (Fractionné et futurs producteurs)
+   * en une seule vue "à décider"/"à faire"/"en attente" (spec Cockpit/
+   * Fractionné P1 §4.1/§4.2) — additif, ne remplace pas `decisions` dont
+   * DecisionCenterCard dépend encore.
+   */
+  private buildActionQueue(
+    decisions: Awaited<ReturnType<CockpitService['buildDecisions']>>,
+    openActionItems: Awaited<ReturnType<ActionItemsService['findOpenForOrganization']>>,
+  ): { aDecider: ActionQueueCard[]; aFaire: ActionQueueCard[]; enAttente: ActionQueueCard[] } {
+    const fromDecisions: ActionQueueCard[] = decisions.map((d) => ({
+      id: `deal-risk-${d.dealId}`,
+      operation: d.dealName,
+      reference: d.dealReference,
+      motif: d.signalExplanation || d.signalLabel,
+      ownerLabel: null,
+      dueAt: d.daysToMax !== null ? new Date(Date.now() + d.daysToMax * 86_400_000).toISOString() : null,
+      blocking: d.tier === 'HIGH',
+      status: 'A_DECIDER',
+      ctaLabel: d.deadlineActionLabel || 'Examiner le risque',
+      deepLink: `/deals/${d.dealId}`,
+    }));
+
+    const fromActionItems: ActionQueueCard[] = openActionItems.map((a) => {
+      const operationName = a.deal?.name ?? a.fractionalProject?.name ?? '—';
+      const reference = a.deal?.reference ?? a.fractionalProject?.reference ?? null;
+      return {
+        id: a.id,
+        operation: operationName,
+        reference,
+        motif: a.label,
+        ownerLabel: a.owner ? `${a.owner.firstName} ${a.owner.lastName}`.trim() : null,
+        dueAt: a.dueAt ? a.dueAt.toISOString() : null,
+        blocking: a.blocking,
+        status: a.status,
+        ctaLabel: ACTION_TYPE_CTA_LABELS[a.actionType] ?? 'Traiter',
+        deepLink: a.deepLink,
+      };
+    });
+
+    const all = [...fromActionItems, ...fromDecisions];
+    const byPriority = (a: ActionQueueCard, b: ActionQueueCard) => {
+      if (a.blocking !== b.blocking) return a.blocking ? -1 : 1;
+      if (a.dueAt === null && b.dueAt === null) return 0;
+      if (a.dueAt === null) return 1;
+      if (b.dueAt === null) return -1;
+      return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+    };
+
+    const aDecider = all.filter((c) => c.status === 'A_DECIDER').sort(byPriority).slice(0, MAX_A_DECIDER_CARDS);
+    // "À faire" / "en attente externe" (spec §4.1.3) ne viennent que de la
+    // file générique — le Decision Center legacy n'a pas cette distinction.
+    const aFaire = fromActionItems.filter((c) => c.status === 'A_FAIRE').sort(byPriority);
+    const enAttente = fromActionItems.filter((c) => c.status === 'EN_ATTENTE_EXTERNE').sort(byPriority);
+
+    return { aDecider, aFaire, enAttente };
   }
 
   /**

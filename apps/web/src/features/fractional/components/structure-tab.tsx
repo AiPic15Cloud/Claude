@@ -22,6 +22,7 @@ import {
 } from '../hooks/use-fractional';
 import { FRACTIONAL_VALUATION_METHOD_LABELS, type FractionalProjectDetail, type FractionalValuationMethod, type FractionalCapexItem, type FractionalValuation } from '@/types';
 import { CreatePlatformProfileDialog } from './create-platform-profile-dialog';
+import { PlatformApplicationsCard } from './platform-applications-card';
 import { ProvenanceBadge } from './provenance-badge';
 
 const EMPTY_CAPEX_FORM = { annee: String(new Date().getFullYear() + 1), montant: '', nature: '' };
@@ -139,6 +140,8 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
           </form>
         </CardContent>
       </Card>
+
+      <PlatformApplicationsCard projectId={project.id} />
 
       <Card>
         <CardHeader className="pb-3">

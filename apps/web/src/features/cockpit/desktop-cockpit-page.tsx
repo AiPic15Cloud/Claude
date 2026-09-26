@@ -7,6 +7,7 @@ import { AumHistoryChart } from './components/aum-history-chart';
 import { ActivityFeedCard } from './components/activity-feed-card';
 import { AutoSummaryCard } from './components/auto-summary-card';
 import { DecisionCenterCard } from './components/decision-center-card';
+import { ActionFollowUpCard } from './components/action-followup-card';
 import { ModelValidationCard } from './components/model-validation-card';
 import { DeadlineAlertsCard } from './components/deadline-alerts-card';
 import { FeesChartCard } from './components/fees-chart-card';
@@ -57,6 +58,8 @@ export function DesktopCockpitPage() {
       />
 
       <DecisionCenterCard decisions={data.decisions} />
+
+      <ActionFollowUpCard aFaire={data.actionQueue.aFaire} enAttente={data.actionQueue.enAttente} />
 
       <ModelValidationCard />
 

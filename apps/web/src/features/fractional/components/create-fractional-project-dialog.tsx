@@ -5,10 +5,12 @@ import { z } from 'zod';
 import { Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useCreateFractionalProject } from '../hooks/use-fractional';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { useNavigate } from 'react-router-dom';
 
 const schema = z.object({
@@ -19,6 +21,13 @@ const schema = z.object({
   city: z.string().optional(),
   address: z.string().optional(),
   postcode: z.string().optional(),
+  // Qualification courte (spec Cockpit/Fractionné P1 §5.2) — tout reste
+  // explicitement "inconnu" si laissé vide, jamais deviné.
+  assetType: z.string().optional(),
+  entryChannel: z.string().optional(),
+  vendorContact: z.string().optional(),
+  priceRangeMinEur: z.string().optional(),
+  priceRangeMaxEur: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -36,7 +45,16 @@ export function CreateFractionalProjectDialog() {
 
   const onSubmit = (values: FormValues) => {
     create.mutate(
-      { ...values, groupKey: values.groupKey || undefined, perimeterLabel: values.perimeterLabel || undefined },
+      {
+        ...values,
+        groupKey: values.groupKey || undefined,
+        perimeterLabel: values.perimeterLabel || undefined,
+        assetType: values.assetType || undefined,
+        entryChannel: values.entryChannel || undefined,
+        vendorContact: values.vendorContact || undefined,
+        priceRangeMinEur: values.priceRangeMinEur ? parseLocaleNumber(values.priceRangeMinEur) : undefined,
+        priceRangeMaxEur: values.priceRangeMaxEur ? parseLocaleNumber(values.priceRangeMaxEur) : undefined,
+      },
       {
         onSuccess: (project) => {
           setOpen(false);
@@ -80,9 +98,32 @@ export function CreateFractionalProjectDialog() {
               <Input id="perimeterLabel" placeholder="ex: Parc seul" {...register('perimeterLabel')} />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="city">Ville</Label>
+              <Input id="city" {...register('city')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="assetType">Type</Label>
+              <Input id="assetType" placeholder="ex: Commerce, Bureaux…" {...register('assetType')} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="entryChannel">Source</Label>
+              <Input id="entryChannel" placeholder="ex: apporteur, réseau…" {...register('entryChannel')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="vendorContact">Vendeur / contact</Label>
+              <Input id="vendorContact" {...register('vendorContact')} />
+            </div>
+          </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="city">Ville</Label>
-            <Input id="city" {...register('city')} />
+            <Label>Fourchette de prix (€)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <DecimalInput placeholder="Min" {...register('priceRangeMinEur')} />
+              <DecimalInput placeholder="Max" {...register('priceRangeMaxEur')} />
+            </div>
           </div>
           {create.isError && (
             <p className="text-xs text-destructive">{create.error instanceof ApiError ? create.error.message : 'Une erreur est survenue'}</p>
