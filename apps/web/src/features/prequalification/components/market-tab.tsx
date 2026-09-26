@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { usePrequalMarketStudy } from '../hooks/use-prequalification';
 
@@ -32,7 +33,14 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
 export function MarketTab({ caseId }: { caseId: string }) {
   const { data: study, isLoading } = usePrequalMarketStudy(caseId);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-24" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   if (!study) {
     return (

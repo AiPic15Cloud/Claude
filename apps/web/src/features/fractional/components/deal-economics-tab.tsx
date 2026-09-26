@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import {
   useCreateStakeholder,
   useDeleteStakeholder,
@@ -90,7 +93,7 @@ export function DealEconomicsTab({
   const handleAddStakeholder = (e: React.FormEvent) => {
     e.preventDefault();
     createStakeholder.mutate(
-      { role: stakeholderForm.role, name: stakeholderForm.name, capitalEngaged: stakeholderForm.capitalEngaged ? Number(stakeholderForm.capitalEngaged) : undefined },
+      { role: stakeholderForm.role, name: stakeholderForm.name, capitalEngaged: stakeholderForm.capitalEngaged ? parseLocaleNumber(stakeholderForm.capitalEngaged) : undefined },
       { onSuccess: () => setStakeholderForm({ role: 'INVESTOR', name: '', capitalEngaged: '' }) },
     );
   };
@@ -99,7 +102,7 @@ export function DealEconomicsTab({
     e.preventDefault();
     if (!feeForm.stakeholderId) return;
     createFee.mutate(
-      { stakeholderId: feeForm.stakeholderId, feeType: feeForm.feeType, ratePct: feeForm.ratePct ? Number(feeForm.ratePct) : undefined, calculationBase: feeForm.calculationBase },
+      { stakeholderId: feeForm.stakeholderId, feeType: feeForm.feeType, ratePct: feeForm.ratePct ? parseLocaleNumber(feeForm.ratePct) : undefined, calculationBase: feeForm.calculationBase },
       { onSuccess: () => setFeeForm({ ...feeForm, ratePct: '' }) },
     );
   };
@@ -111,9 +114,9 @@ export function DealEconomicsTab({
         order: Number(tierForm.order),
         type: tierForm.type,
         beneficiaryStakeholderId: tierForm.beneficiaryStakeholderId || undefined,
-        hurdleRatePct: tierForm.hurdleRatePct ? Number(tierForm.hurdleRatePct) : undefined,
-        catchUpPct: tierForm.catchUpPct ? Number(tierForm.catchUpPct) : undefined,
-        sharePct: tierForm.sharePct ? Number(tierForm.sharePct) : undefined,
+        hurdleRatePct: tierForm.hurdleRatePct ? parseLocaleNumber(tierForm.hurdleRatePct) : undefined,
+        catchUpPct: tierForm.catchUpPct ? parseLocaleNumber(tierForm.catchUpPct) : undefined,
+        sharePct: tierForm.sharePct ? parseLocaleNumber(tierForm.sharePct) : undefined,
       },
       { onSuccess: () => setTierForm({ ...tierForm, order: String(Number(tierForm.order) + 1), sharePct: '', hurdleRatePct: '', catchUpPct: '' }) },
     );
@@ -275,9 +278,7 @@ export function DealEconomicsTab({
                     <TableCell>{STAKEHOLDER_ROLE_LABELS[s.role]}</TableCell>
                     <TableCell>{s.capitalEngaged ? formatCurrency(s.capitalEngaged) : '—'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => deleteStakeholder.mutate(s.id)} disabled={deleteStakeholder.isPending}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton onConfirm={() => deleteStakeholder.mutate(s.id)} pending={deleteStakeholder.isPending} label="Supprimer la partie prenante" size="icon" />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -306,7 +307,7 @@ export function DealEconomicsTab({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="stakeholderCapital">Capital engagé</Label>
-              <Input id="stakeholderCapital" type="number" min={0} className="w-40" value={stakeholderForm.capitalEngaged} onChange={(e) => setStakeholderForm((p) => ({ ...p, capitalEngaged: e.target.value }))} />
+              <DecimalInput id="stakeholderCapital" className="w-40" value={stakeholderForm.capitalEngaged} onChange={(e) => setStakeholderForm((p) => ({ ...p, capitalEngaged: e.target.value }))} />
             </div>
             <Button type="submit" size="sm" disabled={createStakeholder.isPending}>
               {createStakeholder.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -341,9 +342,7 @@ export function DealEconomicsTab({
                       <TableCell>{f.ratePct ? `${f.ratePct}%` : f.fixedAmount ? formatCurrency(f.fixedAmount) : '—'}</TableCell>
                       <TableCell>{FEE_CALCULATION_BASE_LABELS[f.calculationBase]}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => deleteFee.mutate(f.id)} disabled={deleteFee.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton onConfirm={() => deleteFee.mutate(f.id)} pending={deleteFee.isPending} label="Supprimer le frais" size="icon" />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -383,7 +382,7 @@ export function DealEconomicsTab({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="feeRate">Taux (%)</Label>
-                <Input id="feeRate" type="number" step="0.01" className="w-28" value={feeForm.ratePct} onChange={(e) => setFeeForm((p) => ({ ...p, ratePct: e.target.value }))} />
+                <DecimalInput id="feeRate" className="w-28" value={feeForm.ratePct} onChange={(e) => setFeeForm((p) => ({ ...p, ratePct: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Assiette</Label>
@@ -436,9 +435,7 @@ export function DealEconomicsTab({
                         <TableCell>{stakeholderName(t.beneficiaryStakeholderId)}</TableCell>
                         <TableCell>{t.hurdleRatePct ? `${t.hurdleRatePct}%` : t.catchUpPct ? `${t.catchUpPct}%` : t.sharePct ? `${t.sharePct}%` : '—'}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => deleteTier.mutate(t.id)} disabled={deleteTier.isPending}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <ConfirmDeleteButton onConfirm={() => deleteTier.mutate(t.id)} pending={deleteTier.isPending} label="Supprimer le palier" size="icon" />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -483,19 +480,19 @@ export function DealEconomicsTab({
               {tierForm.type === 'PREFERRED_RETURN' && (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="tierHurdle">Hurdle (%)</Label>
-                  <Input id="tierHurdle" type="number" step="0.1" className="w-24" value={tierForm.hurdleRatePct} onChange={(e) => setTierForm((p) => ({ ...p, hurdleRatePct: e.target.value }))} />
+                  <DecimalInput id="tierHurdle" className="w-24" value={tierForm.hurdleRatePct} onChange={(e) => setTierForm((p) => ({ ...p, hurdleRatePct: e.target.value }))} />
                 </div>
               )}
               {tierForm.type === 'CATCH_UP' && (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="tierCatchUp">Catch-up (%)</Label>
-                  <Input id="tierCatchUp" type="number" step="1" className="w-24" value={tierForm.catchUpPct} onChange={(e) => setTierForm((p) => ({ ...p, catchUpPct: e.target.value }))} />
+                  <DecimalInput id="tierCatchUp" className="w-24" value={tierForm.catchUpPct} onChange={(e) => setTierForm((p) => ({ ...p, catchUpPct: e.target.value }))} />
                 </div>
               )}
               {(tierForm.type === 'CARRIED_INTEREST' || tierForm.type === 'RESIDUAL_SPLIT') && (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="tierShare">Part (%)</Label>
-                  <Input id="tierShare" type="number" step="1" className="w-24" value={tierForm.sharePct} onChange={(e) => setTierForm((p) => ({ ...p, sharePct: e.target.value }))} />
+                  <DecimalInput id="tierShare" className="w-24" value={tierForm.sharePct} onChange={(e) => setTierForm((p) => ({ ...p, sharePct: e.target.value }))} />
                 </div>
               )}
               <Button type="submit" size="sm" disabled={createTier.isPending}>

@@ -105,10 +105,10 @@ export class ProjectObservationService {
     await this.updateEffectiveFrequency(sourceKey, previousCheckedAt);
 
     for (const eventId of outcome.eventIds) {
-      await this.notificationQueue.add('notify-event', { eventId }, { jobId: notifyEventJobId(eventId), removeOnComplete: true, removeOnFail: 200 });
+      await this.notificationQueue.add('notify-event', { eventId }, { jobId: notifyEventJobId(eventId), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
     for (const observationId of outcome.touchedObservationIds) {
-      await this.enrichmentQueue.add('enrich-observation', { observationId }, { jobId: enrichmentJobId(observationId), removeOnComplete: true, removeOnFail: 200 });
+      await this.enrichmentQueue.add('enrich-observation', { observationId }, { jobId: enrichmentJobId(observationId), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
   }
 
@@ -327,12 +327,12 @@ export class ProjectObservationService {
   async sweepPending(): Promise<void> {
     const pendingEvents = await this.prisma.projectObservationEvent.findMany({ where: { notifiedAt: null }, select: { id: true }, take: 500 });
     for (const event of pendingEvents) {
-      await this.notificationQueue.add('notify-event', { eventId: event.id }, { jobId: notifyEventJobId(event.id), removeOnComplete: true, removeOnFail: 200 });
+      await this.notificationQueue.add('notify-event', { eventId: event.id }, { jobId: notifyEventJobId(event.id), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
 
     const pendingObservations = await this.prisma.projectObservation.findMany({ where: { enrichedAt: null }, select: { id: true }, take: 500 });
     for (const observation of pendingObservations) {
-      await this.enrichmentQueue.add('enrich-observation', { observationId: observation.id }, { jobId: enrichmentJobId(observation.id), removeOnComplete: true, removeOnFail: 200 });
+      await this.enrichmentQueue.add('enrich-observation', { observationId: observation.id }, { jobId: enrichmentJobId(observation.id), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
 
     if (pendingEvents.length > 0 || pendingObservations.length > 0) {
@@ -349,17 +349,31 @@ export class ProjectObservationService {
   async checkDataCaptureReliability(): Promise<void> {
     const now = new Date();
     const platforms = await this.prisma.crowdfundingPlatform.findMany({ select: { sourceKey: true, label: true } });
-    for (const platform of platforms) {
-      const currentWeekCount = await this.prisma.projectObservationEvent.count({
-        where: { sourceKey: platform.sourceKey, eventType: 'PROJECT_DETECTED', occurredAt: { gte: new Date(now.getTime() - 7 * DAY_MS) } },
-      });
-      const priorFourWeeksCount = await this.prisma.projectObservationEvent.count({
+
+    // Un count() par plateforme et par fenêtre (2×N requêtes) — remplacé par
+    // un groupBy par fenêtre (2 requêtes au total, quel que soit le nombre
+    // de plateformes).
+    const [currentWeekGroups, priorFourWeeksGroups] = await Promise.all([
+      this.prisma.projectObservationEvent.groupBy({
+        by: ['sourceKey'],
+        where: { eventType: 'PROJECT_DETECTED', occurredAt: { gte: new Date(now.getTime() - 7 * DAY_MS) } },
+        _count: { _all: true },
+      }),
+      this.prisma.projectObservationEvent.groupBy({
+        by: ['sourceKey'],
         where: {
-          sourceKey: platform.sourceKey,
           eventType: 'PROJECT_DETECTED',
           occurredAt: { gte: new Date(now.getTime() - 35 * DAY_MS), lt: new Date(now.getTime() - 7 * DAY_MS) },
         },
-      });
+        _count: { _all: true },
+      }),
+    ]);
+    const currentWeekCounts = new Map(currentWeekGroups.map((g) => [g.sourceKey, g._count._all]));
+    const priorFourWeeksCounts = new Map(priorFourWeeksGroups.map((g) => [g.sourceKey, g._count._all]));
+
+    for (const platform of platforms) {
+      const currentWeekCount = currentWeekCounts.get(platform.sourceKey) ?? 0;
+      const priorFourWeeksCount = priorFourWeeksCounts.get(platform.sourceKey) ?? 0;
       const weeklyBaseline = priorFourWeeksCount / 4;
 
       if (weeklyBaseline < MIN_WEEKLY_BASELINE) continue;

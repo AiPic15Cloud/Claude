@@ -15,10 +15,13 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AgentsService } from './agents.service';
 import { ChatDto } from './dto/chat.dto';
 import { ChatWithFileDto } from './dto/chat-with-file.dto';
+import { AGENT_CHAT_FILE_MIME_ALLOWLIST, mimeAllowlistFilter } from '../common/storage/file-validation.util';
 
 // Newline-delimited JSON: one {"delta": "..."} object per text chunk, a
 // trailing {"done": true}, or {"error": "..."} if generation fails midway
@@ -66,6 +69,8 @@ export class AgentsController {
     return this.agentsService.loadAgentMessages(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':key/chat')
   async chat(@CurrentUser() user: AuthenticatedUser, @Param('key') key: string, @Body() dto: ChatDto, @Res() res: Response) {
     const { system, messages } = await this.agentsService.prepareChat(user.organizationId, key, dto);
@@ -85,9 +90,16 @@ export class AgentsController {
     );
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':key/chat-with-file')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 25 * 1024 * 1024 },
+      fileFilter: mimeAllowlistFilter(AGENT_CHAT_FILE_MIME_ALLOWLIST),
+    }),
+  )
   async chatWithFile(
     @CurrentUser() user: AuthenticatedUser,
     @Param('key') key: string,
@@ -108,6 +120,13 @@ export class AgentsController {
         }
       } catch {
         throw new BadRequestException('Historique de conversation invalide');
+      }
+      // history arrives JSON-encoded (see ChatWithFileDto), so class-validator
+      // can't cap the array size or per-message length the way ChatDto does —
+      // enforce the same bounds here, once decoded.
+      if (history.length > 50) throw new BadRequestException('Historique de conversation trop long (50 messages maximum)');
+      if (history.some((m) => m.content.length > 20000)) {
+        throw new BadRequestException('Message trop long dans l\'historique (20000 caractères maximum)');
       }
     }
 
@@ -139,6 +158,8 @@ export class AgentsController {
 export class FinancialExtractionController {
   constructor(private readonly agentsService: AgentsService) {}
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   extract(
     @CurrentUser() user: AuthenticatedUser,

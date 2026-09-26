@@ -105,6 +105,8 @@ export function RisqueIcTab({ projectId, icDecisions, assumptionSets }: { projec
       conditions: recommendation.conditions,
       watchItems: recommendation.watchItems,
       recommendation: notes ? `${recommendation.recommendation} — ${notes}` : recommendation.recommendation,
+    }, {
+      onSuccess: () => setNotes(''),
     });
   };
 

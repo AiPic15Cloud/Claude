@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Loader2, Plus, Pencil, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { useCreatePerson, useUpdatePerson, useDeletePerson } from '../hooks/use-prequalification';
 import { PREQUAL_PERSON_ROLE_LABELS, type PrequalPerson, type PrequalPersonRole } from '@/types';
 
@@ -43,8 +46,8 @@ export function PeopleTab({ caseId, people }: { caseId: string; people: PrequalP
     const payload = {
       fullName: form.fullName,
       role: form.role,
-      declaredNetWorth: form.declaredNetWorth ? Number(form.declaredNetWorth) : undefined,
-      availableEquity: form.availableEquity ? Number(form.availableEquity) : undefined,
+      declaredNetWorth: form.declaredNetWorth ? parseLocaleNumber(form.declaredNetWorth) : undefined,
+      availableEquity: form.availableEquity ? parseLocaleNumber(form.availableEquity) : undefined,
       ongoingDealsNote: form.ongoingDealsNote || undefined,
       incidentsNote: form.incidentsNote || undefined,
     };
@@ -84,9 +87,7 @@ export function PeopleTab({ caseId, people }: { caseId: string; people: PrequalP
                       <Button variant="ghost" size="icon" onClick={() => startEdit(p)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => remove.mutate(p.id)} disabled={remove.isPending}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton onConfirm={() => remove.mutate(p.id)} pending={remove.isPending} label="Supprimer le porteur" size="icon" />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -118,11 +119,11 @@ export function PeopleTab({ caseId, people }: { caseId: string; people: PrequalP
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Patrimoine déclaré</Label>
-              <Input type="number" min={0} value={form.declaredNetWorth} onChange={(e) => setForm((p) => ({ ...p, declaredNetWorth: e.target.value }))} />
+              <DecimalInput value={form.declaredNetWorth} onChange={(e) => setForm((p) => ({ ...p, declaredNetWorth: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Apport disponible</Label>
-              <Input type="number" min={0} value={form.availableEquity} onChange={(e) => setForm((p) => ({ ...p, availableEquity: e.target.value }))} />
+              <DecimalInput value={form.availableEquity} onChange={(e) => setForm((p) => ({ ...p, availableEquity: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <Label>Dossiers en cours</Label>

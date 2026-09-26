@@ -112,7 +112,12 @@ function DataRoomItemRow({ projectId, block, item }: { projectId: string; block:
   const [editingNotes, setEditingNotes] = useState(false);
 
   const handleStatusChange = (status: DataRoomItemStatusValue) => {
-    upsert.mutate({ block, itemKey: item.itemKey, payload: { status, notes: notes || undefined } });
+    // Envoie la valeur de `notes` la plus récente connue du serveur (le prop `item`,
+    // rafraîchi à chaque refetch), pas le state local `notes` — celui-ci n'est
+    // resynchronisé que via handleSaveNotes et resterait sinon périmé si une
+    // édition concurrente a modifié la note entre le montage de la ligne et ce
+    // changement de statut, écrasant l'édition concurrente.
+    upsert.mutate({ block, itemKey: item.itemKey, payload: { status, notes: item.notes ?? undefined } });
   };
 
   const handleSaveNotes = () => {

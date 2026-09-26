@@ -3,11 +3,13 @@ import { Loader2, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useUpsertAssumptionSet } from '../hooks/use-fractional';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import type {
   FractionalAssumptionScenario,
   FractionalAssumptionSet,
@@ -81,15 +83,15 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
     e.preventDefault();
     const values: Record<string, number> = {
       holdPeriodYears: Number(form.holdPeriodYears),
-      vacancyCreditLossPct: Number(form.vacancyCreditLossPct),
-      opexPct: Number(form.opexPct),
-      rentGrowthPctPerYear: Number(form.rentGrowthPctPerYear),
-      sellingCostsPct: Number(form.sellingCostsPct),
-      materialityThresholdPct: Number(form.materialityThresholdPct),
-      discountRatePct: Number(form.discountRatePct),
+      vacancyCreditLossPct: parseLocaleNumber(form.vacancyCreditLossPct),
+      opexPct: parseLocaleNumber(form.opexPct),
+      rentGrowthPctPerYear: parseLocaleNumber(form.rentGrowthPctPerYear),
+      sellingCostsPct: parseLocaleNumber(form.sellingCostsPct),
+      materialityThresholdPct: parseLocaleNumber(form.materialityThresholdPct),
+      discountRatePct: parseLocaleNumber(form.discountRatePct),
     };
-    if (form.exitValueOverride) values.exitValueOverride = Number(form.exitValueOverride);
-    if (form.tec10PctOverride) values.tec10PctOverride = Number(form.tec10PctOverride);
+    if (form.exitValueOverride) values.exitValueOverride = parseLocaleNumber(form.exitValueOverride);
+    if (form.tec10PctOverride) values.tec10PctOverride = parseLocaleNumber(form.tec10PctOverride);
     const withText: Record<string, unknown> = { ...values };
     if (form.propertyCondition) withText.propertyCondition = form.propertyCondition;
     if (form.locationTier) withText.locationTier = form.locationTier;
@@ -178,31 +180,31 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="vacancyCreditLossPct">Vacance & impayés (%)</Label>
-              <Input id="vacancyCreditLossPct" type="number" step="0.1" value={form.vacancyCreditLossPct} onChange={(e) => setForm((p) => ({ ...p, vacancyCreditLossPct: e.target.value }))} />
+              <DecimalInput id="vacancyCreditLossPct" value={form.vacancyCreditLossPct} onChange={(e) => setForm((p) => ({ ...p, vacancyCreditLossPct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="opexPct">OPEX (% EGI)</Label>
-              <Input id="opexPct" type="number" step="0.1" value={form.opexPct} onChange={(e) => setForm((p) => ({ ...p, opexPct: e.target.value }))} />
+              <DecimalInput id="opexPct" value={form.opexPct} onChange={(e) => setForm((p) => ({ ...p, opexPct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="rentGrowthPctPerYear">Croissance loyers (%/an)</Label>
-              <Input id="rentGrowthPctPerYear" type="number" step="0.1" value={form.rentGrowthPctPerYear} onChange={(e) => setForm((p) => ({ ...p, rentGrowthPctPerYear: e.target.value }))} />
+              <DecimalInput id="rentGrowthPctPerYear" value={form.rentGrowthPctPerYear} onChange={(e) => setForm((p) => ({ ...p, rentGrowthPctPerYear: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="sellingCostsPct">Coûts de vente (%)</Label>
-              <Input id="sellingCostsPct" type="number" step="0.1" value={form.sellingCostsPct} onChange={(e) => setForm((p) => ({ ...p, sellingCostsPct: e.target.value }))} />
+              <DecimalInput id="sellingCostsPct" value={form.sellingCostsPct} onChange={(e) => setForm((p) => ({ ...p, sellingCostsPct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="materialityThresholdPct">Seuil de matérialité bail (%)</Label>
-              <Input id="materialityThresholdPct" type="number" step="0.1" value={form.materialityThresholdPct} onChange={(e) => setForm((p) => ({ ...p, materialityThresholdPct: e.target.value }))} />
+              <DecimalInput id="materialityThresholdPct" value={form.materialityThresholdPct} onChange={(e) => setForm((p) => ({ ...p, materialityThresholdPct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="discountRatePct">Taux d'actualisation DCF (%)</Label>
-              <Input id="discountRatePct" type="number" step="0.1" value={form.discountRatePct} onChange={(e) => setForm((p) => ({ ...p, discountRatePct: e.target.value }))} />
+              <DecimalInput id="discountRatePct" value={form.discountRatePct} onChange={(e) => setForm((p) => ({ ...p, discountRatePct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="exitValueOverride">Valeur de sortie (override, optionnel)</Label>
-              <Input id="exitValueOverride" type="number" min={0} value={form.exitValueOverride} onChange={(e) => setForm((p) => ({ ...p, exitValueOverride: e.target.value }))} />
+              <DecimalInput id="exitValueOverride" value={form.exitValueOverride} onChange={(e) => setForm((p) => ({ ...p, exitValueOverride: e.target.value }))} />
             </div>
           </div>
           <div className="flex flex-col gap-3 rounded-md border border-border p-3">
@@ -255,10 +257,8 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="tec10PctOverride">TEC10 (override %, optionnel)</Label>
-                <Input
+                <DecimalInput
                   id="tec10PctOverride"
-                  type="number"
-                  step="0.01"
                   value={form.tec10PctOverride}
                   onChange={(e) => setForm((p) => ({ ...p, tec10PctOverride: e.target.value }))}
                   placeholder="Taux live"

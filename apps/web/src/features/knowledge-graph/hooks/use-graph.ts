@@ -131,6 +131,9 @@ export function useCreateRelationship() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['entity-summary', variables.sourceEntityId] });
       queryClient.invalidateQueries({ queryKey: ['entity-summary', variables.targetEntityId] });
+      queryClient.invalidateQueries({ queryKey: ['graph-entity', variables.sourceEntityId] });
+      queryClient.invalidateQueries({ queryKey: ['graph-entity', variables.targetEntityId] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
     },
   });
 }

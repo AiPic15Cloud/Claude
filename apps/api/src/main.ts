@@ -2,16 +2,36 @@ import 'reflect-metadata';
 import helmet from 'helmet';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { buildCorsOriginMatcher } from './common/cors-origin.util';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false });
+  const configService = app.get(ConfigService);
+
+  // Railway terminates TLS and proxies every request through one hop before
+  // it reaches this process — without this, Express's req.ip resolves to
+  // that proxy's address for every client, collapsing them into a single
+  // ThrottlerModule bucket (one client can throttle-lock /auth/login for
+  // everyone) and making the per-IP brute-force limits on the auth
+  // endpoints meaningless. `1` = trust exactly one hop (X-Forwarded-For's
+  // rightmost entry), matching Railway's proxy topology.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   app.use(helmet());
+  const originMatches = buildCorsOriginMatcher(configService.get<string>('corsOrigin')!);
   app.enableCors({
-    origin: process.env.API_CORS_ORIGIN?.split(',') ?? 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // No Origin header (server-to-server calls, curl) — nothing to check against.
+      if (!origin || originMatches(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin not allowed by CORS: ${origin}`), false);
+      }
+    },
     credentials: true,
   });
 
@@ -44,9 +64,7 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  // Railway (and most PaaS hosts) inject PORT — it takes priority over the
-  // local-dev-oriented API_PORT variable.
-  const port = process.env.PORT ?? process.env.API_PORT ?? 3001;
+  const port = configService.get<number>('port')!;
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`ATLAS API listening on port ${port}`);

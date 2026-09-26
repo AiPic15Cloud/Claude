@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Calculator, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useComputeScenarios } from '../hooks/use-financial-model';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import type { ScenarioAxisVariable, ScenarioDeltas, ScenarioResult } from '@/types';
 
 const AXIS_LABELS: Record<ScenarioAxisVariable, string> = {
@@ -81,7 +82,12 @@ export function ScenarioSensitivitySheet({ dealId }: { dealId: string }) {
 
   const handleOpen = () => {
     setOpen(true);
-    if (!compute.data) compute.mutate({});
+    // compute est une mutation : compute.data reste peuplé une fois calculé une
+    // première fois, donc un garde-fou "if (!compute.data)" ne recalculait
+    // jamais après une première ouverture — rouvrir après avoir modifié les
+    // Hypothèses (surface/prix/travaux) affichait le scénario périmé. On
+    // recalcule systématiquement à l'ouverture.
+    compute.mutate({});
   };
 
   const handleRecomputeCustom = () => {
@@ -95,7 +101,7 @@ export function ScenarioSensitivitySheet({ dealId }: { dealId: string }) {
   };
 
   const updateCustom = (key: ScenarioAxisVariable, raw: string) => {
-    const value = raw === '' ? 0 : Number(raw);
+    const value = raw === '' ? 0 : parseLocaleNumber(raw);
     setCustom((prev) => ({ ...prev, [key]: Number.isFinite(value) ? value : 0 }));
   };
 
@@ -145,10 +151,8 @@ export function ScenarioSensitivitySheet({ dealId }: { dealId: string }) {
                         <Label htmlFor={`scenario-${key}`} className="text-[11px] text-muted-foreground">
                           {AXIS_LABELS[key]}
                         </Label>
-                        <Input
+                        <DecimalInput
                           id={`scenario-${key}`}
-                          type="number"
-                          step="0.1"
                           value={custom[key]}
                           onChange={(e) => updateCustom(key, e.target.value)}
                         />

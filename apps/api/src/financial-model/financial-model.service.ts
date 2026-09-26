@@ -39,6 +39,13 @@ const FINANCIAL_FIELD_LABELS: Record<string, string> = {
 
 const LATE_PENALTY_RATE_POINTS = 5;
 
+// Frais de dossier bancaires multipliés par 1.2 avant d'entrer dans le total
+// des frais bancaires — non documenté à l'origine. Meilleure hypothèse au vu
+// du contexte (financement immobilier français) : une majoration de 20% type
+// TVA (frais de dossier HT -> TTC). À vérifier avec la personne ayant fixé
+// cette valeur — ne pas modifier le nombre sans confirmation métier.
+const BANK_FILE_FEES_VAT_FACTOR = 1.2;
+
 interface Scenario {
   label: string;
   sellingPricePerSqm: number;
@@ -46,7 +53,7 @@ interface Scenario {
   revenue: number;
   totalCost: number;
   margin: number;
-  marginPct: number;
+  marginPct: number | null;
 }
 
 type AssumptionRow = Prisma.FinancialAssumptionGetPayload<Record<string, never>>;
@@ -60,7 +67,7 @@ interface BpSnapshot {
   financementLpb: number;
   coutDeRevient: number;
   marge: number;
-  margePct: number;
+  margePct: number | null;
   sensitivity: Scenario[];
 }
 
@@ -276,7 +283,7 @@ export class FinancialModelService {
     const bankEnabled = Boolean(assumption.bankName);
     const bankLoanTotal = bankEnabled ? num(assumption.bankLoanAcquisition) + num(assumption.bankLoanAccompagnement) : 0;
     const bankInterestOnDurationCible = bankEnabled ? (bankLoanTotal * (num(assumption.bankInterestRatePct) / 100) * dureeCibleLpb) / 12 : 0;
-    const bankTotalFees = bankEnabled ? bankInterestOnDurationCible + num(assumption.bankGuaranteeFees) + num(assumption.bankFileFees) * 1.2 : 0;
+    const bankTotalFees = bankEnabled ? bankInterestOnDurationCible + num(assumption.bankGuaranteeFees) + num(assumption.bankFileFees) * BANK_FILE_FEES_VAT_FACTOR : 0;
 
     return {
       collecte,
@@ -358,7 +365,7 @@ export class FinancialModelService {
     const usesSaleLots = saleLots.length > 0;
     const prixDeVente = usesSaleLots ? saleLotsTotal : sellingPricePerSqm * surface;
     const marge = prixDeVente - coutDeRevient;
-    const margePct = prixDeVente > 0 ? Math.round((marge / prixDeVente) * 1000) / 10 : 0;
+    const margePct = prixDeVente > 0 ? Math.round((marge / prixDeVente) * 1000) / 10 : null;
 
     const expositionFinale = coutDeRevient - bankLoanTotal - collecte;
 
@@ -435,7 +442,7 @@ export class FinancialModelService {
         revenue: Math.round(revenue),
         totalCost: Math.round(totalCost),
         margin: Math.round(margin),
-        marginPct: revenue > 0 ? Math.round((margin / revenue) * 1000) / 10 : 0,
+        marginPct: revenue > 0 ? Math.round((margin / revenue) * 1000) / 10 : null,
       };
     };
 
@@ -591,7 +598,7 @@ export class FinancialModelService {
       bankEnabled,
       bankLoanTotal,
       bankRatePct: current.assumption.bankInterestRatePct,
-      bankFixedFees: bankEnabled ? num(assumption.bankGuaranteeFees) + num(assumption.bankFileFees) * 1.2 : 0,
+      bankFixedFees: bankEnabled ? num(assumption.bankGuaranteeFees) + num(assumption.bankFileFees) * BANK_FILE_FEES_VAT_FACTOR : 0,
     };
 
     const central = computeScenario(base, PREDEFINED_SCENARIOS.central, 'Central');
@@ -613,7 +620,8 @@ export class FinancialModelService {
    * actualisée < 10 % (ou < 0 %) OU dégradation de ≥10 pts (ou ≥20 pts)
    * depuis le BP initial figé.
    */
-  private static computeMarginAlert(initialPct: number, currentPct: number): { level: 'ATTENTION' | 'URGENT'; message: string } | null {
+  private static computeMarginAlert(initialPct: number | null, currentPct: number | null): { level: 'ATTENTION' | 'URGENT'; message: string } | null {
+    if (initialPct === null || currentPct === null) return null;
     const drop = Math.round((initialPct - currentPct) * 10) / 10;
     if (currentPct < 0 || drop >= 20) {
       return currentPct < 0

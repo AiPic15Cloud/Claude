@@ -26,7 +26,7 @@ export function RepaymentsChartCard() {
               label={year}
               onPrev={() => setYear((y) => y - 1)}
               onNext={() => setYear((y) => y + 1)}
-              nextDisabled={year > currentYear}
+              nextDisabled={year >= currentYear}
             />
           </div>
         </div>

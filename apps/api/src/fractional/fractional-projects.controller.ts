@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { FractionalProjectsService } from './fractional-projects.service';
+import { PdfRenderService } from '../pdf-export/pdf-render.service';
+import { buildInvestmentMemoHtml } from './investment-memo-pdf.util';
 import { CreateFractionalProjectDto } from './dto/create-fractional-project.dto';
 import { UpdateFractionalProjectDto } from './dto/update-fractional-project.dto';
 import { UpsertSourcesUsesDto } from './dto/upsert-sources-uses.dto';
@@ -29,7 +32,10 @@ import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
 @UseGuards(JwtAuthGuard)
 @Controller('fractional/projects')
 export class FractionalProjectsController {
-  constructor(private readonly service: FractionalProjectsService) {}
+  constructor(
+    private readonly service: FractionalProjectsService,
+    private readonly pdfRender: PdfRenderService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
@@ -64,6 +70,26 @@ export class FractionalProjectsController {
   @Get(':id/tenant-replacement-cost')
   tenantReplacementCost(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.service.getTenantReplacementCostForProject(id, user);
+  }
+
+  /**
+   * Investment Memo en PDF, généré côté serveur (même pattern que les
+   * autres exports — window.print() ne fonctionne quasiment pas sur Chrome
+   * Android).
+   */
+  @Get(':id/export-pdf')
+  async exportPdf(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const [project, synthese, icRecommendation, legalReviews] = await Promise.all([
+      this.service.findOne(id, user),
+      this.service.computeSynthese(id, user).catch(() => undefined),
+      this.service.computeICRecommendationForProject(id, user).catch(() => undefined),
+      this.service.computeLegalReview(id, user).catch(() => undefined),
+    ]);
+    const html = buildInvestmentMemoHtml(project, synthese, icRecommendation, legalReviews);
+    const pdf = await this.pdfRender.renderHtmlToPdf(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="investment-memo-${id}.pdf"`);
+    res.send(pdf);
   }
 
   @Post()

@@ -37,10 +37,17 @@ export class EntityLinkReviewService {
       return;
     }
 
+    // Une observation de marché n'est jamais scopée à une organisation en
+    // particulier (fait global, cf. commentaire sur enrichObservation
+    // ci-dessus) : impossible de restreindre la boucle à un sous-ensemble
+    // d'organisations sans réintroduire l'hypothèse inverse. Chaque
+    // résolution reste indépendante (un rapprochement par organisation, table
+    // ProjectObservationEntityLink dédupliquée par (observationId,
+    // organizationId, entityId)), donc paralléliser ne change aucun résultat
+    // — seulement le temps total, qui passait de O(organisations) écritures
+    // séquentielles à une seule vague concurrente.
     const organizations = await this.prisma.organization.findMany({ select: { id: true } });
-    for (const organization of organizations) {
-      await this.resolveForOrganization(organization.id, observation.id, observation.operatorRaw);
-    }
+    await Promise.all(organizations.map((organization) => this.resolveForOrganization(organization.id, observation.id, observation.operatorRaw!)));
     await this.prisma.projectObservation.update({ where: { id: observationId }, data: { enrichedAt: new Date() } });
   }
 
@@ -64,7 +71,7 @@ export class EntityLinkReviewService {
         await this.notificationQueue.add(
           'notify-entity-match',
           { linkId: link.id },
-          { jobId: notifyEntityMatchJobId(observationId, result.entity.id), removeOnComplete: true, removeOnFail: 200 },
+          { jobId: notifyEntityMatchJobId(observationId, result.entity.id), removeOnComplete: true, removeOnFail: 200, attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
         );
       }
       return;

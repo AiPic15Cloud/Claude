@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Loader2, Plus, Pencil, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { useCreateLot, useUpdateLot, useDeleteLot } from '../hooks/use-prequalification';
 import { PREQUAL_LOT_STATUS_LABELS, type PrequalSalesLot, type PrequalLotStatus } from '@/types';
 
@@ -42,9 +45,9 @@ export function LotsTab({ caseId, lots }: { caseId: string; lots: PrequalSalesLo
     if (!form.label) return;
     const payload = {
       label: form.label,
-      surfaceSqm: form.surfaceSqm ? Number(form.surfaceSqm) : undefined,
-      askingPrice: form.askingPrice ? Number(form.askingPrice) : undefined,
-      expectedPrice: form.expectedPrice ? Number(form.expectedPrice) : undefined,
+      surfaceSqm: form.surfaceSqm ? parseLocaleNumber(form.surfaceSqm) : undefined,
+      askingPrice: form.askingPrice ? parseLocaleNumber(form.askingPrice) : undefined,
+      expectedPrice: form.expectedPrice ? parseLocaleNumber(form.expectedPrice) : undefined,
       status: form.status,
     };
     if (editingId) {
@@ -87,9 +90,7 @@ export function LotsTab({ caseId, lots }: { caseId: string; lots: PrequalSalesLo
                       <Button variant="ghost" size="icon" onClick={() => startEdit(lot)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => remove.mutate(lot.id)} disabled={remove.isPending}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton onConfirm={() => remove.mutate(lot.id)} pending={remove.isPending} label="Supprimer le lot" size="icon" />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -105,15 +106,15 @@ export function LotsTab({ caseId, lots }: { caseId: string; lots: PrequalSalesLo
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Surface (m²)</Label>
-            <Input type="number" min={0} className="w-28" value={form.surfaceSqm} onChange={(e) => setForm((p) => ({ ...p, surfaceSqm: e.target.value }))} />
+            <DecimalInput className="w-28" value={form.surfaceSqm} onChange={(e) => setForm((p) => ({ ...p, surfaceSqm: e.target.value }))} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Prix affiché</Label>
-            <Input type="number" min={0} className="w-36" value={form.askingPrice} onChange={(e) => setForm((p) => ({ ...p, askingPrice: e.target.value }))} />
+            <DecimalInput className="w-36" value={form.askingPrice} onChange={(e) => setForm((p) => ({ ...p, askingPrice: e.target.value }))} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Prix attendu</Label>
-            <Input type="number" min={0} className="w-36" value={form.expectedPrice} onChange={(e) => setForm((p) => ({ ...p, expectedPrice: e.target.value }))} />
+            <DecimalInput className="w-36" value={form.expectedPrice} onChange={(e) => setForm((p) => ({ ...p, expectedPrice: e.target.value }))} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Statut</Label>

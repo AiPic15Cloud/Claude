@@ -34,6 +34,8 @@ export class TasksService {
         assigneeId: dto.assigneeId ?? userId,
         createdById: userId,
         typeTache: dto.typeTache,
+        estimatedHours: dto.estimatedHours,
+        milestoneId: dto.milestoneId,
       },
       include: { deal: { select: { id: true, name: true, reference: true } } },
     });
@@ -55,6 +57,13 @@ export class TasksService {
       ...(query.typeTache ? { typeTache: query.typeTache } : {}),
     };
 
+    // Le frontend (Kanban F.1) consomme un tableau plat, pas une réponse
+    // paginée — page/pageSize ne changent donc pas la forme de la réponse,
+    // seulement la fenêtre renvoyée (défaut 200, triée par urgence), pour
+    // borner ?scope=all qui renverrait sinon toutes les tâches ouvertes de
+    // l'organisation en une seule réponse.
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 200;
     return this.prisma.task.findMany({
       where,
       include: {
@@ -62,6 +71,8 @@ export class TasksService {
         assignee: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
       },
       orderBy: [{ done: 'asc' }, { dueDate: 'asc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
   }
 
@@ -94,6 +105,8 @@ export class TasksService {
         // elle réapparaîtrait dans cette colonne si jamais rouverte plus
         // tard, avec un état "en cours" qui n'aurait plus de sens.
         inProgress: dto.done === true ? false : dto.inProgress,
+        estimatedHours: dto.estimatedHours,
+        milestoneId: dto.milestoneId,
       },
       include: { deal: { select: { id: true, name: true, reference: true } } },
     });
@@ -136,19 +149,32 @@ export class TasksService {
       select: { id: true, title: true, dueDate: true, dealId: true, organizationId: true },
     });
 
+    // Une alerte liée à une tâche qui n'est plus en retard (échéance
+    // repoussée, tâche traitée/annulée) est désormais obsolète — la purger
+    // permet à la même tâche de redéclencher une alerte si elle redevient
+    // en retard plus tard. Sans ça, la déduplication par titre bloquerait
+    // silencieusement toute nouvelle alerte pour cette tâche indéfiniment.
+    await this.prisma.alert.deleteMany({
+      where: { taskId: { not: null, notIn: overdue.map((t) => t.id) }, title: { startsWith: 'Tâche urgente en retard — ' } },
+    });
+
     let created = 0;
     for (const task of overdue) {
-      const title = `Tâche urgente en retard — ${task.title}`;
-      const existingAlert = await this.prisma.alert.findFirst({ where: { organizationId: task.organizationId, title } });
-      if (existingAlert) continue;
+      try {
+        const existingAlert = await this.prisma.alert.findFirst({ where: { taskId: task.id } });
+        if (existingAlert) continue;
 
-      await this.alerts.create(task.organizationId, {
-        title,
-        message: `"${task.title}" est urgente et en retard depuis le ${task.dueDate!.toLocaleDateString('fr-FR')}.`,
-        severity: 'CRITICAL',
-        dealId: task.dealId ?? undefined,
-      });
-      created += 1;
+        await this.alerts.create(task.organizationId, {
+          title: `Tâche urgente en retard — ${task.title}`,
+          message: `"${task.title}" est urgente et en retard depuis le ${task.dueDate!.toLocaleDateString('fr-FR')}.`,
+          severity: 'CRITICAL',
+          dealId: task.dealId ?? undefined,
+          taskId: task.id,
+        });
+        created += 1;
+      } catch (err) {
+        this.logger.error(`Échec de la remontée de la tâche urgente en retard ${task.id}`, err instanceof Error ? err.stack : err);
+      }
     }
     if (created > 0) this.logger.log(`${created} alerte(s) de tâche urgente en retard créée(s).`);
   }

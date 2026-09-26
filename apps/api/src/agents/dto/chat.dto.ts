@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsIn, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 
 class ChatMessageDto {
   @ApiProperty({ enum: ['user', 'assistant'] })
@@ -9,6 +9,7 @@ class ChatMessageDto {
 
   @ApiProperty()
   @IsString()
+  @MaxLength(20000)
   content!: string;
 }
 
@@ -16,6 +17,7 @@ export class ChatDto {
   @ApiProperty({ type: [ChatMessageDto] })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => ChatMessageDto)
   messages!: ChatMessageDto[];

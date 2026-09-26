@@ -11,11 +11,14 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      // Le dégradé aux deux bords signale qu'il y a plus d'onglets à faire
-      // défiler horizontalement — sans lui, une liste trop longue pour
-      // l'écran (10 onglets sur la fiche dossier, par ex.) se coupe net à
-      // droite sans aucun indice qu'elle est scrollable.
-      'flex h-9 max-w-full items-center gap-1 overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground no-scrollbar [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
+      // Filet or plutôt que pastille pleine (voir DealDetail du canvas de
+      // refonte) : la liste porte juste un filet de base, chaque onglet
+      // actif trace son propre soulignement dessus. Le dégradé aux deux
+      // bords signale qu'il y a plus d'onglets à faire défiler
+      // horizontalement — sans lui, une liste trop longue pour l'écran
+      // (10 onglets sur la fiche dossier, par ex.) se coupe net à droite
+      // sans aucun indice qu'elle est scrollable.
+      'flex h-9 max-w-full items-center gap-5 overflow-x-auto border-b border-border text-muted-foreground no-scrollbar [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
       className,
     )}
     {...props}
@@ -30,7 +33,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm',
+      'inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-2 border-transparent px-0.5 pb-2 -mb-px text-sm font-medium text-muted-foreground transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-primary data-[state=active]:text-foreground',
       className,
     )}
     {...props}

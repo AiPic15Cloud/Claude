@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { useFractionalEsgRiskProfile, useUpsertEsgAssessment } from '../hooks/use-fractional';
 import { DPE_CLASS_VALUES, ESG_EQUIPMENT_TIER_LABELS, ESG_PHYSICAL_RISK_TIER_LABELS, type DpeClass, type EsgEquipmentTier, type EsgPhysicalRiskTier } from '@/types';
 
@@ -19,7 +20,7 @@ const PHYSICAL_RISK_TIERS: EsgPhysicalRiskTier[] = ['FAIBLE', 'MODERE', 'ELEVE']
 const NONE_VALUE = '__none__';
 
 function pts(value: number): string {
-  return `${value.toFixed(2).replace(/\.?0+$/, '')} pt${value >= 2 ? 's' : ''}`;
+  return `${value.toFixed(2).replace(/\.?0+$/, '')} pt${Math.abs(value) >= 2 ? 's' : ''}`;
 }
 
 /**
@@ -76,7 +77,7 @@ export function EsgRiskCard({ projectId }: { projectId: string }) {
     e.preventDefault();
     upsert.mutate({
       dpeClass: form.dpeClass || undefined,
-      consumptionKwhM2An: form.consumptionKwhM2An ? Number(form.consumptionKwhM2An) : undefined,
+      consumptionKwhM2An: form.consumptionKwhM2An ? parseLocaleNumber(form.consumptionKwhM2An) : undefined,
       decreeTertiaireSubject: form.decreeTertiaireSubject,
       equipmentConditionTier: form.equipmentConditionTier || undefined,
       physicalRiskExposure: form.physicalRiskExposure || undefined,
@@ -126,10 +127,8 @@ export function EsgRiskCard({ projectId }: { projectId: string }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="esgConsumption">Consommation (kWh/m²/an)</Label>
-            <Input
+            <DecimalInput
               id="esgConsumption"
-              type="number"
-              step="0.1"
               className="w-40"
               value={form.consumptionKwhM2An}
               onChange={(e) => setForm((p) => ({ ...p, consumptionKwhM2An: e.target.value }))}

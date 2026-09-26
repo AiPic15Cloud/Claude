@@ -539,10 +539,12 @@ export class RiskEngineService implements OnApplicationBootstrap {
       const sorted = [...scores].sort((a, b) => a - b);
       const tierDistribution = { SAFE: 0, WATCH: 0, HIGH: 0 };
       for (const s of scores) tierDistribution[tierOf(s)] += 1;
+      const mid = Math.floor(sorted.length / 2);
+      const medianScore = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
       return {
         count: scores.length,
         averageScore: Math.round(scores.reduce((sum, v) => sum + v, 0) / scores.length),
-        medianScore: sorted[Math.floor(sorted.length / 2)],
+        medianScore,
         tierDistribution,
       };
     };

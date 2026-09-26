@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { Download, FileText, Loader2, Sparkles, Trash2, Upload } from 'lucide-react';
+import { Download, FileText, Loader2, Sparkles, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatDate } from '@/lib/format';
 import { ApiError } from '@/lib/api';
 import {
@@ -86,9 +87,7 @@ export function DocumentsTab({ caseId, documents, requests }: { caseId: string; 
                         <Button variant="ghost" size="icon" onClick={() => download.mutate(doc)}>
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => remove.mutate(doc.id)} disabled={remove.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton onConfirm={() => remove.mutate(doc.id)} pending={remove.isPending} label="Supprimer le document" size="icon" />
                       </div>
                     </TableCell>
                   </TableRow>

@@ -63,7 +63,7 @@ export function useEnableTwoFactor() {
 export function useDisableTwoFactor() {
   const setUser = useAuthStore((s) => s.setUser);
   return useMutation({
-    mutationFn: (password: string) => api.post<void>('/users/me/2fa/disable', { password }),
+    mutationFn: ({ password, code }: { password: string; code: string }) => api.post<void>('/users/me/2fa/disable', { password, code }),
     onSuccess: () => {
       const user = useAuthStore.getState().user;
       if (user) setUser({ ...user, twoFactorEnabled: false });

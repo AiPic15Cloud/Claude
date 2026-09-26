@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,6 +71,10 @@ export function DecisionTab({
   const validate = useValidateAndPromote(caseId);
   const [orientation, setOrientation] = useState<PrequalificationOrientation>(currentOrientation ?? 'GO');
   const [decisionComment, setDecisionComment] = useState('');
+
+  useEffect(() => {
+    setOrientation(currentOrientation ?? 'GO');
+  }, [currentOrientation]);
 
   const unresolvedBlocking = findings.filter((f) => f.severity === 'BLOCKING' && (f.reviewStatus === 'PENDING' || f.reviewStatus === 'ACCEPTED'));
   const bySeverity = (['BLOCKING', 'MATERIAL', 'WATCH', 'POSITIVE', 'INFO'] as const).map((sev) => ({

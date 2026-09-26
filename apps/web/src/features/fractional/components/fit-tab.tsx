@@ -40,7 +40,9 @@ export function FitTab({ projectId }: { projectId: string }) {
   const answeredCount = categories.reduce((sum, c) => sum + c.criteria.filter((crit) => answers[crit.id]).length, 0);
 
   const handleSubmit = () => {
-    submitAssessment.mutate(Object.entries(answers).map(([criterionId, bucketId]) => ({ criterionId, bucketId })));
+    submitAssessment.mutate(Object.entries(answers).map(([criterionId, bucketId]) => ({ criterionId, bucketId })), {
+      onSuccess: () => setAnswers({}),
+    });
   };
 
   return (

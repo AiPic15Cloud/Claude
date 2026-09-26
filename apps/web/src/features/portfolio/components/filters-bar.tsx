@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Search, SlidersHorizontal, AlertTriangle, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,27 @@ interface FiltersBarProps {
 
 export function FiltersBar({ filters, onChange }: FiltersBarProps) {
   const { data: tags = [] } = useTags();
+
+  // Debounce the free-text search so it doesn't trigger a /deals refetch on
+  // every keystroke — only 300ms after the user stops typing.
+  const [searchInput, setSearchInput] = useState(filters.search ?? '');
+  const filtersRef = useRef(filters);
+  const onChangeRef = useRef(onChange);
+  filtersRef.current = filters;
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    setSearchInput(filters.search ?? '');
+  }, [filters.search]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchInput !== (filtersRef.current.search ?? '')) {
+        onChangeRef.current({ ...filtersRef.current, search: searchInput });
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
 
   const toggleStage = (stage: DealStage) => {
     const current = filters.stage ?? [];
@@ -48,8 +70,8 @@ export function FiltersBar({ filters, onChange }: FiltersBarProps) {
           <Input
             placeholder="Rechercher une opération…"
             className="pl-8"
-            value={filters.search ?? ''}
-            onChange={(e) => onChange({ ...filters, search: e.target.value })}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
 

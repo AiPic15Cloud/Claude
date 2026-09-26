@@ -62,6 +62,9 @@ export function useSaveFinancialModel(dealId: string) {
       queryClient.invalidateQueries({ queryKey: ['financial-model', dealId, 'bp-comparison'] });
       queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
       queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
+      // CovenantsCard est alimenté par deal.covenants, calculé côté serveur à partir de ces mêmes
+      // champs — sans cette invalidation, la carte reste périmée jusqu'au rechargement.
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
     },
   });
 }
@@ -100,6 +103,7 @@ export function useDeleteFinancialModel(dealId: string) {
       queryClient.invalidateQueries({ queryKey: ['financial-model', dealId] });
       queryClient.invalidateQueries({ queryKey: ['field-changes', dealId] });
       queryClient.invalidateQueries({ queryKey: ['data-validations', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
     },
   });
 }

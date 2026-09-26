@@ -16,6 +16,7 @@ import { RepaymentsPanel } from '@/features/dossiers/components/repayments-panel
 import { useDeal, useAddNote } from '../hooks/use-deals';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { PRIORITY_LABELS } from '@/types';
+import { ApiError } from '@/lib/api';
 
 interface DealDrawerProps {
   dealId: string | null;
@@ -154,6 +155,11 @@ export function DealDrawer({ dealId, onClose }: DealDrawerProps) {
                     {addNote.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                     Publier
                   </Button>
+                  {addNote.isError && (
+                    <p className="text-xs text-destructive">
+                      {addNote.error instanceof ApiError ? addNote.error.message : 'Une erreur est survenue'}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-3">
                   {deal.notes.length === 0 && <p className="text-xs text-muted-foreground">Aucune note</p>}

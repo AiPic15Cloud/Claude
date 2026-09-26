@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Loader2, Network, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Network, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -105,9 +106,7 @@ export function EntitiesPanel({ dealId }: { dealId: string }) {
             </div>
             <div className="ml-11 flex items-center gap-2 sm:ml-0">
               <Badge variant="secondary">{DEAL_ENTITY_ROLE_LABELS[l.role]}</Badge>
-              <Button variant="ghost" size="icon" onClick={() => unlink.mutate(l.id)}>
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <ConfirmDeleteButton onConfirm={() => unlink.mutate(l.id)} pending={unlink.isPending} label="Retirer l'entité liée" />
             </div>
           </div>
         ))}

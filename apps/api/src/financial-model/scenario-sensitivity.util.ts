@@ -74,7 +74,7 @@ export interface ScenarioResult {
   prixDeVente: number;
   coutDeRevient: number;
   marge: number;
-  margePct: number;
+  margePct: number | null;
   /** Prix de sortie minimum (total) pour ne pas être en perte — marge = 0. */
   pointMortTotal: number;
   pointMortPerSqm: number | null;
@@ -116,7 +116,7 @@ export function computeScenario(base: ScenarioBaseInputs, rawDeltas: ScenarioDel
 
   const prixDeVente = Math.max(0, base.prixDeVenteBase * (1 + deltas.prixSortiePctDelta / 100));
   const marge = prixDeVente - coutDeRevient;
-  const margePct = prixDeVente > 0 ? Math.round((marge / prixDeVente) * 1000) / 10 : 0;
+  const margePct = prixDeVente > 0 ? Math.round((marge / prixDeVente) * 1000) / 10 : null;
 
   const pointMortTotal = coutDeRevient;
   const pointMortPerSqm = base.surface > 0 ? pointMortTotal / base.surface : null;

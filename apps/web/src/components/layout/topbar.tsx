@@ -27,7 +27,7 @@ export function Topbar() {
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
   return (
-    <div className="sticky top-0 z-20 flex flex-col border-b border-border bg-background/80 backdrop-blur">
+    <div className="sticky top-0 z-20 flex flex-col border-b border-border bg-background">
       <MarketTicker />
       <header className="flex h-14 items-center gap-2 px-3 md:gap-3 md:px-5">
         <button

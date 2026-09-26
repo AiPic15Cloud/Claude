@@ -6,6 +6,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { GuaranteesService } from './guarantees.service';
 import { UpsertGuaranteeDto } from './dto/upsert-guarantee.dto';
+import { UpdateGuaranteeDto } from './dto/update-guarantee.dto';
 import { MarkSubstantiveDefectDto } from './dto/mark-substantive-defect.dto';
 
 @ApiTags('guarantees')
@@ -20,6 +21,8 @@ export class GuaranteesController {
     return this.guaranteesService.list(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   create(
     @CurrentUser() user: AuthenticatedUser,
@@ -29,12 +32,14 @@ export class GuaranteesController {
     return this.guaranteesService.create(user.organizationId, dealId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id')
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('dealId') dealId: string,
     @Param('id') id: string,
-    @Body() dto: Partial<UpsertGuaranteeDto>,
+    @Body() dto: UpdateGuaranteeDto,
   ) {
     return this.guaranteesService.update(user.organizationId, dealId, id, dto);
   }
@@ -58,6 +63,8 @@ export class GuaranteesController {
     return this.guaranteesService.markSubstantiveDefect(user.organizationId, dealId, id, user.id, dto.flagged, dto.note);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Param('id') id: string) {

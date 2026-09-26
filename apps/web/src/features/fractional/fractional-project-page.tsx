@@ -13,8 +13,8 @@ import {
   useFractionalSynthese,
   useFractionalDealEconomics,
   useFractionalICRecommendation,
-  useFractionalLegalReview,
   useUpdateFractionalProjectStatus,
+  useExportInvestmentMemoPdf,
 } from './hooks/use-fractional';
 import { SyntheseTab } from './components/synthese-tab';
 import { AcquisitionTab } from './components/acquisition-tab';
@@ -28,7 +28,6 @@ import { MemoireTab } from './components/memoire-tab';
 import { DataRoomTab } from './components/data-room-tab';
 import { TechnicalDdTab } from './components/technical-dd-tab';
 import { LegalTaxDdTab } from './components/legal-tax-dd-tab';
-import { InvestmentMemoPrintSheet } from './components/investment-memo-print-sheet';
 
 const STATUSES: FractionalProjectStatus[] = ['ANALYSE', 'STRUCTURATION', 'VALIDATION_PLATEFORME', 'COLLECTE', 'ACQUISITION', 'EXPLOITATION', 'SORTIE', 'REFUSE', 'ABANDONNE'];
 
@@ -39,8 +38,8 @@ export function FractionalProjectPage() {
   const { data: synthese, isLoading: syntheseLoading } = useFractionalSynthese(id ?? null);
   const { data: dealEconomics, isLoading: dealEconomicsLoading } = useFractionalDealEconomics(id ?? null);
   const { data: icRecommendation } = useFractionalICRecommendation(id ?? null);
-  const { data: legalReviews } = useFractionalLegalReview(id ?? null);
   const updateStatus = useUpdateFractionalProjectStatus();
+  const exportPdf = useExportInvestmentMemoPdf(id ?? '');
 
   if (isLoading || !project) {
     return (
@@ -70,8 +69,8 @@ export function FractionalProjectPage() {
         </div>
         <div className="flex items-center gap-2">
           {updateStatus.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          <Button variant="outline" size="sm" onClick={() => window.print()} disabled={!synthese}>
-            <Printer className="h-4 w-4" />
+          <Button variant="outline" size="sm" disabled={!synthese || exportPdf.isPending} onClick={() => exportPdf.mutate(project.name)}>
+            {exportPdf.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
             Investment Memo
           </Button>
           <Select value={project.status} onValueChange={(status) => updateStatus.mutate({ id: project.id, status: status as FractionalProjectStatus })}>
@@ -161,8 +160,6 @@ export function FractionalProjectPage() {
           <MemoireTab projectId={project.id} actuals={project.actuals} outcome={project.outcome} />
         </TabsContent>
       </Tabs>
-
-      <InvestmentMemoPrintSheet project={project} synthese={synthese} icRecommendation={icRecommendation} legalReviews={legalReviews} />
     </div>
   );
 }

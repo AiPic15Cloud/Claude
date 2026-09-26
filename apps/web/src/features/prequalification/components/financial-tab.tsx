@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/lib/format';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { cn } from '@/lib/utils';
 import { useUpsertFinancialModel, usePrequalBpComparison } from '../hooks/use-prequalification';
 import { PrequalBpComparisonCard } from './prequal-bp-comparison-card';
@@ -21,29 +23,30 @@ function pct(value: number | null | undefined): string {
 }
 
 interface CostItem {
+  id: string;
   label: string;
   amount: string;
 }
 
 function CostItemsList({ items, onChange, placeholder }: { items: CostItem[]; onChange: (items: CostItem[]) => void; placeholder: string }) {
-  const [draft, setDraft] = useState<CostItem>({ label: '', amount: '' });
-  const total = items.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+  const [draft, setDraft] = useState<{ label: string; amount: string }>({ label: '', amount: '' });
+  const total = items.reduce((sum, i) => sum + (parseLocaleNumber(i.amount) || 0), 0);
 
   const add = () => {
     if (!draft.label || !draft.amount) return;
-    onChange([...items, draft]);
+    onChange([...items, { ...draft, id: crypto.randomUUID() }]);
     setDraft({ label: '', amount: '' });
   };
-  const remove = (index: number) => onChange(items.filter((_, i) => i !== index));
+  const remove = (id: string) => onChange(items.filter((i) => i.id !== id));
 
   return (
     <div className="flex flex-col gap-1.5">
-      {items.map((item, index) => (
-        <div key={index} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5">
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5">
           <span className="text-sm">{item.label}</span>
           <div className="flex items-center gap-1">
-            <span className="text-sm font-medium tabular-nums">{formatCurrency(Number(item.amount) || 0)}</span>
-            <Button type="button" size="icon" variant="ghost" onClick={() => remove(index)}>
+            <span className="text-sm font-medium tabular-nums">{formatCurrency(parseLocaleNumber(item.amount) || 0)}</span>
+            <Button type="button" size="icon" variant="ghost" onClick={() => remove(item.id)}>
               <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           </div>
@@ -51,7 +54,7 @@ function CostItemsList({ items, onChange, placeholder }: { items: CostItem[]; on
       ))}
       <div className="flex items-center gap-1.5">
         <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder={placeholder} className="flex-1" />
-        <Input type="number" step="any" min={0} value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
+        <DecimalInput value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} placeholder="Montant" className="w-32" />
         <Button type="button" size="icon" variant="ghost" onClick={add}>
           <Plus className="h-3.5 w-3.5" />
         </Button>
@@ -77,12 +80,10 @@ function CostItemsList({ items, onChange, placeholder }: { items: CostItem[]; on
  * par `prequal-financial.util.ts`/`prequal-covenant.util.ts` — jamais saisies
  * directement.
  */
-export function FinancialTab({ caseId, financial }: { caseId: string; financial: PrequalFinancialModel | null }) {
-  const upsert = useUpsertFinancialModel(caseId);
-  const { data: bpComparison } = usePrequalBpComparison(caseId);
+const s = (v: number | null | undefined) => (v != null ? String(v) : '');
 
-  const s = (v: number | null | undefined) => (v != null ? String(v) : '');
-  const [form, setForm] = useState({
+function buildFinancialForm(financial: PrequalFinancialModel | null) {
+  return {
     amountRequested: s(financial?.amountRequested),
     declaredEquity: s(financial?.declaredEquity),
     provenEquity: s(financial?.provenEquity),
@@ -118,16 +119,29 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
     fluxTresorerieDisponibleEstime: s(financial?.fluxTresorerieDisponibleEstime),
     montantDecaisseNotaire: s(financial?.montantDecaisseNotaire),
     guaranteesNote: financial?.guaranteesNote ?? '',
-  });
+  };
+}
 
-  const [travauxItems, setTravauxItems] = useState<CostItem[]>(
-    financial?.costLineItems.filter((i) => i.category === 'TRAVAUX').map((i) => ({ label: i.label, amount: String(i.amount) })) ?? [],
-  );
-  const [honorairesItems, setHonorairesItems] = useState<CostItem[]>(
-    financial?.costLineItems.filter((i) => i.category === 'HONORAIRES_TECHNIQUES').map((i) => ({ label: i.label, amount: String(i.amount) })) ?? [],
-  );
+function buildCostItems(financial: PrequalFinancialModel | null, category: string): CostItem[] {
+  return financial?.costLineItems.filter((i) => i.category === category).map((i) => ({ id: crypto.randomUUID(), label: i.label, amount: String(i.amount) })) ?? [];
+}
 
-  const n = (v: string) => (v === '' ? 0 : Number(v));
+export function FinancialTab({ caseId, financial }: { caseId: string; financial: PrequalFinancialModel | null }) {
+  const upsert = useUpsertFinancialModel(caseId);
+  const { data: bpComparison } = usePrequalBpComparison(caseId);
+
+  const [form, setForm] = useState(() => buildFinancialForm(financial));
+
+  const [travauxItems, setTravauxItems] = useState<CostItem[]>(() => buildCostItems(financial, 'TRAVAUX'));
+  const [honorairesItems, setHonorairesItems] = useState<CostItem[]>(() => buildCostItems(financial, 'HONORAIRES_TECHNIQUES'));
+
+  useEffect(() => {
+    setForm(buildFinancialForm(financial));
+    setTravauxItems(buildCostItems(financial, 'TRAVAUX'));
+    setHonorairesItems(buildCostItems(financial, 'HONORAIRES_TECHNIQUES'));
+  }, [financial]);
+
+  const n = (v: string) => (v === '' ? 0 : parseLocaleNumber(v));
   const liveFoncierTotal = n(form.landPrice) + n(form.notaryFees);
   const liveHonorairesTechniquesTotal =
     n(form.diagnosticsCost) + n(form.insuranceCost) + n(form.propertyTaxCost) + n(form.surveyStudiesCost) + honorairesItems.reduce((sum, i) => sum + n(i.amount), 0);
@@ -135,7 +149,7 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const opt = (v: string) => (v ? Number(v) : undefined);
+    const opt = (v: string) => (v ? parseLocaleNumber(v) : undefined);
     upsert.mutate({
       amountRequested: opt(form.amountRequested),
       declaredEquity: opt(form.declaredEquity),
@@ -173,8 +187,8 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
       montantDecaisseNotaire: opt(form.montantDecaisseNotaire),
       guaranteesNote: form.guaranteesNote || undefined,
       costLineItems: [
-        ...travauxItems.filter((i) => i.label && i.amount).map((i) => ({ category: 'TRAVAUX', label: i.label, amount: Number(i.amount) })),
-        ...honorairesItems.filter((i) => i.label && i.amount).map((i) => ({ category: 'HONORAIRES_TECHNIQUES', label: i.label, amount: Number(i.amount) })),
+        ...travauxItems.filter((i) => i.label && i.amount).map((i) => ({ category: 'TRAVAUX', label: i.label, amount: parseLocaleNumber(i.amount) })),
+        ...honorairesItems.filter((i) => i.label && i.amount).map((i) => ({ category: 'HONORAIRES_TECHNIQUES', label: i.label, amount: parseLocaleNumber(i.amount) })),
       ],
     });
   };
@@ -361,7 +375,7 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
                   <div className="flex flex-col gap-2">
                     {financial.sensitivity.map((scenario) => {
                       const tier = marginTier(scenario.marginPct);
-                      const style = MARGIN_TIER_STYLES[tier];
+                      const style = tier ? MARGIN_TIER_STYLES[tier] : { dot: '⚪', text: 'text-muted-foreground', border: 'border-border', bg: '' };
                       return (
                         <div
                           key={scenario.label}
@@ -371,7 +385,7 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
                           <div className="text-right">
                             <p className="text-sm font-semibold tabular-nums">{formatCurrency(scenario.margin)}</p>
                             <p className={cn('text-xs font-medium tabular-nums', style.text)}>
-                              {style.dot} marge {scenario.marginPct}%
+                              {style.dot} marge {scenario.marginPct === null ? '—' : `${scenario.marginPct}%`}
                             </p>
                           </div>
                         </div>
@@ -393,7 +407,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
-      <Input type="number" min={0} step="any" value={value} onChange={(e) => onChange(e.target.value)} />
+      <DecimalInput value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

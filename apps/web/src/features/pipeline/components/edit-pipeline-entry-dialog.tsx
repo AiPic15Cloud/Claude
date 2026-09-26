@@ -5,32 +5,57 @@ import { z } from 'zod';
 import { Loader2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdatePipelineEntry } from '../hooks/use-pipeline';
 import { COMMITTEE_STATUS_LABELS, type CommitteeStatus, type PipelineEntry } from '@/types';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
 
 const COMMITTEE_STATUSES: CommitteeStatus[] = ['PAS_DE_COMITE', 'VALIDE', 'CONDITIONS_SUSPENSIVES', 'REFUSE'];
 
+// Normalise "1 234,56" en valeur exploitable par z.coerce.number() — sinon un
+// <input type="number"> rejette silencieusement le "," sous une locale française
+// et un champ texte transmettrait "1234,56" tel quel, coercé en NaN.
+const normalizeDecimal = (v: unknown) => (typeof v === 'string' ? parseLocaleNumber(v) : v);
+
 // register()-bound number inputs pass the raw string through, and an empty
 // field coerces to 0 rather than staying unset — a blank "Fees (%)" should
-// mean "not entered", not "confirmed at 0%".
-const blankToUndefined = (v: unknown) => (v === '' ? undefined : v);
+// mean "not entered", not "confirmed at 0%". Also normalises the locale comma
+// before coercion, same reason as normalizeDecimal above.
+const blankToUndefined = (v: unknown) => {
+  if (v === '') return undefined;
+  return typeof v === 'string' ? parseLocaleNumber(v) : v;
+};
 
 const schema = z.object({
   date: z.string().min(1, 'Date requise'),
   operator: z.string().min(1, 'Opérateur requis'),
   typology: z.string().optional(),
   source: z.string().optional(),
-  amount: z.coerce.number().positive('Montant requis'),
+  amount: z.preprocess(normalizeDecimal, z.coerce.number().positive('Montant requis')),
   margin: z.preprocess(blankToUndefined, z.coerce.number().optional()),
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   committee: z.enum(['PAS_DE_COMITE', 'VALIDE', 'CONDITIONS_SUSPENSIVES', 'REFUSE']),
   decision: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
+
+function buildDefaultValues(entry: PipelineEntry): FormValues {
+  return {
+    date: entry.date.slice(0, 10),
+    operator: entry.operator,
+    typology: entry.typology ?? '',
+    source: entry.source ?? '',
+    amount: Number(entry.amount),
+    margin: entry.margin ? Number(entry.margin) : undefined,
+    feesRate: entry.feesRate ? Number(entry.feesRate) : undefined,
+    committee: entry.committee,
+    decision: entry.decision ?? '',
+  };
+}
 
 export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
   const [open, setOpen] = useState(false);
@@ -43,17 +68,7 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      date: entry.date.slice(0, 10),
-      operator: entry.operator,
-      typology: entry.typology ?? '',
-      source: entry.source ?? '',
-      amount: Number(entry.amount),
-      margin: entry.margin ? Number(entry.margin) : undefined,
-      feesRate: entry.feesRate ? Number(entry.feesRate) : undefined,
-      committee: entry.committee,
-      decision: entry.decision ?? '',
-    },
+    defaultValues: buildDefaultValues(entry),
   });
 
   const onSubmit = (values: FormValues) => {
@@ -65,7 +80,11 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) reset();
+        // reset() sans argument revient au defaultValues capturé au tout premier
+        // montage — rouvrir après un enregistrement réaffichait donc les toutes
+        // premières valeurs, pas les dernières sauvegardées. On reconstruit les
+        // valeurs depuis le prop `entry` à jour.
+        if (next) reset(buildDefaultValues(entry));
       }}
     >
       <DialogTrigger asChild>
@@ -106,16 +125,16 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-amount">Montant (€)</Label>
-              <Input id="edit-amount" type="number" min={0} step={1000} {...register('amount')} />
+              <DecimalInput id="edit-amount" {...register('amount')} />
               {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-margin">Marge (%)</Label>
-              <Input id="edit-margin" type="number" step={0.1} {...register('margin')} />
+              <DecimalInput id="edit-margin" {...register('margin')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-feesRate">Fees ATLAS (%)</Label>
-              <Input id="edit-feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              <DecimalInput id="edit-feesRate" {...register('feesRate')} />
               {errors.feesRate && <p className="text-xs text-destructive">{errors.feesRate.message}</p>}
             </div>
           </div>

@@ -8,6 +8,7 @@ import { Loader2, Pencil, Plus, TrendingDown, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -15,6 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCheckpoints, useCreateCheckpoint, useUpdateCheckpoint } from '../hooks/use-checkpoints';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { cn } from '@/lib/utils';
 import { ApiError } from '@/lib/api';
 import type { ProjectCheckpoint } from '@/types';
@@ -22,7 +24,13 @@ import type { ProjectCheckpoint } from '@/types';
 // Optional numeric fields must stay unset (not coerce to 0) when left
 // blank — same fix already applied elsewhere for register()-bound number
 // inputs, since an empty string otherwise silently becomes a confirmed 0.
-const blankToUndefined = (v: unknown) => (v === '' ? undefined : v);
+// Also normalises "1 234,56" before coercion — a text input (needed to accept
+// "," as the decimal separator under a French locale) would otherwise hand
+// z.coerce.number() a string it parses as NaN.
+const blankToUndefined = (v: unknown) => {
+  if (v === '' || v === null || v === undefined) return undefined;
+  return typeof v === 'string' ? parseLocaleNumber(v) : v;
+};
 
 const schema = z.object({
   travauxBudgetInitial: z.preprocess(blankToUndefined, z.coerce.number().min(0).optional()),
@@ -146,42 +154,39 @@ export function CheckpointsPanel({ dealId }: { dealId: string }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="travauxBudgetInitial">Budget travaux initial (€)</Label>
-                  <Input
+                  <DecimalInput
                     id="travauxBudgetInitial"
-                    type="number"
                     placeholder="Pré-rempli depuis le modèle financier si vide"
                     {...register('travauxBudgetInitial')}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="travauxDepensesADate">Dépenses travaux à date (€)</Label>
-                  <Input id="travauxDepensesADate" type="number" {...register('travauxDepensesADate')} />
+                  <DecimalInput id="travauxDepensesADate" {...register('travauxDepensesADate')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="prixVenteInitialPrevu">Prix de vente prévu (€)</Label>
-                  <Input
+                  <DecimalInput
                     id="prixVenteInitialPrevu"
-                    type="number"
                     placeholder="Pré-rempli depuis le modèle financier si vide"
                     {...register('prixVenteInitialPrevu')}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="prixVenteActualise">Prix de vente actualisé (€)</Label>
-                  <Input
+                  <DecimalInput
                     id="prixVenteActualise"
-                    type="number"
                     placeholder="Objectif revu par le porteur, si modifié"
                     {...register('prixVenteActualise')}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="prixVenteReelADate">Prix de vente réel à date (€)</Label>
-                  <Input id="prixVenteReelADate" type="number" {...register('prixVenteReelADate')} />
+                  <DecimalInput id="prixVenteReelADate" {...register('prixVenteReelADate')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="pourcentageVendu">Lots vendus (%)</Label>
-                  <Input id="pourcentageVendu" type="number" min={0} max={100} {...register('pourcentageVendu')} />
+                  <DecimalInput id="pourcentageVendu" {...register('pourcentageVendu')} />
                   {errors.pourcentageVendu && <p className="text-xs text-destructive">{errors.pourcentageVendu.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">

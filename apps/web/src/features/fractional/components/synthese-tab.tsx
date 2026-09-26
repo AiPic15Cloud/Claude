@@ -26,7 +26,7 @@ function YieldStat({ label, value, hint }: { label: string; value: string; hint?
   );
 }
 
-const ELIGIBILITY_VARIANT = { ELIGIBLE: 'success', MARGINAL: 'warning', INELIGIBLE: 'destructive' } as const;
+const ELIGIBILITY_VARIANT = { ELIGIBLE: 'success', MARGINAL: 'warning', INELIGIBLE: 'destructive', NOT_EVALUABLE: 'outline' } as const;
 const IC_STATUS_VARIANT = {
   APPROVE: 'success',
   APPROVE_SUBJECT_TO_CONDITIONS: 'warning',
@@ -276,7 +276,10 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <YieldStat label="Secured Net Yield" value={pct(eligibility.securedNetYieldPct)} />
             <YieldStat label="Hurdle plateforme" value={pct(eligibility.hurdlePct)} />
-            <YieldStat label="Écart vs hurdle" value={`${eligibility.gapPct >= 0 ? '+' : ''}${eligibility.gapPct.toFixed(2)} pt`} />
+            <YieldStat
+              label="Écart vs hurdle"
+              value={eligibility.gapPct === null ? '—' : `${eligibility.gapPct >= 0 ? '+' : ''}${eligibility.gapPct.toFixed(2)} pt`}
+            />
             <YieldStat
               label="Confiance data"
               value={dataConfidence ? `${dataConfidence.scorePct}/100` : '—'}
@@ -308,7 +311,7 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           />
           <YieldStat label="Yield on Cost" value={pct(base.yieldOnCostPct)} hint="NOI an 1 / coût total" />
           <YieldStat label="IRR (TRI)" value={pct(base.irrPct)} />
-          <YieldStat label="Equity Multiple" value={base.equityMultiple ? `${base.equityMultiple.toFixed(2)}x` : '—'} />
+          <YieldStat label="Equity Multiple" value={base.equityMultiple !== null && base.equityMultiple !== undefined ? `${base.equityMultiple.toFixed(2)}x` : '—'} />
           {base.irrImpactFromTvaTimingPts !== null && (
             <YieldStat
               label="Impact TVA sur IRR"

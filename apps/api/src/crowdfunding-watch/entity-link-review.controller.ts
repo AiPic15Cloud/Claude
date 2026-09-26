@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { EntityLinkReviewService } from './entity-link-review.service';
 import { RejectEntityLinkDto } from './dto/reject-entity-link.dto';
@@ -19,11 +21,15 @@ export class EntityLinkReviewController {
   }
 
   @Patch(':id/confirm')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   confirm(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.entityLinkReview.confirm(user.organizationId, id, user.id);
   }
 
   @Patch(':id/reject')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   reject(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: RejectEntityLinkDto) {
     return this.entityLinkReview.reject(user.organizationId, id, user.id, dto.reason);
   }

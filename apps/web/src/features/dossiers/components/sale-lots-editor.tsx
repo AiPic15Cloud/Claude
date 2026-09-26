@@ -1,13 +1,20 @@
 import { useState } from 'react';
-import { Check, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, Loader2, Pencil, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Button } from '@/components/ui/button';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateSaleLot, useUpdateSaleLot, useDeleteSaleLot } from '../hooks/use-sale-lots';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { cn } from '@/lib/utils';
 import { SALE_LOT_STATUSES, SALE_LOT_STATUS_LABELS, type SaleLot, type SaleLotStatus } from '@/types';
 
+// Même pattern liste + brouillon inline que cost-line-items-editor.tsx, gardé
+// séparé car ce fichier ajoute un <Select> de statut (avec sa propre carte de
+// couleurs) que l'autre n'a pas — vérifier là-bas si un correctif ici s'y
+// applique aussi.
 interface DraftLot {
   id: string | null;
   label: string;
@@ -67,8 +74,8 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
 
   const save = () => {
     if (!draft) return;
-    const surfaceSqm = Number(draft.surfaceSqm);
-    const salePrice = Number(draft.salePrice);
+    const surfaceSqm = parseLocaleNumber(draft.surfaceSqm);
+    const salePrice = parseLocaleNumber(draft.salePrice);
     if (!draft.label.trim() || !(surfaceSqm > 0) || !(salePrice > 0)) return;
     if (draft.id) {
       update.mutate({ lotId: draft.id, label: draft.label, surfaceSqm, salePrice }, { onSuccess: () => setDraft(null) });
@@ -87,17 +94,13 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
         draft?.id === lot.id ? (
           <div key={lot.id} className="flex flex-wrap items-center gap-1.5">
             <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Lot" className="min-w-[8rem] flex-1" />
-            <Input
-              type="number"
-              step="any"
+            <DecimalInput
               value={draft.surfaceSqm}
               onChange={(e) => setDraft({ ...draft, surfaceSqm: e.target.value })}
               placeholder="Surface m²"
               className="w-24"
             />
-            <Input
-              type="number"
-              step="any"
+            <DecimalInput
               value={draft.salePrice}
               onChange={(e) => setDraft({ ...draft, salePrice: e.target.value })}
               placeholder="Prix (€)"
@@ -119,12 +122,10 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
             </div>
             <div className="flex items-center gap-1">
               <span className="text-sm font-medium tabular-nums">{formatCurrency(lot.salePrice)}</span>
-              <Button size="icon" variant="ghost" onClick={() => startEdit(lot)}>
+              <Button size="icon" variant="ghost" aria-label="Modifier" title="Modifier" onClick={() => startEdit(lot)}>
                 <Pencil className="h-3 w-3 text-muted-foreground" />
               </Button>
-              <Button size="icon" variant="ghost" onClick={() => remove.mutate(lot.id)} disabled={remove.isPending}>
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </Button>
+              <ConfirmDeleteButton onConfirm={() => remove.mutate(lot.id)} pending={remove.isPending} label="Supprimer le lot" size="icon" />
             </div>
           </div>
         ),
@@ -132,17 +133,13 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
       {draft?.id === null && (
         <div className="flex flex-wrap items-center gap-1.5">
           <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Ex. Lot 1 — T2" className="min-w-[8rem] flex-1" autoFocus />
-          <Input
-            type="number"
-            step="any"
+          <DecimalInput
             value={draft.surfaceSqm}
             onChange={(e) => setDraft({ ...draft, surfaceSqm: e.target.value })}
             placeholder="Surface m²"
             className="w-24"
           />
-          <Input
-            type="number"
-            step="any"
+          <DecimalInput
             value={draft.salePrice}
             onChange={(e) => setDraft({ ...draft, salePrice: e.target.value })}
             placeholder="Prix (€)"

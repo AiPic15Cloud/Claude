@@ -96,7 +96,11 @@ export function useUpsertFinancialModel(caseId: string) {
   return useMutation({
     mutationFn: (payload: Partial<Omit<PrequalFinancialModel, 'costLineItems'>> & { costLineItems?: { category: string; label: string; amount: number }[] }) =>
       api.patch<PrequalFinancialModel>(`/prequalification/cases/${caseId}/financial`, payload),
-    onSuccess: () => invalidateCase(qc, caseId),
+    onSuccess: () => {
+      invalidateCase(qc, caseId);
+      qc.invalidateQueries({ queryKey: ['prequalification', 'cases', caseId, 'financial', 'bp-comparison'] });
+      qc.invalidateQueries({ queryKey: ['prequalification', 'cases', caseId, 'stress-tests'] });
+    },
   });
 }
 
@@ -174,11 +178,16 @@ export interface LotPayload {
   buyerFinancingStatus?: string;
 }
 
+function invalidateLotRelated(qc: ReturnType<typeof useQueryClient>, caseId: string) {
+  invalidateCase(qc, caseId);
+  qc.invalidateQueries({ queryKey: ['prequalification', 'cases', caseId, 'market-study'] });
+}
+
 export function useCreateLot(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: LotPayload) => api.post<PrequalSalesLot>(`/prequalification/cases/${caseId}/lots`, payload),
-    onSuccess: () => invalidateCase(qc, caseId),
+    onSuccess: () => invalidateLotRelated(qc, caseId),
   });
 }
 
@@ -186,7 +195,7 @@ export function useUpdateLot(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ lotId, ...payload }: LotPayload & { lotId: string }) => api.patch<PrequalSalesLot>(`/prequalification/cases/${caseId}/lots/${lotId}`, payload),
-    onSuccess: () => invalidateCase(qc, caseId),
+    onSuccess: () => invalidateLotRelated(qc, caseId),
   });
 }
 
@@ -194,7 +203,7 @@ export function useDeleteLot(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (lotId: string) => api.delete(`/prequalification/cases/${caseId}/lots/${lotId}`),
-    onSuccess: () => invalidateCase(qc, caseId),
+    onSuccess: () => invalidateLotRelated(qc, caseId),
   });
 }
 

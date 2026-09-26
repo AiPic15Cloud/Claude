@@ -49,22 +49,33 @@ export class DurationTargetAlertsService implements OnApplicationBootstrap {
       },
     });
 
-    let created = 0;
-    for (const deal of deals) {
-      try {
+    // Pré-calcule l'alerte de chaque deal en mémoire pour ne retenir que
+    // ceux réellement concernés avant de batcher les lectures d'existence —
+    // évite un findFirst par deal (N+1) sur les alertes ET les tâches.
+    const eligible = deals
+      .filter((deal) => {
         if (!deal.organizationId) {
           this.logger.warn(`Deal ${deal.id} sans organizationId — ignoré.`);
-          continue;
+          return false;
         }
+        return true;
+      })
+      .map((deal) => ({ deal, alert: computeDurationTargetAlert(deal.startDate, deal.durationMonths) }))
+      .filter(({ alert }) => alert.level !== 'RAS' && alert.stage);
 
-        const alert = computeDurationTargetAlert(deal.startDate, deal.durationMonths);
-        if (alert.level === 'RAS' || !alert.stage) continue;
+    const dealIds = eligible.map(({ deal }) => deal.id);
+    const [existingAlerts, existingTasks] = await Promise.all([
+      this.prisma.alert.findMany({ where: { dealId: { in: dealIds } }, select: { dealId: true, title: true } }),
+      this.prisma.task.findMany({ where: { dealId: { in: dealIds }, title: { startsWith: TASK_TITLE_PREFIX } }, select: { dealId: true, title: true } }),
+    ]);
+    const existingAlertKeys = new Set(existingAlerts.map((a) => `${a.dealId}::${a.title}`));
+    const existingTaskKeys = new Set(existingTasks.map((t) => `${t.dealId}::${t.title}`));
 
+    let created = 0;
+    for (const { deal, alert } of eligible) {
+      try {
         const alertTitle = `Durée cible ${alert.stage} — ${deal.reference}`;
-        const existingAlert = await this.prisma.alert.findFirst({
-          where: { organizationId: deal.organizationId, dealId: deal.id, title: alertTitle },
-        });
-        if (!existingAlert) {
+        if (!existingAlertKeys.has(`${deal.id}::${alertTitle}`)) {
           await this.alerts.create(deal.organizationId, {
             title: alertTitle,
             message: `${deal.name} — ${alert.actionLabel}`,
@@ -74,7 +85,7 @@ export class DurationTargetAlertsService implements OnApplicationBootstrap {
           created += 1;
         }
 
-        await this.upsertCheckInTask(deal, alert);
+        await this.upsertCheckInTask(deal, alert, existingTaskKeys);
       } catch (err) {
         this.logger.error(
           `Échec du traitement de la durée cible pour le deal ${deal.id}`,
@@ -88,16 +99,13 @@ export class DurationTargetAlertsService implements OnApplicationBootstrap {
   private async upsertCheckInTask(
     deal: { id: string; organizationId: string; name: string; reference: string; assignedToId: string | null; createdById: string },
     alert: DurationTargetAlert,
+    existingTaskKeys: Set<string>,
   ) {
     if (!alert.stage) return;
     const stageConfig = STAGE_TASK[alert.stage];
     const taskTitle = `${TASK_TITLE_PREFIX} — ${stageConfig.title} (${deal.reference})`;
 
-    const alreadyExists = await this.prisma.task.findFirst({
-      where: { dealId: deal.id, title: taskTitle },
-      select: { id: true },
-    });
-    if (alreadyExists) return;
+    if (existingTaskKeys.has(`${deal.id}::${taskTitle}`)) return;
 
     // Un stage plus avancé remplace toute tâche encore ouverte de l'autre stage.
     await this.prisma.task.updateMany({

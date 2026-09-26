@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -17,7 +17,7 @@ export interface StoredObject {
  * (AWS S3, MinIO, Scaleway, OVH…) when S3_* env vars are set.
  */
 @Injectable()
-export class StorageService {
+export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private readonly driver: 'local' | 's3';
   private readonly localPath: string;
@@ -39,10 +39,23 @@ export class StorageService {
           secretAccessKey: this.config.get<string>('storage.s3.secretAccessKey') ?? '',
         },
       });
-    } else {
-      fs.mkdir(this.localPath, { recursive: true }).catch((err) =>
-        this.logger.error(`Cannot create local upload dir: ${err.message}`),
-      );
+    }
+  }
+
+  // Constructors can't be async, so the local-disk directory check happens
+  // here instead. Awaiting (and rethrowing) it at boot means a permissions
+  // or path problem fails the app startup with a clear error, rather than
+  // being silently logged here and only surfacing later as an opaque ENOENT
+  // on the first upload's save() call.
+  async onModuleInit(): Promise<void> {
+    if (this.driver === 'local') {
+      try {
+        await fs.mkdir(this.localPath, { recursive: true });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(`Cannot create local upload dir: ${message}`);
+        throw err;
+      }
     }
   }
 

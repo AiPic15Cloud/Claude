@@ -5,12 +5,14 @@ import { z } from 'zod';
 import { ArrowRightCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useConvertPipelineEntry } from '../hooks/use-pipeline';
 import { DEAL_TYPE_LABELS, DEAL_TYPES, type DealType, type PipelineEntry } from '@/types';
 import { ApiError } from '@/lib/api';
+import { parseLocaleNumber } from '@/lib/locale-number';
 
 /** Best-effort guess from the pipeline's free-text typology — always left editable before confirming. */
 function guessDealType(typology?: string | null): DealType {
@@ -27,16 +29,25 @@ function guessDealType(typology?: string | null): DealType {
   return 'PROMOTION_IMMOBILIERE';
 }
 
+// Normalise "1 234,56" en valeur exploitable par z.coerce.number() — sinon un
+// <input type="number"> rejette silencieusement le "," sous une locale française
+// et un champ texte transmettrait "1234,56" tel quel, coercé en NaN.
+const normalizeDecimal = (v: unknown) => (typeof v === 'string' ? parseLocaleNumber(v) : v);
+
 // register()-bound number inputs pass the raw string through, and an empty
 // field coerces to 0 (not undefined) — which then fails .positive()/.int()
 // with no visible error, silently blocking submission. Preprocessing blank
-// strings to undefined first lets "left empty" actually mean "not set".
-const blankToUndefined = (v: unknown) => (v === '' ? undefined : v);
+// strings to undefined first lets "left empty" actually mean "not set". Also
+// normalises the locale comma before coercion, same reason as normalizeDecimal.
+const blankToUndefined = (v: unknown) => {
+  if (v === '') return undefined;
+  return typeof v === 'string' ? parseLocaleNumber(v) : v;
+};
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
   type: z.enum(DEAL_TYPES as [DealType, ...DealType[]]),
-  amountTarget: z.coerce.number().positive('Montant requis'),
+  amountTarget: z.preprocess(normalizeDecimal, z.coerce.number().positive('Montant requis')),
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   durationMonths: z.preprocess(blankToUndefined, z.coerce.number().int().positive().optional()),
   city: z.string().optional(),
@@ -111,14 +122,14 @@ export function ConvertPipelineEntryDialog({ entry }: { entry: PipelineEntry }) 
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="convert-amountTarget">Montant cible (€)</Label>
-              <Input id="convert-amountTarget" type="number" min={0} step={1000} {...register('amountTarget')} />
+              <DecimalInput id="convert-amountTarget" {...register('amountTarget')} />
               {errors.amountTarget && <p className="text-xs text-destructive">{errors.amountTarget.message}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="convert-feesRate">Fees (%)</Label>
-              <Input id="convert-feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              <DecimalInput id="convert-feesRate" {...register('feesRate')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="convert-durationMonths">Durée (mois)</Label>

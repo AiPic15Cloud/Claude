@@ -64,6 +64,16 @@ export class PipelineService {
    * without this, "Validé comité" never becomes anything measurable in the
    * portfolio. One-way and one-shot: once converted, the link is permanent
    * and re-conversion is rejected rather than silently creating duplicates.
+   *
+   * `DealsService.create()` isn't composable inside a `prisma.$transaction`
+   * (même limite que `PromotionService.promoteToPortfolio`), donc la garde
+   * initiale seule ne suffit pas contre deux requêtes concurrentes qui la
+   * franchissent toutes les deux avant que la première n'ait fini d'écrire.
+   * L'écriture finale de liaison est donc elle-même une CAS
+   * (`updateMany` sur `convertedDealId: null`) : la requête perdante détecte
+   * qu'elle a perdu la course, supprime le Deal qu'elle vient de créer en
+   * double plutôt que de le laisser orphelin, et échoue franchement au lieu
+   * d'écraser silencieusement le lien de la gagnante.
    */
   async convertToDeal(organizationId: string, userId: string, id: string, dto: CreateDealDto) {
     const entry = await this.prisma.pipelineEntry.findFirst({ where: { id, organizationId } });
@@ -71,12 +81,17 @@ export class PipelineService {
     if (entry.convertedDealId) throw new ConflictException('Ce dossier a déjà été converti en opération');
 
     const deal = await this.deals.create(organizationId, userId, dto);
-    const updatedEntry = await this.prisma.pipelineEntry.update({
-      where: { id },
-      data: { convertedDealId: deal.id },
-      include: PIPELINE_ENTRY_INCLUDE,
-    });
 
+    const claim = await this.prisma.pipelineEntry.updateMany({
+      where: { id, organizationId, convertedDealId: null },
+      data: { convertedDealId: deal.id },
+    });
+    if (claim.count === 0) {
+      await this.deals.remove(organizationId, deal.id);
+      throw new ConflictException('Ce dossier a déjà été converti en opération par une autre requête.');
+    }
+
+    const updatedEntry = await this.prisma.pipelineEntry.findUniqueOrThrow({ where: { id }, include: PIPELINE_ENTRY_INCLUDE });
     return { deal, pipelineEntry: updatedEntry };
   }
 

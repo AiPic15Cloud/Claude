@@ -5,7 +5,8 @@ export type MarginTier = 'vert' | 'jaune' | 'orange' | 'rouge';
  * la grille de couleur que les agents IA appliquent déjà en texte (🟢🟡🟠🔴).
  * Garder ces deux définitions synchronisées si les seuils changent.
  */
-export function marginTier(marginPct: number): MarginTier {
+export function marginTier(marginPct: number | null): MarginTier | null {
+  if (marginPct === null) return null;
   if (marginPct > 30) return 'vert';
   if (marginPct >= 20) return 'jaune';
   if (marginPct >= 10) return 'orange';

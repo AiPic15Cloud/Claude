@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2, Pencil, X } from 'lucide-react';
+import { Loader2, Plus, Pencil, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { useCreateLease, useUpdateLease, useDeleteLease, useFractionalLegalReview, useFractionalRentalReversion } from '../hooks/use-fractional';
 import { ProvenanceBadge } from './provenance-badge';
 import {
@@ -124,21 +127,21 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
     e.preventDefault();
     const payload = {
       tenantName: form.tenantName,
-      loyerFacialAnnuel: Number(form.loyerFacialAnnuel),
-      ervAnnuel: form.ervAnnuel ? Number(form.ervAnnuel) : undefined,
+      loyerFacialAnnuel: parseLocaleNumber(form.loyerFacialAnnuel),
+      ervAnnuel: form.ervAnnuel ? parseLocaleNumber(form.ervAnnuel) : undefined,
       dateEffet: form.dateEffet,
       dateTerme: form.dateTerme,
       statutRenouvellement: form.statutRenouvellement,
       sirenLocataire: form.sirenLocataire || undefined,
       procedureCollective: form.procedureCollective,
       garantieMaisonMere: form.garantieMaisonMere,
-      caLocataireAnnuel: form.caLocataireAnnuel ? Number(form.caLocataireAnnuel) : undefined,
-      ebitdaLocataireAnnuel: form.ebitdaLocataireAnnuel ? Number(form.ebitdaLocataireAnnuel) : undefined,
-      tresorerieLocataire: form.tresorerieLocataire ? Number(form.tresorerieLocataire) : undefined,
+      caLocataireAnnuel: form.caLocataireAnnuel ? parseLocaleNumber(form.caLocataireAnnuel) : undefined,
+      ebitdaLocataireAnnuel: form.ebitdaLocataireAnnuel ? parseLocaleNumber(form.ebitdaLocataireAnnuel) : undefined,
+      tresorerieLocataire: form.tresorerieLocataire ? parseLocaleNumber(form.tresorerieLocataire) : undefined,
       exerciceFinancierAsOf: form.exerciceFinancierAsOf || undefined,
       indexation: form.indexation,
-      indexationCapPct: form.indexationCapPct ? Number(form.indexationCapPct) : undefined,
-      indexationFloorPct: form.indexationFloorPct ? Number(form.indexationFloorPct) : undefined,
+      indexationCapPct: form.indexationCapPct ? parseLocaleNumber(form.indexationCapPct) : undefined,
+      indexationFloorPct: form.indexationFloorPct ? parseLocaleNumber(form.indexationFloorPct) : undefined,
     };
     if (editingLeaseId) {
       update.mutate({ leaseId: editingLeaseId, payload }, { onSuccess: () => cancelEditing() });
@@ -227,9 +230,7 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                           <Button variant="ghost" size="icon" onClick={() => startEditing(lease)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => del.mutate(lease.id)} disabled={del.isPending}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <ConfirmDeleteButton onConfirm={() => del.mutate(lease.id)} pending={del.isPending} label="Supprimer le bail" size="icon" />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -254,10 +255,8 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="loyerFacialAnnuel">Loyer facial annuel</Label>
-                <Input
+                <DecimalInput
                   id="loyerFacialAnnuel"
-                  type="number"
-                  min={0}
                   required
                   value={form.loyerFacialAnnuel}
                   onChange={(e) => setForm((p) => ({ ...p, loyerFacialAnnuel: e.target.value }))}
@@ -265,10 +264,8 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="ervAnnuel">ERV annuelle (valeur locative de marché)</Label>
-                <Input
+                <DecimalInput
                   id="ervAnnuel"
-                  type="number"
-                  min={0}
                   placeholder="Optionnel — alimente le Rental Reversion Engine"
                   value={form.ervAnnuel}
                   onChange={(e) => setForm((p) => ({ ...p, ervAnnuel: e.target.value }))}
@@ -318,11 +315,11 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="indexationFloorPct">Plancher indexation (%)</Label>
-                <Input id="indexationFloorPct" type="number" step="0.1" placeholder="ex. 0" value={form.indexationFloorPct} onChange={(e) => setForm((p) => ({ ...p, indexationFloorPct: e.target.value }))} />
+                <DecimalInput id="indexationFloorPct" placeholder="ex. 0" value={form.indexationFloorPct} onChange={(e) => setForm((p) => ({ ...p, indexationFloorPct: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="indexationCapPct">Plafond indexation (%)</Label>
-                <Input id="indexationCapPct" type="number" step="0.1" placeholder="ex. 3" value={form.indexationCapPct} onChange={(e) => setForm((p) => ({ ...p, indexationCapPct: e.target.value }))} />
+                <DecimalInput id="indexationCapPct" placeholder="ex. 3" value={form.indexationCapPct} onChange={(e) => setForm((p) => ({ ...p, indexationCapPct: e.target.value }))} />
               </div>
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
@@ -340,15 +337,15 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="caLocataireAnnuel">CA annuel</Label>
-                  <Input id="caLocataireAnnuel" type="number" min={0} value={form.caLocataireAnnuel} onChange={(e) => setForm((p) => ({ ...p, caLocataireAnnuel: e.target.value }))} />
+                  <DecimalInput id="caLocataireAnnuel" value={form.caLocataireAnnuel} onChange={(e) => setForm((p) => ({ ...p, caLocataireAnnuel: e.target.value }))} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="ebitdaLocataireAnnuel">EBITDA annuel</Label>
-                  <Input id="ebitdaLocataireAnnuel" type="number" value={form.ebitdaLocataireAnnuel} onChange={(e) => setForm((p) => ({ ...p, ebitdaLocataireAnnuel: e.target.value }))} />
+                  <DecimalInput id="ebitdaLocataireAnnuel" value={form.ebitdaLocataireAnnuel} onChange={(e) => setForm((p) => ({ ...p, ebitdaLocataireAnnuel: e.target.value }))} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="tresorerieLocataire">Trésorerie</Label>
-                  <Input id="tresorerieLocataire" type="number" min={0} value={form.tresorerieLocataire} onChange={(e) => setForm((p) => ({ ...p, tresorerieLocataire: e.target.value }))} />
+                  <DecimalInput id="tresorerieLocataire" value={form.tresorerieLocataire} onChange={(e) => setForm((p) => ({ ...p, tresorerieLocataire: e.target.value }))} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="exerciceFinancierAsOf">Clôture de l'exercice</Label>

@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { GraphService } from './graph.service';
 import { LinkDealEntityDto } from './dto/link-deal-entity.dto';
@@ -17,11 +19,15 @@ export class DealEntitiesController {
     return this.graphService.listDealLinks(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   link(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Body() dto: LinkDealEntityDto) {
     return this.graphService.linkDeal(user.organizationId, dealId, dto.entityId, dto.role);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':linkId')
   unlink(

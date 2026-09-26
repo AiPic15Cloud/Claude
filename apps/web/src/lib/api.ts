@@ -17,6 +17,21 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   skipAuth?: boolean;
 }
 
+// Same error-body parsing as request()'s failure branch below, reused by
+// getBlob/postBlob so a JSON error body (blob endpoints can still fail before
+// ever producing a blob) surfaces its message instead of just the generic
+// HTTP status text.
+async function toApiError(response: Response): Promise<ApiError> {
+  let message = response.statusText;
+  try {
+    const data = await response.json();
+    message = data.message ?? message;
+  } catch {
+    // response has no JSON body
+  }
+  return new ApiError(response.status, Array.isArray(message) ? message.join(', ') : message);
+}
+
 let refreshPromise: Promise<string | null> | null = null;
 
 export async function refreshAccessToken(): Promise<string | null> {
@@ -113,7 +128,32 @@ async function getBlob(path: string): Promise<Blob> {
     const newToken = await refreshAccessToken();
     if (newToken) response = await doFetch(newToken);
   }
-  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  if (!response.ok) throw await toApiError(response);
+  return response.blob();
+}
+
+// Même besoin que getBlob (fichier binaire, auth par header impossible via un
+// simple <a href>) mais pour un export dont le contenu est envoyé par le
+// client plutôt que recalculé côté serveur (ex. Note d'investissement —
+// texte édité en local, jamais persisté).
+async function postBlob(path: string, body: unknown): Promise<Blob> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const doFetch = (token: string | null) =>
+    fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body ?? {}),
+    });
+
+  let response = await doFetch(accessToken);
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await doFetch(newToken);
+  }
+  if (!response.ok) throw await toApiError(response);
   return response.blob();
 }
 
@@ -179,6 +219,7 @@ async function postStream(path: string, body: unknown, onDelta: (delta: string) 
 export const api = {
   get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'GET' }),
   getBlob,
+  postBlob,
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>(path, { ...options, method: 'POST', body }),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>

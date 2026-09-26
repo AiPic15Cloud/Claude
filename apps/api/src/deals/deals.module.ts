@@ -20,6 +20,8 @@ import { FieldChangeModule } from '../field-changes/field-change.module';
 import { GraphModule } from '../graph/graph.module';
 import { EntityGraphModule } from '../entity-graph/entity-graph.module';
 import { PlaybooksModule } from '../playbooks/playbooks.module';
+import { GuaranteesModule } from '../guarantees/guarantees.module';
+import { PdfExportModule } from '../pdf-export/pdf-export.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { PlaybooksModule } from '../playbooks/playbooks.module';
     GraphModule,
     EntityGraphModule,
     PlaybooksModule,
+    GuaranteesModule,
+    PdfExportModule,
   ],
   providers: [
     DealsService,

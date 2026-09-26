@@ -65,6 +65,15 @@ export class NotificationProcessor extends WorkerHost {
         distinct: ['organizationId'],
       });
       for (const { organizationId } of linkedOrgIds) {
+        // Idempotence par organisation, pas seulement par eventId global —
+        // notifiedAt n'est marqué qu'une fois toute la boucle terminée
+        // (ci-dessous), donc un retry BullMQ après échec partiel (ex. la
+        // 3e organisation sur 5) doit pouvoir reprendre sans recréer les
+        // Alert déjà insérées pour les organisations précédentes.
+        const alreadyNotified = await this.prisma.alert.findFirst({
+          where: { organizationId, projectObservationEventId: event.id },
+        });
+        if (alreadyNotified) continue;
         await this.alerts.create(organizationId, {
           title: label,
           message: `${event.projectName} (${event.sourceKey})${suffix}`,

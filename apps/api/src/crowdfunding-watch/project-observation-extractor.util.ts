@@ -26,9 +26,34 @@ const MAX_PLAUSIBLE_RATE = 25;
 const MIN_PLAUSIBLE_DURATION_MONTHS = 1;
 const MAX_PLAUSIBLE_DURATION_MONTHS = 120;
 
-/** Points et espaces traités comme des séparateurs de milliers (convention européenne), une virgule éventuelle comme séparateur décimal — gère "1.500.000", "1 500 000" et "9,5" sans les confondre. */
+/**
+ * Points et espaces traités comme des séparateurs de milliers (convention
+ * européenne), une virgule éventuelle comme séparateur décimal — gère
+ * "1.500.000", "1 500 000" et "9,5" sans les confondre. Distingue aussi un
+ * point décimal isolé ("12345.67") d'un séparateur de milliers : sans cette
+ * distinction, tout point était supprimé, transformant "12345.67" en 1234567
+ * (~100x trop grand) tout en restant sous le plafond de plausibilité.
+ */
 function numberInRange(value: unknown, min: number, max: number): number | null {
-  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value.replace(/[\s.]/g, '').replace(',', '.').replace(/[^\d.]/g, '')) : NaN;
+  let n: number;
+  if (typeof value === 'number') {
+    n = value;
+  } else if (typeof value === 'string') {
+    const cleaned = value.trim().replace(/[^\d.,]/g, '');
+    let normalized: string;
+    if (cleaned.includes(',')) {
+      normalized = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      const dotCount = (cleaned.match(/\./g) ?? []).length;
+      const lastDot = cleaned.lastIndexOf('.');
+      const digitsAfterLastDot = lastDot >= 0 ? cleaned.length - lastDot - 1 : 0;
+      const isDecimalPoint = dotCount === 1 && digitsAfterLastDot > 0 && digitsAfterLastDot <= 2;
+      normalized = isDecimalPoint ? cleaned : cleaned.replace(/\./g, '');
+    }
+    n = Number(normalized);
+  } else {
+    n = NaN;
+  }
   return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
 

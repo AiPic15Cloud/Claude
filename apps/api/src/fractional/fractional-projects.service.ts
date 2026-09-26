@@ -91,6 +91,18 @@ function parseAssumptionValues(values: unknown): Partial<DefaultAssumptionValues
   return values as Partial<DefaultAssumptionValues & { capexByYear: Record<number, number> }>;
 }
 
+/**
+ * Convertit une année calendaire (ex. CAPEX/actuals `annee`) en offset
+ * 1-indexé relatif à `asOfDate`, tel qu'attendu par capexByYear/yearlyModel
+ * du Returns Engine (année 1 = l'année de asOfDate). Partagé par
+ * buildDealEconomicsContext, buildReturnsEngineInput et
+ * computePerformanceAttributionForProject, qui appliquaient jusqu'ici la
+ * même formule dupliquée trois fois.
+ */
+function yearOffsetFromAsOfDate(annee: number, asOfDate: Date): number {
+  return annee - asOfDate.getFullYear() + 1;
+}
+
 @Injectable()
 export class FractionalProjectsService {
   constructor(
@@ -122,6 +134,11 @@ export class FractionalProjectsService {
         _count: { select: { leases: true, capexItems: true, valuations: true } },
         createdBy: { select: { firstName: true, lastName: true } },
       },
+      // Plafond de sécurité — le consommateur front (use-fractional.ts,
+      // useFractionalProjects) affiche la liste complète sans pagination ;
+      // même pattern que GraphService.listEntities / getGraph pour éviter
+      // une réponse non bornée sans changer la forme de la réponse.
+      take: 1000,
     });
   }
 
@@ -456,7 +473,7 @@ export class FractionalProjectsService {
 
     const capexByYear: Record<number, number> = {};
     for (const item of project.capexItems) {
-      const offset = item.annee - asOfDate.getFullYear() + 1;
+      const offset = yearOffsetFromAsOfDate(item.annee, asOfDate);
       if (offset >= 1) capexByYear[offset] = (capexByYear[offset] ?? 0) + Number(item.montant);
     }
 
@@ -619,7 +636,7 @@ export class FractionalProjectsService {
 
     const capexByYear: Record<number, number> = {};
     for (const item of project.capexItems) {
-      const offset = item.annee - asOfDate.getFullYear() + 1;
+      const offset = yearOffsetFromAsOfDate(item.annee, asOfDate);
       if (offset >= 1) capexByYear[offset] = (capexByYear[offset] ?? 0) + Number(item.montant);
     }
 
@@ -697,9 +714,15 @@ export class FractionalProjectsService {
       ? (stressValues.exitValueOverride ?? exitValueBase)
       : exitValueBase * (1 - FALLBACK_STRESS_EXIT_VALUE_HAIRCUT_PCT / 100);
 
-    const stressResult = computeReturnsEngine({ ...baseInput, ...stressValues, exitValue: exitValueStress });
+    // Le scénario stressé (AssumptionSet BEAR/SEVERE ou haircut FALLBACK_STRESS_*)
+    // ne réécrit que rentGrowthPctPerYear/vacancyCreditLossPct/exitValue : sans
+    // remettre indexGrowthRates à {}, un bail indexé ILC/ILAT/IRL/ICC garderait
+    // le taux de marché "live" de baseInput (resolveLeaseGrowthPct le préfère
+    // au taux de repli — rent-indexation.util.ts) et échapperait au stress test,
+    // exactement comme RENT_DOWNSIDE le corrige déjà dans stress-testing.util.ts.
+    const stressResult = computeReturnsEngine({ ...baseInput, ...stressValues, exitValue: exitValueStress, indexGrowthRates: {} });
 
-    const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
+    const eligibility = computeEligibility(baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null, hurdlePct);
 
     let reverseSolver: {
       maxAcquisitionPrice: ReturnType<typeof solveMaxAcquisitionPrice>;
@@ -925,7 +948,7 @@ export class FractionalProjectsService {
     const project = await this.findOne(projectId, user);
     const { baseInput, hurdlePct, platformProfile, capexDataMissing } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
-    const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
+    const eligibility = computeEligibility(baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null, hurdlePct);
     const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
     const combinedSevere = stressScenarios.find((s) => s.scenario === 'COMBINED_SEVERE');
     const breakDownside = computeBreakEventScenario(baseInput, 'TENANT_BREAK_DOWNSIDE', hurdlePct);
@@ -994,11 +1017,10 @@ export class FractionalProjectsService {
     const project = await this.findOne(projectId, user);
     const { baseInput } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
-    const asOfYear = baseInput.asOfDate.getFullYear();
 
     return project.actuals.map((actual) => {
       const periodYear = Number(actual.period);
-      const offset = Number.isFinite(periodYear) ? periodYear - asOfYear + 1 : null;
+      const offset = Number.isFinite(periodYear) ? yearOffsetFromAsOfDate(periodYear, baseInput.asOfDate) : null;
       const bpYear = offset !== null ? baseResult.yearlyModel.find((y) => y.year === offset) : undefined;
       const capexBp = offset !== null ? (baseInput.capexByYear?.[offset] ?? 0) : 0;
 

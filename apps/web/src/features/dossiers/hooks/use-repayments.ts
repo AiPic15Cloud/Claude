@@ -23,6 +23,12 @@ export function useCreateRepayment(dealId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repayments', dealId] });
       queryClient.invalidateQueries({ queryKey: ['repayments-summary'] });
+      // Le CRD affiché sur la fiche dossier est calculé côté serveur
+      // directement à partir des remboursements réalisés (crd.util.ts) —
+      // sans cette invalidation, la carte "Capital restant dû" reste
+      // périmée jusqu'à ce que l'utilisateur quitte puis revienne sur la page.
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
     },
   });
 }
@@ -35,6 +41,8 @@ export function useUpdateRepayment(dealId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repayments', dealId] });
       queryClient.invalidateQueries({ queryKey: ['repayments-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
     },
   });
 }
@@ -46,6 +54,8 @@ export function useDeleteRepayment(dealId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repayments', dealId] });
       queryClient.invalidateQueries({ queryKey: ['repayments-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals'] });
     },
   });
 }

@@ -94,28 +94,37 @@ export class PromotionService {
     const nextVersion = prequalCase.version + 1;
     const snapshot = this.toJsonSnapshot(prequalCase);
 
-    await this.prisma.$transaction([
-      this.prisma.prequalificationVersion.create({
-        data: {
-          prequalificationCaseId: prequalCase.id,
-          versionNumber: nextVersion,
-          snapshot,
-          orientation: dto.orientation,
-          decisionComment: dto.decisionComment,
-          validatedById: userId,
-        },
-      }),
-      this.prisma.prequalificationCase.update({
-        where: { id: prequalCase.id },
-        data: {
-          version: nextVersion,
-          orientation: dto.orientation,
-          status: dto.orientation === 'WAIT' ? 'NEEDS_REVIEW' : 'ARCHIVED',
-          validatedAt: new Date(),
-          validatedById: userId,
-        },
-      }),
-    ]);
+    // CAS (même parade que promoteToPortfolio ci-dessous) : le contrôle de
+    // version au début de validateAndPromote lit un état qui peut être
+    // périmé par le temps qu'on arrive ici — deux requêtes concurrentes
+    // peuvent toutes deux le passer avant que l'une ou l'autre ne commite.
+    // Sans cette CAS, la seconde heurtait la contrainte unique
+    // (prequalificationCaseId, versionNumber) avec une erreur Prisma brute
+    // (500) au lieu d'un 409 propre.
+    const claim = await this.prisma.prequalificationCase.updateMany({
+      where: { id: prequalCase.id, version: prequalCase.version },
+      data: {
+        version: nextVersion,
+        orientation: dto.orientation,
+        status: dto.orientation === 'WAIT' ? 'NEEDS_REVIEW' : 'ARCHIVED',
+        validatedAt: new Date(),
+        validatedById: userId,
+      },
+    });
+    if (claim.count === 0) {
+      throw new ConflictException('Version périmée — le dossier a été modifié depuis votre dernière lecture. Rechargez avant de revalider.');
+    }
+
+    await this.prisma.prequalificationVersion.create({
+      data: {
+        prequalificationCaseId: prequalCase.id,
+        versionNumber: nextVersion,
+        snapshot,
+        orientation: dto.orientation,
+        decisionComment: dto.decisionComment,
+        validatedById: userId,
+      },
+    });
 
     return { prequalificationId: prequalCase.id, portfolioProjectId: null, stage: null, alreadyPromoted: false };
   }
@@ -187,7 +196,7 @@ export class PromotionService {
     if (dto.orientation === 'GO_SOUS_CONDITIONS') {
       for (const finding of unresolvedBlocking) {
         await this.prisma.portfolioMilestone.create({
-          data: { dealId: deal.id, label: finding.statement, description: finding.rationale, blocking: true, sourceFindingId: finding.id },
+          data: { dealId: deal.id, organizationId, label: finding.statement, description: finding.rationale, blocking: true, sourceFindingId: finding.id },
         });
       }
     }

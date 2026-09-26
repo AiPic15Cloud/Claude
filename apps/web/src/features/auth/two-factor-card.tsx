@@ -15,7 +15,11 @@ import { ApiError } from '@/lib/api';
 const codeSchema = z.object({ code: z.string().length(6, 'Code à 6 chiffres') });
 type CodeValues = z.infer<typeof codeSchema>;
 
-const passwordSchema = z.object({ password: z.string().min(1, 'Mot de passe requis') });
+// Le mot de passe seul ne suffit plus à désactiver le 2FA — un code TOTP ou
+// de secours encore valide est exigé en plus, pour prouver que l'appelant
+// contrôle toujours le second facteur (pas seulement le mot de passe,
+// exactement le scénario que le 2FA est censé couvrir).
+const passwordSchema = z.object({ password: z.string().min(1, 'Mot de passe requis'), code: z.string().min(1, 'Code requis') });
 type PasswordValues = z.infer<typeof passwordSchema>;
 
 export function TwoFactorCard() {
@@ -63,12 +67,15 @@ export function TwoFactorCard() {
   };
 
   const onPasswordSubmit = (values: PasswordValues) => {
-    disable.mutate(values.password, {
-      onSuccess: () => {
-        setDisableOpen(false);
-        resetPassword();
+    disable.mutate(
+      { password: values.password, code: values.code },
+      {
+        onSuccess: () => {
+          setDisableOpen(false);
+          resetPassword();
+        },
       },
-    });
+    );
   };
 
   const copyRecoveryCodes = () => {
@@ -205,6 +212,11 @@ export function TwoFactorCard() {
               <Label htmlFor="disable-password">Mot de passe</Label>
               <Input id="disable-password" type="password" {...registerPassword('password')} />
               {passwordErrors.password && <p className="text-xs text-destructive">{passwordErrors.password.message}</p>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="disable-code">Code de vérification (TOTP ou code de secours)</Label>
+              <Input id="disable-code" autoComplete="one-time-code" {...registerPassword('code')} />
+              {passwordErrors.code && <p className="text-xs text-destructive">{passwordErrors.code.message}</p>}
             </div>
             {disable.isError && (
               <p className="text-xs text-destructive">

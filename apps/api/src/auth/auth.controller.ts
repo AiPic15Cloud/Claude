@@ -40,11 +40,13 @@ export class AuthController {
     return this.authService.verifyTwoFactor(dto.challengeToken, dto.code);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('refresh')
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('logout')
   logout(@Body() dto: RefreshDto) {
     return this.authService.logout(dto.refreshToken);

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Priority, TaskType } from '@prisma/client';
-import { IsBooleanString, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBooleanString, IsDateString, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class QueryTasksDto {
   @ApiProperty({ required: false })
@@ -15,7 +16,7 @@ export class QueryTasksDto {
 
   @ApiProperty({ required: false, description: 'ISO date — tasks due on or before this date' })
   @IsOptional()
-  @IsString()
+  @IsDateString()
   dueBefore?: string;
 
   @ApiProperty({ required: false, description: 'mine | all', default: 'mine' })
@@ -27,4 +28,19 @@ export class QueryTasksDto {
   @IsOptional()
   @IsEnum(TaskType)
   typeTache?: TaskType;
+
+  @ApiProperty({ required: false, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiProperty({ required: false, default: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  pageSize?: number = 200;
 }

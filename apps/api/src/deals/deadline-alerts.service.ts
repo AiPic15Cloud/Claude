@@ -65,32 +65,46 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
       },
     });
 
+    // Pré-calcule l'alerte de chaque deal en mémoire (pure, pas d'accès DB)
+    // pour ne retenir que ceux réellement concernés avant de batcher les
+    // lectures d'existence ci-dessous — évite un findFirst par deal (N+1)
+    // sur les alertes ET sur les tâches d'escalade.
+    const eligible = deals
+      .filter((deal) => {
+        if (!deal.organizationId) {
+          this.logger.warn(`Deal ${deal.id} sans organizationId — ignoré.`);
+          return false;
+        }
+        return true;
+      })
+      .map((deal) => ({ deal, alert: computeDeadlineAlert(deal.dateMax) }))
+      .filter(({ alert }) => alert.level !== 'RAS' && alert.stage);
+
+    const dealIds = eligible.map(({ deal }) => deal.id);
+    const [existingAlerts, existingTasks] = await Promise.all([
+      this.prisma.alert.findMany({ where: { dealId: { in: dealIds } }, select: { dealId: true, title: true } }),
+      this.prisma.task.findMany({ where: { dealId: { in: dealIds }, title: { startsWith: TASK_TITLE_PREFIX } }, select: { dealId: true, title: true } }),
+    ]);
+    const existingAlertKeys = new Set(existingAlerts.map((a) => `${a.dealId}::${a.title}`));
+    const existingTaskKeys = new Set(existingTasks.map((t) => `${t.dealId}::${t.title}`));
+
+    const orgsNeedingAdmin = new Set(
+      eligible.filter(({ alert }) => STAGE_TASK[alert.stage!].escalateToAdmin).map(({ deal }) => deal.organizationId),
+    );
+    const admins = orgsNeedingAdmin.size
+      ? await this.prisma.user.findMany({ where: { organizationId: { in: [...orgsNeedingAdmin] }, role: 'ADMIN' }, select: { id: true, organizationId: true } })
+      : [];
+    const adminByOrg = new Map<string, string>();
+    for (const admin of admins) if (!adminByOrg.has(admin.organizationId)) adminByOrg.set(admin.organizationId, admin.id);
+
     let created = 0;
-    for (const deal of deals) {
+    for (const { deal, alert } of eligible) {
       // Isolate failures per-deal: one bad/edge-case record should never be
       // able to take down the whole check (or the whole server, since this
       // runs from onApplicationBootstrap via an un-awaited promise).
       try {
-        // Runtime guard (not just a type-level filter): organizationId is
-        // required in the Prisma schema, so `{ not: null }` in the `where`
-        // above isn't even valid TypeScript for this field. But a legacy/
-        // orphaned row could still have organizationId null at the DB level
-        // regardless of what the schema declares — skip it defensively
-        // instead of letting tasks.create() reject it with an unhandled
-        // Prisma P2011, which used to crash the whole process on boot.
-        if (!deal.organizationId) {
-          this.logger.warn(`Deal ${deal.id} sans organizationId — ignoré.`);
-          continue;
-        }
-
-        const alert = computeDeadlineAlert(deal.dateMax);
-        if (alert.level === 'RAS' || !alert.stage) continue;
-
         const alertTitle = `Échéance ${alert.stage} — ${deal.reference}`;
-        const existingAlert = await this.prisma.alert.findFirst({
-          where: { organizationId: deal.organizationId, dealId: deal.id, title: alertTitle },
-        });
-        if (!existingAlert) {
+        if (!existingAlertKeys.has(`${deal.id}::${alertTitle}`)) {
           await this.alerts.create(deal.organizationId, {
             title: alertTitle,
             message: `${deal.name} — ${alert.actionLabel}`,
@@ -100,7 +114,7 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
           created += 1;
         }
 
-        await this.upsertEscalationTask(deal, alert);
+        await this.upsertEscalationTask(deal, alert, existingTaskKeys, adminByOrg);
       } catch (err) {
         this.logger.error(
           `Échec du traitement de l'échéance pour le deal ${deal.id}`,
@@ -114,6 +128,8 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
   private async upsertEscalationTask(
     deal: { id: string; organizationId: string; name: string; reference: string; assignedToId: string | null; createdById: string },
     alert: DeadlineAlert,
+    existingTaskKeys: Set<string>,
+    adminByOrg: Map<string, string>,
   ) {
     if (!alert.stage) return;
     const stageConfig = STAGE_TASK[alert.stage];
@@ -125,11 +141,7 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
     // still puts it in the same stage. A previous version only excluded
     // *open* tasks here, so completing (or deleting) the current stage's task
     // made it reappear, unchecked, the next time checkAll() ran.
-    const alreadyExists = await this.prisma.task.findFirst({
-      where: { dealId: deal.id, title: taskTitle },
-      select: { id: true },
-    });
-    if (alreadyExists) return; // this exact stage's task was already created for this deal — nothing to do
+    if (existingTaskKeys.has(`${deal.id}::${taskTitle}`)) return; // this exact stage's task was already created for this deal — nothing to do
 
     // A later stage supersedes any earlier still-open escalation task for
     // this deal — closing it avoids a pile-up of stale reminders.
@@ -140,11 +152,8 @@ export class DeadlineAlertsService implements OnApplicationBootstrap {
 
     let assigneeId = deal.assignedToId ?? deal.createdById;
     if (stageConfig.escalateToAdmin) {
-      const admin = await this.prisma.user.findFirst({
-        where: { organizationId: deal.organizationId, role: 'ADMIN' },
-        select: { id: true },
-      });
-      if (admin) assigneeId = admin.id;
+      const admin = adminByOrg.get(deal.organizationId);
+      if (admin) assigneeId = admin;
     }
 
     await this.tasks.create(deal.organizationId, assigneeId, {

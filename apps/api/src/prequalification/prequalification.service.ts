@@ -137,7 +137,7 @@ export class PrequalificationService {
   }
 
   async list(organizationId: string, filters: { status?: string; assignedAnalystId?: string }) {
-    return this.prisma.prequalificationCase.findMany({
+    const cases = await this.prisma.prequalificationCase.findMany({
       where: {
         organizationId,
         status: filters.status as never,
@@ -146,9 +146,27 @@ export class PrequalificationService {
       orderBy: { updatedAt: 'desc' },
       include: {
         assignedAnalyst: { select: { id: true, firstName: true, lastName: true } },
+        project: { select: { city: true } },
         _count: { select: { findings: true, documents: true } },
       },
     });
+    if (cases.length === 0) return cases;
+
+    // Même seuil que PromotionService : un Finding BLOCKING non résolu (PENDING/
+    // ACCEPTED) est ce qui empêche une orientation GO — le signaler sur la carte
+    // évite d'ouvrir chaque dossier pour le savoir. groupBy en une requête plutôt
+    // qu'un count() par dossier (même doctrine anti-N+1 que les jobs d'alertes).
+    const blocking = await this.prisma.finding.groupBy({
+      by: ['prequalificationCaseId'],
+      where: {
+        prequalificationCaseId: { in: cases.map((c) => c.id) },
+        severity: 'BLOCKING',
+        reviewStatus: { in: ['PENDING', 'ACCEPTED'] },
+      },
+      _count: { _all: true },
+    });
+    const blockingByCase = new Map(blocking.map((b) => [b.prequalificationCaseId, b._count._all]));
+    return cases.map((c) => ({ ...c, blockingFindingsCount: blockingByCase.get(c.id) ?? 0 }));
   }
 
   async getById(organizationId: string, caseId: string) {

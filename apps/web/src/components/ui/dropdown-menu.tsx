@@ -29,8 +29,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
 ));
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
 
-// Same "Liquid Glass" surface as button.tsx: blurred translucent panel,
-// hairline border, sheen layered behind content via before:-z-10.
+// Panneau plat : filet + fond plein, sans flou ni dégradé (voir button.tsx).
 const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
@@ -38,7 +37,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'relative z-[1100] min-w-32 overflow-hidden rounded-2xl border border-white/30 bg-popover/80 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-b before:from-white/25 before:to-transparent before:opacity-70 before:content-[""] animate-in fade-in-0 zoom-in-95 dark:border-white/10 dark:before:from-white/5',
+      'relative z-[1100] min-w-32 overflow-hidden rounded-md border border-border bg-popover p-1.5 text-popover-foreground animate-in fade-in-0 zoom-in-95',
       className,
     )}
     {...props}
@@ -55,7 +54,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'relative z-[1100] min-w-40 overflow-hidden rounded-2xl border border-white/30 bg-popover/80 p-1.5 text-popover-foreground shadow-xl backdrop-blur-xl before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-gradient-to-b before:from-white/25 before:to-transparent before:opacity-70 before:content-[""] animate-in fade-in-0 zoom-in-95 dark:border-white/10 dark:before:from-white/5',
+        'relative z-[1100] min-w-40 overflow-hidden rounded-md border border-border bg-popover p-1.5 text-popover-foreground animate-in fade-in-0 zoom-in-95',
         className,
       )}
       {...props}

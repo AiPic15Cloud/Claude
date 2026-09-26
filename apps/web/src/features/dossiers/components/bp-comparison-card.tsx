@@ -4,11 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLockBaseline } from '../hooks/use-financial-model';
+import { formatCurrencyExact as formatEuro } from '@/lib/format';
 import type { BpComparison, BpComparisonLine } from '@/types';
-
-function formatEuro(value: number): string {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
-}
 
 function DeltaBadge({ line }: { line: BpComparisonLine }) {
   if (line.deltaAbs === 0) {

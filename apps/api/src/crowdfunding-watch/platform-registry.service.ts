@@ -126,7 +126,7 @@ export class PlatformRegistryService {
         await this.detectionQueue.add(
           'sync-platform',
           { sourceKey: desiredEntry.sourceKey },
-          { jobId: job.id, repeat: { every: desiredEntry.everyMs }, removeOnComplete: true, removeOnFail: 100 },
+          { jobId: job.id, repeat: { every: desiredEntry.everyMs }, removeOnComplete: true, removeOnFail: 100, attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
         );
         continue;
       }
@@ -135,14 +135,14 @@ export class PlatformRegistryService {
 
     // Ce qui reste dans `desired` n'a encore aucun job répétable — nouvelles plateformes.
     for (const [jobId, { everyMs, sourceKey }] of desired) {
-      await this.detectionQueue.add('sync-platform', { sourceKey }, { jobId, repeat: { every: everyMs }, removeOnComplete: true, removeOnFail: 100 });
+      await this.detectionQueue.add('sync-platform', { sourceKey }, { jobId, repeat: { every: everyMs }, removeOnComplete: true, removeOnFail: 100, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     }
   }
 
   /** Enregistre les jobs répétables internes du worker (idempotent — un ajout avec le même jobId et le même intervalle est un no-op côté BullMQ). */
   async ensureInternalJobs(): Promise<void> {
-    await this.detectionQueue.add('reconcile-registry', {}, { jobId: RECONCILE_JOB_ID, repeat: { every: SWEEP_INTERVAL_MS }, removeOnComplete: true, removeOnFail: 20 });
-    await this.detectionQueue.add('sweep-pending', {}, { jobId: SWEEP_JOB_ID, repeat: { every: SWEEP_INTERVAL_MS }, removeOnComplete: true, removeOnFail: 20 });
+    await this.detectionQueue.add('reconcile-registry', {}, { jobId: RECONCILE_JOB_ID, repeat: { every: SWEEP_INTERVAL_MS }, removeOnComplete: true, removeOnFail: 20, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
+    await this.detectionQueue.add('sweep-pending', {}, { jobId: SWEEP_JOB_ID, repeat: { every: SWEEP_INTERVAL_MS }, removeOnComplete: true, removeOnFail: 20, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     await this.reconcileSchedules();
     this.logger.log('Jobs internes du worker de veille crowdfunding enregistrés (reconciliation + sweep, 60s).');
   }

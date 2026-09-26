@@ -323,6 +323,58 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   completedAt?: string | null;
+  estimatedHours?: number | null;
+  milestoneId?: string | null;
+}
+
+export type MilestoneStatus = 'PENDING' | 'IN_PROGRESS' | 'AT_RISK' | 'BLOCKED' | 'DONE' | 'WAIVED';
+
+export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
+  PENDING: 'À faire',
+  IN_PROGRESS: 'En cours',
+  AT_RISK: 'À risque',
+  BLOCKED: 'Bloqué',
+  DONE: 'Fait',
+  WAIVED: 'Levé sans action',
+};
+
+export interface PortfolioMilestone {
+  id: string;
+  dealId: string;
+  organizationId: string;
+  label: string;
+  description?: string | null;
+  targetDate?: string | null;
+  status: MilestoneStatus;
+  blocking: boolean;
+  order: number;
+  sourceFindingId?: string | null;
+  createdById?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tasks: { id: string; title: string; done: boolean }[];
+}
+
+/** Avancement composite du dossier (jalons + tâches) — voir project-milestones/progress.util.ts côté API. */
+export interface ProjectProgress {
+  progressPct: number | null;
+  milestonesTotal: number;
+  milestonesDone: number;
+  blockingOpenCount: number;
+  tasksTotal: number;
+  tasksDone: number;
+}
+
+/** Une ligne par analyste ayant au moins une tâche ouverte (GET /workload), triée par openCount décroissant côté API. */
+export interface WorkloadEntry {
+  assigneeId: string;
+  assigneeName: string;
+  openCount: number;
+  overdueCount: number;
+  estimatedHoursTotal: number;
+  unestimatedCount: number;
+  byPriority: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT', number>;
 }
 
 export interface DocumentFile {
@@ -880,7 +932,7 @@ export interface FinancialScenario {
   revenue: number;
   totalCost: number;
   margin: number;
-  marginPct: number;
+  marginPct: number | null;
 }
 
 export interface FinancialSynthesis {
@@ -919,7 +971,7 @@ export interface FinancialSynthesis {
     avgPricePerSqm: number | null;
   } | null;
   marge: number;
-  margePct: number;
+  margePct: number | null;
   expositionFinale: number;
   ratios: {
     lta: number | null;
@@ -1038,7 +1090,7 @@ export interface ScenarioResult {
   prixDeVente: number;
   coutDeRevient: number;
   marge: number;
-  margePct: number;
+  margePct: number | null;
   pointMortTotal: number;
   pointMortPerSqm: number | null;
   multipleCapital: number | null;
@@ -1964,11 +2016,12 @@ export interface FractionalReturnsResult {
   };
 }
 
-export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE';
+export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE' | 'NOT_EVALUABLE';
 export const ELIGIBILITY_VERDICT_LABELS: Record<EligibilityVerdict, string> = {
   ELIGIBLE: 'Éligible',
   MARGINAL: 'Marginal',
   INELIGIBLE: 'Non éligible',
+  NOT_EVALUABLE: 'Non évaluable (collecte non renseignée)',
 };
 
 export interface ReverseSolverResult {
@@ -1997,7 +2050,7 @@ export interface FractionalSynthese {
   base: FractionalReturnsResult;
   stressed: FractionalReturnsResult;
   stressedIsFallback: boolean;
-  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number; gapPct: number };
+  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number | null; gapPct: number | null };
   reverseSolver: {
     maxAcquisitionPrice: ReverseSolverResult;
     minSecuredRent: ReverseSolverResult;
@@ -2189,7 +2242,7 @@ export interface StressScenarioResult {
   exitValue: number;
   maxLoss: number;
   yearsUnderHurdle: number;
-  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number; gapPct: number };
+  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number | null; gapPct: number | null };
 }
 
 export type ICDecisionStatus = 'APPROVE' | 'APPROVE_SUBJECT_TO_CONDITIONS' | 'RESTRUCTURE' | 'HOLD' | 'DECLINE';
@@ -3364,6 +3417,10 @@ export interface PrequalificationCase {
   /** Numéro de la PrequalificationVersion figée au moment de la promotion (spec §17) — permet de retrouver la décision d'origine exacte pour la comparer à la réalité du Deal (P2, suivi post-promotion). */
   promotedVersionNumber?: number | null;
   _count?: { findings: number; documents: number };
+  /** Uniquement dans la liste (PrequalificationService.list) — findings BLOCKING non résolus (PENDING/ACCEPTED). */
+  blockingFindingsCount?: number;
+  /** Idem, projet lié — absent tant qu'aucune fiche projet n'a été renseignée. */
+  project?: { city?: string | null } | null;
 }
 
 export interface PrequalificationCaseDetail extends PrequalificationCase {

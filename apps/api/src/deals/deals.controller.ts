@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -9,6 +10,10 @@ import { RiskDataService } from '../risk-data/risk-data.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
 import { MarketPriceService } from './market-price/market-price.service';
 import { ContagionService } from '../entity-graph/contagion.service';
+import { GuaranteesService } from '../guarantees/guarantees.service';
+import { PdfRenderService } from '../pdf-export/pdf-render.service';
+import { buildDealPdfHtml } from './deal-pdf.util';
+import { buildInvestmentNoteHtml } from './investment-note-pdf.util';
 import { MarketPriceQueryDto } from './dto/market-price-query.dto';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
@@ -17,6 +22,7 @@ import { ChangeStageDto } from './dto/change-stage.dto';
 import { SetTagsDto } from './dto/set-tags.dto';
 import { ExtendDeadlineDto } from './dto/extend-deadline.dto';
 import { MarkPerteDefinitiveDto } from './dto/mark-perte-definitive.dto';
+import { InvestmentNoteSectionsDto } from './dto/investment-note-sections.dto';
 
 @ApiTags('deals')
 @ApiBearerAuth()
@@ -29,6 +35,8 @@ export class DealsController {
     private readonly companyMonitoring: CompanyMonitoringService,
     private readonly marketPrice: MarketPriceService,
     private readonly contagion: ContagionService,
+    private readonly guarantees: GuaranteesService,
+    private readonly pdfRender: PdfRenderService,
   ) {}
 
   @Get()
@@ -68,7 +76,7 @@ export class DealsController {
       throw new NotFoundException("Ce dossier n'a pas de coordonnées géographiques — impossible de vérifier les risques.");
     }
     const profile = await this.riskData.getRiskProfile(Number(deal.lat), Number(deal.lng));
-    await this.dealsService.touchDataCheck(id, 'riskDataCheckedAt');
+    await this.dealsService.touchDataCheck(user.organizationId, id, 'riskDataCheckedAt');
     return profile;
   }
 
@@ -79,10 +87,12 @@ export class DealsController {
       throw new NotFoundException("Ce dossier n'a pas de code postal — impossible de rechercher un DPE.");
     }
     const dpe = await this.riskData.getDpe(deal.address, deal.postcode);
-    await this.dealsService.touchDataCheck(id, 'dpeCheckedAt');
+    await this.dealsService.touchDataCheck(user.organizationId, id, 'dpeCheckedAt');
     return dpe;
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':id/check-company')
   checkCompany(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.companyMonitoring.checkOne(user.organizationId, id);
@@ -116,6 +126,8 @@ export class DealsController {
     return this.dealsService.setTags(user.organizationId, id, user.id, dto.tagIds);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id/newsletter')
   pingNewsletter(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.pingNewsletter(user.organizationId, id, user.id);
@@ -154,6 +166,46 @@ export class DealsController {
   @Get(':id/export')
   exportReport(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.exportDealReport(user.organizationId, id);
+  }
+
+  /**
+   * Fiche dossier en PDF, générée côté serveur (même pattern que l'export
+   * pré-comité de Préqual — window.print() ne fonctionne quasiment pas sur
+   * Chrome Android).
+   */
+  @Get(':id/export-pdf')
+  async exportPdf(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Res() res: Response) {
+    const [deal, guarantees] = await Promise.all([
+      this.dealsService.findOne(user.organizationId, id),
+      this.guarantees.list(user.organizationId, id),
+    ]);
+    const html = buildDealPdfHtml(deal, guarantees);
+    const pdf = await this.pdfRender.renderHtmlToPdf(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="dossier-${id}.pdf"`);
+    res.send(pdf);
+  }
+
+  /**
+   * Note d'investissement en PDF. Contrairement à `export-pdf` ci-dessus,
+   * cette route est en POST : le contenu des 6 sections n'est jamais
+   * persisté côté serveur (édité librement par l'analyste, cf.
+   * investment-note-sheet.tsx côté frontend) — on rend donc exactement le
+   * texte que le client envoie, jamais un recalcul depuis la base.
+   */
+  @Post(':id/investment-note-pdf')
+  async exportInvestmentNotePdf(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() sections: InvestmentNoteSectionsDto,
+    @Res() res: Response,
+  ) {
+    const deal = await this.dealsService.findOne(user.organizationId, id);
+    const html = buildInvestmentNoteHtml(deal, sections);
+    const pdf = await this.pdfRender.renderHtmlToPdf(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="note-investissement-${id}.pdf"`);
+    res.send(pdf);
   }
 
   @UseGuards(RolesGuard)

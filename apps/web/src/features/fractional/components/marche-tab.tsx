@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatDate } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import {
   useRentIndexSeries,
   useUpsertRentIndexSeries,
@@ -50,9 +53,9 @@ export function MarcheTab({ projectId }: { projectId: string }) {
       {
         indexType: indexForm.indexType,
         period: indexForm.period,
-        value: Number(indexForm.value),
-        cagr5y: indexForm.cagr5y ? Number(indexForm.cagr5y) : undefined,
-        cagr10y: indexForm.cagr10y ? Number(indexForm.cagr10y) : undefined,
+        value: parseLocaleNumber(indexForm.value),
+        cagr5y: indexForm.cagr5y ? parseLocaleNumber(indexForm.cagr5y) : undefined,
+        cagr10y: indexForm.cagr10y ? parseLocaleNumber(indexForm.cagr10y) : undefined,
         asOfDate: indexForm.asOfDate,
         source: indexForm.source || undefined,
       },
@@ -67,9 +70,9 @@ export function MarcheTab({ projectId }: { projectId: string }) {
         commune: comparableForm.commune,
         secteur: comparableForm.secteur || undefined,
         type: comparableForm.type,
-        valeurM2: comparableForm.valeurM2 ? Number(comparableForm.valeurM2) : undefined,
-        yieldPct: comparableForm.yieldPct ? Number(comparableForm.yieldPct) : undefined,
-        surfaceM2: comparableForm.surfaceM2 ? Number(comparableForm.surfaceM2) : undefined,
+        valeurM2: comparableForm.valeurM2 ? parseLocaleNumber(comparableForm.valeurM2) : undefined,
+        yieldPct: comparableForm.yieldPct ? parseLocaleNumber(comparableForm.yieldPct) : undefined,
+        surfaceM2: comparableForm.surfaceM2 ? parseLocaleNumber(comparableForm.surfaceM2) : undefined,
         asOfDate: comparableForm.asOfDate,
         source: comparableForm.source,
         notes: comparableForm.notes || undefined,
@@ -106,15 +109,13 @@ export function MarcheTab({ projectId }: { projectId: string }) {
                   <TableRow key={s.id}>
                     <TableCell>{RENT_INDEX_TYPE_LABELS[s.indexType]}</TableCell>
                     <TableCell>{s.period}</TableCell>
-                    <TableCell>{s.value}</TableCell>
+                    <TableCell>{s.value.toFixed(2)} pts</TableCell>
                     <TableCell>{s.cagr5y !== null ? `${s.cagr5y}%` : '—'}</TableCell>
                     <TableCell>{s.cagr10y !== null ? `${s.cagr10y}%` : '—'}</TableCell>
                     <TableCell>{formatDate(s.asOfDate)}</TableCell>
                     <TableCell>{s.source ?? '—'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => deleteSeries.mutate(s.id)} disabled={deleteSeries.isPending}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton onConfirm={() => deleteSeries.mutate(s.id)} pending={deleteSeries.isPending} label="Supprimer l'indice de loyer" size="icon" />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -143,15 +144,15 @@ export function MarcheTab({ projectId }: { projectId: string }) {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="indexValue">Valeur</Label>
-              <Input id="indexValue" type="number" step="0.0001" required className="w-28" value={indexForm.value} onChange={(e) => setIndexForm((p) => ({ ...p, value: e.target.value }))} />
+              <DecimalInput id="indexValue" required className="w-28" value={indexForm.value} onChange={(e) => setIndexForm((p) => ({ ...p, value: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="indexCagr5">CAGR 5 ans (%)</Label>
-              <Input id="indexCagr5" type="number" step="0.001" className="w-24" value={indexForm.cagr5y} onChange={(e) => setIndexForm((p) => ({ ...p, cagr5y: e.target.value }))} />
+              <DecimalInput id="indexCagr5" className="w-24" value={indexForm.cagr5y} onChange={(e) => setIndexForm((p) => ({ ...p, cagr5y: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="indexCagr10">CAGR 10 ans (%)</Label>
-              <Input id="indexCagr10" type="number" step="0.001" className="w-24" value={indexForm.cagr10y} onChange={(e) => setIndexForm((p) => ({ ...p, cagr10y: e.target.value }))} />
+              <DecimalInput id="indexCagr10" className="w-24" value={indexForm.cagr10y} onChange={(e) => setIndexForm((p) => ({ ...p, cagr10y: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="indexAsOfDate">Au</Label>
@@ -203,9 +204,7 @@ export function MarcheTab({ projectId }: { projectId: string }) {
                       <TableCell>{formatDate(c.asOfDate)}</TableCell>
                       <TableCell>{c.source}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => deleteComparable.mutate(c.id)} disabled={deleteComparable.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton onConfirm={() => deleteComparable.mutate(c.id)} pending={deleteComparable.isPending} label="Supprimer le comparable" size="icon" />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -239,15 +238,15 @@ export function MarcheTab({ projectId }: { projectId: string }) {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="compValeurM2">Valeur/m² (€)</Label>
-              <Input id="compValeurM2" type="number" step="0.01" className="w-28" value={comparableForm.valeurM2} onChange={(e) => setComparableForm((p) => ({ ...p, valeurM2: e.target.value }))} />
+              <DecimalInput id="compValeurM2" className="w-28" value={comparableForm.valeurM2} onChange={(e) => setComparableForm((p) => ({ ...p, valeurM2: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="compYield">Yield (%)</Label>
-              <Input id="compYield" type="number" step="0.01" className="w-24" value={comparableForm.yieldPct} onChange={(e) => setComparableForm((p) => ({ ...p, yieldPct: e.target.value }))} />
+              <DecimalInput id="compYield" className="w-24" value={comparableForm.yieldPct} onChange={(e) => setComparableForm((p) => ({ ...p, yieldPct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="compSurface">Surface (m²)</Label>
-              <Input id="compSurface" type="number" step="0.01" className="w-28" value={comparableForm.surfaceM2} onChange={(e) => setComparableForm((p) => ({ ...p, surfaceM2: e.target.value }))} />
+              <DecimalInput id="compSurface" className="w-28" value={comparableForm.surfaceM2} onChange={(e) => setComparableForm((p) => ({ ...p, surfaceM2: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="compAsOfDate">Au</Label>

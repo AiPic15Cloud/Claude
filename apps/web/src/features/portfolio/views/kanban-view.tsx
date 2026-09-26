@@ -1,4 +1,5 @@
-import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
+import { DndContext, type DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { DEAL_STAGES, DEAL_STAGE_LABELS, type Deal, type DealStage } from '@/types';
 import { DealCard } from '../components/deal-card';
 import { useChangeDealStage } from '../hooks/use-deals';
@@ -41,7 +42,10 @@ function KanbanColumn({ stage, deals, onSelectDeal }: { stage: DealStage; deals:
 
 export function KanbanView({ deals, onSelectDeal }: KanbanViewProps) {
   const changeStage = useChangeDealStage();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

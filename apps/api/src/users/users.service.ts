@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { Role } from '@prisma/client';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { sanitizeUser } from './sanitize-user.util';
 
 const SALT_ROUNDS = 12;
 
@@ -50,7 +51,7 @@ export class UsersService {
       where: { id: userId },
       data: { firstName: dto.firstName, lastName: dto.lastName },
     });
-    return this.sanitize(user);
+    return sanitizeUser(user);
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
@@ -62,10 +63,11 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
-  }
 
-  private sanitize(user: { passwordHash: string; twoFactorSecret?: string | null; twoFactorRecoveryCodes?: string[]; [key: string]: unknown }) {
-    const { passwordHash: _passwordHash, twoFactorSecret: _twoFactorSecret, twoFactorRecoveryCodes: _twoFactorRecoveryCodes, ...rest } = user;
-    return rest;
+    // Un refresh token volé avant ce changement resterait sinon valable
+    // indéfiniment (rotation à chaque refresh, jamais d'expiration liée au
+    // mot de passe) — changer le mot de passe doit déconnecter toute autre
+    // session, pas seulement bloquer les futures connexions par mot de passe.
+    await this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 }

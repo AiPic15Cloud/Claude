@@ -10,8 +10,19 @@ function requireSecret(name: string): string {
   return value;
 }
 
+// Same fail-closed behavior as requireSecret, but only enforced when
+// `condition` holds — used for the S3 storage vars below, which must be
+// real values when STORAGE_DRIVER=s3 but are irrelevant (and shouldn't block
+// boot) for any other driver.
+function requireSecretIf(condition: boolean, name: string): string {
+  if (!condition) return process.env[name] ?? '';
+  return requireSecret(name);
+}
+
 export default () => ({
-  port: parseInt(process.env.API_PORT ?? '3001', 10),
+  // Railway (and most PaaS hosts) inject PORT — it takes priority over the
+  // local-dev-oriented API_PORT variable.
+  port: parseInt(process.env.PORT ?? process.env.API_PORT ?? '3001', 10),
   corsOrigin: process.env.API_CORS_ORIGIN ?? 'http://localhost:5173',
   jwt: {
     accessSecret: requireSecret('JWT_ACCESS_SECRET'),
@@ -23,6 +34,14 @@ export default () => ({
     twoFactorSecret: requireSecret('JWT_2FA_SECRET'),
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '7d',
+  },
+  security: {
+    // AES-256-GCM key encrypting the TOTP secret at rest (TwoFactorService)
+    // — deliberately a separate secret from the JWT ones above: a JWT
+    // signing key and an encryption-at-rest key are different security
+    // properties, and rotating one should never force rotating the other.
+    // 32 raw bytes, base64-encoded (e.g. `openssl rand -base64 32`).
+    twoFactorEncryptionKey: requireSecret('TWO_FACTOR_ENCRYPTION_KEY'),
   },
   meilisearch: {
     host: process.env.MEILISEARCH_HOST ?? 'http://localhost:7700',
@@ -66,9 +85,13 @@ export default () => ({
     s3: {
       endpoint: process.env.S3_ENDPOINT ?? '',
       region: process.env.S3_REGION ?? 'eu-west-3',
-      bucket: process.env.S3_BUCKET ?? 'atlas-documents',
-      accessKeyId: process.env.S3_ACCESS_KEY_ID ?? '',
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
+      // Empty/default credentials or bucket let the app boot fine with
+      // STORAGE_DRIVER=s3 and only fail on the first real upload. Require
+      // real values up front — but only when s3 is actually the selected
+      // driver, so the local (default) driver never needs S3 vars at all.
+      bucket: requireSecretIf(process.env.STORAGE_DRIVER === 's3', 'S3_BUCKET'),
+      accessKeyId: requireSecretIf(process.env.STORAGE_DRIVER === 's3', 'S3_ACCESS_KEY_ID'),
+      secretAccessKey: requireSecretIf(process.env.STORAGE_DRIVER === 's3', 'S3_SECRET_ACCESS_KEY'),
       forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? 'true') === 'true',
     },
   },

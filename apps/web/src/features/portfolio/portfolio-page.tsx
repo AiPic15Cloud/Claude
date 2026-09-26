@@ -7,13 +7,12 @@ import { FiltersBar } from './components/filters-bar';
 import { ViewSwitcher, type PortfolioView } from './components/view-switcher';
 import { CreateDealDialog } from './components/create-deal-dialog';
 import { DealDrawer } from './components/deal-drawer';
-import { PortfolioReportSheet } from './components/portfolio-report-sheet';
 import { KanbanView } from './views/kanban-view';
 import { ListView } from './views/list-view';
 import { TableView } from './views/table-view';
 import { MapView } from './views/map-view';
 import { useDeals, useDealKpis, type DealsFilters } from './hooks/use-deals';
-import { useCockpitSummary, useExportPortfolioReport } from '@/features/cockpit/hooks/use-cockpit-summary';
+import { useExportPortfolioReport, useExportPortfolioReportPdf } from '@/features/cockpit/hooks/use-cockpit-summary';
 import { useCanValidate } from '@/features/auth/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
@@ -36,8 +35,8 @@ export function PortfolioPage() {
   const { data, isLoading } = useDeals(filters);
   const deals = data?.items ?? [];
   const { data: kpis } = useDealKpis();
-  const { data: cockpitSummary } = useCockpitSummary();
   const exportReport = useExportPortfolioReport();
+  const exportReportPdf = useExportPortfolioReportPdf();
   const canValidate = useCanValidate();
 
   const openDeal = (id: string) => setSearchParams((prev) => ({ ...Object.fromEntries(prev), dealId: id }));
@@ -77,8 +76,7 @@ export function PortfolioPage() {
   };
 
   return (
-    <>
-    <div className="flex flex-col gap-5 print:hidden">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Portefeuille"
         description="Toutes les opérations de votre organisation."
@@ -87,8 +85,8 @@ export function PortfolioPage() {
             <Button variant="outline" size="sm" onClick={handleExport} disabled={deals.length === 0}>
               <Download className="h-3.5 w-3.5" /> Exporter
             </Button>
-            <Button variant="outline" size="sm" onClick={() => window.print()} disabled={!kpis}>
-              <Printer className="h-3.5 w-3.5" /> Rapport PDF
+            <Button variant="outline" size="sm" disabled={!kpis || exportReportPdf.isPending} onClick={() => exportReportPdf.mutate()}>
+              {exportReportPdf.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />} Rapport PDF
             </Button>
             <Button
               variant="outline"
@@ -142,7 +140,5 @@ export function PortfolioPage() {
 
       <DealDrawer dealId={dealId} onClose={closeDeal} />
     </div>
-    {kpis && <PortfolioReportSheet kpis={kpis} overdueTasks={cockpitSummary?.overdueTasks ?? { total: 0, urgent: 0 }} />}
-    </>
   );
 }

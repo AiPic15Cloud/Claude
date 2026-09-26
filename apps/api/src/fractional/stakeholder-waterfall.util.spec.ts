@@ -124,6 +124,48 @@ describe('computeStakeholderWaterfall — réconciliation générale', () => {
     expect(manager.totalFeeIncome).toBe(10000);
   });
 
+  it('une année de propertyLevelCashFlow négatif (CAPEX > NOI, regression operating-model.util) ne paie ni frais ni distribution cette année-là, sans planter', () => {
+    // operating-model.util.ts ne plancherait plus ce champ à 0 (fix
+    // Math.max(0, ...) retiré) : une année de déficit doit donc pouvoir
+    // arriver ici négative. Le pool RUNNING/TRANSACTION est déjà clampé à 0
+    // via Math.min(Math.max(pool, 0), ...) et le pool des tiers via
+    // Math.max(pool, 0) — aucune distribution/frais négatif ne doit sortir,
+    // et l'année suivante, saine, doit fonctionner normalement.
+    const input: StakeholderWaterfallInput = {
+      asOfDate,
+      stakeholders: [
+        { id: 'investor', role: 'INVESTOR', name: 'Investisseur', capitalEngaged: 1000000 },
+        { id: 'manager', role: 'PROPERTY_MANAGER', name: 'Gestionnaire', capitalEngaged: null },
+      ],
+      feeDefinitions: [{ id: 'f1', stakeholderId: 'manager', feeType: 'RUNNING', ratePct: 1, fixedAmount: null, calculationBase: 'NOI', startYear: null, endYear: null, minAmount: null, maxAmount: null }],
+      tiers: [{ id: 't1', beneficiaryStakeholderId: 'investor', order: 1, type: 'RETURN_OF_CAPITAL', hurdleRatePct: null, catchUpPct: null, sharePct: null }],
+      years: [makeYear(1, -150000), makeYear(2, 200000)],
+      netSaleProceeds: 0,
+      plusValue: 0,
+    };
+
+    const result = computeStakeholderWaterfall(input);
+    const manager = result.stakeholders.find((s) => s.stakeholderId === 'manager')!;
+    const investor = result.stakeholders.find((s) => s.stakeholderId === 'investor')!;
+
+    // Aucun frais ni distribution négatifs pour l'année déficitaire — le
+    // frais RUNNING est bien clampé à 0 (une ligne à 0€ reste journalisée,
+    // le calcul de fee s'exécute pour chaque année quel que soit le pool),
+    // et le tier de retour de capital ne distribue rien du tout (runTiers
+    // s'arrête dès que pool <= 0, donc aucune ligne pour l'investisseur).
+    const managerYear1Fee = manager.receipts.find((r) => r.year === 1);
+    expect(managerYear1Fee?.amount).toBe(0);
+    expect(investor.receipts.find((r) => r.year === 1)).toBeUndefined();
+
+    // L'année 2, saine, fonctionne normalement (frais RUNNING sur NOI=300000, retour de capital du solde).
+    const managerYear2Fee = manager.receipts.find((r) => r.year === 2);
+    expect(managerYear2Fee?.amount).toBeCloseTo(3000, 2); // 1% x 300000
+    const investorYear2 = investor.receipts.find((r) => r.year === 2);
+    expect(investorYear2?.amount).toBeCloseTo(197000, 2); // 200000 - 3000 de frais
+
+    expect(result.reconciled).toBe(true);
+  });
+
   it('un stakeholder sans capital engagé n\'a pas de TRI (division par un capital nul non définie)', () => {
     const input: StakeholderWaterfallInput = {
       asOfDate,

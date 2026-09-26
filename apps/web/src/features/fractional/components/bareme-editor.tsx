@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -52,7 +55,7 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
   const handleAddBucket = (e: React.FormEvent) => {
     e.preventDefault();
     createBucket.mutate(
-      { criterionId: criterion.id, label: bucketForm.label, points: Number(bucketForm.points) || 0, isEliminatory: bucketForm.isEliminatory },
+      { criterionId: criterion.id, label: bucketForm.label, points: parseLocaleNumber(bucketForm.points) || 0, isEliminatory: bucketForm.isEliminatory },
       { onSuccess: () => setBucketForm({ label: '', points: '', isEliminatory: false }) },
     );
   };
@@ -61,9 +64,7 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
     <div className="flex flex-col gap-2 rounded-md border border-border/60 p-2.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{criterion.label}</span>
-        <Button variant="ghost" size="icon" onClick={() => deleteCriterion.mutate(criterion.id)} disabled={deleteCriterion.isPending}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <ConfirmDeleteButton onConfirm={() => deleteCriterion.mutate(criterion.id)} pending={deleteCriterion.isPending} label="Supprimer le critère" size="icon" />
       </div>
       {criterion.sourceField && <span className="text-[11px] text-muted-foreground">Champ indicatif : {criterion.sourceField}</span>}
       <div className="flex flex-col gap-1.5">
@@ -77,9 +78,7 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
                 </Badge>
               )}
             </span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteBucket.mutate(b.id)} disabled={deleteBucket.isPending}>
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            <ConfirmDeleteButton onConfirm={() => deleteBucket.mutate(b.id)} pending={deleteBucket.isPending} label="Supprimer la réponse" size="icon" />
           </div>
         ))}
       </div>
@@ -90,9 +89,8 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-[11px]">Points</Label>
-          <Input
+          <DecimalInput
             className="h-7 w-20 text-xs"
-            type="number"
             required
             value={bucketForm.points}
             onChange={(e) => setBucketForm((p) => ({ ...p, points: e.target.value }))}
@@ -134,9 +132,7 @@ function CategoryEditor({ category }: { category: FractionalScoreCategory }) {
         </button>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{category.maxPoints} pts max · {category.criteria.length} critère(s)</span>
-          <Button variant="ghost" size="icon" onClick={() => deleteCategory.mutate(category.id)} disabled={deleteCategory.isPending}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <ConfirmDeleteButton onConfirm={() => deleteCategory.mutate(category.id)} pending={deleteCategory.isPending} label="Supprimer la catégorie" size="icon" />
         </div>
       </div>
       {expanded && (
@@ -187,7 +183,7 @@ export function BaremeEditor() {
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
     createCategory.mutate(
-      { assetType: categoryForm.assetType || undefined, label: categoryForm.label, maxPoints: Number(categoryForm.maxPoints) || 0 },
+      { assetType: categoryForm.assetType || undefined, label: categoryForm.label, maxPoints: parseLocaleNumber(categoryForm.maxPoints) || 0 },
       { onSuccess: () => setCategoryForm(EMPTY_CATEGORY_FORM) },
     );
   };
@@ -201,7 +197,7 @@ export function BaremeEditor() {
         label: ruleForm.label,
         metricKey: ruleForm.metricKey,
         operator: ruleForm.operator,
-        threshold: Number(ruleForm.threshold) || 0,
+        threshold: parseLocaleNumber(ruleForm.threshold) || 0,
         failMessage: ruleForm.failMessage,
       },
       { onSuccess: () => setRuleForm(EMPTY_RULE_FORM) },
@@ -233,7 +229,7 @@ export function BaremeEditor() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Points max</Label>
-              <Input className="w-24" type="number" required value={categoryForm.maxPoints} onChange={(e) => setCategoryForm((p) => ({ ...p, maxPoints: e.target.value }))} />
+              <DecimalInput className="w-24" required value={categoryForm.maxPoints} onChange={(e) => setCategoryForm((p) => ({ ...p, maxPoints: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Typologie (optionnel)</Label>
@@ -264,9 +260,7 @@ export function BaremeEditor() {
                     {r.platformProfileId ? ` · ${profiles?.find((p) => p.id === r.platformProfileId)?.platformName ?? 'plateforme'}` : ''}
                   </span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => deleteRule.mutate(r.id)} disabled={deleteRule.isPending}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <ConfirmDeleteButton onConfirm={() => deleteRule.mutate(r.id)} pending={deleteRule.isPending} label="Supprimer la règle" size="icon" />
               </div>
             ))}
           </div>
@@ -308,7 +302,7 @@ export function BaremeEditor() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Seuil</Label>
-                <Input type="number" step="0.01" required value={ruleForm.threshold} onChange={(e) => setRuleForm((p) => ({ ...p, threshold: e.target.value }))} />
+                <DecimalInput required value={ruleForm.threshold} onChange={(e) => setRuleForm((p) => ({ ...p, threshold: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Typologie (optionnel)</Label>

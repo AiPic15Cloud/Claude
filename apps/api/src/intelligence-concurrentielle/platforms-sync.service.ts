@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SourceRegistryService } from '../source-registry/source-registry.service';
-import { BarometerConnector } from './connectors/barometer.connector';
+import { BarometerConnector, type CompetitorStats } from './connectors/barometer.connector';
 import { COMPETITOR_WATCHLIST } from './competitor-watchlist';
 
 const BAROMETER_SOURCE_KEY = 'barometer';
@@ -45,18 +45,32 @@ export class PlatformsSyncService {
     return run;
   }
 
-  async syncFromBarometer(organizationId: string) {
-    return this.withOrgLock(organizationId, () => this.syncFromBarometerLocked(organizationId));
+  /**
+   * `prefetchedStats` permet au cron horaire (checkBarometerFeed) de
+   * partager une seule collecte HTTP entre toutes les organisations — le
+   * baromètre publie une donnée identique pour tous les tenants (cf.
+   * commentaire sur checkBarometerFeed), donc refaire cet appel réseau une
+   * fois par organisation serait un aller-retour externe pur gaspillage.
+   * Omis (undefined), le comportement est inchangé : un appel manuel pour
+   * une seule organisation (bouton "Actualiser") continue de récupérer sa
+   * propre donnée fraîche.
+   */
+  async syncFromBarometer(organizationId: string, prefetchedStats?: CompetitorStats[]) {
+    return this.withOrgLock(organizationId, () => this.syncFromBarometerLocked(organizationId, prefetchedStats));
   }
 
-  private async syncFromBarometerLocked(organizationId: string) {
-    let stats;
-    try {
-      stats = await this.barometer.fetchCompetitorStats();
-    } catch (error) {
-      this.logger.error(`Échec de collecte du baromètre: ${(error as Error).message}`);
-      await this.sourceRegistry.recordOutcome(BAROMETER_SOURCE_KEY, { success: false });
-      return { synced: 0, source: 'barometre-crowdfunding.com', fetchedAt: new Date().toISOString(), degraded: true };
+  private async syncFromBarometerLocked(organizationId: string, prefetchedStats?: CompetitorStats[]) {
+    let stats: CompetitorStats[];
+    if (prefetchedStats) {
+      stats = prefetchedStats;
+    } else {
+      try {
+        stats = await this.barometer.fetchCompetitorStats();
+      } catch (error) {
+        this.logger.error(`Échec de collecte du baromètre: ${(error as Error).message}`);
+        await this.sourceRegistry.recordOutcome(BAROMETER_SOURCE_KEY, { success: false });
+        return { synced: 0, source: 'barometre-crowdfunding.com', fetchedAt: new Date().toISOString(), degraded: true };
+      }
     }
     if (stats.length === 0) {
       await this.sourceRegistry.recordOutcome(BAROMETER_SOURCE_KEY, { success: true, degraded: true });
@@ -221,11 +235,26 @@ export class PlatformsSyncService {
       this.logger.log(`Barometer RSS: nouvelle mise à jour détectée (${newest!.toISOString()}) — resynchronisation.`);
     }
 
-    const organizations = await this.prisma.organization.findMany({ select: { id: true } });
-    for (const org of organizations) {
-      await this.syncFromBarometer(org.id).catch((error) =>
-        this.logger.error(`Échec de resynchronisation baromètre (org ${org.id}): ${(error as Error).message}`),
-      );
+    // Une seule collecte HTTP pour tout le cron — la donnée du baromètre est
+    // identique pour tous les tenants (cf. commentaire ci-dessus), la
+    // refaire une fois par organisation ne ferait que multiplier le même
+    // aller-retour réseau externe sans jamais changer le résultat.
+    let stats: CompetitorStats[];
+    try {
+      stats = await this.barometer.fetchCompetitorStats();
+    } catch (error) {
+      this.logger.error(`Échec de collecte du baromètre: ${(error as Error).message}`);
+      await this.sourceRegistry.recordOutcome(BAROMETER_SOURCE_KEY, { success: false });
+      stats = [];
+    }
+
+    if (stats.length > 0) {
+      const organizations = await this.prisma.organization.findMany({ select: { id: true } });
+      for (const org of organizations) {
+        await this.syncFromBarometer(org.id, stats).catch((error) =>
+          this.logger.error(`Échec de resynchronisation baromètre (org ${org.id}): ${(error as Error).message}`),
+        );
+      }
     }
 
     if (newest) {

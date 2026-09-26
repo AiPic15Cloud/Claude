@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
 import { usePrequalVersions, usePrequalVersionCompare } from '../hooks/use-prequalification';
 import { PREQUALIFICATION_ORIENTATION_LABELS, FINDING_SEVERITY_LABELS, type FindingSeverityKey } from '@/types';
@@ -30,7 +31,14 @@ export function HistoryTab({ caseId }: { caseId: string }) {
   const [versionB, setVersionB] = useState<number | null>(null);
   const { data: diff } = usePrequalVersionCompare(caseId, versionA, versionB);
 
-  if (isLoading || !versions) return null;
+  if (isLoading || !versions) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-24" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
