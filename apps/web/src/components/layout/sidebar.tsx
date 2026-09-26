@@ -11,7 +11,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
   return (
     <>
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-sidebar-accent text-sidebar-accent">
           <AtlasMark className="h-4 w-4" />
         </div>
         {!collapsed && (
@@ -36,10 +36,13 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
+                    // Filet à gauche plutôt qu'un aplat de fond pour l'état actif —
+                    // même doctrine que les onglets (tabs.tsx) : la couleur seule
+                    // porte le sens, jamais un bloc plein.
+                    'flex items-center gap-3 rounded-md border-l-2 py-2 pl-2 pr-2.5 text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-sidebar-foreground/10 text-sidebar-foreground [&_svg]:text-sidebar-accent'
-                      : 'text-sidebar-foreground/70 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
+                      ? 'border-sidebar-accent text-sidebar-foreground [&_svg]:text-sidebar-accent'
+                      : 'border-transparent text-sidebar-foreground/70 hover:bg-sidebar-foreground/5 hover:text-sidebar-foreground',
                   )
                 }
               >
@@ -93,7 +96,7 @@ export function Sidebar() {
       </aside>
 
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <SheetContent side="left" className="flex w-60 flex-col bg-sidebar/85 p-0 backdrop-blur-xl">
+        <SheetContent side="left" className="flex w-60 flex-col bg-sidebar p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarNav collapsed={false} onNavigate={() => setMobileNavOpen(false)} />
         </SheetContent>

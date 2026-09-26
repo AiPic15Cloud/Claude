@@ -11,15 +11,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: [
-          'Plus Jakarta Sans Variable',
-          'ui-sans-serif',
-          'system-ui',
-          '-apple-system',
-          'sans-serif',
-        ],
+        sans: ['Public Sans Variable', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono Variable', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-        display: ['Spectral', 'ui-serif', 'Georgia', 'serif'],
+        display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -81,18 +75,12 @@ export default {
         'brand-accent': 'hsl(var(--brand-accent))',
       },
       borderRadius: {
+        // Un seul rayon dans tout le système (voir index.css --radius) —
+        // lg/md/sm valent tous la même chose, pour qu'aucun choix de
+        // classe Tailwind ne puisse réintroduire un arrondi différent.
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 3px)',
-        sm: 'calc(var(--radius) - 5px)',
-      },
-      boxShadow: {
-        // Elevation as soft, diffuse shadow rather than a hard border —
-        // reads clearly on light surfaces; on dark surfaces the card/
-        // background lightness gap (plus the still-present hairline
-        // border) carries the separation, since dark-on-dark shadows
-        // barely register.
-        card: '0 20px 50px -28px rgb(0 0 0 / 0.35), 0 2px 8px -2px rgb(0 0 0 / 0.12)',
-        'card-hover': '0 28px 70px -24px rgb(0 0 0 / 0.45), 0 4px 14px -2px rgb(0 0 0 / 0.18)',
+        md: 'var(--radius)',
+        sm: 'var(--radius)',
       },
       transitionTimingFunction: {
         premium: 'cubic-bezier(0.16, 1, 0.3, 1)',

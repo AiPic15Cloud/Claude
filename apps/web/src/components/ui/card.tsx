@@ -6,7 +6,10 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        'rounded-lg border border-border/60 bg-card text-card-foreground shadow-card transition-shadow duration-500 ease-premium hover:shadow-card-hover',
+        // Filet + léger écart de luminosité avec le fond portent la carte —
+        // jamais d'ombre portée (voir craft.md : la profondeur d'un système
+        // feutré vient du contraste de matière, pas d'un relief simulé).
+        'rounded-md border border-border bg-card text-card-foreground',
         className,
       )}
       {...props}

@@ -62,11 +62,11 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[1100] flex items-start justify-center bg-background/70 pt-[15vh] backdrop-blur-sm"
+      className="fixed inset-0 z-[1100] flex items-start justify-center bg-black/60 pt-[15vh]"
       onClick={() => setCommandPaletteOpen(false)}
     >
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/30 bg-popover/85 shadow-2xl backdrop-blur-xl before:absolute before:inset-0 before:-z-10 before:bg-gradient-to-b before:from-white/20 before:to-transparent before:opacity-70 before:content-[''] animate-in fade-in-0 zoom-in-95 dark:border-white/10 dark:before:from-white/5"
+        className="relative w-full max-w-lg overflow-hidden rounded-md border border-border bg-popover animate-in fade-in-0 zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         <Command shouldFilter={false} className="flex flex-col">
