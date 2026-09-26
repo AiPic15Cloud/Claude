@@ -9,6 +9,7 @@ import { PipelinePage } from '@/features/pipeline/pipeline-page';
 import { ObjectifsPage } from '@/features/objectifs/objectifs-page';
 import { RemboursementsPage } from '@/features/remboursements/remboursements-page';
 import { TasksKanbanPage } from '@/features/tasks/tasks-kanban-page';
+import { WorkloadPage } from '@/features/workload/workload-page';
 import { DossierPage } from '@/features/dossiers/dossier-page';
 import { CartographiePage } from '@/features/cartographie/cartographie-page';
 import { PlatformsPage } from '@/features/intelligence-concurrentielle/platforms-page';
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/objectifs" element={<ObjectifsPage />} />
           <Route path="/remboursements" element={<RemboursementsPage />} />
           <Route path="/tasks" element={<TasksKanbanPage />} />
+          <Route path="/workload" element={<WorkloadPage />} />
           <Route path="/deals" element={<Navigate to="/portfolio" replace />} />
           <Route path="/deals/:id" element={<DossierPageRoute />} />
           <Route path="/graph" element={<GraphPage />} />

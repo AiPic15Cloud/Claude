@@ -1,8 +1,8 @@
-import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
+import { IsBoolean, IsOptional, IsString, ValidateIf } from 'class-validator';
 import { CreateTaskDto } from './create-task.dto';
 
-export class UpdateTaskDto extends PartialType(CreateTaskDto) {
+export class UpdateTaskDto extends PartialType(OmitType(CreateTaskDto, ['milestoneId'] as const)) {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsBoolean()
@@ -12,4 +12,13 @@ export class UpdateTaskDto extends PartialType(CreateTaskDto) {
   @IsOptional()
   @IsBoolean()
   inProgress?: boolean;
+
+  // Redéclaré (PartialType rend le champ hérité optionnel, pas nullable) :
+  // sans ça, il n'existe aucun moyen de détacher une tâche de son jalon une
+  // fois rattachée, seulement d'en changer — `null` explicite retire le lien.
+  @ApiProperty({ required: false, nullable: true, description: 'null pour détacher la tâche de son jalon' })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  milestoneId?: string | null;
 }

@@ -35,6 +35,7 @@ import { EditDealDialog } from './components/edit-deal-dialog';
 import { ExtendDeadlineDialog } from './components/extend-deadline-dialog';
 import { MiseEnDemeureDialog } from './components/mise-en-demeure-dialog';
 import { GuaranteesPanel } from './components/guarantees-panel';
+import { MilestonesPanel } from './components/milestones-panel';
 import { RiskDataCard } from './components/risk-data-card';
 import { CompanyMonitoringCard } from './components/company-monitoring-card';
 import { RepaymentsPanel } from './components/repayments-panel';
@@ -367,6 +368,7 @@ export function DossierPage() {
           <TabsTrigger value="risk">Risque</TabsTrigger>
           <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
           <TabsTrigger value="tasks">Tâches ({dealTasks.filter((t) => !t.done).length})</TabsTrigger>
+          <TabsTrigger value="milestones">Planification</TabsTrigger>
           <TabsTrigger value="documents">Documents ({deal.documents.length})</TabsTrigger>
           <TabsTrigger value="guarantees">Garanties</TabsTrigger>
           <TabsTrigger value="repayments">Remboursements</TabsTrigger>
@@ -394,6 +396,9 @@ export function DossierPage() {
             quickAdd
             dealId={deal.id}
           />
+        </TabsContent>
+        <TabsContent value="milestones">
+          <MilestonesPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="documents">
           <DocumentsPanel dealId={deal.id} onApplyToFinancialModel={handleApplyExtraction} />

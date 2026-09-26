@@ -323,6 +323,58 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   completedAt?: string | null;
+  estimatedHours?: number | null;
+  milestoneId?: string | null;
+}
+
+export type MilestoneStatus = 'PENDING' | 'IN_PROGRESS' | 'AT_RISK' | 'BLOCKED' | 'DONE' | 'WAIVED';
+
+export const MILESTONE_STATUS_LABELS: Record<MilestoneStatus, string> = {
+  PENDING: 'À faire',
+  IN_PROGRESS: 'En cours',
+  AT_RISK: 'À risque',
+  BLOCKED: 'Bloqué',
+  DONE: 'Fait',
+  WAIVED: 'Levé sans action',
+};
+
+export interface PortfolioMilestone {
+  id: string;
+  dealId: string;
+  organizationId: string;
+  label: string;
+  description?: string | null;
+  targetDate?: string | null;
+  status: MilestoneStatus;
+  blocking: boolean;
+  order: number;
+  sourceFindingId?: string | null;
+  createdById?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tasks: { id: string; title: string; done: boolean }[];
+}
+
+/** Avancement composite du dossier (jalons + tâches) — voir project-milestones/progress.util.ts côté API. */
+export interface ProjectProgress {
+  progressPct: number | null;
+  milestonesTotal: number;
+  milestonesDone: number;
+  blockingOpenCount: number;
+  tasksTotal: number;
+  tasksDone: number;
+}
+
+/** Une ligne par analyste ayant au moins une tâche ouverte (GET /workload), triée par openCount décroissant côté API. */
+export interface WorkloadEntry {
+  assigneeId: string;
+  assigneeName: string;
+  openCount: number;
+  overdueCount: number;
+  estimatedHoursTotal: number;
+  unestimatedCount: number;
+  byPriority: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT', number>;
 }
 
 export interface DocumentFile {

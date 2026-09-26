@@ -14,6 +14,7 @@ import {
   KanbanSquare,
   Building2,
   ClipboardCheck,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Objectifs', path: '/objectifs', icon: Target },
   { label: 'Remboursements', path: '/remboursements', icon: Wallet },
   { label: 'Tâches', path: '/tasks', icon: KanbanSquare },
+  { label: 'Charge de travail', path: '/workload', icon: Gauge },
   { label: 'Répertoire', path: '/repertoire', icon: BookUser },
   { label: 'Marché', path: '/market', icon: Globe2 },
   { label: 'Intelligence Concurrentielle', path: '/competitors', icon: Radar },
