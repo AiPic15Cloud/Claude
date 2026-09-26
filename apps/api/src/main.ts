@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { buildCorsOriginMatcher } from './common/cors-origin.util';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false });
@@ -21,8 +22,16 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   app.use(helmet());
+  const originMatches = buildCorsOriginMatcher(configService.get<string>('corsOrigin')!);
   app.enableCors({
-    origin: configService.get<string>('corsOrigin')!.split(','),
+    origin: (origin, callback) => {
+      // No Origin header (server-to-server calls, curl) — nothing to check against.
+      if (!origin || originMatches(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin not allowed by CORS: ${origin}`), false);
+      }
+    },
     credentials: true,
   });
 
