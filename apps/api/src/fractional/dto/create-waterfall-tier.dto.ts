@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { WaterfallTierType } from '@prisma/client';
+import { EconomicsNegotiationStatus, WaterfallTierType } from '@prisma/client';
 import { IsEnum, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateWaterfallTierDto {
@@ -35,4 +35,14 @@ export class CreateWaterfallTierDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({ required: false, enum: EconomicsNegotiationStatus, default: 'A_NEGOCIER' })
+  @IsOptional()
+  @IsEnum(EconomicsNegotiationStatus)
+  negotiationStatus?: EconomicsNegotiationStatus;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  contractReference?: string;
 }

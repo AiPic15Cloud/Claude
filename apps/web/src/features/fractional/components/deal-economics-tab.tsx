@@ -16,8 +16,10 @@ import {
   useCreateStakeholder,
   useDeleteStakeholder,
   useCreateFeeDefinition,
+  useUpdateFeeDefinition,
   useDeleteFeeDefinition,
   useCreateWaterfallTier,
+  useUpdateWaterfallTier,
   useDeleteWaterfallTier,
   useFractionalDealEconomicsStressTests,
 } from '../hooks/use-fractional';
@@ -27,6 +29,7 @@ import {
   FEE_CALCULATION_BASE_LABELS,
   WATERFALL_TIER_TYPE_LABELS,
   STRESS_SCENARIO_LABELS,
+  ECONOMICS_NEGOTIATION_STATUS_LABELS,
   type FractionalStakeholder,
   type FractionalWaterfallTier,
   type FractionalDealEconomics,
@@ -34,7 +37,15 @@ import {
   type FeeType,
   type FeeCalculationBase,
   type WaterfallTierType,
+  type EconomicsNegotiationStatus,
 } from '@/types';
+
+const NEGOTIATION_STATUSES: EconomicsNegotiationStatus[] = ['A_NEGOCIER', 'PROPOSEE', 'CONTRACTUALISEE'];
+const NEGOTIATION_STATUS_VARIANT: Record<EconomicsNegotiationStatus, 'outline' | 'warning' | 'success'> = {
+  A_NEGOCIER: 'outline',
+  PROPOSEE: 'warning',
+  CONTRACTUALISEE: 'success',
+};
 
 const ROLES: StakeholderRole[] = ['INVESTOR', 'PLATFORM', 'SPONSOR', 'ARRANGER', 'ASSET_MANAGER', 'PROPERTY_MANAGER', 'LENDER', 'ADVISOR', 'OTHER'];
 const FEE_TYPES: FeeType[] = ['ENTRY', 'RUNNING', 'TRANSACTION', 'FINANCING', 'EXIT', 'CARRY', 'REVENUE_SHARE', 'CAPITAL_GAIN_SHARE'];
@@ -68,8 +79,10 @@ export function DealEconomicsTab({
   const createStakeholder = useCreateStakeholder(projectId);
   const deleteStakeholder = useDeleteStakeholder(projectId);
   const createFee = useCreateFeeDefinition(projectId);
+  const updateFee = useUpdateFeeDefinition(projectId);
   const deleteFee = useDeleteFeeDefinition(projectId);
   const createTier = useCreateWaterfallTier(projectId);
+  const updateTier = useUpdateWaterfallTier(projectId);
   const deleteTier = useDeleteWaterfallTier(projectId);
 
   const [stakeholderForm, setStakeholderForm] = useState<{ role: StakeholderRole; name: string; capitalEngaged: string }>({ role: 'INVESTOR', name: '', capitalEngaged: '' });
@@ -331,6 +344,7 @@ export function DealEconomicsTab({
                     <TableHead>Type</TableHead>
                     <TableHead>Taux</TableHead>
                     <TableHead>Assiette</TableHead>
+                    <TableHead>Statut</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -341,6 +355,22 @@ export function DealEconomicsTab({
                       <TableCell>{FEE_TYPE_LABELS[f.feeType]}</TableCell>
                       <TableCell>{f.ratePct ? `${f.ratePct}%` : f.fixedAmount ? formatCurrency(f.fixedAmount) : '—'}</TableCell>
                       <TableCell>{FEE_CALCULATION_BASE_LABELS[f.calculationBase]}</TableCell>
+                      <TableCell>
+                        <Select value={f.negotiationStatus} onValueChange={(v) => updateFee.mutate({ id: f.id, negotiationStatus: v as EconomicsNegotiationStatus })}>
+                          <SelectTrigger className="w-40">
+                            <SelectValue>
+                              <Badge variant={NEGOTIATION_STATUS_VARIANT[f.negotiationStatus]}>{ECONOMICS_NEGOTIATION_STATUS_LABELS[f.negotiationStatus]}</Badge>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {NEGOTIATION_STATUSES.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {ECONOMICS_NEGOTIATION_STATUS_LABELS[s]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell>
                         <ConfirmDeleteButton onConfirm={() => deleteFee.mutate(f.id)} pending={deleteFee.isPending} label="Supprimer le frais" size="icon" />
                       </TableCell>
@@ -422,6 +452,7 @@ export function DealEconomicsTab({
                     <TableHead>Type</TableHead>
                     <TableHead>Bénéficiaire</TableHead>
                     <TableHead>Hurdle / Catch-up / Part</TableHead>
+                    <TableHead>Statut</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -434,6 +465,22 @@ export function DealEconomicsTab({
                         <TableCell>{WATERFALL_TIER_TYPE_LABELS[t.type]}</TableCell>
                         <TableCell>{stakeholderName(t.beneficiaryStakeholderId)}</TableCell>
                         <TableCell>{t.hurdleRatePct ? `${t.hurdleRatePct}%` : t.catchUpPct ? `${t.catchUpPct}%` : t.sharePct ? `${t.sharePct}%` : '—'}</TableCell>
+                        <TableCell>
+                          <Select value={t.negotiationStatus} onValueChange={(v) => updateTier.mutate({ id: t.id, negotiationStatus: v as EconomicsNegotiationStatus })}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue>
+                                <Badge variant={NEGOTIATION_STATUS_VARIANT[t.negotiationStatus]}>{ECONOMICS_NEGOTIATION_STATUS_LABELS[t.negotiationStatus]}</Badge>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {NEGOTIATION_STATUSES.map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {ECONOMICS_NEGOTIATION_STATUS_LABELS[s]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
                         <TableCell>
                           <ConfirmDeleteButton onConfirm={() => deleteTier.mutate(t.id)} pending={deleteTier.isPending} label="Supprimer le palier" size="icon" />
                         </TableCell>

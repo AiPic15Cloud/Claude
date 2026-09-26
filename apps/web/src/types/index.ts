@@ -664,7 +664,30 @@ export interface CockpitSummary {
   autoSummary: AutoSummary;
   decisions: DecisionRow[];
   actionQueue: ActionQueueSummary;
+  fractionalPipelineConversion: PipelineConversionResult;
   overdueTasks: { total: number; urgent: number };
+}
+
+// Conversions par cohorte — "Performance utile" (spec Cockpit/Fractionné P2 §4.1.5).
+export type FunnelStageKey = 'RECUES' | 'QUALIFIEES' | 'PRESENTEES' | 'ACCORDS' | 'ACQUISES';
+export interface FunnelStageResult {
+  key: FunnelStageKey;
+  label: string;
+  count: number;
+}
+export interface FunnelConversionResult {
+  fromKey: FunnelStageKey;
+  toKey: FunnelStageKey;
+  fromCount: number;
+  toCount: number;
+  ratePct: number | null;
+  medianDays: number | null;
+}
+export interface PipelineConversionResult {
+  totalProjects: number;
+  sampleTooSmallForRates: boolean;
+  stages: FunnelStageResult[];
+  conversions: FunnelConversionResult[];
 }
 
 /** File de décisions et d'actions générique (spec Cockpit/Fractionné P1 §4.1/§4.2). */
@@ -1964,6 +1987,76 @@ export const FRACTIONAL_PLATFORM_APPLICATION_STATUS_LABELS: Record<FractionalPla
   ABANDONNEE: 'Abandonnée',
 };
 
+// Prévision des flux de la structure (spec Cockpit/Fractionné P2 §5.5).
+export type RevenueForecastCategory = 'REALISE' | 'CONTRACTUALISE' | 'PROPOSE' | 'HYPOTHETIQUE';
+export const REVENUE_FORECAST_CATEGORY_LABELS: Record<RevenueForecastCategory, string> = {
+  REALISE: 'Réalisé',
+  CONTRACTUALISE: 'Contractualisé',
+  PROPOSE: 'Proposé',
+  HYPOTHETIQUE: 'Hypothétique',
+};
+
+export interface StructureFeeForecastLine {
+  feeDefinitionId: string;
+  projectName: string;
+  stakeholderName: string;
+  feeType: string;
+  category: RevenueForecastCategory;
+  amountEur: number | null;
+}
+
+// Jamais présumé — la définition de la cible (§10 Q3) reste "non définie"
+// tant que les associés ne l'ont pas arbitrée.
+export const STRUCTURE_TARGET_BASES = ['CA_STRUCTURE', 'RESULTAT_STRUCTURE', 'REVENU_PERSONNEL'] as const;
+export type StructureTargetBasis = (typeof STRUCTURE_TARGET_BASES)[number];
+export const STRUCTURE_TARGET_BASIS_LABELS: Record<StructureTargetBasis, string> = {
+  CA_STRUCTURE: 'Chiffre d\'affaires de la structure',
+  RESULTAT_STRUCTURE: 'Résultat de structure',
+  REVENU_PERSONNEL: 'Revenu personnel net',
+};
+
+export interface FractionalStructureTarget {
+  id: string;
+  organizationId: string;
+  year: number;
+  targetAmountEur: number | null;
+  targetBasis: StructureTargetBasis | null;
+  notes: string | null;
+}
+
+export interface StructureRevenueForecastResult {
+  year: number;
+  lines: StructureFeeForecastLine[];
+  totalsByCategory: Record<RevenueForecastCategory, number>;
+  unquantifiedCount: number;
+  target: FractionalStructureTarget | null;
+}
+
+/** Historique de décision (spec Cockpit/Fractionné P2 §6) — un vote humain motivé, distinct d'un verdict algorithmique ou d'un changement mécanique de statut. */
+export interface FractionalDecision {
+  id: string;
+  projectId: string;
+  question: string;
+  choice: string;
+  motif: string;
+  dossierVersion: number | null;
+  sourcesConsultees: string[];
+  decidedBy?: { firstName: string; lastName: string } | null;
+  decidedAt: string;
+}
+
+/** Comparatif formalisé (spec Cockpit/Fractionné P2 §5.3) — matrice critère × candidature. */
+export interface PlatformComparisonRow {
+  key: string;
+  label: string;
+  values: (string | number | null)[];
+}
+export interface PlatformComparisonResult {
+  candidateIds: string[];
+  candidateLabels: string[];
+  rows: PlatformComparisonRow[];
+}
+
 /** Candidature d'un dossier à une plateforme (spec Cockpit/Fractionné P1 §5.3) — un dossier peut en avoir plusieurs, indépendantes. */
 export interface FractionalPlatformApplication {
   id: string;
@@ -2207,6 +2300,16 @@ export interface FractionalStakeholder {
   feeDefinitions?: FractionalFeeDefinition[];
 }
 
+// Spec Cockpit/Fractionné P2 §5.5/§6 ("economics_term") — une hypothèse
+// commerciale n'est jamais présentée comme un accord tant qu'elle n'est pas
+// contractualisée.
+export type EconomicsNegotiationStatus = 'A_NEGOCIER' | 'PROPOSEE' | 'CONTRACTUALISEE';
+export const ECONOMICS_NEGOTIATION_STATUS_LABELS: Record<EconomicsNegotiationStatus, string> = {
+  A_NEGOCIER: 'À négocier',
+  PROPOSEE: 'Proposée',
+  CONTRACTUALISEE: 'Contractualisée',
+};
+
 export interface FractionalFeeDefinition {
   id: string;
   projectId: string;
@@ -2217,6 +2320,8 @@ export interface FractionalFeeDefinition {
   calculationBase: FeeCalculationBase;
   startYear?: number | null;
   endYear?: number | null;
+  negotiationStatus: EconomicsNegotiationStatus;
+  contractReference?: string | null;
 }
 
 export interface FractionalWaterfallTier {
@@ -2229,6 +2334,8 @@ export interface FractionalWaterfallTier {
   catchUpPct?: number | null;
   sharePct?: number | null;
   notes?: string | null;
+  negotiationStatus: EconomicsNegotiationStatus;
+  contractReference?: string | null;
 }
 
 export interface StakeholderReceipt {

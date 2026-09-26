@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Loader2, Plus, Pencil, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Loader2, Plus, Pencil, X, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,15 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
-import { useCreateLease, useUpdateLease, useDeleteLease, useFractionalLegalReview, useFractionalRentalReversion } from '../hooks/use-fractional';
+import {
+  useCreateLease,
+  useUpdateLease,
+  useDeleteLease,
+  useFractionalLegalReview,
+  useFractionalRentalReversion,
+  useImportRentRoll,
+  type RentRollImportResult,
+} from '../hooks/use-fractional';
 import { ProvenanceBadge } from './provenance-badge';
 import {
   FRACTIONAL_LEASE_RENEWAL_STATUS_LABELS,
@@ -106,8 +114,19 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
   const create = useCreateLease(projectId);
   const update = useUpdateLease(projectId);
   const del = useDeleteLease(projectId);
+  const importRentRoll = useImportRentRoll(projectId);
   const { data: legalReviews } = useFractionalLegalReview(projectId);
   const { data: rentalReversion } = useFractionalRentalReversion(projectId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<RentRollImportResult | null>(null);
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setImportResult(null);
+    importRentRoll.mutate(file, { onSuccess: setImportResult });
+  };
 
   const assessmentByLeaseId = new Map((leaseAssessments ?? []).map((a) => [a.leaseId, a]));
   const legalReviewByLeaseId = new Map((legalReviews ?? []).map((r) => [r.leaseId, r]));
@@ -153,10 +172,34 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-base">Rent roll</CardTitle>
+          <div className="flex items-center gap-2">
+            <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
+            <Button variant="outline" size="sm" disabled={importRentRoll.isPending} onClick={() => fileInputRef.current?.click()}>
+              {importRentRoll.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              Importer un CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
+          {importResult && (
+            <div className="mb-3 rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium">
+                {importResult.imported} bail{importResult.imported > 1 ? 'x' : ''} importé{importResult.imported > 1 ? 's' : ''} sur {importResult.total}
+                {importResult.errors.length > 0 ? `, ${importResult.errors.length} ligne${importResult.errors.length > 1 ? 's' : ''} en erreur` : ''}.
+              </p>
+              {importResult.errors.length > 0 && (
+                <ul className="mt-1.5 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                  {importResult.errors.map((err, i) => (
+                    <li key={i}>
+                      Ligne {err.row} : {err.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {leases.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucun bail saisi.</p>
           ) : (

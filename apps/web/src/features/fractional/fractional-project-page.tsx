@@ -29,6 +29,7 @@ import { DataRoomTab } from './components/data-room-tab';
 import { TechnicalDdTab } from './components/technical-dd-tab';
 import { LegalTaxDdTab } from './components/legal-tax-dd-tab';
 import { QualificationSummaryCard } from './components/qualification-summary-card';
+import { DecisionLogCard } from './components/decision-log-card';
 
 const STATUSES: FractionalProjectStatus[] = [
   'PISTE',
@@ -106,6 +107,7 @@ export function FractionalProjectPage() {
       </div>
 
       <QualificationSummaryCard project={project} />
+      <DecisionLogCard projectId={project.id} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

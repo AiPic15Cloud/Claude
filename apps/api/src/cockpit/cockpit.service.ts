@@ -5,6 +5,7 @@ import { ActivitiesService } from '../activities/activities.service';
 import { RiskEngineService, DISCLAIMER } from '../risk-engine/risk-engine.service';
 import { ActionItemsService } from '../action-items/action-items.service';
 import { ACTION_TYPE_CTA_LABELS } from '../action-items/dto/create-action-item.dto';
+import { computePipelineConversion } from '../fractional/pipeline-conversion.util';
 import { computeDeadlineAlert } from '../deals/deadline.util';
 import { computeCrd } from '../deals/crd.util';
 
@@ -145,6 +146,11 @@ export class CockpitService {
     const decisions = await this.buildDecisions(organizationId, riskDeals);
     const openActionItems = await this.actionItems.findOpenForOrganization(organizationId);
     const actionQueue = this.buildActionQueue(decisions, openActionItems);
+    const fractionalStatusHistory = await this.prisma.fractionalStatusHistory.findMany({
+      where: { project: { organizationId } },
+      select: { projectId: true, toStatus: true, changedAt: true },
+    });
+    const fractionalPipelineConversion = computePipelineConversion(fractionalStatusHistory);
     const pipeline = this.buildPipeline(pipelineDeals);
     const aumHistory = this.buildAumHistory(historyDeals);
     const deadlineAlerts = deadlineDeals
@@ -192,6 +198,7 @@ export class CockpitService {
       autoSummary,
       decisions,
       actionQueue,
+      fractionalPipelineConversion,
       overdueTasks: { total: overdueTasksTotal, urgent: overdueTasksUrgent },
     };
   }

@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Res, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { assertFileContentMatchesMime, mimeAllowlistFilter } from '../common/storage/file-validation.util';
 import { FractionalProjectsService } from './fractional-projects.service';
 import { PdfRenderService } from '../pdf-export/pdf-render.service';
 import { buildInvestmentMemoHtml } from './investment-memo-pdf.util';
@@ -22,10 +24,15 @@ import { CreatePlatformProfileDto } from './dto/create-platform-profile.dto';
 import { UpsertAssumptionSetDto } from './dto/upsert-assumption-set.dto';
 import { CreateStakeholderDto } from './dto/create-stakeholder.dto';
 import { CreateFeeDefinitionDto } from './dto/create-fee-definition.dto';
+import { UpdateFeeDefinitionDto } from './dto/update-fee-definition.dto';
 import { CreateWaterfallTierDto } from './dto/create-waterfall-tier.dto';
+import { UpdateWaterfallTierDto } from './dto/update-waterfall-tier.dto';
 import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
 import { CreateProjectActualDto } from './dto/create-project-actual.dto';
+import { CreateFractionalDecisionDto } from './dto/create-fractional-decision.dto';
 import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
+
+const RENT_ROLL_CSV_MIME_ALLOWLIST = new Set(['text/csv', 'text/plain']);
 
 @ApiTags('fractional')
 @ApiBearerAuth()
@@ -126,6 +133,22 @@ export class FractionalProjectsController {
   @Roles('ADMIN', 'ANALYST')
   createLease(@Param('id') id: string, @Body() dto: CreateLeaseDto, @CurrentUser() user: AuthenticatedUser) {
     return this.service.createLease(id, dto, user);
+  }
+
+  @Post(':id/leases/import')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: mimeAllowlistFilter(RENT_ROLL_CSV_MIME_ALLOWLIST),
+    }),
+  )
+  importRentRoll(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Aucun fichier reçu');
+    assertFileContentMatchesMime(file.buffer, file.mimetype);
+    return this.service.importRentRoll(id, file.buffer.toString('utf8'), user);
   }
 
   @Patch(':id/leases/:leaseId')
@@ -238,6 +261,13 @@ export class FractionalProjectsController {
     return this.service.createFeeDefinition(id, dto, user);
   }
 
+  @Patch(':id/fee-definitions/:feeId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  updateFeeDefinition(@Param('id') id: string, @Param('feeId') feeId: string, @Body() dto: UpdateFeeDefinitionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.updateFeeDefinition(id, feeId, dto, user);
+  }
+
   @Delete(':id/fee-definitions/:feeId')
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')
@@ -251,6 +281,13 @@ export class FractionalProjectsController {
   @Roles('ADMIN', 'ANALYST')
   createWaterfallTier(@Param('id') id: string, @Body() dto: CreateWaterfallTierDto, @CurrentUser() user: AuthenticatedUser) {
     return this.service.createWaterfallTier(id, dto, user);
+  }
+
+  @Patch(':id/waterfall-tiers/:tierId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  updateWaterfallTier(@Param('id') id: string, @Param('tierId') tierId: string, @Body() dto: UpdateWaterfallTierDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.updateWaterfallTier(id, tierId, dto, user);
   }
 
   @Delete(':id/waterfall-tiers/:tierId')
@@ -283,6 +320,18 @@ export class FractionalProjectsController {
   @Roles('ADMIN', 'ANALYST')
   createActual(@Param('id') id: string, @Body() dto: CreateProjectActualDto, @CurrentUser() user: AuthenticatedUser) {
     return this.service.createProjectActual(id, dto, user);
+  }
+
+  @Post(':id/decisions')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
+  createDecision(@Param('id') id: string, @Body() dto: CreateFractionalDecisionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.createDecision(id, dto, user);
+  }
+
+  @Get(':id/decisions')
+  listDecisions(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.listDecisions(id, user);
   }
 
   @Post(':id/outcome')

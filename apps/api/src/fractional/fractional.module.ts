@@ -17,6 +17,8 @@ import { LegalTaxDdController } from './legal-tax-dd.controller';
 import { LegalTaxDdService } from './legal-tax-dd.service';
 import { PlatformApplicationsController } from './platform-applications.controller';
 import { PlatformApplicationsService } from './platform-applications.service';
+import { StructureRevenueController } from './structure-revenue.controller';
+import { StructureRevenueService } from './structure-revenue.service';
 import { FractionalLegalAlertsService } from './fractional-legal-alerts.service';
 import { FractionalActionItemsSweepService } from './fractional-action-items-sweep.service';
 import { AlertsModule } from '../alerts/alerts.module';
@@ -36,6 +38,7 @@ import { ActionItemsModule } from '../action-items/action-items.module';
     TechnicalDdController,
     LegalTaxDdController,
     PlatformApplicationsController,
+    StructureRevenueController,
   ],
   providers: [
     FractionalProjectsService,
@@ -47,6 +50,7 @@ import { ActionItemsModule } from '../action-items/action-items.module';
     TechnicalDdService,
     LegalTaxDdService,
     PlatformApplicationsService,
+    StructureRevenueService,
     FractionalLegalAlertsService,
     FractionalActionItemsSweepService,
   ],

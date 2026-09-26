@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CreatePlatformApplicationDto } from './dto/create-platform-application.dto';
 import { UpdatePlatformApplicationDto } from './dto/update-platform-application.dto';
+import { computePlatformComparison } from './platform-comparison.util';
 
 /**
  * Candidatures d'un dossier à plusieurs plateformes (spec Cockpit/Fractionné
@@ -29,6 +30,48 @@ export class PlatformApplicationsService {
       include: { platformProfile: { select: { id: true, platformName: true } } },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /** Comparatif formalisé (spec P2 §5.3) — matrice critère × candidature. */
+  async compare(projectId: string, user: AuthenticatedUser) {
+    await this.assertProjectAccess(projectId, user);
+    const applications = await this.prisma.fractionalPlatformApplication.findMany({
+      where: { projectId },
+      include: {
+        platformProfile: {
+          select: {
+            id: true,
+            platformName: true,
+            minNetInvestorYieldPct: true,
+            targetHoldPeriodMonths: true,
+            acquisitionFeePct: true,
+            annualManagementFeePct: true,
+            incomeShareInvestorPct: true,
+            capitalGainShareInvestorPct: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return computePlatformComparison(
+      applications.map((a) => ({
+        id: a.id,
+        status: a.status,
+        offerSummary: a.offerSummary,
+        rejectionReason: a.rejectionReason,
+        comparedCriteria: a.comparedCriteria as Record<string, unknown> | null,
+        platformProfile: {
+          id: a.platformProfile.id,
+          platformName: a.platformProfile.platformName,
+          minNetInvestorYieldPct: Number(a.platformProfile.minNetInvestorYieldPct),
+          targetHoldPeriodMonths: a.platformProfile.targetHoldPeriodMonths,
+          acquisitionFeePct: Number(a.platformProfile.acquisitionFeePct),
+          annualManagementFeePct: Number(a.platformProfile.annualManagementFeePct),
+          incomeShareInvestorPct: Number(a.platformProfile.incomeShareInvestorPct),
+          capitalGainShareInvestorPct: Number(a.platformProfile.capitalGainShareInvestorPct),
+        },
+      })),
+    );
   }
 
   async create(projectId: string, dto: CreatePlatformApplicationDto, user: AuthenticatedUser) {
