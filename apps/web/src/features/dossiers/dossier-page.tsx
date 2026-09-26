@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Trash2, Loader2, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,17 @@ export function DossierPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [activeTab, setActiveTab] = useState('risk');
   const [financialPrefill, setFinancialPrefill] = useState<(Partial<FinancialModelFormValues> & { sourceDocumentId?: string }) | null>(null);
+  const tabsListRef = useRef<HTMLDivElement>(null);
+
+  // Le lien "Voir les tâches →" de l'en-tête change l'onglet actif, mais les
+  // onglets sont loin plus bas sur la page (au-delà de l'écran sur mobile,
+  // sous la timeline de statut) — sans ce scroll, changer d'onglet est
+  // invisible pour l'utilisateur, qui a l'impression que le lien ne fait
+  // rien (retour utilisateur explicite).
+  const handleOpenTasks = () => {
+    setActiveTab('tasks');
+    tabsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const createCostLineItem = useCreateCostLineItem(id ?? '');
 
@@ -196,7 +207,7 @@ export function DossierPage() {
         )}
       </div>
 
-      <ProjectCommandHeader deal={deal} guaranteeWarnings={guaranteeWarnings} tasks={dealTasks} onOpenTasks={() => setActiveTab('tasks')} />
+      <ProjectCommandHeader deal={deal} guaranteeWarnings={guaranteeWarnings} tasks={dealTasks} onOpenTasks={handleOpenTasks} />
 
       {(deal.deadlineAlert?.level !== 'RAS' ||
         (deal.durationTargetAlert?.level !== 'RAS' && !deal.durationTargetValidated) ||
@@ -364,7 +375,7 @@ export function DossierPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList ref={tabsListRef}>
           <TabsTrigger value="risk">Risque</TabsTrigger>
           <TabsTrigger value="notes">Notes ({deal.notes.length})</TabsTrigger>
           <TabsTrigger value="tasks">Tâches ({dealTasks.filter((t) => !t.done).length})</TabsTrigger>
