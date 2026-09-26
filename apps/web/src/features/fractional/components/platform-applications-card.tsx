@@ -74,6 +74,7 @@ export function PlatformApplicationsCard({ projectId }: { projectId: string }) {
                 <TableHead>Plateforme</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Premier échange</TableHead>
+                <TableHead>Prochaine relance</TableHead>
                 <TableHead>Motif de refus</TableHead>
               </TableRow>
             </TableHeader>
@@ -100,6 +101,14 @@ export function PlatformApplicationsCard({ projectId }: { projectId: string }) {
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{a.firstContactDate ? formatDate(a.firstContactDate) : '—'}</TableCell>
+                  <TableCell>
+                    <Input
+                      type="date"
+                      className="w-40"
+                      value={a.nextFollowUpDate ? a.nextFollowUpDate.slice(0, 10) : ''}
+                      onChange={(e) => updateApplication.mutate({ id: a.id, nextFollowUpDate: e.target.value || undefined })}
+                    />
+                  </TableCell>
                   <TableCell className="min-w-64">
                     {a.status === 'REFUSEE' ? (
                       <span className="text-sm">{a.rejectionReason}</span>

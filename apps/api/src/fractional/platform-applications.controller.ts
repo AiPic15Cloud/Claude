@@ -20,6 +20,11 @@ export class PlatformApplicationsController {
     return this.service.list(projectId, user);
   }
 
+  @Get('comparison')
+  compare(@Param('projectId') projectId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.compare(projectId, user);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')

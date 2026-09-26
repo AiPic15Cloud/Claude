@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import type { FractionalLeaseRenewalStatus, FractionalIndexationType, FractionalCapexResponsable, FractionalValuationMethod } from '@prisma/client';
+import type { FractionalLeaseRenewalStatus, FractionalIndexationType, FractionalCapexResponsable, FractionalValuationMethod, EconomicsNegotiationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CreateFractionalProjectDto } from './dto/create-fractional-project.dto';
@@ -7,6 +7,7 @@ import { UpdateFractionalProjectDto } from './dto/update-fractional-project.dto'
 import { UpsertSourcesUsesDto } from './dto/upsert-sources-uses.dto';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
+import { parseRentRollCsv } from './rent-roll-import.util';
 import { CreateCapexItemDto } from './dto/create-capex-item.dto';
 import { UpdateCapexItemDto } from './dto/update-capex-item.dto';
 import { CreateValuationDto } from './dto/create-valuation.dto';
@@ -16,7 +17,9 @@ import { CreatePlatformProfileDto } from './dto/create-platform-profile.dto';
 import { UpsertAssumptionSetDto } from './dto/upsert-assumption-set.dto';
 import { CreateStakeholderDto } from './dto/create-stakeholder.dto';
 import { CreateFeeDefinitionDto } from './dto/create-fee-definition.dto';
+import { UpdateFeeDefinitionDto } from './dto/update-fee-definition.dto';
 import { CreateWaterfallTierDto } from './dto/create-waterfall-tier.dto';
+import { UpdateWaterfallTierDto } from './dto/update-waterfall-tier.dto';
 import { computeReturnsEngine, type ReturnsEngineInput } from './returns.util';
 import { computeEligibility } from './eligibility.util';
 import { solveMaxAcquisitionPrice, solveMinSecuredRent, solveMaxVacancyCreditLossPct, solveMaxAdditionalCapex, solveLeasesToSecure } from './reverse-solver.util';
@@ -40,6 +43,7 @@ import { computePerformanceAttribution } from './performance-attribution.util';
 import { findComparables, type ComparableFeatures } from './comparable-engine.util';
 import { CreateICDecisionDto } from './dto/create-ic-decision.dto';
 import { CreateProjectActualDto } from './dto/create-project-actual.dto';
+import { CreateFractionalDecisionDto } from './dto/create-fractional-decision.dto';
 import { UpsertProjectOutcomeDto } from './dto/upsert-project-outcome.dto';
 import { MarketDataService } from './market-data.service';
 import { EsgRiskService } from './esg-risk.service';
@@ -272,6 +276,47 @@ export class FractionalProjectsService {
     });
   }
 
+  /**
+   * Import documentaire du rent roll (spec Cockpit/Fractionné P2 §7) —
+   * un bail créé par ligne valide, jamais tout-ou-rien : chaque ligne
+   * invalide est reportée sans bloquer les autres, et une erreur Prisma
+   * inattendue sur une ligne (ex. contrainte) est elle aussi reportée au
+   * lieu de faire échouer tout l'import.
+   */
+  async importRentRoll(projectId: string, csvText: string, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const { rows, errors } = parseRentRollCsv(csvText);
+
+    const rowErrors: { row: number; message: string }[] = [...errors];
+    let imported = 0;
+
+    for (const { row, data } of rows) {
+      try {
+        await this.prisma.fractionalLease.create({
+          data: {
+            projectId,
+            tenantName: data.tenantName,
+            lotLabel: data.lotLabel,
+            surfaceM2: data.surfaceM2,
+            dateEffet: new Date(data.dateEffet),
+            dateTerme: new Date(data.dateTerme),
+            loyerFacialAnnuel: data.loyerFacialAnnuel,
+            indexation: data.indexation,
+            franchiseMois: data.franchiseMois,
+            depotGarantieMontant: data.depotGarantieMontant,
+            statutRenouvellement: data.statutRenouvellement,
+            impayesNotes: data.impayesNotes,
+          },
+        });
+        imported++;
+      } catch (err) {
+        rowErrors.push({ row, message: err instanceof Error ? err.message : 'Erreur inconnue' });
+      }
+    }
+
+    return { imported, total: rows.length + errors.length, errors: rowErrors.sort((a, b) => a.row - b.row) };
+  }
+
   async updateLease(projectId: string, leaseId: string, dto: UpdateLeaseDto, user: AuthenticatedUser) {
     await this.findOne(projectId, user);
     const lease = await this.prisma.fractionalLease.findUnique({ where: { id: leaseId } });
@@ -450,7 +495,28 @@ export class FractionalProjectsService {
     await this.findOne(projectId, user);
     const stakeholder = await this.prisma.fractionalStakeholder.findUnique({ where: { id: dto.stakeholderId } });
     if (!stakeholder || stakeholder.projectId !== projectId) throw new NotFoundException('Partie prenante introuvable.');
-    return this.prisma.fractionalFeeDefinition.create({ data: { projectId, ...dto } });
+    const fee = await this.prisma.fractionalFeeDefinition.create({ data: { projectId, ...dto } });
+    await this.recordEconomicsTermVersion(projectId, { feeDefinitionId: fee.id }, fee, user);
+    return fee;
+  }
+
+  async updateFeeDefinition(projectId: string, feeId: string, dto: UpdateFeeDefinitionDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const existing = await this.prisma.fractionalFeeDefinition.findUnique({ where: { id: feeId } });
+    if (!existing || existing.projectId !== projectId) throw new NotFoundException('Frais introuvable.');
+    const fee = await this.prisma.fractionalFeeDefinition.update({ where: { id: feeId }, data: dto });
+    // Une nouvelle version n'est journalisée que si une condition
+    // économique a réellement changé (spec P2 §6) — pas à chaque
+    // sauvegarde d'un champ sans rapport (ex. triggerNote).
+    if (
+      dto.negotiationStatus !== undefined ||
+      dto.ratePct !== undefined ||
+      dto.fixedAmount !== undefined ||
+      dto.contractReference !== undefined
+    ) {
+      await this.recordEconomicsTermVersion(projectId, { feeDefinitionId: fee.id }, fee, user);
+    }
+    return fee;
   }
 
   async removeFeeDefinition(projectId: string, feeId: string, user: AuthenticatedUser) {
@@ -466,7 +532,30 @@ export class FractionalProjectsService {
       const stakeholder = await this.prisma.fractionalStakeholder.findUnique({ where: { id: dto.beneficiaryStakeholderId } });
       if (!stakeholder || stakeholder.projectId !== projectId) throw new NotFoundException('Partie prenante introuvable.');
     }
-    return this.prisma.fractionalWaterfallTier.create({ data: { projectId, ...dto } });
+    const tier = await this.prisma.fractionalWaterfallTier.create({ data: { projectId, ...dto } });
+    await this.recordEconomicsTermVersion(projectId, { waterfallTierId: tier.id }, tier, user);
+    return tier;
+  }
+
+  async updateWaterfallTier(projectId: string, tierId: string, dto: UpdateWaterfallTierDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    const existing = await this.prisma.fractionalWaterfallTier.findUnique({ where: { id: tierId } });
+    if (!existing || existing.projectId !== projectId) throw new NotFoundException('Tier de waterfall introuvable.');
+    if (dto.beneficiaryStakeholderId) {
+      const stakeholder = await this.prisma.fractionalStakeholder.findUnique({ where: { id: dto.beneficiaryStakeholderId } });
+      if (!stakeholder || stakeholder.projectId !== projectId) throw new NotFoundException('Partie prenante introuvable.');
+    }
+    const tier = await this.prisma.fractionalWaterfallTier.update({ where: { id: tierId }, data: dto });
+    if (
+      dto.negotiationStatus !== undefined ||
+      dto.hurdleRatePct !== undefined ||
+      dto.catchUpPct !== undefined ||
+      dto.sharePct !== undefined ||
+      dto.contractReference !== undefined
+    ) {
+      await this.recordEconomicsTermVersion(projectId, { waterfallTierId: tier.id }, tier, user);
+    }
+    return tier;
   }
 
   async removeWaterfallTier(projectId: string, tierId: string, user: AuthenticatedUser) {
@@ -474,6 +563,29 @@ export class FractionalProjectsService {
     const tier = await this.prisma.fractionalWaterfallTier.findUnique({ where: { id: tierId } });
     if (!tier || tier.projectId !== projectId) throw new NotFoundException('Tier de waterfall introuvable.');
     await this.prisma.fractionalWaterfallTier.delete({ where: { id: tierId } });
+  }
+
+  /**
+   * Journalise une version de condition économique (spec P2 §6) — un
+   * instantané JSON plutôt qu'une table dupliquant chaque champ possible
+   * des deux modèles sources (FractionalFeeDefinition / FractionalWaterfallTier).
+   */
+  private async recordEconomicsTermVersion(
+    projectId: string,
+    target: { feeDefinitionId?: string; waterfallTierId?: string },
+    term: { negotiationStatus: EconomicsNegotiationStatus; contractReference: string | null } & Record<string, unknown>,
+    user: AuthenticatedUser,
+  ) {
+    await this.prisma.fractionalEconomicsTermVersion.create({
+      data: {
+        projectId,
+        ...target,
+        negotiationStatus: term.negotiationStatus,
+        contractReference: term.contractReference,
+        snapshot: term as unknown as Prisma.InputJsonValue,
+        recordedById: user.id,
+      },
+    });
   }
 
   /**
@@ -1043,6 +1155,32 @@ export class FractionalProjectsService {
         version: (existing?.version ?? 0) + 1,
         decidedById: user.id,
       },
+    });
+  }
+
+  // ── Historique de décision (spec P2 §6) ──────────────────────────────
+
+  async createDecision(projectId: string, dto: CreateFractionalDecisionDto, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    return this.prisma.fractionalDecision.create({
+      data: {
+        projectId,
+        question: dto.question,
+        choice: dto.choice,
+        motif: dto.motif,
+        dossierVersion: dto.dossierVersion,
+        sourcesConsultees: dto.sourcesConsultees ?? [],
+        decidedById: user.id,
+      },
+    });
+  }
+
+  async listDecisions(projectId: string, user: AuthenticatedUser) {
+    await this.findOne(projectId, user);
+    return this.prisma.fractionalDecision.findMany({
+      where: { projectId },
+      include: { decidedBy: { select: { firstName: true, lastName: true } } },
+      orderBy: { decidedAt: 'desc' },
     });
   }
 

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFractionalProjects } from './hooks/use-fractional';
 import { CreateFractionalProjectDialog } from './components/create-fractional-project-dialog';
+import { StructureRevenueForecastCard } from './components/structure-revenue-forecast-card';
 import { FRACTIONAL_PROJECT_STATUS_LABELS } from '@/types';
 
 /**
@@ -25,6 +26,8 @@ export function FractionalPortfolioPage() {
         description="Underwriting institutionnel des opérations en participation/exploitation — distinct des dossiers de dette LPB."
         actions={<CreateFractionalProjectDialog />}
       />
+
+      <StructureRevenueForecastCard year={new Date().getFullYear()} />
 
       {isLoading && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

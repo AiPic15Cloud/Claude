@@ -14,6 +14,10 @@ import type {
   PlatformFractionalProfile,
   FractionalPlatformApplication,
   FractionalPlatformApplicationStatus,
+  PlatformComparisonResult,
+  StructureRevenueForecastResult,
+  FractionalDecision,
+  EconomicsNegotiationStatus,
   FractionalDealEconomics,
   DealEconomicsScenarioResult,
   FractionalStakeholder,
@@ -267,6 +271,24 @@ export function useDeleteLease(projectId: string) {
   });
 }
 
+export interface RentRollImportResult {
+  imported: number;
+  total: number;
+  errors: { row: number; message: string }[];
+}
+
+export function useImportRentRoll(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return api.post<RentRollImportResult>(`/fractional/projects/${projectId}/leases/import`, form);
+    },
+    onSuccess: () => invalidateLeaseRelated(qc, projectId),
+  });
+}
+
 export interface CapexItemPayload {
   annee: number;
   montant: number;
@@ -357,6 +379,59 @@ export function useFractionalPlatformApplications(projectId: string | null) {
     queryKey: ['fractional', 'projects', projectId, 'platform-applications'],
     queryFn: () => api.get<FractionalPlatformApplication[]>(`/fractional/projects/${projectId}/platform-applications`),
     enabled: !!projectId,
+  });
+}
+
+export function useFractionalPlatformComparison(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'platform-applications', 'comparison'],
+    queryFn: () => api.get<PlatformComparisonResult>(`/fractional/projects/${projectId}/platform-applications/comparison`),
+    enabled: !!projectId,
+  });
+}
+
+export function useFractionalDecisions(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'decisions'],
+    queryFn: () => api.get<FractionalDecision[]>(`/fractional/projects/${projectId}/decisions`),
+    enabled: !!projectId,
+  });
+}
+
+export interface CreateDecisionPayload {
+  question: string;
+  choice: string;
+  motif: string;
+  dossierVersion?: number;
+  sourcesConsultees?: string[];
+}
+
+export function useCreateFractionalDecision(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateDecisionPayload) => api.post<FractionalDecision>(`/fractional/projects/${projectId}/decisions`, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'decisions'] }),
+  });
+}
+
+export function useStructureRevenueForecast(year: number) {
+  return useQuery({
+    queryKey: ['fractional', 'structure-revenue', year],
+    queryFn: () => api.get<StructureRevenueForecastResult>(`/fractional/structure-revenue/${year}/forecast`),
+  });
+}
+
+export interface UpsertStructureTargetPayload {
+  targetAmountEur?: number;
+  targetBasis?: string;
+  notes?: string;
+}
+
+export function useUpsertStructureTarget(year: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpsertStructureTargetPayload) => api.put(`/fractional/structure-revenue/${year}/target`, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'structure-revenue', year] }),
   });
 }
 
@@ -507,6 +582,15 @@ export function useCreateFeeDefinition(projectId: string) {
   });
 }
 
+export function useUpdateFeeDefinition(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<FeeDefinitionPayload> & { id: string; negotiationStatus?: EconomicsNegotiationStatus; contractReference?: string }) =>
+      api.patch<FractionalFeeDefinition>(`/fractional/projects/${projectId}/fee-definitions/${id}`, payload),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
 export function useDeleteFeeDefinition(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -528,6 +612,15 @@ export function useCreateWaterfallTier(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: WaterfallTierPayload) => api.post<FractionalWaterfallTier>(`/fractional/projects/${projectId}/waterfall-tiers`, payload),
+    onSuccess: () => invalidateDealEconomics(qc, projectId),
+  });
+}
+
+export function useUpdateWaterfallTier(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<WaterfallTierPayload> & { id: string; negotiationStatus?: EconomicsNegotiationStatus; contractReference?: string }) =>
+      api.patch<FractionalWaterfallTier>(`/fractional/projects/${projectId}/waterfall-tiers/${id}`, payload),
     onSuccess: () => invalidateDealEconomics(qc, projectId),
   });
 }

@@ -239,40 +239,41 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                  User[]
-  deals                  Deal[]
-  tags                   Tag[]
-  alerts                 Alert[]
-  graphEntities          GraphEntity[]
-  graphRelations         GraphRelation[]
-  newsSources            NewsSource[]
-  articles               Article[]
-  feesTargets            FeesTarget[]
-  pipelineEntries        PipelineEntry[]
-  competitorProjects     CompetitorProject[]
-  tasks                  Task[]
-  fieldChanges           FieldChange[]
-  dataValidations        DataValidation[]
-  riskScoreSnapshots     RiskScoreSnapshot[]
-  riskOverrides          RiskOverride[]
-  dealOverrides          DealOverride[]
-  entities               Entity[]
-  relationships          Relationship[]
-  playbookInstances      PlaybookInstance[]
-  economicGroups         EconomicGroup[]
-  legalEvents            LegalEvent[]
-  financialEvents        FinancialEvent[]
-  contagionSignals       ContagionSignal[]
-  fractionalProjects     FractionalProject[]
-  platformProfiles       PlatformFractionalProfile[]
-  rentIndexSeries        RentIndexSeries[]
-  marketComparables      MarketComparablePool[]
-  scoreCategories        FractionalScoreCategory[]
-  eliminatoryRules       FractionalEliminatoryRule[]
-  observationEntityLinks ProjectObservationEntityLink[]
-  prequalificationCases  PrequalificationCase[]
-  portfolioMilestones    PortfolioMilestone[]
-  actionItems            ActionItem[]
+  users                      User[]
+  deals                      Deal[]
+  tags                       Tag[]
+  alerts                     Alert[]
+  graphEntities              GraphEntity[]
+  graphRelations             GraphRelation[]
+  newsSources                NewsSource[]
+  articles                   Article[]
+  feesTargets                FeesTarget[]
+  pipelineEntries            PipelineEntry[]
+  competitorProjects         CompetitorProject[]
+  tasks                      Task[]
+  fieldChanges               FieldChange[]
+  dataValidations            DataValidation[]
+  riskScoreSnapshots         RiskScoreSnapshot[]
+  riskOverrides              RiskOverride[]
+  dealOverrides              DealOverride[]
+  entities                   Entity[]
+  relationships              Relationship[]
+  playbookInstances          PlaybookInstance[]
+  economicGroups             EconomicGroup[]
+  legalEvents                LegalEvent[]
+  financialEvents            FinancialEvent[]
+  contagionSignals           ContagionSignal[]
+  fractionalProjects         FractionalProject[]
+  platformProfiles           PlatformFractionalProfile[]
+  rentIndexSeries            RentIndexSeries[]
+  marketComparables          MarketComparablePool[]
+  scoreCategories            FractionalScoreCategory[]
+  eliminatoryRules           FractionalEliminatoryRule[]
+  observationEntityLinks     ProjectObservationEntityLink[]
+  prequalificationCases      PrequalificationCase[]
+  portfolioMilestones        PortfolioMilestone[]
+  actionItems                ActionItem[]
+  fractionalStructureTargets FractionalStructureTarget[]
 
   @@map("organizations")
 }
@@ -309,17 +310,17 @@ model User {
   twoFactorSecret        String?
   twoFactorRecoveryCodes String[] @default([])
 
-  createdDeals                    Deal[]                          @relation("DealCreatedBy")
-  assignedDeals                   Deal[]                          @relation("DealAssignedTo")
+  createdDeals                    Deal[]                           @relation("DealCreatedBy")
+  assignedDeals                   Deal[]                           @relation("DealAssignedTo")
   notes                           Note[]
   documents                       Document[]
   repayments                      Repayment[]
   interestPayments                InterestPayment[]
   loanExtensions                  LoanExtension[]
   pipelineEntries                 PipelineEntry[]
-  tasksAssigned                   Task[]                          @relation("TaskAssignee")
-  tasksCreated                    Task[]                          @relation("TaskCreatedBy")
-  tasksCancelled                  Task[]                          @relation("TaskCancelledBy")
+  tasksAssigned                   Task[]                           @relation("TaskAssignee")
+  tasksCreated                    Task[]                           @relation("TaskCreatedBy")
+  tasksCancelled                  Task[]                           @relation("TaskCancelledBy")
   milestonesCreated               PortfolioMilestone[]
   activities                      Activity[]
   refreshTokens                   RefreshToken[]
@@ -330,24 +331,27 @@ model User {
   fieldChanges                    FieldChange[]
   dataValidations                 DataValidation[]
   financialAssumptionsLocked      FinancialAssumption[]
-  dealOverridesCreated            DealOverride[]                  @relation("DealOverrideCreatedBy")
-  dealOverridesCleared            DealOverride[]                  @relation("DealOverrideClearedBy")
+  dealOverridesCreated            DealOverride[]                   @relation("DealOverrideCreatedBy")
+  dealOverridesCleared            DealOverride[]                   @relation("DealOverrideClearedBy")
   relationshipEvidence            Evidence[]
   fractionalProjectsCreated       FractionalProject[]
   observationEntityLinksReviewed  ProjectObservationEntityLink[]
-  prequalCasesAssigned            PrequalificationCase[]          @relation("PrequalAssignedAnalyst")
-  prequalCasesCreated             PrequalificationCase[]          @relation("PrequalCreatedBy")
-  prequalCasesValidated           PrequalificationCase[]          @relation("PrequalValidatedBy")
+  prequalCasesAssigned            PrequalificationCase[]           @relation("PrequalAssignedAnalyst")
+  prequalCasesCreated             PrequalificationCase[]           @relation("PrequalCreatedBy")
+  prequalCasesValidated           PrequalificationCase[]           @relation("PrequalValidatedBy")
   prequalVersionsValidated        PrequalificationVersion[]
   prequalDocumentsUploaded        PrequalDocument[]
   prequalEvidenceVerified         PrequalEvidence[]
   prequalFindingsReviewed         Finding[]
   prequalFinancialBaselinesLocked PrequalFinancialModel[]
-  fractionalNextActionFor         FractionalProject[]             @relation("FractionalNextActionOwner")
-  fractionalPlatformApplications  FractionalPlatformApplication[] @relation("FractionalPlatformApplicationCreatedBy")
-  fractionalStatusChangesMade     FractionalStatusHistory[]       @relation("FractionalStatusChangedBy")
-  actionItemsOwned                ActionItem[]                    @relation("ActionItemOwner")
-  actionItemsCreated              ActionItem[]                    @relation("ActionItemCreatedBy")
+  fractionalNextActionFor         FractionalProject[]              @relation("FractionalNextActionOwner")
+  fractionalPlatformApplications  FractionalPlatformApplication[]  @relation("FractionalPlatformApplicationCreatedBy")
+  fractionalStatusChangesMade     FractionalStatusHistory[]        @relation("FractionalStatusChangedBy")
+  actionItemsOwned                ActionItem[]                     @relation("ActionItemOwner")
+  actionItemsCreated              ActionItem[]                     @relation("ActionItemCreatedBy")
+  economicsTermVersionsRecorded   FractionalEconomicsTermVersion[]
+  structureTargetsCreated         FractionalStructureTarget[]
+  fractionalDecisionsMade         FractionalDecision[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2493,28 +2497,30 @@ model FractionalProject {
   nextActionOwnerId String?
   nextActionOwner   User?   @relation("FractionalNextActionOwner", fields: [nextActionOwnerId], references: [id])
 
-  sourcesUses          FractionalSourcesUses?
-  assumptionSets       FractionalAssumptionSet[]
-  leases               FractionalLease[]
-  capexItems           FractionalCapexItem[]
-  valuations           FractionalValuation[]
-  vehicleStructure     FractionalVehicleStructure?
-  stakeholders         FractionalStakeholder[]
-  feeDefinitions       FractionalFeeDefinition[]
-  waterfallTiers       FractionalWaterfallTier[]
-  icDecisions          FractionalICDecision[]
-  actuals              FractionalProjectActual[]
-  outcome              FractionalProjectOutcome?
-  alerts               Alert[]
-  actionItems          ActionItem[]
-  scoreAssessments     FractionalScoreAssessment[]
-  dataProvenance       FractionalDataProvenance[]
-  dataRoomItemStatuses FractionalDataRoomItemStatus[]
-  esgAssessment        FractionalEsgAssessment?
-  technicalAssessments FractionalTechnicalAssessment[]
-  legalTaxItemStatuses FractionalLegalTaxItemStatus[]
-  platformApplications FractionalPlatformApplication[]
-  statusHistory        FractionalStatusHistory[]
+  sourcesUses           FractionalSourcesUses?
+  assumptionSets        FractionalAssumptionSet[]
+  leases                FractionalLease[]
+  capexItems            FractionalCapexItem[]
+  valuations            FractionalValuation[]
+  vehicleStructure      FractionalVehicleStructure?
+  stakeholders          FractionalStakeholder[]
+  feeDefinitions        FractionalFeeDefinition[]
+  waterfallTiers        FractionalWaterfallTier[]
+  icDecisions           FractionalICDecision[]
+  actuals               FractionalProjectActual[]
+  outcome               FractionalProjectOutcome?
+  alerts                Alert[]
+  actionItems           ActionItem[]
+  scoreAssessments      FractionalScoreAssessment[]
+  dataProvenance        FractionalDataProvenance[]
+  dataRoomItemStatuses  FractionalDataRoomItemStatus[]
+  esgAssessment         FractionalEsgAssessment?
+  technicalAssessments  FractionalTechnicalAssessment[]
+  legalTaxItemStatuses  FractionalLegalTaxItemStatus[]
+  platformApplications  FractionalPlatformApplication[]
+  statusHistory         FractionalStatusHistory[]
+  economicsTermVersions FractionalEconomicsTermVersion[]
+  decisions             FractionalDecision[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3322,12 +3328,56 @@ model FractionalFeeDefinition {
   confidence       String?
   scenarioBehavior String?
 
+  /// Spec P2 §5.5/§6 ("economics_term") : une hypothèse commerciale n'est
+  /// jamais présentée comme un accord tant qu'elle n'est pas contractualisée.
+  negotiationStatus EconomicsNegotiationStatus @default(A_NEGOCIER)
+  contractReference String?
+
+  versions FractionalEconomicsTermVersion[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([projectId])
   @@index([stakeholderId])
   @@map("fractional_fee_definitions")
+}
+
+enum EconomicsNegotiationStatus {
+  A_NEGOCIER
+  PROPOSEE
+  CONTRACTUALISEE
+}
+
+/// Historique append-only des conditions économiques (spec P2 §6 :
+/// "economics_term" versionné) — une ligne à chaque changement de statut de
+/// négociation ou de montant/taux sur une FractionalFeeDefinition ou un
+/// FractionalWaterfallTier, jamais une mutation silencieuse en place.
+model FractionalEconomicsTermVersion {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  feeDefinitionId String?
+  feeDefinition   FractionalFeeDefinition? @relation(fields: [feeDefinitionId], references: [id], onDelete: Cascade)
+  waterfallTierId String?
+  waterfallTier   FractionalWaterfallTier? @relation(fields: [waterfallTierId], references: [id], onDelete: Cascade)
+
+  negotiationStatus EconomicsNegotiationStatus
+  /// Instantané JSON des champs économiques au moment de la version (assiette,
+  /// montant/taux, bénéficiaire) — évite de dupliquer chaque champ possible
+  /// des deux modèles sources dans une table de version générique.
+  snapshot          Json
+  contractReference String?
+
+  recordedById String
+  recordedBy   User     @relation(fields: [recordedById], references: [id])
+  recordedAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@index([feeDefinitionId])
+  @@index([waterfallTierId])
+  @@map("fractional_economics_term_versions")
 }
 
 /// Tier ordonné de la waterfall (spec §29.4) — preferred return → return of
@@ -3347,11 +3397,67 @@ model FractionalWaterfallTier {
   sharePct      Decimal?          @db.Decimal(5, 2)
   notes         String?
 
+  negotiationStatus EconomicsNegotiationStatus @default(A_NEGOCIER)
+  contractReference String?
+
+  versions FractionalEconomicsTermVersion[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([projectId, order])
   @@map("fractional_waterfall_tiers")
+}
+
+/// Cible de rémunération annuelle de la structure (spec P2 §5.5, §10 Q3) —
+/// "l'objectif annuel de 250 k€ est une cible de rémunération à définir
+/// (chiffre d'affaires, résultat de structure ou revenu personnel) avant
+/// tout écart à objectif". `targetBasis` n'est jamais présumé : reste null
+/// tant que les associés ne l'ont pas arbitré, et aucun écart n'est affiché
+/// sans cible définie (jamais une comparaison trompeuse par défaut).
+model FractionalStructureTarget {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  year            Int
+  targetAmountEur Decimal? @db.Decimal(14, 2)
+  /// Libre, validé côté DTO — 'CA_STRUCTURE' | 'RESULTAT_STRUCTURE' | 'REVENU_PERSONNEL' ; null = non défini.
+  targetBasis     String?
+  notes           String?
+
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([organizationId, year])
+  @@map("fractional_structure_targets")
+}
+
+/// Historique de décision (spec P2 §6 : "decision" — question, choix, motif,
+/// auteur, date, version du dossier, sources consultées) — distinct de
+/// FractionalICDecision (verdict algorithmique du moteur IC) et de
+/// FractionalStatusHistory (changement mécanique de statut) : un vote
+/// humain poursuivre/suspendre/abandonner, horodaté et motivé (spec §5.4),
+/// jamais confondu avec un résultat de calcul.
+model FractionalDecision {
+  id        String            @id @default(cuid())
+  projectId String
+  project   FractionalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  question          String
+  choice            String
+  motif             String
+  dossierVersion    Int?
+  sourcesConsultees String[] @default([])
+
+  decidedById String
+  decidedBy   User     @relation(fields: [decidedById], references: [id])
+  decidedAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@map("fractional_decisions")
 }
 
 // ── P1 : Risque (IC Engine, Tenant Covenant) & Mémoire (Actuals/Outcome) ───

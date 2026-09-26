@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { FeeCalculationBase, FeeFrequency, FeeType } from '@prisma/client';
+import { EconomicsNegotiationStatus, FeeCalculationBase, FeeFrequency, FeeType } from '@prisma/client';
 import { IsEnum, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateFeeDefinitionDto {
@@ -65,4 +65,14 @@ export class CreateFeeDefinitionDto {
   @IsOptional()
   @IsString()
   confidence?: string;
+
+  @ApiProperty({ required: false, enum: EconomicsNegotiationStatus, default: 'A_NEGOCIER' })
+  @IsOptional()
+  @IsEnum(EconomicsNegotiationStatus)
+  negotiationStatus?: EconomicsNegotiationStatus;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  contractReference?: string;
 }
