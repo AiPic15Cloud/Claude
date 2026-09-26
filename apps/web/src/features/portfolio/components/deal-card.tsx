@@ -6,11 +6,17 @@ import { Progress } from '@/components/ui/progress';
 import { TagBadge } from './tag-badge';
 import { SurveillanceStatusBadge } from './deal-badges';
 import { LoanLifecycleTimeline } from '@/features/dossiers/components/loan-lifecycle-timeline';
-import { formatCurrency } from '@/lib/format';
 import { isFinancedStage, type Deal } from '@/types';
 import { cn } from '@/lib/utils';
 
 const MAX_VISIBLE_TAGS = 2;
+
+// Notation compacte forcée pour les deux bornes de la collecte — formatCurrency()
+// bascule seul en compact au-delà de 1M, donc un montant collecté encore petit
+// ("0,00 €") s'affichait à côté d'un objectif abrégé ("2 M €") sans cohérence.
+function formatFundingAmount(value: number): string {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
 
 interface DealCardProps {
   deal: Deal;
@@ -20,8 +26,9 @@ interface DealCardProps {
 export function DealCard({ deal, onClick }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: deal.id });
 
-  const progress =
-    Number(deal.amountTarget) > 0 ? Math.min(100, Math.round((Number(deal.amountRaised) / Number(deal.amountTarget)) * 100)) : 0;
+  const target = Number(deal.amountTarget);
+  const raised = Number(deal.amountRaised);
+  const progress = target > 0 ? Math.min(100, Math.round((raised / target) * 100)) : 0;
 
   return (
     <Card
@@ -57,13 +64,21 @@ export function DealCard({ deal, onClick }: DealCardProps) {
           )}
         </p>
 
-        <div className="flex flex-col gap-1">
-          <Progress value={progress} className="h-1.5" />
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{formatCurrency(deal.amountRaised)}</span>
-            <span>{formatCurrency(deal.amountTarget)}</span>
+        {/* Avant le début de la collecte, "0 € collectés" sur chaque carte de Sourcing/Analyse/
+            Comité/Montage n'est pas une inconnue à signaler (§Unknown ≠ Zero) — c'est un fait
+            attendu à ce stade, donc une barre à 0% ne fait que répéter l'évidence sur la
+            majorité des cartes. On ne l'affiche qu'une fois la collecte réellement engagée. */}
+        {raised > 0 ? (
+          <div className="flex flex-col gap-1">
+            <Progress value={progress} className="h-1.5" />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{formatFundingAmount(raised)} collectés</span>
+              <span>{progress} % de {formatFundingAmount(target)}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          target > 0 && <p className="text-xs text-muted-foreground">Objectif : {formatFundingAmount(target)}</p>
+        )}
 
         {isFinancedStage(deal.stage) && <LoanLifecycleTimeline dealId={deal.id} variant="sparkline" />}
 
