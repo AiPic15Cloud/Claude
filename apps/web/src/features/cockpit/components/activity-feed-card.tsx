@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExpandCardButton } from './expand-card-button';
 import type { Activity } from '@/types';
 
+const PREVIEW_LIMIT = 5;
+
 interface ActivityFeedCardProps {
   activities: Activity[];
 }
@@ -45,7 +47,10 @@ export function ActivityFeedCard({ activities }: ActivityFeedCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {activities.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">Aucune activité récente</p>}
-        {activities.map((activity) => renderActivityItem(activity))}
+        {activities.slice(0, PREVIEW_LIMIT).map((activity) => renderActivityItem(activity))}
+        {activities.length > PREVIEW_LIMIT && (
+          <p className="pt-0.5 text-center text-xs text-muted-foreground">+{activities.length - PREVIEW_LIMIT} de plus — agrandir pour tout voir</p>
+        )}
       </CardContent>
     </Card>
   );

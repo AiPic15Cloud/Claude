@@ -39,6 +39,8 @@ const STAGE_LABEL: Record<NonNullable<DealDeadlineAlert['stage']> | 'RAS', strin
   CONTENTIEUX: 'Contentieux',
 };
 
+const PREVIEW_LIMIT = 5;
+
 interface DeadlineAlertsCardProps {
   alerts: DealDeadlineAlert[];
 }
@@ -88,7 +90,10 @@ export function DeadlineAlertsCard({ alerts }: DeadlineAlertsCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         {alerts.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">Aucune échéance à surveiller. RAS.</p>}
-        {alerts.map((alert) => renderAlertItem(alert, false))}
+        {alerts.slice(0, PREVIEW_LIMIT).map((alert) => renderAlertItem(alert, false))}
+        {alerts.length > PREVIEW_LIMIT && (
+          <p className="pt-0.5 text-center text-xs text-muted-foreground">+{alerts.length - PREVIEW_LIMIT} de plus — agrandir pour tout voir</p>
+        )}
       </CardContent>
     </Card>
   );
