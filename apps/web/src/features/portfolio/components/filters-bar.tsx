@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { Search, SlidersHorizontal, AlertTriangle, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { SlidersHorizontal, AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -14,6 +12,7 @@ import {
 import { DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_TYPE_LABELS, DEAL_TYPES, type DealStage, type DealType } from '@/types';
 import { useTags } from '../hooks/use-tags';
 import { TagBadge } from './tag-badge';
+import { DealSearchField } from './deal-search-field';
 import type { DealsFilters } from '../hooks/use-deals';
 
 interface FiltersBarProps {
@@ -23,27 +22,6 @@ interface FiltersBarProps {
 
 export function FiltersBar({ filters, onChange }: FiltersBarProps) {
   const { data: tags = [] } = useTags();
-
-  // Debounce the free-text search so it doesn't trigger a /deals refetch on
-  // every keystroke — only 300ms after the user stops typing.
-  const [searchInput, setSearchInput] = useState(filters.search ?? '');
-  const filtersRef = useRef(filters);
-  const onChangeRef = useRef(onChange);
-  filtersRef.current = filters;
-  onChangeRef.current = onChange;
-
-  useEffect(() => {
-    setSearchInput(filters.search ?? '');
-  }, [filters.search]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (searchInput !== (filtersRef.current.search ?? '')) {
-        onChangeRef.current({ ...filtersRef.current, search: searchInput });
-      }
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchInput]);
 
   const toggleStage = (stage: DealStage) => {
     const current = filters.stage ?? [];
@@ -65,15 +43,7 @@ export function FiltersBar({ filters, onChange }: FiltersBarProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher une opération…"
-            className="pl-8"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-        </div>
+        <DealSearchField filters={filters} onChange={onChange} className="w-full max-w-xs" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
