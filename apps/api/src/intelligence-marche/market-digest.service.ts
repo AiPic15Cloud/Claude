@@ -11,6 +11,12 @@ interface DigestResult {
 }
 
 const CACHE_TTL_MS = 6 * 60 * 60_000;
+// Un échec (crédit épuisé, panne API, etc.) est aussi mis en cache, mais
+// moins longtemps qu'un succès — sinon chaque ouverture du cockpit relance
+// un appel Anthropic voué à échouer tant que la cause n'est pas résolue
+// (ex. crédit de facturation à recharger), ce qui n'apporte rien et
+// aggrave inutilement le quota/la facturation dès qu'elle l'est.
+const ERROR_CACHE_TTL_MS = 30 * 60_000;
 
 /**
  * A genuine LLM-generated daily digest — built strictly from articles this
@@ -22,7 +28,7 @@ const CACHE_TTL_MS = 6 * 60 * 60_000;
 export class MarketDigestService {
   private readonly logger = new Logger(MarketDigestService.name);
   private client: Anthropic | null = null;
-  private cache = new Map<string, { fetchedAt: number; result: DigestResult }>();
+  private cache = new Map<string, { fetchedAt: number; ttlMs: number; result: DigestResult }>();
 
   constructor(
     private readonly config: ConfigService,
@@ -34,7 +40,7 @@ export class MarketDigestService {
 
   async getDigest(organizationId: string): Promise<DigestResult> {
     const cached = this.cache.get(organizationId);
-    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    if (cached && Date.now() - cached.fetchedAt < cached.ttlMs) {
       return cached.result;
     }
 
@@ -77,11 +83,13 @@ export class MarketDigestService {
         .filter(Boolean);
 
       const result: DigestResult = { available: true, bullets, generatedAt: new Date().toISOString() };
-      this.cache.set(organizationId, { fetchedAt: Date.now(), result });
+      this.cache.set(organizationId, { fetchedAt: Date.now(), ttlMs: CACHE_TTL_MS, result });
       return result;
     } catch (error) {
       this.logger.warn(`Digest generation failed: ${(error as Error).message}`);
-      return { available: false, reason: 'error', bullets: [], generatedAt: null };
+      const result: DigestResult = { available: false, reason: 'error', bullets: [], generatedAt: null };
+      this.cache.set(organizationId, { fetchedAt: Date.now(), ttlMs: ERROR_CACHE_TTL_MS, result });
+      return result;
     }
   }
 }

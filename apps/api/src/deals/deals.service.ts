@@ -797,13 +797,28 @@ export class DealsService {
     }
 
     // Exposition géographique — même principe : ville non renseignée regroupée explicitement.
-    const byCity = new Map<string, number>();
+    // La ville est un champ texte libre saisi manuellement par dossier : deux
+    // dossiers de la même commune peuvent différer par la casse ou par un
+    // tiret ("La Ville-du-Bois" vs "La Ville du Bois", accents inclus). Sans
+    // normalisation de la clé de regroupement, ces variantes se comptent
+    // comme deux villes distinctes et sous-estiment la concentration réelle.
+    const normalizeCityKey = (city: string) =>
+      city
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    const byCity = new Map<string, { label: string; crd: number }>();
     for (const d of deals) {
-      const key = d.city ?? 'Non renseignée';
-      byCity.set(key, (byCity.get(key) ?? 0) + (crdByDeal.get(d.id) ?? 0));
+      const raw = d.city ?? 'Non renseignée';
+      const key = normalizeCityKey(raw);
+      const entry = byCity.get(key) ?? { label: raw, crd: 0 };
+      entry.crd += crdByDeal.get(d.id) ?? 0;
+      byCity.set(key, entry);
     }
-    const exposureByCity = [...byCity.entries()]
-      .map(([city, crd]) => ({ city, crd }))
+    const exposureByCity = [...byCity.values()]
+      .map(({ label, crd }) => ({ city: label, crd }))
       .sort((a, b) => b.crd - a.crd)
       .slice(0, 8);
 
