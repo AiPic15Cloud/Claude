@@ -128,4 +128,22 @@ describe('computeFitAssessment — réconciliation score/règles éliminatoires 
     expect(result.eliminatoryResults).toEqual([]);
     expect(result.finalVerdict).toBe(result.scoreVerdict);
   });
+
+  it('une règle non vérifiable (métrique absente) ne précipite jamais un NO_GO — seule une règle réellement en échec le peut (spec Cockpit/Fractionné §5.4)', () => {
+    const unverifiableRule: EliminatoryRuleInput = { ...failingRule, id: 'r3', metricKey: 'WALB_YEARS', threshold: 3 };
+    const answers = [
+      { criterionId: 'crit-anciennete', bucketId: 'b-gt5' },
+      { criterionId: 'crit-walb', bucketId: 'b-long' },
+    ];
+    const result = computeFitAssessment(categories, answers, [unverifiableRule], { ...metrics, walbYears: null });
+    expect(result.eliminatoryResults[0].unverifiable).toBe(true);
+    expect(result.hasUnverifiableRule).toBe(true);
+    expect(result.finalVerdict).toBe('GO_FORT');
+    expect(result.supplantedByEliminatoryRule).toBe(false);
+  });
+
+  it('hasUnverifiableRule reste false quand toutes les règles sont réellement évaluées', () => {
+    const result = computeFitAssessment(categories, [], [passingRule], metrics);
+    expect(result.hasUnverifiableRule).toBe(false);
+  });
 });

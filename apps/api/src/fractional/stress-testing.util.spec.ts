@@ -62,7 +62,7 @@ const baseInput: ReturnsEngineInput = {
 };
 
 describe('computeAllStressScenarios', () => {
-  const scenarios = computeAllStressScenarios(baseInput, 5);
+  const scenarios = computeAllStressScenarios(baseInput, 5, true);
   const byKey = new Map(scenarios.map((s) => [s.scenario, s]));
 
   it('calcule les 10 scenarios sans erreur', () => {
@@ -89,5 +89,17 @@ describe('computeAllStressScenarios', () => {
 
   it('VALUE_DECLINE reduit le multiple par rapport a BASE', () => {
     expect(byKey.get('VALUE_DECLINE')!.equityMultiple).toBeLessThan(byKey.get('BASE')!.equityMultiple!);
+  });
+});
+
+describe('computeAllStressScenarios — absence de profil plateforme (doctrine "Unknown ≠ Zero")', () => {
+  it('renvoie yearsUnderHurdle=null et eligibility NOT_EVALUABLE/NO_PLATFORM_PROFILE sur chaque scénario quand hasPlatformProfile=false, jamais un hurdle fabriqué à 0', () => {
+    const scenarios = computeAllStressScenarios(baseInput, 5, false);
+    for (const s of scenarios) {
+      expect(s.yearsUnderHurdle).toBeNull();
+      expect(s.eligibility.verdict).toBe('NOT_EVALUABLE');
+      expect(s.eligibility.notEvaluableReason).toBe('NO_PLATFORM_PROFILE');
+      expect(s.eligibility.hurdlePct).toBeNull();
+    }
   });
 });

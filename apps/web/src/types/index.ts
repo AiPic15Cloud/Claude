@@ -2021,8 +2021,19 @@ export const ELIGIBILITY_VERDICT_LABELS: Record<EligibilityVerdict, string> = {
   ELIGIBLE: 'Éligible',
   MARGINAL: 'Marginal',
   INELIGIBLE: 'Non éligible',
-  NOT_EVALUABLE: 'Non évaluable (collecte non renseignée)',
+  // Générique : NOT_EVALUABLE recouvre deux causes distinctes (pas de profil
+  // plateforme, ou collecte non renseignée) — voir EligibilityResult.notEvaluableReason
+  // et le bandeau contextuel affiché à côté du badge (synthese-tab.tsx).
+  NOT_EVALUABLE: 'Non évaluable',
 };
+export type EligibilityNotEvaluableReason = 'NO_PLATFORM_PROFILE' | 'NO_COLLECTE';
+export interface EligibilityResult {
+  verdict: EligibilityVerdict;
+  hurdlePct: number | null;
+  securedNetYieldPct: number | null;
+  gapPct: number | null;
+  notEvaluableReason: EligibilityNotEvaluableReason | null;
+}
 
 export interface ReverseSolverResult {
   value: number | null;
@@ -2050,7 +2061,7 @@ export interface FractionalSynthese {
   base: FractionalReturnsResult;
   stressed: FractionalReturnsResult;
   stressedIsFallback: boolean;
-  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number | null; gapPct: number | null };
+  eligibility: EligibilityResult;
   reverseSolver: {
     maxAcquisitionPrice: ReverseSolverResult;
     minSecuredRent: ReverseSolverResult;
@@ -2241,8 +2252,9 @@ export interface StressScenarioResult {
   equityMultiple: number | null;
   exitValue: number;
   maxLoss: number;
-  yearsUnderHurdle: number;
-  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number | null; gapPct: number | null };
+  /** `null` si aucun profil plateforme n'est rattaché — hurdle non évaluable (cf. EligibilityResult). */
+  yearsUnderHurdle: number | null;
+  eligibility: EligibilityResult;
 }
 
 export type ICDecisionStatus = 'APPROVE' | 'APPROVE_SUBJECT_TO_CONDITIONS' | 'RESTRUCTURE' | 'HOLD' | 'DECLINE';
@@ -2303,6 +2315,8 @@ export interface FractionalProjectOutcome {
   triRealise?: number | null;
   multipleRealise?: number | null;
   notes?: string | null;
+  /** Date de sortie réelle — absente tant que la sortie n'est pas intervenue. */
+  exitDate?: string | null;
 }
 
 export interface PerformanceAttributionResult {
@@ -2492,6 +2506,7 @@ export interface EliminatoryRuleResult {
   operator: EliminatoryComparisonOperator;
   threshold: number;
   passed: boolean;
+  unverifiable: boolean;
   failMessage: string | null;
 }
 
@@ -2507,6 +2522,7 @@ export interface FitAssessmentResult {
   eliminatoryResults: EliminatoryRuleResult[];
   finalVerdict: ScoreTierVerdict;
   supplantedByEliminatoryRule: boolean;
+  hasUnverifiableRule: boolean;
 }
 
 export interface FractionalScoreAssessment {

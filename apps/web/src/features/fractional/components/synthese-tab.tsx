@@ -250,7 +250,7 @@ function RentalReversionCard({ projectId }: { projectId: string }) {
 
 /** Onglet Synthèse (spec V3 §25) — verdict, hurdle, rendements, WALB/WALT, Reverse Solver. */
 export function SyntheseTab({ projectId, synthese, icRecommendation }: { projectId: string; synthese: FractionalSynthese; icRecommendation?: ICRecommendation }) {
-  const { base, stressed, stressedIsFallback, eligibility, reverseSolver, platformProfile, dcfValuation, capexDataMissing } = synthese;
+  const { base, stressed, stressedIsFallback, eligibility, reverseSolver, dcfValuation, capexDataMissing } = synthese;
   const { data: dataConfidence } = useFractionalDataConfidence(projectId);
 
   return (
@@ -267,9 +267,14 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {!platformProfile && (
+          {eligibility.notEvaluableReason === 'NO_PLATFORM_PROFILE' && (
             <p className="text-sm text-muted-foreground">
-              Aucun profil plateforme rattaché (onglet Structure) — hurdle à 0%, la décision n'est pas significative tant qu'un profil n'est pas assigné.
+              Aucun profil plateforme rattaché (onglet Structure) — hurdle non évaluable, éligibilité non calculable.
+            </p>
+          )}
+          {eligibility.notEvaluableReason === 'NO_COLLECTE' && (
+            <p className="text-sm text-muted-foreground">
+              Collecte non renseignée (onglet Sources &amp; Emplois) — rendement sécurisé non évaluable.
             </p>
           )}
           {icRecommendation && <p className="text-sm text-muted-foreground">{icRecommendation.recommendation}</p>}

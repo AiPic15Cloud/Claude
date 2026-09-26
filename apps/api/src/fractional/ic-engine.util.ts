@@ -122,15 +122,18 @@ export function computeICRecommendation(input: ICRecommendationInput): ICRecomme
   if (hardStops.length > 0) {
     status = 'DECLINE';
     recommendation = 'Hard stop actif — dossier non présentable en l\'état.';
+  } else if (input.eligibility.verdict === 'NOT_EVALUABLE' && input.eligibility.notEvaluableReason === 'NO_PLATFORM_PROFILE') {
+    status = 'HOLD';
+    recommendation = 'Aucun profil plateforme rattaché (onglet Structure) — hurdle non évaluable, éligibilité non calculable.';
   } else if (input.eligibility.verdict === 'NOT_EVALUABLE') {
     status = 'HOLD';
     recommendation = 'Collecte non renseignée (Sources & Uses) — rendement sécurisé non évaluable, hurdle non vérifiable.';
   } else if (input.eligibility.verdict === 'INELIGIBLE') {
     status = 'DECLINE';
     recommendation = 'Rendement sécurisé sous le hurdle plateforme — profil risque/rendement incompatible.';
-  } else if (!input.hasPlatformProfile || !input.hasLeases) {
+  } else if (!input.hasLeases) {
     status = 'HOLD';
-    recommendation = 'Informations critiques manquantes (profil plateforme ou rent roll) — hurdle non évaluable.';
+    recommendation = 'Rent roll manquant (aucun bail saisi) — hurdle non évaluable.';
   } else if (conditions.length > 0) {
     status = 'APPROVE_SUBJECT_TO_CONDITIONS';
     recommendation = 'Éligible sous réserve de sécuriser les baux matériels listés en conditions.';

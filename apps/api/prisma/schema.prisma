@@ -3401,6 +3401,13 @@ model FractionalProjectOutcome {
   multipleRealise Decimal?             @db.Decimal(6, 3)
   notes           String?
 
+  /// Date de sortie réelle (cession/remboursement effectif) — distincte de
+  /// recordedAt (horodatage de la saisie). Absente tant que la sortie n'est
+  /// pas encore intervenue ; le service exige project.status = SORTIE avant
+  /// d'accepter un résultat final (spec Cockpit/Fractionné P0, garde-fou
+  /// contre une conclusion enregistrée avant que l'issue soit établie).
+  exitDate DateTime?
+
   recordedAt DateTime @default(now())
 
   @@map("fractional_project_outcomes")

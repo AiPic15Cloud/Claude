@@ -157,7 +157,7 @@ export function FractionalProjectPage() {
         </TabsContent>
 
         <TabsContent value="memoire">
-          <MemoireTab projectId={project.id} actuals={project.actuals} outcome={project.outcome} />
+          <MemoireTab projectId={project.id} projectStatus={project.status} actuals={project.actuals} outcome={project.outcome} />
         </TabsContent>
       </Tabs>
     </div>

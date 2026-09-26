@@ -11,7 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { formatCurrency } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
 import { useCreateProjectActual, useUpsertProjectOutcome, useFractionalPerformanceAttribution, useFractionalComparables } from '../hooks/use-fractional';
-import { PROJECT_OUTCOME_STATUS_LABELS, type FractionalProjectActual, type FractionalProjectOutcome, type ProjectOutcomeStatus } from '@/types';
+import { PROJECT_OUTCOME_STATUS_LABELS, type FractionalProjectActual, type FractionalProjectOutcome, type FractionalProjectStatus, type ProjectOutcomeStatus } from '@/types';
 
 const OUTCOME_STATUSES: ProjectOutcomeStatus[] = ['SUCCES', 'SOUS_PERFORMANCE', 'PERTE', 'REFUSE', 'ABANDONNE'];
 const OUTCOME_VARIANT = { SUCCES: 'success', SOUS_PERFORMANCE: 'warning', PERTE: 'destructive', REFUSE: 'destructive', ABANDONNE: 'outline' } as const;
@@ -19,10 +19,12 @@ const OUTCOME_VARIANT = { SUCCES: 'success', SOUS_PERFORMANCE: 'warning', PERTE:
 /** Onglet Mémoire (spec V3 §20) — réalisé périodique, résultat final, attribution de performance, dossiers comparables. */
 export function MemoireTab({
   projectId,
+  projectStatus,
   actuals,
   outcome,
 }: {
   projectId: string;
+  projectStatus: FractionalProjectStatus;
   actuals: FractionalProjectActual[];
   outcome?: FractionalProjectOutcome | null;
 }) {
@@ -30,19 +32,25 @@ export function MemoireTab({
   const upsertOutcome = useUpsertProjectOutcome(projectId);
   const { data: attribution } = useFractionalPerformanceAttribution(projectId);
   const { data: comparables } = useFractionalComparables(projectId);
+  const isExited = projectStatus === 'SORTIE';
 
   const [actualForm, setActualForm] = useState({ period: String(new Date().getFullYear()), loyersReels: '', opexReel: '', distributionsReelles: '' });
-  const [outcomeForm, setOutcomeForm] = useState<{ status: ProjectOutcomeStatus; triRealise: string; multipleRealise: string }>({
-    status: outcome?.status ?? 'SUCCES',
+  // Pas de statut par défaut : un résultat final est une conclusion qui doit être
+  // délibérément choisie, jamais présélectionnée sur "Succès" (spec Cockpit/
+  // Fractionné P0 — doctrine "Unknown ≠ Zero" étendue au jugement humain).
+  const [outcomeForm, setOutcomeForm] = useState<{ status: ProjectOutcomeStatus | ''; triRealise: string; multipleRealise: string; exitDate: string }>({
+    status: outcome?.status ?? '',
     triRealise: outcome?.triRealise ? String(outcome.triRealise) : '',
     multipleRealise: outcome?.multipleRealise ? String(outcome.multipleRealise) : '',
+    exitDate: outcome?.exitDate ? outcome.exitDate.slice(0, 10) : '',
   });
 
   useEffect(() => {
     setOutcomeForm({
-      status: outcome?.status ?? 'SUCCES',
+      status: outcome?.status ?? '',
       triRealise: outcome?.triRealise ? String(outcome.triRealise) : '',
       multipleRealise: outcome?.multipleRealise ? String(outcome.multipleRealise) : '',
+      exitDate: outcome?.exitDate ? outcome.exitDate.slice(0, 10) : '',
     });
   }, [outcome]);
 
@@ -61,10 +69,12 @@ export function MemoireTab({
 
   const handleSaveOutcome = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!outcomeForm.status) return;
     upsertOutcome.mutate({
       status: outcomeForm.status,
       triRealise: outcomeForm.triRealise ? parseLocaleNumber(outcomeForm.triRealise) : undefined,
       multipleRealise: outcomeForm.multipleRealise ? parseLocaleNumber(outcomeForm.multipleRealise) : undefined,
+      exitDate: outcomeForm.exitDate || undefined,
     });
   };
 
@@ -142,13 +152,22 @@ export function MemoireTab({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Résultat final</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-3">
+          {!isExited && (
+            <p className="text-sm text-muted-foreground">
+              Le résultat final ne peut être enregistré qu'une fois le dossier passé en statut Sortie — conclusion à établir, pas à anticiper.
+            </p>
+          )}
           <form onSubmit={handleSaveOutcome} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Statut</Label>
-              <Select value={outcomeForm.status} onValueChange={(v) => setOutcomeForm((p) => ({ ...p, status: v as ProjectOutcomeStatus }))}>
+              <Select
+                disabled={!isExited}
+                value={outcomeForm.status}
+                onValueChange={(v) => setOutcomeForm((p) => ({ ...p, status: v as ProjectOutcomeStatus }))}
+              >
                 <SelectTrigger className="w-48">
-                  <SelectValue />
+                  <SelectValue placeholder="Choisir un statut…" />
                 </SelectTrigger>
                 <SelectContent>
                   {OUTCOME_STATUSES.map((s) => (
@@ -160,14 +179,37 @@ export function MemoireTab({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="exitDate">Date de sortie</Label>
+              <Input
+                id="exitDate"
+                type="date"
+                className="w-40"
+                disabled={!isExited}
+                value={outcomeForm.exitDate}
+                onChange={(e) => setOutcomeForm((p) => ({ ...p, exitDate: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="triRealise">TRI réalisé (%)</Label>
-              <DecimalInput id="triRealise" className="w-32" value={outcomeForm.triRealise} onChange={(e) => setOutcomeForm((p) => ({ ...p, triRealise: e.target.value }))} />
+              <DecimalInput
+                id="triRealise"
+                className="w-32"
+                disabled={!isExited}
+                value={outcomeForm.triRealise}
+                onChange={(e) => setOutcomeForm((p) => ({ ...p, triRealise: e.target.value }))}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="multipleRealise">Multiple réalisé</Label>
-              <DecimalInput id="multipleRealise" className="w-32" value={outcomeForm.multipleRealise} onChange={(e) => setOutcomeForm((p) => ({ ...p, multipleRealise: e.target.value }))} />
+              <DecimalInput
+                id="multipleRealise"
+                className="w-32"
+                disabled={!isExited}
+                value={outcomeForm.multipleRealise}
+                onChange={(e) => setOutcomeForm((p) => ({ ...p, multipleRealise: e.target.value }))}
+              />
             </div>
-            <Button type="submit" size="sm" disabled={upsertOutcome.isPending}>
+            <Button type="submit" size="sm" disabled={!isExited || !outcomeForm.status || upsertOutcome.isPending}>
               {upsertOutcome.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Enregistrer
             </Button>

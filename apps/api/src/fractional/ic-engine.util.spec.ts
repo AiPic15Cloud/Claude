@@ -6,7 +6,7 @@ function makeBaseInput(overrides: Partial<ICRecommendationInput> = {}): ICRecomm
     hasPlatformProfile: true,
     hasLeases: true,
     leaseAssessments: [],
-    eligibility: { verdict: 'ELIGIBLE', hurdlePct: 6.5, securedNetYieldPct: 7, gapPct: 0.5 },
+    eligibility: { verdict: 'ELIGIBLE', hurdlePct: 6.5, securedNetYieldPct: 7, gapPct: 0.5, notEvaluableReason: null },
     ...overrides,
   };
 }
@@ -58,15 +58,31 @@ describe('computeICRecommendation — ecart CAPEX ESG vs budgete (spec §12/§28
 describe('computeICRecommendation — eligibility NOT_EVALUABLE (collecte non renseignée, doctrine "Unknown ≠ Zero")', () => {
   it('renvoie HOLD, jamais DECLINE, quand le rendement sécurisé est non évaluable', () => {
     const result = computeICRecommendation(
-      makeBaseInput({ eligibility: { verdict: 'NOT_EVALUABLE', hurdlePct: 6.5, securedNetYieldPct: null, gapPct: null } }),
+      makeBaseInput({ eligibility: { verdict: 'NOT_EVALUABLE', hurdlePct: 6.5, securedNetYieldPct: null, gapPct: null, notEvaluableReason: 'NO_COLLECTE' } }),
     );
     expect(result.status).toBe('HOLD');
     expect(result.hardStops).toHaveLength(0);
   });
 
   it('reste DECLINE quand le rendement est réellement sous le hurdle (INELIGIBLE, pas NOT_EVALUABLE)', () => {
-    const result = computeICRecommendation(makeBaseInput({ eligibility: { verdict: 'INELIGIBLE', hurdlePct: 6.5, securedNetYieldPct: 2, gapPct: -4.5 } }));
+    const result = computeICRecommendation(
+      makeBaseInput({ eligibility: { verdict: 'INELIGIBLE', hurdlePct: 6.5, securedNetYieldPct: 2, gapPct: -4.5, notEvaluableReason: null } }),
+    );
     expect(result.status).toBe('DECLINE');
+  });
+});
+
+describe('computeICRecommendation — eligibility NOT_EVALUABLE/NO_PLATFORM_PROFILE (spec Cockpit/Fractionné P0, "hurdle 0% fabriqué")', () => {
+  it("renvoie HOLD avec un message distinct de l'absence de collecte, jamais DECLINE, quand aucun profil plateforme n'est rattaché", () => {
+    const result = computeICRecommendation(
+      makeBaseInput({
+        hasPlatformProfile: false,
+        eligibility: { verdict: 'NOT_EVALUABLE', hurdlePct: null, securedNetYieldPct: 7, gapPct: null, notEvaluableReason: 'NO_PLATFORM_PROFILE' },
+      }),
+    );
+    expect(result.status).toBe('HOLD');
+    expect(result.hardStops).toHaveLength(0);
+    expect(result.recommendation).toContain('profil plateforme');
   });
 });
 
