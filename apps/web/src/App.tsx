@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/layout/app-shell';
 import { ProtectedRoute, GuestRoute } from '@/components/common/protected-route';
 import { LoginPage } from '@/features/auth/login-page';
@@ -23,6 +23,15 @@ import { FractionalProjectPage } from '@/features/fractional/fractional-project-
 import { PrequalificationListPage } from '@/features/prequalification/prequalification-list-page';
 import { PrequalificationCasePage } from '@/features/prequalification/prequalification-case-page';
 
+// DossierPage is not remounted by React Router across a /deals/:id -> /deals/:otherId
+// navigation (same route element instance), which lets local state (e.g. the armed
+// "Supprimer" confirmation) leak from one deal to the next. Keying on the :id param
+// here forces a full remount whenever the id changes.
+function DossierPageRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <DossierPage key={id} />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -44,7 +53,7 @@ export default function App() {
           <Route path="/remboursements" element={<RemboursementsPage />} />
           <Route path="/tasks" element={<TasksKanbanPage />} />
           <Route path="/deals" element={<Navigate to="/portfolio" replace />} />
-          <Route path="/deals/:id" element={<DossierPage />} />
+          <Route path="/deals/:id" element={<DossierPageRoute />} />
           <Route path="/graph" element={<GraphPage />} />
           <Route path="/map" element={<CartographiePage />} />
           <Route path="/competitors" element={<PlatformsPage />} />

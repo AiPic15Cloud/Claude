@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Globe, History, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Globe, History, Pencil, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DecimalInput } from '@/components/ui/decimal-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import {
   useCompetitorProjects,
   useCreateCompetitorProject,
@@ -17,7 +18,6 @@ import {
 import { COMPETITOR_PROJECT_EVENT_LABELS, COMPETITOR_PROJECT_STATUS_LABELS, type CompetitorProject, type CompetitorProjectStatus } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
-import { cn } from '@/lib/utils';
 
 const STATUS_VARIANT: Record<CompetitorProjectStatus, 'default' | 'warning' | 'secondary'> = {
   EN_COLLECTE: 'default',
@@ -200,13 +200,12 @@ export function CompetitorProjectsPanel({ entityId }: { entityId: string }) {
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
-              <button
-                onClick={() => deleteProject.mutate(project.id)}
-                className={cn('flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive')}
-                aria-label="Supprimer"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              <ConfirmDeleteButton
+                onConfirm={() => deleteProject.mutate(project.id)}
+                pending={deleteProject.isPending}
+                label="Supprimer le projet concurrent"
+                size="icon"
+              />
             </div>
           </div>
         ),

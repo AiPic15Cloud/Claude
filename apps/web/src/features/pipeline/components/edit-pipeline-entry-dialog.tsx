@@ -43,6 +43,20 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+function buildDefaultValues(entry: PipelineEntry): FormValues {
+  return {
+    date: entry.date.slice(0, 10),
+    operator: entry.operator,
+    typology: entry.typology ?? '',
+    source: entry.source ?? '',
+    amount: Number(entry.amount),
+    margin: entry.margin ? Number(entry.margin) : undefined,
+    feesRate: entry.feesRate ? Number(entry.feesRate) : undefined,
+    committee: entry.committee,
+    decision: entry.decision ?? '',
+  };
+}
+
 export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
   const [open, setOpen] = useState(false);
   const updateEntry = useUpdatePipelineEntry();
@@ -54,17 +68,7 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      date: entry.date.slice(0, 10),
-      operator: entry.operator,
-      typology: entry.typology ?? '',
-      source: entry.source ?? '',
-      amount: Number(entry.amount),
-      margin: entry.margin ? Number(entry.margin) : undefined,
-      feesRate: entry.feesRate ? Number(entry.feesRate) : undefined,
-      committee: entry.committee,
-      decision: entry.decision ?? '',
-    },
+    defaultValues: buildDefaultValues(entry),
   });
 
   const onSubmit = (values: FormValues) => {
@@ -76,7 +80,11 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) reset();
+        // reset() sans argument revient au defaultValues capturé au tout premier
+        // montage — rouvrir après un enregistrement réaffichait donc les toutes
+        // premières valeurs, pas les dernières sauvegardées. On reconstruit les
+        // valeurs depuis le prop `entry` à jour.
+        if (next) reset(buildDefaultValues(entry));
       }}
     >
       <DialogTrigger asChild>

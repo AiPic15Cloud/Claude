@@ -23,7 +23,12 @@ export function useCreateGuarantee(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateGuaranteePayload) => api.post<Guarantee>(`/deals/${dealId}/guarantees`, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] });
+      // Le score de risque est recalculé et persisté côté serveur à chaque mutation de garantie
+      // (guarantees.service.ts) — sans cette invalidation, il reste périmé jusqu'au rechargement.
+      queryClient.invalidateQueries({ queryKey: ['risk', dealId] });
+    },
   });
 }
 
@@ -32,7 +37,10 @@ export function useUpdateGuarantee(dealId: string) {
   return useMutation({
     mutationFn: ({ id, ...payload }: { id: string } & Partial<CreateGuaranteePayload>) =>
       api.patch<Guarantee>(`/deals/${dealId}/guarantees/${id}`, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['risk', dealId] });
+    },
   });
 }
 
@@ -41,7 +49,10 @@ export function useMarkGuaranteeVerified(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.patch<Guarantee>(`/deals/${dealId}/guarantees/${id}/verify`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['risk', dealId] });
+    },
   });
 }
 
@@ -51,7 +62,10 @@ export function useMarkSubstantiveDefect(dealId: string) {
   return useMutation({
     mutationFn: ({ id, flagged, note }: { id: string; flagged: boolean; note?: string }) =>
       api.patch<Guarantee>(`/deals/${dealId}/guarantees/${id}/substantive-defect`, { flagged, note }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['risk', dealId] });
+    },
   });
 }
 
@@ -59,6 +73,9 @@ export function useDeleteGuarantee(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/deals/${dealId}/guarantees/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['guarantees', dealId] });
+      queryClient.invalidateQueries({ queryKey: ['risk', dealId] });
+    },
   });
 }

@@ -82,7 +82,12 @@ export function ScenarioSensitivitySheet({ dealId }: { dealId: string }) {
 
   const handleOpen = () => {
     setOpen(true);
-    if (!compute.data) compute.mutate({});
+    // compute est une mutation : compute.data reste peuplé une fois calculé une
+    // première fois, donc un garde-fou "if (!compute.data)" ne recalculait
+    // jamais après une première ouverture — rouvrir après avoir modifié les
+    // Hypothèses (surface/prix/travaux) affichait le scénario périmé. On
+    // recalcule systématiquement à l'ouverture.
+    compute.mutate({});
   };
 
   const handleRecomputeCustom = () => {

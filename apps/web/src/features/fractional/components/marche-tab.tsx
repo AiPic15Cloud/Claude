@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatDate } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
 import {
@@ -114,9 +115,7 @@ export function MarcheTab({ projectId }: { projectId: string }) {
                     <TableCell>{formatDate(s.asOfDate)}</TableCell>
                     <TableCell>{s.source ?? '—'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => deleteSeries.mutate(s.id)} disabled={deleteSeries.isPending}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton onConfirm={() => deleteSeries.mutate(s.id)} pending={deleteSeries.isPending} label="Supprimer l'indice de loyer" size="icon" />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -205,9 +204,7 @@ export function MarcheTab({ projectId }: { projectId: string }) {
                       <TableCell>{formatDate(c.asOfDate)}</TableCell>
                       <TableCell>{c.source}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => deleteComparable.mutate(c.id)} disabled={deleteComparable.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton onConfirm={() => deleteComparable.mutate(c.id)} pending={deleteComparable.isPending} label="Supprimer le comparable" size="icon" />
                       </TableCell>
                     </TableRow>
                   ))}

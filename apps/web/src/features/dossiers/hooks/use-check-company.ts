@@ -14,6 +14,8 @@ export function useCheckCompany(dealId: string) {
       queryClient.invalidateQueries({ queryKey: ['deals', 'detail', dealId] });
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      // company-monitoring.service.ts recalcule le score de risque juste après une vérification manuelle.
+      queryClient.invalidateQueries({ queryKey: ['risk', dealId] });
     },
   });
 }

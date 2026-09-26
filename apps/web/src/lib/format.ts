@@ -1,10 +1,11 @@
 export function formatCurrency(value: number | string, currency = 'EUR'): string {
   const amount = typeof value === 'string' ? Number(value) : value;
+  const absAmount = Math.abs(amount);
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency,
-    maximumFractionDigits: amount >= 100_000 ? 0 : 2,
-    notation: amount >= 1_000_000 ? 'compact' : 'standard',
+    maximumFractionDigits: absAmount >= 100_000 ? 0 : 2,
+    notation: absAmount >= 1_000_000 ? 'compact' : 'standard',
   }).format(amount);
 }
 

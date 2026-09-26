@@ -12,11 +12,16 @@ export function useAuthenticatedImage(url: string | null | undefined): string | 
     }
     let objectUrl: string | undefined;
     let cancelled = false;
-    api.getBlob(url).then((blob) => {
-      if (cancelled) return;
-      objectUrl = URL.createObjectURL(blob);
-      setBlobUrl(objectUrl);
-    });
+    api.getBlob(url)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBlobUrl(undefined);
+      });
     return () => {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);

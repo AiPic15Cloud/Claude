@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Loader2, Plus, Pencil, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatCurrency } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
 import { useCreateLot, useUpdateLot, useDeleteLot } from '../hooks/use-prequalification';
@@ -89,9 +90,7 @@ export function LotsTab({ caseId, lots }: { caseId: string; lots: PrequalSalesLo
                       <Button variant="ghost" size="icon" onClick={() => startEdit(lot)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => remove.mutate(lot.id)} disabled={remove.isPending}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton onConfirm={() => remove.mutate(lot.id)} pending={remove.isPending} label="Supprimer le lot" size="icon" />
                     </div>
                   </TableCell>
                 </TableRow>

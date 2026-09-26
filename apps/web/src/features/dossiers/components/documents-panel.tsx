@@ -176,7 +176,14 @@ function DocumentRow({
             </Button>
           </div>
         ) : (
-          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirming(true)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            aria-label="Supprimer le document"
+            title="Supprimer le document"
+            onClick={() => setConfirming(true)}
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         )}

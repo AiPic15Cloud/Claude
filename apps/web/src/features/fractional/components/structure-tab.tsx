@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Loader2, Plus, Save, Pencil, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, Plus, Save, Pencil, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
 import {
@@ -43,6 +44,11 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
 
   const [platformProfileId, setPlatformProfileId] = useState(project.vehicleStructure?.platformProfileId ?? '');
   const [spvName, setSpvName] = useState(project.vehicleStructure?.spvName ?? '');
+
+  useEffect(() => {
+    setPlatformProfileId(project.vehicleStructure?.platformProfileId ?? '');
+    setSpvName(project.vehicleStructure?.spvName ?? '');
+  }, [project.vehicleStructure]);
 
   const [capexForm, setCapexForm] = useState(EMPTY_CAPEX_FORM);
   const [editingCapexId, setEditingCapexId] = useState<string | null>(null);
@@ -165,9 +171,7 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                         <Button variant="ghost" size="icon" onClick={() => startEditingCapex(item)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteCapex.mutate(item.id)} disabled={deleteCapex.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton onConfirm={() => deleteCapex.mutate(item.id)} pending={deleteCapex.isPending} label="Supprimer le poste CAPEX" size="icon" />
                       </div>
                     </TableCell>
                   </TableRow>
@@ -233,9 +237,7 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
                         <Button variant="ghost" size="icon" onClick={() => startEditingValuation(v)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteValuation.mutate(v.id)} disabled={deleteValuation.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton onConfirm={() => deleteValuation.mutate(v.id)} pending={deleteValuation.isPending} label="Supprimer la valorisation" size="icon" />
                       </div>
                     </TableCell>
                   </TableRow>

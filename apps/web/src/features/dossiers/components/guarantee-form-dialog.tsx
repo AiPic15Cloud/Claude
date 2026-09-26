@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -30,6 +30,18 @@ function toDateInput(value?: string | null) {
   return value.slice(0, 10);
 }
 
+function buildDefaultValues(guarantee?: Guarantee): Partial<FormValues> {
+  return guarantee
+    ? {
+        type: guarantee.type,
+        description: guarantee.description,
+        amount: Number(guarantee.amount),
+        rank: guarantee.rank,
+        endDate: toDateInput(guarantee.endDate),
+      }
+    : { type: 'HYPOTHEQUE', rank: 1 };
+}
+
 interface GuaranteeFormDialogProps {
   dealId: string;
   // Omit for "add", pass the existing row for "edit" — same form either way.
@@ -52,16 +64,15 @@ export function GuaranteeFormDialog({ dealId, guarantee }: GuaranteeFormDialogPr
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: guarantee
-      ? {
-          type: guarantee.type,
-          description: guarantee.description,
-          amount: Number(guarantee.amount),
-          rank: guarantee.rank,
-          endDate: toDateInput(guarantee.endDate),
-        }
-      : { type: 'HYPOTHEQUE', rank: 1 },
+    defaultValues: buildDefaultValues(guarantee),
   });
+
+  // Le composant n'est pas démonté entre deux ouvertures (Radix masque juste le
+  // DialogContent) : sans ce reset, rouvrir le dialogue d'édition après un
+  // enregistrement réussi réaffichait les valeurs d'avant la sauvegarde.
+  useEffect(() => {
+    if (open) reset(buildDefaultValues(guarantee));
+  }, [open, guarantee, reset]);
 
   const selectedType = watch('type');
   const showEndDate = EXPIRABLE_GUARANTEE_TYPES.includes(selectedType);

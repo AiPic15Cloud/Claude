@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
@@ -277,9 +278,7 @@ export function DealEconomicsTab({
                     <TableCell>{STAKEHOLDER_ROLE_LABELS[s.role]}</TableCell>
                     <TableCell>{s.capitalEngaged ? formatCurrency(s.capitalEngaged) : '—'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => deleteStakeholder.mutate(s.id)} disabled={deleteStakeholder.isPending}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <ConfirmDeleteButton onConfirm={() => deleteStakeholder.mutate(s.id)} pending={deleteStakeholder.isPending} label="Supprimer la partie prenante" size="icon" />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -343,9 +342,7 @@ export function DealEconomicsTab({
                       <TableCell>{f.ratePct ? `${f.ratePct}%` : f.fixedAmount ? formatCurrency(f.fixedAmount) : '—'}</TableCell>
                       <TableCell>{FEE_CALCULATION_BASE_LABELS[f.calculationBase]}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => deleteFee.mutate(f.id)} disabled={deleteFee.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <ConfirmDeleteButton onConfirm={() => deleteFee.mutate(f.id)} pending={deleteFee.isPending} label="Supprimer le frais" size="icon" />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -438,9 +435,7 @@ export function DealEconomicsTab({
                         <TableCell>{stakeholderName(t.beneficiaryStakeholderId)}</TableCell>
                         <TableCell>{t.hurdleRatePct ? `${t.hurdleRatePct}%` : t.catchUpPct ? `${t.catchUpPct}%` : t.sharePct ? `${t.sharePct}%` : '—'}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => deleteTier.mutate(t.id)} disabled={deleteTier.isPending}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <ConfirmDeleteButton onConfirm={() => deleteTier.mutate(t.id)} pending={deleteTier.isPending} label="Supprimer le palier" size="icon" />
                         </TableCell>
                       </TableRow>
                     ))}

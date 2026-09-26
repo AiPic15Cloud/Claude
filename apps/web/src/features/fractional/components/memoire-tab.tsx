@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,14 @@ export function MemoireTab({
     triRealise: outcome?.triRealise ? String(outcome.triRealise) : '',
     multipleRealise: outcome?.multipleRealise ? String(outcome.multipleRealise) : '',
   });
+
+  useEffect(() => {
+    setOutcomeForm({
+      status: outcome?.status ?? 'SUCCES',
+      triRealise: outcome?.triRealise ? String(outcome.triRealise) : '',
+      multipleRealise: outcome?.multipleRealise ? String(outcome.multipleRealise) : '',
+    });
+  }, [outcome]);
 
   const handleAddActual = (e: React.FormEvent) => {
     e.preventDefault();

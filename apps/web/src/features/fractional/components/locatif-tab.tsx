@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2, Pencil, X } from 'lucide-react';
+import { Loader2, Plus, Pencil, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { parseLocaleNumber } from '@/lib/locale-number';
 import { useCreateLease, useUpdateLease, useDeleteLease, useFractionalLegalReview, useFractionalRentalReversion } from '../hooks/use-fractional';
@@ -229,9 +230,7 @@ export function LocatifTab({ projectId, leases, leaseAssessments }: { projectId:
                           <Button variant="ghost" size="icon" onClick={() => startEditing(lease)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => del.mutate(lease.id)} disabled={del.isPending}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <ConfirmDeleteButton onConfirm={() => del.mutate(lease.id)} pending={del.isPending} label="Supprimer le bail" size="icon" />
                         </div>
                       </TableCell>
                     </TableRow>

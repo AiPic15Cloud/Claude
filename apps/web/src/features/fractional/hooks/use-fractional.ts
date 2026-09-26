@@ -207,11 +207,17 @@ export interface LeasePayload {
   exerciceFinancierAsOf?: string;
 }
 
+function invalidateLeaseRelated(qc: ReturnType<typeof useQueryClient>, projectId: string) {
+  invalidateProject(qc, projectId);
+  qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'legal-review'] });
+  qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'rental-reversion'] });
+}
+
 export function useCreateLease(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: LeasePayload) => api.post(`/fractional/projects/${projectId}/leases`, payload),
-    onSuccess: () => invalidateProject(qc, projectId),
+    onSuccess: () => invalidateLeaseRelated(qc, projectId),
   });
 }
 
@@ -220,7 +226,7 @@ export function useUpdateLease(projectId: string) {
   return useMutation({
     mutationFn: ({ leaseId, payload }: { leaseId: string; payload: Partial<LeasePayload> }) =>
       api.patch(`/fractional/projects/${projectId}/leases/${leaseId}`, payload),
-    onSuccess: () => invalidateProject(qc, projectId),
+    onSuccess: () => invalidateLeaseRelated(qc, projectId),
   });
 }
 
@@ -228,7 +234,7 @@ export function useDeleteLease(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (leaseId: string) => api.delete(`/fractional/projects/${projectId}/leases/${leaseId}`),
-    onSuccess: () => invalidateProject(qc, projectId),
+    onSuccess: () => invalidateLeaseRelated(qc, projectId),
   });
 }
 
@@ -327,7 +333,14 @@ export function useUpsertAssumptionSet(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: AssumptionSetPayload) => api.post(`/fractional/projects/${projectId}/assumption-sets`, payload),
-    onSuccess: () => invalidateProject(qc, projectId),
+    onSuccess: () => {
+      invalidateProject(qc, projectId);
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'cap-rate-build-up'] });
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'exit-yield'] });
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'rental-reversion'] });
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'stress-tests'] });
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'deal-economics-stress-tests'] });
+    },
   });
 }
 
@@ -378,6 +391,7 @@ export function useFractionalDealEconomicsStressTests(id: string | null) {
 function invalidateDealEconomics(qc: ReturnType<typeof useQueryClient>, id: string) {
   qc.invalidateQueries({ queryKey: ['fractional', 'projects', id] });
   qc.invalidateQueries({ queryKey: ['fractional', 'projects', id, 'deal-economics'] });
+  qc.invalidateQueries({ queryKey: ['fractional', 'projects', id, 'deal-economics-stress-tests'] });
 }
 
 export interface StakeholderPayload {

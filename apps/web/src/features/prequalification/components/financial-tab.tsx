@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,12 +79,10 @@ function CostItemsList({ items, onChange, placeholder }: { items: CostItem[]; on
  * par `prequal-financial.util.ts`/`prequal-covenant.util.ts` — jamais saisies
  * directement.
  */
-export function FinancialTab({ caseId, financial }: { caseId: string; financial: PrequalFinancialModel | null }) {
-  const upsert = useUpsertFinancialModel(caseId);
-  const { data: bpComparison } = usePrequalBpComparison(caseId);
+const s = (v: number | null | undefined) => (v != null ? String(v) : '');
 
-  const s = (v: number | null | undefined) => (v != null ? String(v) : '');
-  const [form, setForm] = useState({
+function buildFinancialForm(financial: PrequalFinancialModel | null) {
+  return {
     amountRequested: s(financial?.amountRequested),
     declaredEquity: s(financial?.declaredEquity),
     provenEquity: s(financial?.provenEquity),
@@ -120,14 +118,27 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
     fluxTresorerieDisponibleEstime: s(financial?.fluxTresorerieDisponibleEstime),
     montantDecaisseNotaire: s(financial?.montantDecaisseNotaire),
     guaranteesNote: financial?.guaranteesNote ?? '',
-  });
+  };
+}
 
-  const [travauxItems, setTravauxItems] = useState<CostItem[]>(
-    financial?.costLineItems.filter((i) => i.category === 'TRAVAUX').map((i) => ({ label: i.label, amount: String(i.amount) })) ?? [],
-  );
-  const [honorairesItems, setHonorairesItems] = useState<CostItem[]>(
-    financial?.costLineItems.filter((i) => i.category === 'HONORAIRES_TECHNIQUES').map((i) => ({ label: i.label, amount: String(i.amount) })) ?? [],
-  );
+function buildCostItems(financial: PrequalFinancialModel | null, category: string): CostItem[] {
+  return financial?.costLineItems.filter((i) => i.category === category).map((i) => ({ label: i.label, amount: String(i.amount) })) ?? [];
+}
+
+export function FinancialTab({ caseId, financial }: { caseId: string; financial: PrequalFinancialModel | null }) {
+  const upsert = useUpsertFinancialModel(caseId);
+  const { data: bpComparison } = usePrequalBpComparison(caseId);
+
+  const [form, setForm] = useState(() => buildFinancialForm(financial));
+
+  const [travauxItems, setTravauxItems] = useState<CostItem[]>(() => buildCostItems(financial, 'TRAVAUX'));
+  const [honorairesItems, setHonorairesItems] = useState<CostItem[]>(() => buildCostItems(financial, 'HONORAIRES_TECHNIQUES'));
+
+  useEffect(() => {
+    setForm(buildFinancialForm(financial));
+    setTravauxItems(buildCostItems(financial, 'TRAVAUX'));
+    setHonorairesItems(buildCostItems(financial, 'HONORAIRES_TECHNIQUES'));
+  }, [financial]);
 
   const n = (v: string) => (v === '' ? 0 : parseLocaleNumber(v));
   const liveFoncierTotal = n(form.landPrice) + n(form.notaryFees);

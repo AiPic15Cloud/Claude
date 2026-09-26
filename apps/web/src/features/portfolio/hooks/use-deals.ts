@@ -135,6 +135,7 @@ export function useCreateDeal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       queryClient.invalidateQueries({ queryKey: ['cockpit'] });
+      queryClient.invalidateQueries({ queryKey: ['market-ticker'] });
     },
   });
 }

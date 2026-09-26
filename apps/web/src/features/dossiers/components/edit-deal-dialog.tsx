@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -78,6 +78,36 @@ function toDateInput(value?: string | null) {
   return value.slice(0, 10);
 }
 
+function buildDefaultValues(deal: DealDetail): FormValues {
+  return {
+    name: deal.name,
+    type: deal.type,
+    stage: deal.stage,
+    status: deal.status,
+    amountTarget: Number(deal.amountTarget),
+    amountRaised: Number(deal.amountRaised),
+    interestRate: deal.interestRate ? Number(deal.interestRate) : undefined,
+    feesRate: deal.feesRate ? Number(deal.feesRate) : undefined,
+    durationMonths: deal.durationMonths ?? undefined,
+    repaymentMode: deal.repaymentMode ?? undefined,
+    interestPaymentDay: deal.interestPaymentDay ?? undefined,
+    city: deal.city ?? '',
+    startDate: toDateInput(deal.startDate),
+    endDate: toDateInput(deal.endDate),
+    dateMin: toDateInput(deal.dateMin),
+    dateCible: toDateInput(deal.dateCible),
+    dateMax: toDateInput(deal.dateMax),
+    description: deal.description ?? '',
+    repaid: deal.repaid,
+    recoveryStatus: deal.recoveryStatus,
+    chantierSignaleArret: deal.chantierSignaleArret ?? false,
+    porteurNom: deal.porteurNom ?? '',
+    porteurSociete: deal.porteurSociete ?? '',
+    porteurAdresse: deal.porteurAdresse ?? '',
+    porteurSiren: deal.porteurSiren ?? '',
+  };
+}
+
 export function EditDealDialog({ deal }: { deal: DealDetail }) {
   const [open, setOpen] = useState(false);
   const updateDeal = useUpdateDeal(deal.id);
@@ -86,37 +116,19 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
     handleSubmit,
     control,
     watch,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      name: deal.name,
-      type: deal.type,
-      stage: deal.stage,
-      status: deal.status,
-      amountTarget: Number(deal.amountTarget),
-      amountRaised: Number(deal.amountRaised),
-      interestRate: deal.interestRate ? Number(deal.interestRate) : undefined,
-      feesRate: deal.feesRate ? Number(deal.feesRate) : undefined,
-      durationMonths: deal.durationMonths ?? undefined,
-      repaymentMode: deal.repaymentMode ?? undefined,
-      interestPaymentDay: deal.interestPaymentDay ?? undefined,
-      city: deal.city ?? '',
-      startDate: toDateInput(deal.startDate),
-      endDate: toDateInput(deal.endDate),
-      dateMin: toDateInput(deal.dateMin),
-      dateCible: toDateInput(deal.dateCible),
-      dateMax: toDateInput(deal.dateMax),
-      description: deal.description ?? '',
-      repaid: deal.repaid,
-      recoveryStatus: deal.recoveryStatus,
-      chantierSignaleArret: deal.chantierSignaleArret ?? false,
-      porteurNom: deal.porteurNom ?? '',
-      porteurSociete: deal.porteurSociete ?? '',
-      porteurAdresse: deal.porteurAdresse ?? '',
-      porteurSiren: deal.porteurSiren ?? '',
-    },
+    defaultValues: buildDefaultValues(deal),
   });
+
+  // Le composant n'est pas démonté entre deux ouvertures (Radix se contente de
+  // masquer le DialogContent) : sans ce reset, rouvrir "Modifier" après un
+  // enregistrement réussi réaffichait les valeurs d'avant la sauvegarde.
+  useEffect(() => {
+    if (open) reset(buildDefaultValues(deal));
+  }, [open, deal, reset]);
 
   const repaymentMode = watch('repaymentMode');
 

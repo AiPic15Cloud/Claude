@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { usePrequalStressTests } from '../hooks/use-prequalification';
@@ -25,7 +26,14 @@ function pct(value: number | null): string {
 export function StressTestsTab({ caseId }: { caseId: string }) {
   const { data: scenarios, isLoading } = usePrequalStressTests(caseId);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-24" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   if (!scenarios || scenarios.length === 0) {
     return (

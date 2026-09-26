@@ -126,13 +126,18 @@ function TechnicalSubBlockRow({ projectId, subBlock }: { projectId: string; subB
 
   const hasTier = subBlock.tier !== null;
 
+  // Ces deux handlers envoient la valeur de `notes` la plus récente connue du
+  // serveur (le prop `subBlock`, rafraîchi à chaque refetch), pas le state local
+  // `notes` — celui-ci n'est resynchronisé que via handleSaveNotes et resterait
+  // sinon périmé si une édition concurrente a modifié la note entre le montage
+  // de la ligne et ce changement de tier/condition, écrasant l'édition concurrente.
   const handleTierChange = (tier: TechnicalTier) => {
-    upsert.mutate({ subBlock: subBlock.subBlock as TechnicalSubBlock, payload: { tier, conditionPrealable: subBlock.conditionPrealable, notes: notes || undefined } });
+    upsert.mutate({ subBlock: subBlock.subBlock as TechnicalSubBlock, payload: { tier, conditionPrealable: subBlock.conditionPrealable, notes: subBlock.notes ?? undefined } });
   };
 
   const handleConditionPrealableChange = (conditionPrealable: boolean) => {
     if (!subBlock.tier) return;
-    upsert.mutate({ subBlock: subBlock.subBlock as TechnicalSubBlock, payload: { tier: subBlock.tier, conditionPrealable, notes: notes || undefined } });
+    upsert.mutate({ subBlock: subBlock.subBlock as TechnicalSubBlock, payload: { tier: subBlock.tier, conditionPrealable, notes: subBlock.notes ?? undefined } });
   };
 
   const handleSaveNotes = () => {
