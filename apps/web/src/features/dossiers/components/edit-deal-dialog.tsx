@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Loader2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -28,20 +29,26 @@ import {
 } from '@/types';
 import { ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 
 const DEAL_STATUSES: DealStatus[] = ['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED'];
 const DEAL_RECOVERY_STATUSES: DealRecoveryStatus[] = ['RAS', 'AMIABLE', 'MISE_EN_DEMEURE', 'CONTENTIEUX', 'PROCEDURE_COLLECTIVE'];
 const DEAL_REPAYMENT_MODES: DealRepaymentMode[] = ['MENSUEL', 'IN_FINE'];
+
+// Normalise "1 234,56" en valeur exploitable par z.coerce.number() — sinon un
+// <input type="number"> rejette silencieusement le "," sous une locale française
+// et un champ texte transmettrait "1234,56" tel quel, coercé en NaN.
+const normalizeDecimal = (v: unknown) => (typeof v === 'string' ? parseLocaleNumber(v) : v);
 
 const schema = z.object({
   name: z.string().min(2, 'Nom requis'),
   type: z.enum(DEAL_TYPES as [DealType, ...DealType[]]),
   stage: z.enum(DEAL_STAGES as [DealStage, ...DealStage[]]),
   status: z.enum(['ACTIVE', 'ON_HOLD', 'CLOSED', 'ARCHIVED']),
-  amountTarget: z.coerce.number().positive('Montant requis'),
-  amountRaised: z.coerce.number().min(0),
-  interestRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
-  feesRate: z.coerce.number().min(0).max(100).optional().or(z.literal(undefined)),
+  amountTarget: z.preprocess(normalizeDecimal, z.coerce.number().positive('Montant requis')),
+  amountRaised: z.preprocess(normalizeDecimal, z.coerce.number().min(0)),
+  interestRate: z.preprocess(normalizeDecimal, z.coerce.number().min(0).max(100)).optional().or(z.literal(undefined)),
+  feesRate: z.preprocess(normalizeDecimal, z.coerce.number().min(0).max(100)).optional().or(z.literal(undefined)),
   durationMonths: z.coerce.number().int().positive().optional().or(z.literal(undefined)),
   repaymentMode: z.enum(DEAL_REPAYMENT_MODES as [DealRepaymentMode, ...DealRepaymentMode[]]).optional(),
   interestPaymentDay: z.coerce.number().int().min(1).max(31).optional().or(z.literal(undefined)),
@@ -205,23 +212,23 @@ export function EditDealDialog({ deal }: { deal: DealDetail }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amountTarget">Montant cible (€)</Label>
-              <Input id="amountTarget" type="number" min={0} step={1000} {...register('amountTarget')} />
+              <DecimalInput id="amountTarget" {...register('amountTarget')} />
               {errors.amountTarget && <p className="text-xs text-destructive">{errors.amountTarget.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amountRaised">Montant collecté (€)</Label>
-              <Input id="amountRaised" type="number" min={0} step={1000} {...register('amountRaised')} />
+              <DecimalInput id="amountRaised" {...register('amountRaised')} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="interestRate">Taux (%)</Label>
-              <Input id="interestRate" type="number" min={0} max={100} step={0.1} {...register('interestRate')} />
+              <DecimalInput id="interestRate" {...register('interestRate')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="feesRate">Fees (%)</Label>
-              <Input id="feesRate" type="number" min={0} max={100} step={0.1} {...register('feesRate')} />
+              <DecimalInput id="feesRate" {...register('feesRate')} />
               {deal.feesAmount && Number(deal.feesAmount) > 0 && (
                 <p className="text-[11px] text-muted-foreground">= {formatCurrency(deal.feesAmount)} sur le collecté actuel</p>
               )}

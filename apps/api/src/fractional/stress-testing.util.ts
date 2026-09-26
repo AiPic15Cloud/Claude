@@ -144,7 +144,7 @@ export function computeStressScenario(base: ReturnsEngineInput, scenario: Stress
     exitValue: input.exitValue,
     maxLoss,
     yearsUnderHurdle,
-    eligibility: computeEligibility(result.securedNetYieldPct, hurdlePct),
+    eligibility: computeEligibility(collecte > 0 ? result.securedNetYieldPct : null, hurdlePct),
   };
 }
 
@@ -206,7 +206,7 @@ export function computeBreakEventScenario(base: ReturnsEngineInput, scenario: Br
     exitValue: input.exitValue,
     maxLoss,
     yearsUnderHurdle,
-    eligibility: computeEligibility(result.securedNetYieldPct, hurdlePct),
+    eligibility: computeEligibility(collecte > 0 ? result.securedNetYieldPct : null, hurdlePct),
   };
 }
 

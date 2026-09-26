@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Loader2, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -61,9 +62,7 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
     <div className="flex flex-col gap-2 rounded-md border border-border/60 p-2.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{criterion.label}</span>
-        <Button variant="ghost" size="icon" onClick={() => deleteCriterion.mutate(criterion.id)} disabled={deleteCriterion.isPending}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <ConfirmDeleteButton onConfirm={() => deleteCriterion.mutate(criterion.id)} pending={deleteCriterion.isPending} label="Supprimer le critère" size="icon" />
       </div>
       {criterion.sourceField && <span className="text-[11px] text-muted-foreground">Champ indicatif : {criterion.sourceField}</span>}
       <div className="flex flex-col gap-1.5">
@@ -77,9 +76,7 @@ function CriterionEditor({ criterion }: { criterion: FractionalScoreCriterion })
                 </Badge>
               )}
             </span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteBucket.mutate(b.id)} disabled={deleteBucket.isPending}>
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            <ConfirmDeleteButton onConfirm={() => deleteBucket.mutate(b.id)} pending={deleteBucket.isPending} label="Supprimer la réponse" size="icon" />
           </div>
         ))}
       </div>
@@ -134,9 +131,7 @@ function CategoryEditor({ category }: { category: FractionalScoreCategory }) {
         </button>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{category.maxPoints} pts max · {category.criteria.length} critère(s)</span>
-          <Button variant="ghost" size="icon" onClick={() => deleteCategory.mutate(category.id)} disabled={deleteCategory.isPending}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <ConfirmDeleteButton onConfirm={() => deleteCategory.mutate(category.id)} pending={deleteCategory.isPending} label="Supprimer la catégorie" size="icon" />
         </div>
       </div>
       {expanded && (
@@ -264,9 +259,7 @@ export function BaremeEditor() {
                     {r.platformProfileId ? ` · ${profiles?.find((p) => p.id === r.platformProfileId)?.platformName ?? 'plateforme'}` : ''}
                   </span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => deleteRule.mutate(r.id)} disabled={deleteRule.isPending}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <ConfirmDeleteButton onConfirm={() => deleteRule.mutate(r.id)} pending={deleteRule.isPending} label="Supprimer la règle" size="icon" />
               </div>
             ))}
           </div>

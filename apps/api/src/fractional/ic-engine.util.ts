@@ -122,6 +122,9 @@ export function computeICRecommendation(input: ICRecommendationInput): ICRecomme
   if (hardStops.length > 0) {
     status = 'DECLINE';
     recommendation = 'Hard stop actif — dossier non présentable en l\'état.';
+  } else if (input.eligibility.verdict === 'NOT_EVALUABLE') {
+    status = 'HOLD';
+    recommendation = 'Collecte non renseignée (Sources & Uses) — rendement sécurisé non évaluable, hurdle non vérifiable.';
   } else if (input.eligibility.verdict === 'INELIGIBLE') {
     status = 'DECLINE';
     recommendation = 'Rendement sécurisé sous le hurdle plateforme — profil risque/rendement incompatible.';

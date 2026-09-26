@@ -30,20 +30,27 @@ export function SensitivityComparisonCard({ initial, current }: { initial: Finan
           {current.map((scenario, i) => {
             const initialScenario = initial[i];
             if (!initialScenario) return null;
+            const neutralStyle = { dot: '⚪', text: 'text-muted-foreground' };
             const tierInitial = marginTier(initialScenario.marginPct);
             const tierCurrent = marginTier(scenario.marginPct);
-            const styleInitial = MARGIN_TIER_STYLES[tierInitial];
-            const styleCurrent = MARGIN_TIER_STYLES[tierCurrent];
+            const styleInitial = tierInitial ? MARGIN_TIER_STYLES[tierInitial] : neutralStyle;
+            const styleCurrent = tierCurrent ? MARGIN_TIER_STYLES[tierCurrent] : neutralStyle;
             const deltaAbs = scenario.margin - initialScenario.margin;
             const isGood = deltaAbs > 0;
             return (
               <Fragment key={scenario.label}>
                 <span className={scenario.label === 'Base' ? 'font-medium' : 'text-muted-foreground'}>{scenario.label}</span>
                 <span className="tabular-nums">
-                  {formatEuro(initialScenario.margin)} <span className={cn('text-xs', styleInitial.text)}>{styleInitial.dot} {initialScenario.marginPct}%</span>
+                  {formatEuro(initialScenario.margin)}{' '}
+                  <span className={cn('text-xs', styleInitial.text)}>
+                    {styleInitial.dot} {initialScenario.marginPct === null ? '—' : `${initialScenario.marginPct}%`}
+                  </span>
                 </span>
                 <span className="tabular-nums">
-                  {formatEuro(scenario.margin)} <span className={cn('text-xs', styleCurrent.text)}>{styleCurrent.dot} {scenario.marginPct}%</span>
+                  {formatEuro(scenario.margin)}{' '}
+                  <span className={cn('text-xs', styleCurrent.text)}>
+                    {styleCurrent.dot} {scenario.marginPct === null ? '—' : `${scenario.marginPct}%`}
+                  </span>
                 </span>
                 <span className="text-right">
                   {deltaAbs === 0 ? (

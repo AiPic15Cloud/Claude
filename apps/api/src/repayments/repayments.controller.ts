@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { RepaymentsService } from './repayments.service';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
@@ -18,11 +20,15 @@ export class RepaymentsController {
     return this.repaymentsService.list(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Body() dto: CreateRepaymentDto) {
     return this.repaymentsService.create(user.organizationId, dealId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':repaymentId')
   update(
     @CurrentUser() user: AuthenticatedUser,
@@ -33,6 +39,8 @@ export class RepaymentsController {
     return this.repaymentsService.update(user.organizationId, dealId, repaymentId, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':repaymentId')
   remove(

@@ -880,7 +880,7 @@ export interface FinancialScenario {
   revenue: number;
   totalCost: number;
   margin: number;
-  marginPct: number;
+  marginPct: number | null;
 }
 
 export interface FinancialSynthesis {
@@ -919,7 +919,7 @@ export interface FinancialSynthesis {
     avgPricePerSqm: number | null;
   } | null;
   marge: number;
-  margePct: number;
+  margePct: number | null;
   expositionFinale: number;
   ratios: {
     lta: number | null;
@@ -1038,7 +1038,7 @@ export interface ScenarioResult {
   prixDeVente: number;
   coutDeRevient: number;
   marge: number;
-  margePct: number;
+  margePct: number | null;
   pointMortTotal: number;
   pointMortPerSqm: number | null;
   multipleCapital: number | null;
@@ -1964,11 +1964,12 @@ export interface FractionalReturnsResult {
   };
 }
 
-export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE';
+export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE' | 'NOT_EVALUABLE';
 export const ELIGIBILITY_VERDICT_LABELS: Record<EligibilityVerdict, string> = {
   ELIGIBLE: 'Éligible',
   MARGINAL: 'Marginal',
   INELIGIBLE: 'Non éligible',
+  NOT_EVALUABLE: 'Non évaluable (collecte non renseignée)',
 };
 
 export interface ReverseSolverResult {
@@ -1997,7 +1998,7 @@ export interface FractionalSynthese {
   base: FractionalReturnsResult;
   stressed: FractionalReturnsResult;
   stressedIsFallback: boolean;
-  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number; gapPct: number };
+  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number | null; gapPct: number | null };
   reverseSolver: {
     maxAcquisitionPrice: ReverseSolverResult;
     minSecuredRent: ReverseSolverResult;
@@ -2189,7 +2190,7 @@ export interface StressScenarioResult {
   exitValue: number;
   maxLoss: number;
   yearsUnderHurdle: number;
-  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number; gapPct: number };
+  eligibility: { verdict: EligibilityVerdict; hurdlePct: number; securedNetYieldPct: number | null; gapPct: number | null };
 }
 
 export type ICDecisionStatus = 'APPROVE' | 'APPROVE_SUBJECT_TO_CONDITIONS' | 'RESTRUCTURE' | 'HOLD' | 'DECLINE';

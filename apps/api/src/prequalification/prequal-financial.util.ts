@@ -122,7 +122,7 @@ export interface PrequalScenario {
   revenue: number;
   totalCost: number;
   margin: number;
-  marginPct: number;
+  marginPct: number | null;
 }
 
 export interface PrequalFinancialResult {
@@ -182,7 +182,7 @@ function computeScenario(label: string, revenue: number, cost: number): PrequalS
     revenue: round2(revenue),
     totalCost: round2(cost),
     margin: round2(margin),
-    marginPct: revenue > 0 ? Math.round((margin / revenue) * 1000) / 10 : 0,
+    marginPct: revenue > 0 ? Math.round((margin / revenue) * 1000) / 10 : null,
   };
 }
 

@@ -11,7 +11,7 @@ function formatCurrency(value: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
 }
 
-function HeroTile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'vert' | 'jaune' | 'orange' | 'rouge' }) {
+function HeroTile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'vert' | 'jaune' | 'orange' | 'rouge' | null }) {
   const style = tone ? MARGIN_TIER_STYLES[tone] : null;
   return (
     <div className={cn('flex flex-col gap-0.5 rounded-lg border border-border p-3', style && `${style.border} ${style.bg}`)}>
@@ -87,7 +87,7 @@ export function FinancialSynthesisCard({ synthesis }: { synthesis: FinancialSynt
             value={formatCurrency(synthesis.prixDeVente)}
             hint={synthesis.saleLotsSummary ? `${synthesis.saleLotsSummary.soldCount}/${synthesis.saleLotsSummary.count} vendus` : "€/m² × surface"}
           />
-          <HeroTile label="Marge avant impôts" value={`${formatCurrency(synthesis.marge)}`} hint={`${synthesis.margePct}%`} tone={tier} />
+          <HeroTile label="Marge avant impôts" value={`${formatCurrency(synthesis.marge)}`} hint={synthesis.margePct === null ? 'Prix de vente non renseigné' : `${synthesis.margePct}%`} tone={tier} />
           <HeroTile label="Exposition finale" value={formatCurrency(synthesis.expositionFinale)} hint="Coût de revient − banque − collecte" />
         </div>
 

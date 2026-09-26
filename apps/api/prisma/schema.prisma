@@ -1049,6 +1049,7 @@ model Task {
 
   /// Présente uniquement si cette tâche a été générée par un playbook (A.4) — le statut affiché à l'analyste reste `done`/`dueDate` ci-dessus, jamais un champ dupliqué côté playbook.
   playbookActionItem PlaybookActionItem?
+  alerts             Alert[]
 
   @@index([dealId])
   @@index([organizationId])
@@ -1086,6 +1087,15 @@ model Alert {
   fractionalProject         FractionalProject?       @relation(fields: [fractionalProjectId], references: [id], onDelete: Cascade)
   projectObservationEventId String?
   projectObservationEvent   ProjectObservationEvent? @relation(fields: [projectObservationEventId], references: [id], onDelete: SetNull)
+  /// Tâche à l'origine de l'alerte (tâche urgente en retard, action de
+  /// playbook bloquante en retard — cette dernière est elle-même adossée à
+  /// un Task via PlaybookActionItem.taskId). Sert de clé de déduplication
+  /// stable : sans elle, un dédoublonnage par simple titre laisse une alerte
+  /// résolue bloquer silencieusement toute nouvelle alerte si la même tâche
+  /// redevient en retard plus tard (ou si deux tâches distinctes partagent
+  /// le même titre).
+  taskId                    String?
+  task                      Task?                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   severity AlertSeverity @default(INFO)
   title    String
@@ -1096,6 +1106,7 @@ model Alert {
 
   @@index([organizationId])
   @@index([read])
+  @@index([taskId])
   @@map("alerts")
 }
 

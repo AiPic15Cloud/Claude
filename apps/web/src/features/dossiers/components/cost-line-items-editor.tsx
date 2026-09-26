@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Check, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, Loader2, Pencil, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { useCreateCostLineItem, useUpdateCostLineItem, useDeleteCostLineItem, type CostLineItemCategory } from '../hooks/use-cost-line-items';
 import { formatCurrency } from '@/lib/format';
 import type { CostLineItem } from '@/types';
@@ -74,12 +75,10 @@ export function CostLineItemsEditor({
             <span className="text-sm">{item.label}</span>
             <div className="flex items-center gap-1">
               <span className="text-sm font-medium tabular-nums">{formatCurrency(item.amount)}</span>
-              <Button size="icon" variant="ghost" onClick={() => startEdit(item)}>
+              <Button size="icon" variant="ghost" aria-label="Modifier" title="Modifier" onClick={() => startEdit(item)}>
                 <Pencil className="h-3 w-3 text-muted-foreground" />
               </Button>
-              <Button size="icon" variant="ghost" onClick={() => remove.mutate(item.id)} disabled={remove.isPending}>
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </Button>
+              <ConfirmDeleteButton onConfirm={() => remove.mutate(item.id)} pending={remove.isPending} label="Supprimer le poste" size="icon" />
             </div>
           </div>
         ),

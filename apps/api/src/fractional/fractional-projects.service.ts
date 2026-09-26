@@ -699,7 +699,7 @@ export class FractionalProjectsService {
 
     const stressResult = computeReturnsEngine({ ...baseInput, ...stressValues, exitValue: exitValueStress });
 
-    const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
+    const eligibility = computeEligibility(baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null, hurdlePct);
 
     let reverseSolver: {
       maxAcquisitionPrice: ReturnType<typeof solveMaxAcquisitionPrice>;
@@ -925,7 +925,7 @@ export class FractionalProjectsService {
     const project = await this.findOne(projectId, user);
     const { baseInput, hurdlePct, platformProfile, capexDataMissing } = await this.buildReturnsEngineInput(project, user.organizationId);
     const baseResult = computeReturnsEngine(baseInput);
-    const eligibility = computeEligibility(baseResult.securedNetYieldPct, hurdlePct);
+    const eligibility = computeEligibility(baseInput.sourcesUses.collecteMontant > 0 ? baseResult.securedNetYieldPct : null, hurdlePct);
     const stressScenarios = computeAllStressScenarios(baseInput, hurdlePct);
     const combinedSevere = stressScenarios.find((s) => s.scenario === 'COMBINED_SEVERE');
     const breakDownside = computeBreakEventScenario(baseInput, 'TENANT_BREAK_DOWNSIDE', hurdlePct);

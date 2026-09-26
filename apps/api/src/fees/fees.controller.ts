@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { FeesService } from './fees.service';
 import { SetFeesTargetDto } from './dto/set-fees-target.dto';
@@ -23,6 +25,8 @@ export class FeesController {
     return this.feesService.projection(user.organizationId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Put('target')
   setTarget(@CurrentUser() user: AuthenticatedUser, @Body() dto: SetFeesTargetDto) {
     return this.feesService.setTarget(user.organizationId, dto.year, dto.targetAmount);

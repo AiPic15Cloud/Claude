@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Check, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, Loader2, Pencil, Plus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateSaleLot, useUpdateSaleLot, useDeleteSaleLot } from '../hooks/use-sale-lots';
 import { formatCurrency } from '@/lib/format';
@@ -119,12 +120,10 @@ export function SaleLotsEditor({ dealId, lots }: { dealId: string; lots: SaleLot
             </div>
             <div className="flex items-center gap-1">
               <span className="text-sm font-medium tabular-nums">{formatCurrency(lot.salePrice)}</span>
-              <Button size="icon" variant="ghost" onClick={() => startEdit(lot)}>
+              <Button size="icon" variant="ghost" aria-label="Modifier" title="Modifier" onClick={() => startEdit(lot)}>
                 <Pencil className="h-3 w-3 text-muted-foreground" />
               </Button>
-              <Button size="icon" variant="ghost" onClick={() => remove.mutate(lot.id)} disabled={remove.isPending}>
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </Button>
+              <ConfirmDeleteButton onConfirm={() => remove.mutate(lot.id)} pending={remove.isPending} label="Supprimer le lot" size="icon" />
             </div>
           </div>
         ),

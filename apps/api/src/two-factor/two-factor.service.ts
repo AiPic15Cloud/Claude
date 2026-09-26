@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { generateSecret, generateURI, verify } from 'otplib';
 import * as QRCode from 'qrcode';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { decryptTotpSecret, encryptTotpSecret } from './totp-secret-encryption.util';
 
 const SALT_ROUNDS = 12;
 const RECOVERY_CODE_COUNT = 8;
@@ -19,7 +21,14 @@ export class TwoFactorService {
   // In-memory only (single API replica); resets on deploy/restart.
   private readonly failedAttempts = new Map<string, { count: number; lockedUntil?: number }>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  private get encryptionKey(): string {
+    return this.config.get<string>('security.twoFactorEncryptionKey')!;
+  }
 
   private assertNotLocked(userId: string) {
     const entry = this.failedAttempts.get(userId);
@@ -52,7 +61,7 @@ export class TwoFactorService {
     }
 
     const secret = generateSecret();
-    await this.prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: secret } });
+    await this.prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: encryptTotpSecret(secret, this.encryptionKey) } });
 
     const otpauthUrl = generateURI({ issuer: ISSUER, label: email, secret });
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
@@ -64,7 +73,8 @@ export class TwoFactorService {
     if (!user?.twoFactorSecret) {
       throw new BadRequestException('Aucune configuration 2FA en attente — relancez la mise en place');
     }
-    const result = await verify({ token: code, secret: user.twoFactorSecret }).catch(() => ({ valid: false }));
+    const { secret } = decryptTotpSecret(user.twoFactorSecret, this.encryptionKey);
+    const result = await verify({ token: code, secret }).catch(() => ({ valid: false }));
     if (!result.valid) {
       throw new UnauthorizedException('Code invalide');
     }
@@ -90,6 +100,11 @@ export class TwoFactorService {
       where: { id: userId },
       data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: [] },
     });
+
+    // Désactiver le 2FA affaiblit toute session existante (un refresh token
+    // volé n'a plus besoin du second facteur) — révoquer les refresh tokens
+    // en cours force une reconnexion complète après ce changement.
+    await this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 
   async verifyCode(userId: string, code: string): Promise<boolean> {
@@ -98,8 +113,19 @@ export class TwoFactorService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.twoFactorSecret) return false;
 
+    const { secret, wasLegacyPlaintext } = decryptTotpSecret(user.twoFactorSecret, this.encryptionKey);
+    // Migration transparente : un secret encore en clair (posé avant ce
+    // correctif) est chiffré dès son premier usage, sans script ni
+    // interruption de service — jamais de lockout pour l'utilisateur.
+    if (wasLegacyPlaintext) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { twoFactorSecret: encryptTotpSecret(secret, this.encryptionKey) },
+      });
+    }
+
     if (/^\d{6}$/.test(code)) {
-      const result = await verify({ token: code, secret: user.twoFactorSecret }).catch(() => ({ valid: false }));
+      const result = await verify({ token: code, secret }).catch(() => ({ valid: false }));
       if (result.valid) {
         this.registerSuccess(userId);
         return true;

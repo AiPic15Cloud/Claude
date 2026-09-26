@@ -33,6 +33,7 @@ export class AlertsService {
       articleId?: string;
       fractionalProjectId?: string;
       projectObservationEventId?: string;
+      taskId?: string;
     },
   ) {
     const alert = await this.prisma.alert.create({
@@ -45,6 +46,7 @@ export class AlertsService {
         articleId: data.articleId,
         fractionalProjectId: data.fractionalProjectId,
         projectObservationEventId: data.projectObservationEventId,
+        taskId: data.taskId,
       },
     });
 

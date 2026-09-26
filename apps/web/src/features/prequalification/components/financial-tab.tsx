@@ -361,7 +361,7 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
                   <div className="flex flex-col gap-2">
                     {financial.sensitivity.map((scenario) => {
                       const tier = marginTier(scenario.marginPct);
-                      const style = MARGIN_TIER_STYLES[tier];
+                      const style = tier ? MARGIN_TIER_STYLES[tier] : { dot: '⚪', text: 'text-muted-foreground', border: 'border-border', bg: '' };
                       return (
                         <div
                           key={scenario.label}
@@ -371,7 +371,7 @@ export function FinancialTab({ caseId, financial }: { caseId: string; financial:
                           <div className="text-right">
                             <p className="text-sm font-semibold tabular-nums">{formatCurrency(scenario.margin)}</p>
                             <p className={cn('text-xs font-medium tabular-nums', style.text)}>
-                              {style.dot} marge {scenario.marginPct}%
+                              {style.dot} marge {scenario.marginPct === null ? '—' : `${scenario.marginPct}%`}
                             </p>
                           </div>
                         </div>

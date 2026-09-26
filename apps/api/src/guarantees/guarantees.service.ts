@@ -5,6 +5,7 @@ import { ActivitiesService } from '../activities/activities.service';
 import { isDealClosed } from '../common/deal-lifecycle.util';
 import { RiskEngineService } from '../risk-engine/risk-engine.service';
 import { UpsertGuaranteeDto } from './dto/upsert-guarantee.dto';
+import { UpdateGuaranteeDto } from './dto/update-guarantee.dto';
 import { computeGuaranteeExpiry } from './guarantee-expiry.util';
 
 function attachExpiry<T extends Guarantee>(guarantee: T, dealClosed: boolean) {
@@ -57,7 +58,7 @@ export class GuaranteesService {
     return attachExpiry(guarantee, isDealClosed(deal));
   }
 
-  async update(organizationId: string, dealId: string, id: string, dto: Partial<UpsertGuaranteeDto>) {
+  async update(organizationId: string, dealId: string, id: string, dto: UpdateGuaranteeDto) {
     const deal = await this.assertDeal(organizationId, dealId);
     const guarantee = await this.prisma.guarantee.findFirst({ where: { id, dealId } });
     if (!guarantee) throw new NotFoundException('Garantie introuvable');

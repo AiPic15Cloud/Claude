@@ -165,19 +165,25 @@ export class PlaybooksService {
       },
     });
 
+    // Même correctif que TasksService.escalateOverdueUrgentTasks : une
+    // alerte liée à une action désormais traitée/plus en retard doit être
+    // purgée, sinon elle bloque silencieusement toute nouvelle alerte pour
+    // la même tâche si elle redevient en retard plus tard.
+    await this.prisma.alert.deleteMany({
+      where: { taskId: { not: null, notIn: overdue.map((item) => item.task.id) }, title: { startsWith: 'Action bloquante en retard — ' } },
+    });
+
     let created = 0;
     for (const item of overdue) {
-      const title = `Action bloquante en retard — ${item.playbookInstance.deal.reference}`;
-      const existingAlert = await this.prisma.alert.findFirst({
-        where: { organizationId: item.playbookInstance.organizationId, dealId: item.playbookInstance.dealId, title },
-      });
+      const existingAlert = await this.prisma.alert.findFirst({ where: { taskId: item.task.id } });
       if (existingAlert) continue;
 
       await this.alerts.create(item.playbookInstance.organizationId, {
-        title,
+        title: `Action bloquante en retard — ${item.playbookInstance.deal.reference}`,
         message: `${item.playbookInstance.deal.name} : "${item.task.title}" est bloquante et en retard depuis le ${item.task.dueDate!.toLocaleDateString('fr-FR')}.`,
         severity: 'CRITICAL',
         dealId: item.playbookInstance.dealId,
+        taskId: item.task.id,
       });
       created += 1;
     }

@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CreateDealDto } from '../deals/dto/create-deal.dto';
 import { PipelineService } from './pipeline.service';
@@ -25,21 +27,29 @@ export class PipelineController {
     return this.pipelineService.summary(user.organizationId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreatePipelineEntryDto) {
     return this.pipelineService.create(user.organizationId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id')
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdatePipelineEntryDto) {
     return this.pipelineService.update(user.organizationId, id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':id/convert')
   convertToDeal(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: CreateDealDto) {
     return this.pipelineService.convertToDeal(user.organizationId, user.id, id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {

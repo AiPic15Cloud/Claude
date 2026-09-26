@@ -52,7 +52,11 @@ export class ProjectCheckpointsService {
     let prixVenteInitialPrevu = dto.prixVenteInitialPrevu;
     if (travauxBudgetInitial === undefined || prixVenteInitialPrevu === undefined) {
       const model = await this.financialModel.get(organizationId, dealId);
-      if (travauxBudgetInitial === undefined) travauxBudgetInitial = model.valuation?.totalCost;
+      // `model.valuation.totalCost` est le coût de revient ENTIER (foncier +
+      // travaux + honoraires + autres frais) — utiliser ce champ ici sous-
+      // estimait systématiquement le dépassement travaux affiché à
+      // l'analyste. `synthesis.travauxTotal` est le poste travaux seul.
+      if (travauxBudgetInitial === undefined) travauxBudgetInitial = model.synthesis?.travauxTotal;
       if (prixVenteInitialPrevu === undefined) prixVenteInitialPrevu = model.valuation?.revenue;
     }
 

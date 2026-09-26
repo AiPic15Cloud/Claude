@@ -1,8 +1,9 @@
-import { ShieldCheck, Shield, Trash2, TriangleAlert } from 'lucide-react';
+import { ShieldCheck, Shield, TriangleAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FreshnessBadge } from '@/components/ui/freshness-badge';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { useGuarantees, useDeleteGuarantee, useMarkGuaranteeVerified } from '../hooks/use-guarantees';
 import { GuaranteeFormDialog } from './guarantee-form-dialog';
 import { RenewGuaranteeDialog } from './renew-guarantee-dialog';
@@ -85,9 +86,7 @@ export function GuaranteesPanel({ dealId }: { dealId: string }) {
                 {needsRenewal && <RenewGuaranteeDialog dealId={dealId} guarantee={g} />}
                 <SubstantiveDefectDialog dealId={dealId} guarantee={g} />
                 <GuaranteeFormDialog dealId={dealId} guarantee={g} />
-                <Button variant="ghost" size="icon" onClick={() => deleteGuarantee.mutate(g.id)}>
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
+                <ConfirmDeleteButton onConfirm={() => deleteGuarantee.mutate(g.id)} pending={deleteGuarantee.isPending} label="Supprimer la garantie" />
               </div>
             </div>
           );

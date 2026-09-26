@@ -41,6 +41,7 @@ function Lightbox({ url, onClose }: { url: string | null; onClose: () => void })
 
 function NoteItem({ dealId, note, canModify, onOpenImage }: { dealId: string; note: Note; canModify: boolean; onOpenImage: (url: string) => void }) {
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draft, setDraft] = useState(note.content);
   const updateNote = useUpdateNote();
   const deleteNote = useDeleteNote();
@@ -59,7 +60,7 @@ function NoteItem({ dealId, note, canModify, onOpenImage }: { dealId: string; no
     <div className="flex gap-2.5">
       <Avatar className="h-7 w-7">
         <AvatarFallback className="text-[10px]">
-          {note.author ? `${note.author.firstName[0]}${note.author.lastName[0]}` : '?'}
+          {note.author ? `${note.author.firstName[0] ?? '?'}${note.author.lastName[0] ?? '?'}` : '?'}
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 rounded-md bg-secondary/50 p-2.5">
@@ -70,15 +71,32 @@ function NoteItem({ dealId, note, canModify, onOpenImage }: { dealId: string; no
               {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true, locale: fr })}
               {note.updatedAt !== note.createdAt && ' · modifiée'}
             </p>
-            {canModify && !editing && (
-              <div className="flex items-center gap-1">
-                <button type="button" onClick={startEdit} className="text-muted-foreground hover:text-foreground">
-                  <Pencil className="h-3 w-3" />
+            {canModify && !editing && confirmingDelete && (
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <button type="button" onClick={() => setConfirmingDelete(false)} className="text-muted-foreground hover:text-foreground">
+                  Annuler
                 </button>
                 <button
                   type="button"
                   onClick={() => deleteNote.mutate({ dealId, noteId: note.id })}
+                  disabled={deleteNote.isPending}
+                  className="font-medium text-destructive hover:underline"
+                >
+                  {deleteNote.isPending ? 'Suppression…' : 'Confirmer'}
+                </button>
+              </div>
+            )}
+            {canModify && !editing && !confirmingDelete && (
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={startEdit} className="text-muted-foreground hover:text-foreground" aria-label="Modifier" title="Modifier">
+                  <Pencil className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
                   className="text-muted-foreground hover:text-destructive"
+                  aria-label="Supprimer la note"
+                  title="Supprimer la note"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>

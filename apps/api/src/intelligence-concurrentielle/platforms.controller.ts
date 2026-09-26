@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { GraphService } from '../graph/graph.service';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -32,11 +34,15 @@ export class PlatformsController {
     return this.graphService.listEntities(user.organizationId, { type: 'PLATEFORME' });
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('sync')
   sync(@CurrentUser() user: AuthenticatedUser) {
     return this.syncService.syncFromBarometer(user.organizationId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('watchlist')
   applyWatchlist(@CurrentUser() user: AuthenticatedUser) {
     return this.syncService.applyWatchlist(user.organizationId);
@@ -63,6 +69,8 @@ export class PlatformsController {
     return this.competitorProjects.listEvents(user.organizationId, id);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':id/projects')
   createProject(
     @CurrentUser() user: AuthenticatedUser,
@@ -72,6 +80,8 @@ export class PlatformsController {
     return this.competitorProjects.create(user.organizationId, id, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id/projects/:projectId')
   updateProject(
     @CurrentUser() user: AuthenticatedUser,
@@ -81,6 +91,8 @@ export class PlatformsController {
     return this.competitorProjects.update(user.organizationId, projectId, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Delete(':id/projects/:projectId')
   removeProject(@CurrentUser() user: AuthenticatedUser, @Param('projectId') projectId: string) {
     return this.competitorProjects.remove(user.organizationId, projectId);

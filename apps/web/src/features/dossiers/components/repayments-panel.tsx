@@ -2,26 +2,20 @@ import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, Pencil, Plus, Wallet, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plus, Wallet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useRepayments, useCreateRepayment, useUpdateRepayment, useDeleteRepayment } from '../hooks/use-repayments';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { parseLocaleNumber as parseAmount } from '@/lib/locale-number';
 import type { Repayment } from '@/types';
-
-// A native <input type="number"> parses "." as the decimal separator only
-// under an English locale — under a French browser/OS locale it expects
-// "," and silently rejects "." keystrokes, so typing "240096.61" stops
-// dead at "240096". Using a plain text field with our own parsing sidesteps
-// that entirely: both "," and "." (plus any thousands spacing) are accepted.
-function parseAmount(raw: string): number {
-  return Number(raw.trim().replace(/\s/g, '').replace(',', '.'));
-}
 
 const schema = z.object({
   amount: z
@@ -101,7 +95,7 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="amount">Montant (€)</Label>
-                  <Input id="amount" type="text" inputMode="decimal" placeholder="0,00" {...register('amount')} />
+                  <DecimalInput id="amount" {...register('amount')} />
                   {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -156,12 +150,10 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
               <span className="text-sm font-semibold tabular-nums">{formatCurrency(r.amount)}</span>
-              <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
+              <Button variant="ghost" size="icon" aria-label="Modifier" title="Modifier" onClick={() => openEdit(r)}>
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => deleteRepayment.mutate(r.id)}>
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <ConfirmDeleteButton onConfirm={() => deleteRepayment.mutate(r.id)} pending={deleteRepayment.isPending} label="Supprimer le remboursement" />
             </div>
           </div>
         ))}

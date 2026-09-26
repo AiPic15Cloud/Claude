@@ -136,17 +136,26 @@ export class TasksService {
       select: { id: true, title: true, dueDate: true, dealId: true, organizationId: true },
     });
 
+    // Une alerte liée à une tâche qui n'est plus en retard (échéance
+    // repoussée, tâche traitée/annulée) est désormais obsolète — la purger
+    // permet à la même tâche de redéclencher une alerte si elle redevient
+    // en retard plus tard. Sans ça, la déduplication par titre bloquerait
+    // silencieusement toute nouvelle alerte pour cette tâche indéfiniment.
+    await this.prisma.alert.deleteMany({
+      where: { taskId: { not: null, notIn: overdue.map((t) => t.id) }, title: { startsWith: 'Tâche urgente en retard — ' } },
+    });
+
     let created = 0;
     for (const task of overdue) {
-      const title = `Tâche urgente en retard — ${task.title}`;
-      const existingAlert = await this.prisma.alert.findFirst({ where: { organizationId: task.organizationId, title } });
+      const existingAlert = await this.prisma.alert.findFirst({ where: { taskId: task.id } });
       if (existingAlert) continue;
 
       await this.alerts.create(task.organizationId, {
-        title,
+        title: `Tâche urgente en retard — ${task.title}`,
         message: `"${task.title}" est urgente et en retard depuis le ${task.dueDate!.toLocaleDateString('fr-FR')}.`,
         severity: 'CRITICAL',
         dealId: task.dealId ?? undefined,
+        taskId: task.id,
       });
       created += 1;
     }

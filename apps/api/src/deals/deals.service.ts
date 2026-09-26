@@ -1044,8 +1044,8 @@ export class DealsService {
   }
 
   /** Horodatage de la dernière vérification réussie d'une source externe (section 6 "Le Traçotin") — jamais un facteur de risque, seulement un indicateur de fraîcheur pour DataFreshnessResult. */
-  async touchDataCheck(id: string, field: 'riskDataCheckedAt' | 'dpeCheckedAt') {
-    await this.prisma.deal.update({ where: { id }, data: { [field]: new Date() } });
+  async touchDataCheck(organizationId: string, id: string, field: 'riskDataCheckedAt' | 'dpeCheckedAt') {
+    await this.prisma.deal.updateMany({ where: { id, organizationId }, data: { [field]: new Date() } });
   }
 
   /**

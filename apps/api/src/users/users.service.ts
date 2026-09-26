@@ -62,6 +62,12 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+    // Un refresh token volé avant ce changement resterait sinon valable
+    // indéfiniment (rotation à chaque refresh, jamais d'expiration liée au
+    // mot de passe) — changer le mot de passe doit déconnecter toute autre
+    // session, pas seulement bloquer les futures connexions par mot de passe.
+    await this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
   }
 
   private sanitize(user: { passwordHash: string; twoFactorSecret?: string | null; twoFactorRecoveryCodes?: string[]; [key: string]: unknown }) {

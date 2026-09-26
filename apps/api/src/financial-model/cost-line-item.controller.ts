@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CostLineItemService } from './cost-line-item.service';
 import { CreateCostLineItemDto, UpdateCostLineItemDto } from './dto/cost-line-item.dto';
@@ -17,11 +19,15 @@ export class CostLineItemController {
     return this.costLineItemService.list(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Body() dto: CreateCostLineItemDto) {
     return this.costLineItemService.create(user.organizationId, dealId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':itemId')
   update(
     @CurrentUser() user: AuthenticatedUser,
@@ -32,6 +38,8 @@ export class CostLineItemController {
     return this.costLineItemService.update(user.organizationId, dealId, itemId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':itemId')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Param('itemId') itemId: string) {

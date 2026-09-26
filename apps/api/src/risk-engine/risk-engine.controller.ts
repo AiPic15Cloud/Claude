@@ -1,6 +1,8 @@
 import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { RiskEngineService } from './risk-engine.service';
 import { RiskHistoryService } from './risk-history.service';
@@ -20,6 +22,8 @@ export class RiskEngineController {
     return this.riskEngineService.computeDealRisk(user.organizationId, dealId, false);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post('recompute')
   recompute(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string) {
     return this.riskEngineService.computeDealRisk(user.organizationId, dealId, true, 'manual_recompute');

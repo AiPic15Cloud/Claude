@@ -76,7 +76,7 @@ export class DealsController {
       throw new NotFoundException("Ce dossier n'a pas de coordonnées géographiques — impossible de vérifier les risques.");
     }
     const profile = await this.riskData.getRiskProfile(Number(deal.lat), Number(deal.lng));
-    await this.dealsService.touchDataCheck(id, 'riskDataCheckedAt');
+    await this.dealsService.touchDataCheck(user.organizationId, id, 'riskDataCheckedAt');
     return profile;
   }
 
@@ -87,10 +87,12 @@ export class DealsController {
       throw new NotFoundException("Ce dossier n'a pas de code postal — impossible de rechercher un DPE.");
     }
     const dpe = await this.riskData.getDpe(deal.address, deal.postcode);
-    await this.dealsService.touchDataCheck(id, 'dpeCheckedAt');
+    await this.dealsService.touchDataCheck(user.organizationId, id, 'dpeCheckedAt');
     return dpe;
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':id/check-company')
   checkCompany(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.companyMonitoring.checkOne(user.organizationId, id);
@@ -124,6 +126,8 @@ export class DealsController {
     return this.dealsService.setTags(user.organizationId, id, user.id, dto.tagIds);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':id/newsletter')
   pingNewsletter(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.pingNewsletter(user.organizationId, id, user.id);

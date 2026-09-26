@@ -15,6 +15,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AgentsService } from './agents.service';
 import { ChatDto } from './dto/chat.dto';
@@ -66,6 +68,8 @@ export class AgentsController {
     return this.agentsService.loadAgentMessages(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':key/chat')
   async chat(@CurrentUser() user: AuthenticatedUser, @Param('key') key: string, @Body() dto: ChatDto, @Res() res: Response) {
     const { system, messages } = await this.agentsService.prepareChat(user.organizationId, key, dto);
@@ -85,6 +89,8 @@ export class AgentsController {
     );
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post(':key/chat-with-file')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
@@ -139,6 +145,8 @@ export class AgentsController {
 export class FinancialExtractionController {
   constructor(private readonly agentsService: AgentsService) {}
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   extract(
     @CurrentUser() user: AuthenticatedUser,

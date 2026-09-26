@@ -24,6 +24,14 @@ export default () => ({
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '7d',
   },
+  security: {
+    // AES-256-GCM key encrypting the TOTP secret at rest (TwoFactorService)
+    // — deliberately a separate secret from the JWT ones above: a JWT
+    // signing key and an encryption-at-rest key are different security
+    // properties, and rotating one should never force rotating the other.
+    // 32 raw bytes, base64-encoded (e.g. `openssl rand -base64 32`).
+    twoFactorEncryptionKey: requireSecret('TWO_FACTOR_ENCRYPTION_KEY'),
+  },
   meilisearch: {
     host: process.env.MEILISEARCH_HOST ?? 'http://localhost:7700',
     apiKey: process.env.MEILISEARCH_API_KEY ?? '',

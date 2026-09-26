@@ -6,6 +6,7 @@ import { Loader2, Sparkles, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -24,7 +25,13 @@ import { MarketPriceSheet } from './market-price-sheet';
 import { ScenarioSensitivitySheet } from './scenario-sensitivity-sheet';
 import { formatCurrency } from '@/lib/format';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { cn } from '@/lib/utils';
+
+// Normalise une saisie texte ("1 234,56") en valeur exploitable par
+// z.coerce.number() avant coercition — sinon "1234,56" (locale française)
+// donne NaN plutôt que 1234.56, voir lib/locale-number.ts.
+const normalizeDecimal = (v: unknown) => (typeof v === 'string' ? parseLocaleNumber(v) : v);
 
 // z.coerce.number() sur une chaîne vide donne 0 (Number('') === 0), pas
 // undefined — .optional() ne rattrape rien puisque 0 est une valeur "valide".
@@ -34,12 +41,14 @@ import { cn } from '@/lib/utils';
 // avant coercition pour que "pas encore rempli" reste "pas encore rempli".
 const optionalNumber = (max?: number) => {
   const base = max !== undefined ? z.coerce.number().min(0).max(max) : z.coerce.number().min(0);
-  return z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : v), base.optional());
+  return z.preprocess((v) => (v === '' || v === null || v === undefined ? undefined : normalizeDecimal(v)), base.optional());
 };
 
+const requiredPositiveNumber = (message: string) => z.preprocess(normalizeDecimal, z.coerce.number().positive(message));
+
 const schema = z.object({
-  surfaceSqm: z.coerce.number().positive('Surface requise'),
-  sellingPricePerSqm: z.coerce.number().positive('Prix requis'),
+  surfaceSqm: requiredPositiveNumber('Surface requise'),
+  sellingPricePerSqm: requiredPositiveNumber('Prix requis'),
   targetMarginPct: optionalNumber(100),
   notes: z.string().optional(),
   landPrice: optionalNumber(),
@@ -103,7 +112,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
   // passé par le resolver zod — Number.isFinite("900") vaut false, d'où le Number(v) explicite
   // avant de vérifier la finitude.
   const n = (v: number | string | undefined) => {
-    const num = Number(v);
+    const num = typeof v === 'string' ? parseLocaleNumber(v) : Number(v);
     return Number.isFinite(num) ? num : 0;
   };
   // Sous-totaux recalculés en direct depuis le formulaire (pas depuis data.synthesis, qui
@@ -129,7 +138,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
     setDurationDraft(dealDurationMonths !== null && dealDurationMonths !== undefined ? String(dealDurationMonths) : '');
   }, [dealDurationMonths]);
   const saveDuration = () => {
-    const value = Number(durationDraft);
+    const value = parseLocaleNumber(durationDraft);
     if (!Number.isFinite(value) || value <= 0) return;
     if (value === dealDurationMonths) return;
     updateDeal.mutate({ durationMonths: Math.round(value) });
@@ -293,18 +302,18 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="surfaceSqm">Surface (m²)</Label>
-                <Input id="surfaceSqm" type="number" step="any" min={0} {...register('surfaceSqm')} />
+                <DecimalInput id="surfaceSqm" {...register('surfaceSqm')} />
                 {errors.surfaceSqm && <p className="text-xs text-destructive">{errors.surfaceSqm.message}</p>}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="sellingPricePerSqm">Prix de vente moyen (€/m²)</Label>
-                <Input id="sellingPricePerSqm" type="number" step="any" min={0} {...register('sellingPricePerSqm')} />
+                <DecimalInput id="sellingPricePerSqm" {...register('sellingPricePerSqm')} />
                 {errors.sellingPricePerSqm && <p className="text-xs text-destructive">{errors.sellingPricePerSqm.message}</p>}
                 <p className="text-xs text-muted-foreground">Utilisé tant qu'aucun lot n'est saisi ci-dessous.</p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="targetMarginPct">Marge cible (%)</Label>
-                <Input id="targetMarginPct" type="number" min={0} max={100} step="any" {...register('targetMarginPct')} />
+                <DecimalInput id="targetMarginPct" {...register('targetMarginPct')} />
               </div>
             </div>
 
@@ -318,11 +327,11 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="landPrice">Prix d'acquisition (€)</Label>
-                  <Input id="landPrice" type="number" step="any" min={0} {...register('landPrice')} />
+                  <DecimalInput id="landPrice" {...register('landPrice')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="notaryFees">Frais de notaire (€)</Label>
-                  <Input id="notaryFees" type="number" step="any" min={0} {...register('notaryFees')} />
+                  <DecimalInput id="notaryFees" {...register('notaryFees')} />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">Total foncier : <span className="font-medium text-foreground">{formatCurrency(liveFoncierTotal)}</span></p>
@@ -344,19 +353,19 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="diagnosticsCost">Diagnostics (€)</Label>
-                  <Input id="diagnosticsCost" type="number" step="any" min={0} {...register('diagnosticsCost')} />
+                  <DecimalInput id="diagnosticsCost" {...register('diagnosticsCost')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="insuranceCost">Assurance (€)</Label>
-                  <Input id="insuranceCost" type="number" step="any" min={0} {...register('insuranceCost')} />
+                  <DecimalInput id="insuranceCost" {...register('insuranceCost')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="propertyTaxCost">Taxe foncière (€)</Label>
-                  <Input id="propertyTaxCost" type="number" step="any" min={0} {...register('propertyTaxCost')} />
+                  <DecimalInput id="propertyTaxCost" {...register('propertyTaxCost')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="surveyStudiesCost">Géomètre / études (€)</Label>
-                  <Input id="surveyStudiesCost" type="number" step="any" min={0} {...register('surveyStudiesCost')} />
+                  <DecimalInput id="surveyStudiesCost" {...register('surveyStudiesCost')} />
                 </div>
               </div>
               <CostLineItemsEditor
@@ -377,15 +386,15 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="agencyFees">Honoraires d'agence (€)</Label>
-                  <Input id="agencyFees" type="number" step="any" min={0} placeholder="0" {...register('agencyFees')} />
+                  <DecimalInput id="agencyFees" placeholder="0" {...register('agencyFees')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="referralFees">Apport d'affaires (€)</Label>
-                  <Input id="referralFees" type="number" step="any" min={0} placeholder="0" {...register('referralFees')} />
+                  <DecimalInput id="referralFees" placeholder="0" {...register('referralFees')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bankMiscFees">Frais bancaires divers (€)</Label>
-                  <Input id="bankMiscFees" type="number" step="any" min={0} {...register('bankMiscFees')} />
+                  <DecimalInput id="bankMiscFees" {...register('bankMiscFees')} />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -402,11 +411,8 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="dealDurationMonths">Durée cible (mois)</Label>
-                  <Input
+                  <DecimalInput
                     id="dealDurationMonths"
-                    type="number"
-                    step="any"
-                    min={1}
                     value={durationDraft}
                     onChange={(e) => setDurationDraft(e.target.value)}
                     onBlur={saveDuration}
@@ -417,19 +423,19 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="lpbFeesPctHT">Fees HT (%)</Label>
-                  <Input id="lpbFeesPctHT" type="number" min={0} step="any" {...register('lpbFeesPctHT')} />
+                  <DecimalInput id="lpbFeesPctHT" {...register('lpbFeesPctHT')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="lpbTvaRatePct">Taux de TVA (%)</Label>
-                  <Input id="lpbTvaRatePct" type="number" min={0} step="any" {...register('lpbTvaRatePct')} />
+                  <DecimalInput id="lpbTvaRatePct" {...register('lpbTvaRatePct')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="lpbDurationMinMonths">Durée min (mois)</Label>
-                  <Input id="lpbDurationMinMonths" type="number" step="any" min={0} {...register('lpbDurationMinMonths')} />
+                  <DecimalInput id="lpbDurationMinMonths" {...register('lpbDurationMinMonths')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="lpbDurationMaxMonths">Durée max (mois)</Label>
-                  <Input id="lpbDurationMaxMonths" type="number" step="any" min={0} {...register('lpbDurationMaxMonths')} />
+                  <DecimalInput id="lpbDurationMaxMonths" {...register('lpbDurationMaxMonths')} />
                 </div>
               </div>
               <Controller
@@ -486,23 +492,23 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bankLoanAcquisition">Crédit acquisition (€)</Label>
-                  <Input id="bankLoanAcquisition" type="number" step="any" min={0} {...register('bankLoanAcquisition')} />
+                  <DecimalInput id="bankLoanAcquisition" {...register('bankLoanAcquisition')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bankLoanAccompagnement">Crédit accompagnement (€)</Label>
-                  <Input id="bankLoanAccompagnement" type="number" step="any" min={0} {...register('bankLoanAccompagnement')} />
+                  <DecimalInput id="bankLoanAccompagnement" {...register('bankLoanAccompagnement')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bankInterestRatePct">Taux (%)</Label>
-                  <Input id="bankInterestRatePct" type="number" min={0} step="any" {...register('bankInterestRatePct')} />
+                  <DecimalInput id="bankInterestRatePct" {...register('bankInterestRatePct')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bankFileFees">Frais de dossier (€)</Label>
-                  <Input id="bankFileFees" type="number" step="any" min={0} {...register('bankFileFees')} />
+                  <DecimalInput id="bankFileFees" {...register('bankFileFees')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bankGuaranteeFees">Frais de garantie (€)</Label>
-                  <Input id="bankGuaranteeFees" type="number" step="any" min={0} {...register('bankGuaranteeFees')} />
+                  <DecimalInput id="bankGuaranteeFees" {...register('bankGuaranteeFees')} />
                 </div>
               </div>
             </section>
@@ -517,17 +523,11 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="resultatOperationnelEstime">Résultat opérationnel estimé (€)</Label>
-                  <Input id="resultatOperationnelEstime" type="number" step="any" min={0} {...register('resultatOperationnelEstime')} />
+                  <DecimalInput id="resultatOperationnelEstime" {...register('resultatOperationnelEstime')} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="fluxTresorerieDisponibleEstime">Flux de trésorerie disponible estimé (€)</Label>
-                  <Input
-                    id="fluxTresorerieDisponibleEstime"
-                    type="number"
-                    step="any"
-                    min={0}
-                    {...register('fluxTresorerieDisponibleEstime')}
-                  />
+                  <DecimalInput id="fluxTresorerieDisponibleEstime" {...register('fluxTresorerieDisponibleEstime')} />
                 </div>
               </div>
             </section>
@@ -566,7 +566,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
               <div className="flex flex-col gap-2">
                 {data.sensitivity.map((scenario) => {
                   const tier = marginTier(scenario.marginPct);
-                  const style = MARGIN_TIER_STYLES[tier];
+                  const style = tier ? MARGIN_TIER_STYLES[tier] : { dot: '⚪', text: 'text-muted-foreground', border: 'border-border', bg: '' };
                   return (
                     <div
                       key={scenario.label}
@@ -584,7 +584,7 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
                       <div className="text-right">
                         <p className="text-sm font-semibold tabular-nums">{formatCurrency(scenario.margin)}</p>
                         <p className={cn('text-xs font-medium tabular-nums', style.text)}>
-                          {style.dot} marge {scenario.marginPct}%
+                          {style.dot} marge {scenario.marginPct === null ? '—' : `${scenario.marginPct}%`}
                         </p>
                       </div>
                     </div>

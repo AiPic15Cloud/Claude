@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { SaleLotService } from './sale-lot.service';
 import { CreateSaleLotDto, UpdateSaleLotDto } from './dto/sale-lot.dto';
@@ -17,11 +19,15 @@ export class SaleLotController {
     return this.saleLotService.list(user.organizationId, dealId);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Body() dto: CreateSaleLotDto) {
     return this.saleLotService.create(user.organizationId, dealId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @Patch(':lotId')
   update(
     @CurrentUser() user: AuthenticatedUser,
@@ -32,6 +38,8 @@ export class SaleLotController {
     return this.saleLotService.update(user.organizationId, dealId, lotId, user.id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'ANALYST')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':lotId')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('dealId') dealId: string, @Param('lotId') lotId: string) {

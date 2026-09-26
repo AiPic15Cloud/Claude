@@ -9,6 +9,15 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false });
 
+  // Railway terminates TLS and proxies every request through one hop before
+  // it reaches this process — without this, Express's req.ip resolves to
+  // that proxy's address for every client, collapsing them into a single
+  // ThrottlerModule bucket (one client can throttle-lock /auth/login for
+  // everyone) and making the per-IP brute-force limits on the auth
+  // endpoints meaningless. `1` = trust exactly one hop (X-Forwarded-For's
+  // rightmost entry), matching Railway's proxy topology.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.use(helmet());
   app.enableCors({
     origin: process.env.API_CORS_ORIGIN?.split(',') ?? 'http://localhost:5173',

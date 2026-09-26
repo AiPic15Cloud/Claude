@@ -55,6 +55,21 @@ describe('computeICRecommendation — ecart CAPEX ESG vs budgete (spec §12/§28
   });
 });
 
+describe('computeICRecommendation — eligibility NOT_EVALUABLE (collecte non renseignée, doctrine "Unknown ≠ Zero")', () => {
+  it('renvoie HOLD, jamais DECLINE, quand le rendement sécurisé est non évaluable', () => {
+    const result = computeICRecommendation(
+      makeBaseInput({ eligibility: { verdict: 'NOT_EVALUABLE', hurdlePct: 6.5, securedNetYieldPct: null, gapPct: null } }),
+    );
+    expect(result.status).toBe('HOLD');
+    expect(result.hardStops).toHaveLength(0);
+  });
+
+  it('reste DECLINE quand le rendement est réellement sous le hurdle (INELIGIBLE, pas NOT_EVALUABLE)', () => {
+    const result = computeICRecommendation(makeBaseInput({ eligibility: { verdict: 'INELIGIBLE', hurdlePct: 6.5, securedNetYieldPct: 2, gapPct: -4.5 } }));
+    expect(result.status).toBe('DECLINE');
+  });
+});
+
 describe('computeICRecommendation — feeDataMissing (spec §29.3/§26.31 "le moteur ne valide pas un hurdle net si des frais obligatoires sont inconnus")', () => {
   it("n'ajoute aucun watch item quand des frais stakeholder sont renseignes", () => {
     const result = computeICRecommendation(makeBaseInput({ feeDataMissing: false }));

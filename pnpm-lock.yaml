@@ -125,6 +125,9 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
+      undici:
+        specifier: ^7.29.1
+        version: 7.29.1
       web-push:
         specifier: ^3.6.7
         version: 3.6.7

@@ -2,22 +2,23 @@ import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, Pencil, Plus, Receipt, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plus, Receipt } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDeleteButton } from '@/components/ui/confirm-delete-button';
 import { Input } from '@/components/ui/input';
+import { DecimalInput } from '@/components/ui/decimal-input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useInterestPayments, useInterestPaymentStatus, useCreateInterestPayment, useUpdateInterestPayment, useDeleteInterestPayment } from '../hooks/use-interest-payments';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { parseLocaleNumber } from '@/lib/locale-number';
 import { INTEREST_PAYMENT_LEVEL_LABELS, type InterestPayment } from '@/types';
 
-// Même parsing tolérant "," et "." que RepaymentsPanel — un <input type="number">
-// rejette silencieusement le "." sous une locale française.
 function parseAmount(raw: string): number | undefined {
   if (!raw.trim()) return undefined;
-  return Number(raw.trim().replace(/[\s]/g, '').replace(',', '.'));
+  return parseLocaleNumber(raw);
 }
 
 const schema = z.object({
@@ -111,7 +112,7 @@ export function InterestPaymentsPanel({ dealId }: { dealId: string }) {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="amount">Montant (€, optionnel)</Label>
-                  <Input id="amount" type="text" inputMode="decimal" placeholder="0,00" {...register('amount')} />
+                  <DecimalInput id="amount" {...register('amount')} />
                   {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
                 </div>
               </div>
@@ -144,12 +145,10 @@ export function InterestPaymentsPanel({ dealId }: { dealId: string }) {
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
               {p.amount && <span className="text-sm font-semibold tabular-nums">{formatCurrency(p.amount)}</span>}
-              <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
+              <Button variant="ghost" size="icon" aria-label="Modifier" title="Modifier" onClick={() => openEdit(p)}>
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => deletePayment.mutate(p.id)}>
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+              <ConfirmDeleteButton onConfirm={() => deletePayment.mutate(p.id)} pending={deletePayment.isPending} label="Supprimer le paiement" />
             </div>
           </div>
         ))}
