@@ -1,8 +1,9 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { useWorkload } from './use-workload';
-import { PRIORITY_LABELS, type Priority } from '@/types';
+import { PRIORITY_LABELS, type Priority, type WorkloadEntry } from '@/types';
 
 const PRIORITY_VARIANT: Record<Priority, 'default' | 'warning' | 'destructive' | 'secondary'> = {
   LOW: 'secondary',
@@ -12,6 +13,15 @@ const PRIORITY_VARIANT: Record<Priority, 'default' | 'warning' | 'destructive' |
 };
 
 const PRIORITIES: Priority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+// Accent visuel dérivé d'un ratio réel (retard/ouvertes), jamais d'une donnée
+// fabriquée — un analyste sans aucune tâche en retard n'a droit à aucun accent.
+function overdueAccentClass(entry: WorkloadEntry): string {
+  if (entry.overdueCount === 0) return 'border-border';
+  const ratio = entry.overdueCount / entry.openCount;
+  if (ratio >= 0.5) return 'border-destructive/50';
+  return 'border-warning/50';
+}
 
 function formatHours(hours: number): string {
   return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(hours)}h`;
@@ -44,9 +54,9 @@ export function WorkloadPage() {
           <CardContent className="py-8 text-center text-sm text-muted-foreground">Aucune tâche ouverte assignée pour le moment</CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {entries.map((entry) => (
-            <Card key={entry.assigneeId}>
+            <Card key={entry.assigneeId} className={cn('border-l-4', overdueAccentClass(entry))}>
               <CardContent className="flex flex-col gap-3 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{entry.assigneeName}</p>

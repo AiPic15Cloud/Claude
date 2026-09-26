@@ -14,9 +14,22 @@ import {
 } from '../hooks/use-milestones';
 import { MilestoneFormDialog } from './milestone-form-dialog';
 import { formatDate } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { MILESTONE_STATUS_LABELS, type MilestoneStatus, type PortfolioMilestone } from '@/types';
 
 const STATUSES: MilestoneStatus[] = ['PENDING', 'IN_PROGRESS', 'AT_RISK', 'BLOCKED', 'DONE', 'WAIVED'];
+
+// Même famille de couleurs sémantiques que les badges de statut ailleurs dans
+// ATLAS (risque, cycle de vie du deal) — un jalon "à risque"/"bloqué" doit se
+// distinguer d'un coup d'œil dans la liste, pas seulement après ouverture du select.
+const MILESTONE_STATUS_DOT: Record<MilestoneStatus, string> = {
+  PENDING: 'bg-muted-foreground',
+  IN_PROGRESS: 'bg-primary',
+  AT_RISK: 'bg-warning',
+  BLOCKED: 'bg-destructive',
+  DONE: 'bg-success',
+  WAIVED: 'bg-muted-foreground',
+};
 
 export function MilestonesPanel({ dealId }: { dealId: string }) {
   const { data: milestones = [], isLoading } = useMilestones(dealId);
@@ -46,11 +59,14 @@ export function MilestonesPanel({ dealId }: { dealId: string }) {
           <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">Avancement du projet</span>
-              <span className="tabular-nums text-muted-foreground">
+              <span className={cn('tabular-nums', progress.progressPct === null ? 'text-muted-foreground' : 'font-semibold')}>
                 {progress.progressPct === null ? 'Non planifié' : `${progress.progressPct} %`}
               </span>
             </div>
-            <Progress value={progress.progressPct ?? 0} />
+            {/* Une barre à 0% se lit visuellement comme "0% d'avancement" — quand la valeur
+                est réellement inconnue (aucun jalon ni tâche), on l'omet plutôt que de la
+                faire mentir par défaut (doctrine "Unknown ≠ Zero"). */}
+            {progress.progressPct !== null && <Progress value={progress.progressPct} />}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>
                 {progress.milestonesDone}/{progress.milestonesTotal} jalon(s)
@@ -144,13 +160,17 @@ function MilestoneRow({
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
         <Select value={milestone.status} onValueChange={(v) => onStatusChange(v as MilestoneStatus)}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-[11rem]">
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', MILESTONE_STATUS_DOT[milestone.status])} />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {MILESTONE_STATUS_LABELS[s]}
+                <span className="flex items-center gap-2">
+                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', MILESTONE_STATUS_DOT[s])} />
+                  {MILESTONE_STATUS_LABELS[s]}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
