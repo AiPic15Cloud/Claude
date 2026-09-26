@@ -15,6 +15,8 @@ import { ExpandCardButton } from './expand-card-button';
 import { PRIORITY_LABELS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
 
+const PREVIEW_LIMIT = 5;
+
 const PRIORITY_ORDER: Task['priority'][] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
 
 const PRIORITY_VARIANT: Record<Task['priority'], 'default' | 'warning' | 'destructive' | 'secondary'> = {
@@ -164,7 +166,10 @@ export function TaskListCard({ title, tasks, emptyLabel, showDueDate, quickAdd, 
           </div>
         )}
         {tasks.length === 0 && <p className="py-4 text-center text-xs text-muted-foreground">{emptyLabel}</p>}
-        {tasks.map((task) => renderTask(task, false))}
+        {tasks.slice(0, PREVIEW_LIMIT).map((task) => renderTask(task, false))}
+        {tasks.length > PREVIEW_LIMIT && (
+          <p className="pt-0.5 text-center text-xs text-muted-foreground">+{tasks.length - PREVIEW_LIMIT} de plus — agrandir pour tout voir</p>
+        )}
       </CardContent>
     </Card>
   );

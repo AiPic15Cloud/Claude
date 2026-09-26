@@ -6,6 +6,8 @@ import { ExpandCardButton } from './expand-card-button';
 import { GUARANTEE_TYPE_LABELS, type GuaranteeToRenew } from '@/types';
 import { cn } from '@/lib/utils';
 
+const PREVIEW_LIMIT = 5;
+
 interface GuaranteesToRenewCardProps {
   guarantees: GuaranteeToRenew[];
 }
@@ -51,7 +53,10 @@ export function GuaranteesToRenewCard({ guarantees }: GuaranteesToRenewCardProps
         {guarantees.length === 0 && (
           <p className="py-4 text-center text-xs text-muted-foreground">Aucune garantie à renouveler. RAS.</p>
         )}
-        {guarantees.map((g) => renderGuaranteeItem(g, false))}
+        {guarantees.slice(0, PREVIEW_LIMIT).map((g) => renderGuaranteeItem(g, false))}
+        {guarantees.length > PREVIEW_LIMIT && (
+          <p className="pt-0.5 text-center text-xs text-muted-foreground">+{guarantees.length - PREVIEW_LIMIT} de plus — agrandir pour tout voir</p>
+        )}
       </CardContent>
     </Card>
   );
