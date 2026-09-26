@@ -252,9 +252,9 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle>Hypothèses</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <MarketPriceSheet dealId={dealId} />
             <ScenarioSensitivitySheet dealId={dealId} />
             {data?.assumption && <ValidationBadge dealId={dealId} entityType="FinancialAssumption" />}
