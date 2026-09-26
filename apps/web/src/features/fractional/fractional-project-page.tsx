@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,12 +28,29 @@ import { MemoireTab } from './components/memoire-tab';
 import { DataRoomTab } from './components/data-room-tab';
 import { TechnicalDdTab } from './components/technical-dd-tab';
 import { LegalTaxDdTab } from './components/legal-tax-dd-tab';
+import { QualificationSummaryCard } from './components/qualification-summary-card';
 
-const STATUSES: FractionalProjectStatus[] = ['ANALYSE', 'STRUCTURATION', 'VALIDATION_PLATEFORME', 'COLLECTE', 'ACQUISITION', 'EXPLOITATION', 'SORTIE', 'REFUSE', 'ABANDONNE'];
+const STATUSES: FractionalProjectStatus[] = [
+  'PISTE',
+  'QUALIFICATION',
+  'ANALYSE',
+  'STRUCTURATION',
+  'VALIDATION_PLATEFORME',
+  'COLLECTE',
+  'ACQUISITION',
+  'EXPLOITATION',
+  'SORTIE',
+  'REFUSE',
+  'ABANDONNE',
+];
 
 export function FractionalProjectPage() {
   const { id } = useParams<{ id: string }>();
-  const [activeTab, setActiveTab] = useState('synthese');
+  // Lien profond depuis une action du cockpit (spec Cockpit/Fractionné §4.2,
+  // critère d'acceptation #9 : "ouvre directement l'écran et le champ
+  // concernés") — ?tab=structure ouvre directement l'onglet visé.
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') ?? 'synthese');
   const { data: project, isLoading } = useFractionalProject(id ?? null);
   const { data: synthese, isLoading: syntheseLoading } = useFractionalSynthese(id ?? null);
   const { data: dealEconomics, isLoading: dealEconomicsLoading } = useFractionalDealEconomics(id ?? null);
@@ -87,6 +104,8 @@ export function FractionalProjectPage() {
           </Select>
         </div>
       </div>
+
+      <QualificationSummaryCard project={project} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

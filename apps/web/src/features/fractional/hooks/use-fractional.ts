@@ -12,6 +12,8 @@ import type {
   FractionalVehicleInstrumentType,
   FractionalAssumptionScenario,
   PlatformFractionalProfile,
+  FractionalPlatformApplication,
+  FractionalPlatformApplicationStatus,
   FractionalDealEconomics,
   DealEconomicsScenarioResult,
   FractionalStakeholder,
@@ -125,6 +127,11 @@ export interface CreateFractionalProjectPayload {
   city?: string;
   postcode?: string;
   notes?: string;
+  assetType?: string;
+  entryChannel?: string;
+  vendorContact?: string;
+  priceRangeMinEur?: number;
+  priceRangeMaxEur?: number;
 }
 
 export function useCreateFractionalProject() {
@@ -139,6 +146,28 @@ export function useUpdateFractionalProjectStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: FractionalProjectStatus }) => api.patch<FractionalProject>(`/fractional/projects/${id}`, { status }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects'] });
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', vars.id] });
+    },
+  });
+}
+
+export interface QualificationSummaryPayload {
+  qualificationThesis?: string;
+  qualificationStrengths?: string[];
+  qualificationRisks?: string[];
+  qualificationOpenQuestions?: string[];
+  nextActionLabel?: string;
+  nextActionOwnerId?: string;
+}
+
+/** Fiche de décision courte (spec Cockpit/Fractionné P1 §5.2). */
+export function useUpdateFractionalQualification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: QualificationSummaryPayload & { id: string }) =>
+      api.patch<FractionalProject>(`/fractional/projects/${id}`, payload),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['fractional', 'projects'] });
       qc.invalidateQueries({ queryKey: ['fractional', 'projects', vars.id] });
@@ -320,6 +349,51 @@ export function useUpsertVehicleStructure(projectId: string) {
   return useMutation({
     mutationFn: (payload: VehicleStructurePayload) => api.post(`/fractional/projects/${projectId}/vehicle-structure`, payload),
     onSuccess: () => invalidateProject(qc, projectId),
+  });
+}
+
+export function useFractionalPlatformApplications(projectId: string | null) {
+  return useQuery({
+    queryKey: ['fractional', 'projects', projectId, 'platform-applications'],
+    queryFn: () => api.get<FractionalPlatformApplication[]>(`/fractional/projects/${projectId}/platform-applications`),
+    enabled: !!projectId,
+  });
+}
+
+export interface CreatePlatformApplicationPayload {
+  platformProfileId: string;
+  contactName?: string;
+  contactEmail?: string;
+  firstContactDate?: string;
+}
+
+export function useCreatePlatformApplication(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePlatformApplicationPayload) => api.post(`/fractional/projects/${projectId}/platform-applications`, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'platform-applications'] }),
+  });
+}
+
+export interface UpdatePlatformApplicationPayload {
+  status?: FractionalPlatformApplicationStatus;
+  contactName?: string;
+  contactEmail?: string;
+  lastResponseDate?: string;
+  nextFollowUpDate?: string;
+  offerSummary?: string;
+  rejectionReason?: string;
+}
+
+export function useUpdatePlatformApplication(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: UpdatePlatformApplicationPayload & { id: string }) =>
+      api.patch(`/fractional/projects/${projectId}/platform-applications/${id}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fractional', 'projects', projectId, 'platform-applications'] });
+      invalidateProject(qc, projectId);
+    },
   });
 }
 

@@ -663,7 +663,30 @@ export interface CockpitSummary {
   guaranteesToRenew: GuaranteeToRenew[];
   autoSummary: AutoSummary;
   decisions: DecisionRow[];
+  actionQueue: ActionQueueSummary;
   overdueTasks: { total: number; urgent: number };
+}
+
+/** File de décisions et d'actions générique (spec Cockpit/Fractionné P1 §4.1/§4.2). */
+export interface ActionQueueSummary {
+  aDecider: ActionQueueCard[];
+  aFaire: ActionQueueCard[];
+  enAttente: ActionQueueCard[];
+}
+
+export type ActionItemStatus = 'A_FAIRE' | 'EN_ATTENTE_EXTERNE' | 'A_DECIDER' | 'TERMINEE' | 'ECARTEE';
+
+export interface ActionQueueCard {
+  id: string;
+  operation: string;
+  reference: string | null;
+  motif: string;
+  ownerLabel: string | null;
+  dueAt: string | null;
+  blocking: boolean;
+  status: ActionItemStatus;
+  ctaLabel: string;
+  deepLink: string;
 }
 
 export interface DecisionRow {
@@ -1753,7 +1776,13 @@ export interface FinancialExtraction {
 // (patch V3.2 §1) — voir apps/api/src/fractional/ pour le détail du
 // périmètre P0 livré et des lots différés (P1/P2).
 
+// PISTE/QUALIFICATION précèdent ANALYSE (spec Cockpit/Fractionné P1 §5.1) —
+// les valeurs existantes ne sont ni renommées ni réordonnées, seuls les
+// libellés ci-dessous rapprochent le vocabulaire du référentiel à 9 étapes
+// de la spec (voir schema.prisma pour le détail de cette décision).
 export type FractionalProjectStatus =
+  | 'PISTE'
+  | 'QUALIFICATION'
   | 'ANALYSE'
   | 'STRUCTURATION'
   | 'VALIDATION_PLATEFORME'
@@ -1765,14 +1794,16 @@ export type FractionalProjectStatus =
   | 'ABANDONNE';
 
 export const FRACTIONAL_PROJECT_STATUS_LABELS: Record<FractionalProjectStatus, string> = {
+  PISTE: 'Piste',
+  QUALIFICATION: 'Qualification',
   ANALYSE: 'Analyse',
   STRUCTURATION: 'Structuration',
-  VALIDATION_PLATEFORME: 'Validation plateforme',
+  VALIDATION_PLATEFORME: 'Plateformes ciblées',
   COLLECTE: 'Collecte',
   ACQUISITION: 'Acquisition',
-  EXPLOITATION: 'Exploitation',
+  EXPLOITATION: 'Détention',
   SORTIE: 'Sortie',
-  REFUSE: 'Refusé',
+  REFUSE: 'Refusé (comité interne)',
   ABANDONNE: 'Abandonné',
 };
 
@@ -1811,7 +1842,18 @@ export interface FractionalProject {
   city?: string | null;
   postcode?: string | null;
   country: string;
+  assetType?: string | null;
   notes?: string | null;
+  entryChannel?: string | null;
+  vendorContact?: string | null;
+  priceRangeMinEur?: number | null;
+  priceRangeMaxEur?: number | null;
+  qualificationThesis?: string | null;
+  qualificationStrengths: string[];
+  qualificationRisks: string[];
+  qualificationOpenQuestions: string[];
+  nextActionLabel?: string | null;
+  nextActionOwnerId?: string | null;
   createdAt: string;
   updatedAt: string;
   _count?: { leases: number; capexItems: number; valuations: number };
@@ -1909,6 +1951,35 @@ export interface PlatformFractionalProfile {
   earlyExitRule?: string | null;
   source?: string | null;
   confidence?: string | null;
+}
+
+export type FractionalPlatformApplicationStatus = 'PROSPECT' | 'CONTACTE' | 'CRITERES_PARTAGES' | 'OFFRE_RECUE' | 'ACCEPTEE' | 'REFUSEE' | 'ABANDONNEE';
+export const FRACTIONAL_PLATFORM_APPLICATION_STATUS_LABELS: Record<FractionalPlatformApplicationStatus, string> = {
+  PROSPECT: 'Prospect',
+  CONTACTE: 'Contacté',
+  CRITERES_PARTAGES: 'Critères partagés',
+  OFFRE_RECUE: 'Offre reçue',
+  ACCEPTEE: 'Acceptée',
+  REFUSEE: 'Refusée',
+  ABANDONNEE: 'Abandonnée',
+};
+
+/** Candidature d'un dossier à une plateforme (spec Cockpit/Fractionné P1 §5.3) — un dossier peut en avoir plusieurs, indépendantes. */
+export interface FractionalPlatformApplication {
+  id: string;
+  projectId: string;
+  platformProfileId: string;
+  platformProfile: { id: string; platformName: string };
+  status: FractionalPlatformApplicationStatus;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  firstContactDate?: string | null;
+  lastResponseDate?: string | null;
+  nextFollowUpDate?: string | null;
+  comparedCriteria?: Record<string, unknown> | null;
+  offerSummary?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
 }
 
 export interface FractionalVehicleStructure {
@@ -2765,12 +2836,27 @@ export const DATA_ROOM_ITEM_STATUS_LABELS: Record<DataRoomItemStatusValue, strin
   INCONSISTENT: 'Incohérent',
 };
 
+export type DataRoomItemTier = 'NOW' | 'BEFORE_PRESENTATION' | 'BEFORE_ACQUISITION';
+export const DATA_ROOM_ITEM_TIER_LABELS: Record<DataRoomItemTier, string> = {
+  NOW: 'Maintenant',
+  BEFORE_PRESENTATION: 'Avant présentation',
+  BEFORE_ACQUISITION: 'Avant acquisition',
+};
+
 export interface DataRoomItemResult {
   block: DataRoomBlockKey;
   itemKey: string;
   label: string;
+  tier: DataRoomItemTier;
   status: DataRoomItemStatusValue;
   notes: string | null;
+}
+
+export interface DataRoomTierResult {
+  tier: DataRoomItemTier;
+  total: number;
+  obtainedCount: number;
+  completenessPct: number;
 }
 
 export interface DataRoomBlockResult {
@@ -2798,6 +2884,7 @@ export interface DataRoomCompletenessResult {
   blocks: DataRoomBlockResult[];
   missingItems: DataRoomFlaggedItem[];
   inconsistentItems: DataRoomFlaggedItem[];
+  tiers: DataRoomTierResult[];
 }
 
 // ── ESG, Energy & Obsolescence Risk Engine (spec V3.1 §12) ──────────────────

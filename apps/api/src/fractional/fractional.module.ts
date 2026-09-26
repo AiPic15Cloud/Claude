@@ -15,13 +15,17 @@ import { TechnicalDdController } from './technical-dd.controller';
 import { TechnicalDdService } from './technical-dd.service';
 import { LegalTaxDdController } from './legal-tax-dd.controller';
 import { LegalTaxDdService } from './legal-tax-dd.service';
+import { PlatformApplicationsController } from './platform-applications.controller';
+import { PlatformApplicationsService } from './platform-applications.service';
 import { FractionalLegalAlertsService } from './fractional-legal-alerts.service';
+import { FractionalActionItemsSweepService } from './fractional-action-items-sweep.service';
 import { AlertsModule } from '../alerts/alerts.module';
 import { IntelligenceMarcheModule } from '../intelligence-marche/intelligence-marche.module';
 import { PdfExportModule } from '../pdf-export/pdf-export.module';
+import { ActionItemsModule } from '../action-items/action-items.module';
 
 @Module({
-  imports: [AlertsModule, IntelligenceMarcheModule, PdfExportModule],
+  imports: [AlertsModule, IntelligenceMarcheModule, PdfExportModule, ActionItemsModule],
   controllers: [
     FractionalProjectsController,
     MarketDataController,
@@ -31,6 +35,7 @@ import { PdfExportModule } from '../pdf-export/pdf-export.module';
     EsgRiskController,
     TechnicalDdController,
     LegalTaxDdController,
+    PlatformApplicationsController,
   ],
   providers: [
     FractionalProjectsService,
@@ -41,7 +46,9 @@ import { PdfExportModule } from '../pdf-export/pdf-export.module';
     EsgRiskService,
     TechnicalDdService,
     LegalTaxDdService,
+    PlatformApplicationsService,
     FractionalLegalAlertsService,
+    FractionalActionItemsSweepService,
   ],
 })
 export class FractionalModule {}

@@ -98,3 +98,33 @@ describe('computeDataRoomCompleteness', () => {
     expect(item.status).toBe('MISSING');
   });
 });
+
+describe('computeDataRoomCompleteness — paliers cumulatifs (spec Cockpit/Fractionné P1 §5.6, checklist progressive)', () => {
+  it('un item NOW obtenu compte aussi dans les paliers ultérieurs — franchir une étape ne le rend jamais "de nouveau non requis"', () => {
+    const result = computeDataRoomCompleteness([{ block: 'CORPORATE_KYC', itemKey: 'kbis', status: 'OBTAINED' }]);
+    const [now, beforePresentation, beforeAcquisition] = result.tiers;
+
+    expect(now.obtainedCount).toBeGreaterThanOrEqual(1);
+    expect(beforePresentation.obtainedCount).toBeGreaterThanOrEqual(now.obtainedCount);
+    expect(beforeAcquisition.total).toBeGreaterThan(beforePresentation.total);
+    expect(beforeAcquisition.total).toBeGreaterThan(now.total);
+  });
+
+  it('sans aucun statut enregistré, chaque palier est à 0% (jamais 100% par défaut)', () => {
+    const result = computeDataRoomCompleteness([]);
+    for (const tier of result.tiers) {
+      expect(tier.completenessPct).toBe(0);
+      expect(tier.obtainedCount).toBe(0);
+    }
+  });
+
+  it('un item NOT_APPLICABLE est exclu de tous les paliers, pas seulement de son bloc', () => {
+    const before = computeDataRoomCompleteness([]);
+    const nowTotalBefore = before.tiers.find((t) => t.tier === 'NOW')!.total;
+
+    const after = computeDataRoomCompleteness([{ block: 'CORPORATE_KYC', itemKey: 'kbis', status: 'NOT_APPLICABLE' }]);
+    const nowTotalAfter = after.tiers.find((t) => t.tier === 'NOW')!.total;
+
+    expect(nowTotalAfter).toBe(nowTotalBefore - 1);
+  });
+});

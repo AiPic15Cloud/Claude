@@ -28,6 +28,7 @@ import type { LeaseInput } from './lease-security.util';
 import { computeTenantCovenantScore } from './tenant-covenant.util';
 import { computeAllStressScenarios, computeAllBreakEventScenarios, computeBreakEventScenario } from './stress-testing.util';
 import { DataProvenanceService } from './data-provenance.service';
+import { ActionItemsService } from '../action-items/action-items.service';
 import { MarketIndicatorsService } from '../intelligence-marche/indicators.service';
 import { computeCapRateBuildUp, compareToImpliedCapRate, type PropertyConditionTier, type LocationTier, type MarketDepth } from './cap-rate-build-up.util';
 import { computePortfolioReversion } from './rental-reversion.util';
@@ -111,6 +112,7 @@ export class FractionalProjectsService {
     private readonly marketIndicators: MarketIndicatorsService,
     private readonly marketData: MarketDataService,
     private readonly esgRisk: EsgRiskService,
+    private readonly actionItems: ActionItemsService,
   ) {}
 
   // ── Projects ───────────────────────────────────────────────
@@ -164,14 +166,57 @@ export class FractionalProjectsService {
   }
 
   async create(dto: CreateFractionalProjectDto, user: AuthenticatedUser) {
-    return this.prisma.fractionalProject.create({
+    const project = await this.prisma.fractionalProject.create({
       data: { ...dto, organizationId: user.organizationId, createdById: user.id },
     });
+    // Journalise l'entrée dans le pipeline (spec §5.1 : "la transition est
+    // journalisée : avant, après, auteur, date, motif") — fromStatus null
+    // marque explicitement une création, pas une transition entre étapes.
+    await this.prisma.fractionalStatusHistory.create({
+      data: { projectId: project.id, fromStatus: null, toStatus: project.status, changedById: user.id },
+    });
+    await this.syncNextActionItem(project);
+    return project;
   }
 
   async update(id: string, dto: UpdateFractionalProjectDto, user: AuthenticatedUser) {
-    await this.findOne(id, user);
-    return this.prisma.fractionalProject.update({ where: { id }, data: dto });
+    const current = await this.findOne(id, user);
+    const project = await this.prisma.fractionalProject.update({ where: { id }, data: dto });
+    if (dto.status && dto.status !== current.status) {
+      await this.prisma.fractionalStatusHistory.create({
+        data: { projectId: id, fromStatus: current.status, toStatus: dto.status, changedById: user.id },
+      });
+    }
+    if (dto.nextActionLabel !== undefined || dto.nextActionOwnerId !== undefined) {
+      await this.syncNextActionItem(project);
+    }
+    return project;
+  }
+
+  /**
+   * Fait apparaître la "prochaine action" de la fiche de décision courte
+   * (spec §5.2) dans la file générique du cockpit — sans ça, une action
+   * choisie à la qualification resterait invisible tant que personne
+   * n'ouvre le dossier.
+   */
+  private async syncNextActionItem(project: { id: string; organizationId: string; nextActionLabel: string | null; nextActionOwnerId: string | null }) {
+    if (!project.nextActionLabel || !project.nextActionOwnerId) {
+      await this.actionItems.resolveByCause(
+        { organizationId: project.organizationId, fractionalProjectId: project.id },
+        'QUALIFICATION_NEXT_ACTION',
+        'Prochaine action retirée ou complétée.',
+      );
+      return;
+    }
+    await this.actionItems.ensureOpen({
+      organizationId: project.organizationId,
+      fractionalProjectId: project.id,
+      cause: 'QUALIFICATION_NEXT_ACTION',
+      actionType: 'QUALIFIER',
+      label: project.nextActionLabel,
+      ownerId: project.nextActionOwnerId,
+      deepLink: `/fractional/${project.id}?tab=synthese`,
+    });
   }
 
   async remove(id: string, user: AuthenticatedUser) {
