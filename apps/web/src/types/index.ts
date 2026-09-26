@@ -3417,6 +3417,10 @@ export interface PrequalificationCase {
   /** Numéro de la PrequalificationVersion figée au moment de la promotion (spec §17) — permet de retrouver la décision d'origine exacte pour la comparer à la réalité du Deal (P2, suivi post-promotion). */
   promotedVersionNumber?: number | null;
   _count?: { findings: number; documents: number };
+  /** Uniquement dans la liste (PrequalificationService.list) — findings BLOCKING non résolus (PENDING/ACCEPTED). */
+  blockingFindingsCount?: number;
+  /** Idem, projet lié — absent tant qu'aucune fiche projet n'a été renseignée. */
+  project?: { city?: string | null } | null;
 }
 
 export interface PrequalificationCaseDetail extends PrequalificationCase {
