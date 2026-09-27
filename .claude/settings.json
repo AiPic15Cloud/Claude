@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "autoMode": {
+      "allow": [
+        "$defaults",
+        "Railway operations on Railway project serene-rejoicing (8961febc-8498-40d4-a1ca-c65c9851c049), including enabling Postgres PITR backups and creating/deleting a temporary restore-verification fork service"
+      ]
+    }
+  }
+}
