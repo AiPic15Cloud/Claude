@@ -63,12 +63,19 @@ export class PushService {
     await this.prisma.pushSubscription.deleteMany({ where: { userId, endpoint } });
   }
 
-  /** Sends to every subscribed device of every user in the organization — alerts are org-scoped, not per-assignee. */
-  async sendToOrganization(organizationId: string, payload: PushPayload) {
+  /**
+   * Sends to every subscribed device of every user in the organization —
+   * alerts are org-scoped, not per-assignee. `excludeRestricted` (Lot B) :
+   * un compte FRACTIONAL_ONLY ne doit jamais recevoir sur son appareil une
+   * notification liée à un Deal, même si l'alerte elle-même reste invisible
+   * dans la liste in-app — sinon le titre/message de la push contourne le
+   * filtrage fait par `AlertsService.list()`.
+   */
+  async sendToOrganization(organizationId: string, payload: PushPayload, options?: { excludeRestricted?: boolean }) {
     if (!this.configured) return;
 
     const subscriptions = await this.prisma.pushSubscription.findMany({
-      where: { user: { organizationId } },
+      where: { user: { organizationId, ...(options?.excludeRestricted ? { workspaceScope: 'FULL' } : {}) } },
     });
     await this.sendToSubscriptions(subscriptions, payload);
   }

@@ -53,9 +53,15 @@ export class AlertsService {
 
     // Push only for CRITICAL — warnings/info stay in-app so a subscribed
     // phone isn't buzzed for every routine alert, only the ones with real
-    // consequences if missed.
+    // consequences if missed. An alerte liée à un Deal ne doit pas non plus
+    // atteindre l'appareil d'un compte FRACTIONAL_ONLY (Lot B) — la même
+    // règle que `list()` ci-dessus, appliquée cette fois au canal push.
     if (data.severity === 'CRITICAL') {
-      await this.push.sendToOrganization(organizationId, { title: data.title, body: data.message });
+      await this.push.sendToOrganization(
+        organizationId,
+        { title: data.title, body: data.message },
+        { excludeRestricted: Boolean(data.dealId) },
+      );
     }
 
     return alert;
