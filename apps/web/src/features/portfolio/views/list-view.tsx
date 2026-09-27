@@ -5,7 +5,7 @@ import { StageBadge, TypeBadge, RiskScoreBadge, CheckpointHealthBadge, RecoveryS
 import { TagBadge } from '../components/tag-badge';
 import { formatCurrency } from '@/lib/format';
 import { useIsMobile } from '@/lib/use-is-mobile';
-import type { Deal } from '@/types';
+import { DEAL_STAGES, DEAL_STAGE_LABELS, type Deal } from '@/types';
 
 interface ListViewProps {
   deals: Deal[];
@@ -24,28 +24,47 @@ export function ListView({ deals, onSelectDeal, mutedStatusDealIds }: ListViewPr
   }
 
   // Une ligne mobile ne porte que ce qui répond à "de quoi s'agit-il, où,
-  // combien" — les autres badges (type, étape, tags, checkpoints…) sont
-  // encore un tap plus loin dans la fiche complète. Le point de statut est
-  // silencieux si le dossier est sain (même doctrine que SurveillanceStatusBadge
-  // compact ailleurs) : sur un écran calme, une couleur qui apparaît veut dire
-  // quelque chose.
+  // combien" — les autres badges (type, tags, checkpoints…) sont encore un
+  // tap plus loin dans la fiche complète. Le point de statut est silencieux
+  // si le dossier est sain (même doctrine que SurveillanceStatusBadge
+  // compact ailleurs) : sur un écran calme, une couleur qui apparaît veut
+  // dire quelque chose. L'étape, elle, ne se lit pas dossier par dossier
+  // (ce serait un badge concurrent sur chaque ligne) mais par un
+  // regroupement de la liste elle-même — retour utilisateur direct : une
+  // liste plate mélangeant sourcing et remboursé ne permet pas de distinguer
+  // le niveau d'avancement d'un coup d'œil. Groupes vides omis plutôt
+  // qu'affichés à zéro (même doctrine que le bandeau "Nécessite une action").
   if (isMobile) {
+    const grouped = DEAL_STAGES.map((stage) => ({ stage, stageDeals: deals.filter((d) => d.stage === stage) })).filter(
+      (g) => g.stageDeals.length > 0,
+    );
+
     return (
       <div className="flex flex-col">
-        {deals.map((deal) => (
-          <button
-            key={deal.id}
-            onClick={() => onSelectDeal(deal.id)}
-            className="flex items-center gap-3 border-b border-border/60 py-5 text-left last:border-b-0"
-          >
-            <SurveillanceStatusBadge status={mutedStatusDealIds?.includes(deal.id) ? null : deal.surveillanceStatus} compact />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-medium">{deal.name}</p>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {[deal.city, formatCurrency(deal.amountTarget)].filter(Boolean).join(' · ')}
+        {grouped.map(({ stage, stageDeals }, index) => (
+          <div key={stage} className={index === 0 ? 'pt-0' : 'pt-6'}>
+            <div className="flex items-baseline justify-between pb-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {DEAL_STAGE_LABELS[stage]}
               </p>
+              <p className="text-[11px] text-muted-foreground">{stageDeals.length}</p>
             </div>
-          </button>
+            {stageDeals.map((deal) => (
+              <button
+                key={deal.id}
+                onClick={() => onSelectDeal(deal.id)}
+                className="flex items-center gap-3 border-b border-border/60 py-5 text-left last:border-b-0"
+              >
+                <SurveillanceStatusBadge status={mutedStatusDealIds?.includes(deal.id) ? null : deal.surveillanceStatus} compact />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-medium">{deal.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {[deal.city, formatCurrency(deal.amountTarget)].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
         ))}
       </div>
     );
