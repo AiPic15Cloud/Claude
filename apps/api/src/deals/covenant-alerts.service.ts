@@ -54,7 +54,10 @@ export class CovenantAlertsService {
     for (const deal of deals) {
       try {
         const [realizedRepayments, loanExtensions, financialAssumption] = await Promise.all([
-          this.prisma.repayment.findMany({ where: { dealId: deal.id, projected: false }, select: { date: true, amount: true } }),
+          this.prisma.repayment.findMany({
+            where: { dealId: deal.id, projected: false },
+            select: { date: true, amount: true, principalAmount: true, interestAmount: true },
+          }),
           this.prisma.loanExtension.findMany({
             where: { dealId: deal.id },
             orderBy: { dateSignature: 'asc' },
@@ -70,7 +73,12 @@ export class CovenantAlertsService {
           Number(deal.amountRaised),
           deal.interestRate ? Number(deal.interestRate) : null,
           deal.startDate,
-          realizedRepayments.map((r) => ({ date: r.date, amount: Number(r.amount) })),
+          realizedRepayments.map((r) => ({
+            date: r.date,
+            amount: Number(r.amount),
+            principalAmount: r.principalAmount != null ? Number(r.principalAmount) : null,
+            interestAmount: r.interestAmount != null ? Number(r.interestAmount) : null,
+          })),
           new Date(),
           { dateEcheanceInitiale: deal.dateEcheanceInitiale ?? deal.endDate, extensions: loanExtensions },
         );

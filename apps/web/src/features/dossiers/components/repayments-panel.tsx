@@ -17,16 +17,38 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { parseLocaleNumber as parseAmount } from '@/lib/locale-number';
 import type { Repayment } from '@/types';
 
-const schema = z.object({
-  amount: z
-    .string()
-    .min(1, 'Montant requis')
-    .refine((v) => Number.isFinite(parseAmount(v)), 'Montant invalide')
-    .refine((v) => parseAmount(v) > 0, 'Montant requis'),
-  date: z.string().min(1, 'Date requise'),
-  projected: z.boolean().optional(),
-  note: z.string().optional(),
-});
+// Tolérance d'arrondi de saisie (centimes) — même tolérance que côté backend
+// (repayments.service.ts SPLIT_SUM_TOLERANCE), pour ne jamais rejeter côté
+// client ce que l'API accepterait, ou l'inverse.
+const SPLIT_SUM_TOLERANCE = 0.01;
+
+const schema = z
+  .object({
+    amount: z
+      .string()
+      .min(1, 'Montant requis')
+      .refine((v) => Number.isFinite(parseAmount(v)), 'Montant invalide')
+      .refine((v) => parseAmount(v) > 0, 'Montant requis'),
+    date: z.string().min(1, 'Date requise'),
+    projected: z.boolean().optional(),
+    note: z.string().optional(),
+    // Ventilation principal/intérêts réelle (optionnelle) — voir crd.util.ts :
+    // posée ensemble ou pas du tout, jamais l'une sans l'autre.
+    principalAmount: z.string().optional(),
+    interestAmount: z.string().optional(),
+  })
+  .refine((v) => Boolean(v.principalAmount?.trim()) === Boolean(v.interestAmount?.trim()), {
+    message: 'À saisir ensemble, ou à laisser vides toutes les deux.',
+    path: ['interestAmount'],
+  })
+  .refine(
+    (v) => {
+      if (!v.principalAmount?.trim() || !v.interestAmount?.trim()) return true;
+      const sum = parseAmount(v.principalAmount) + parseAmount(v.interestAmount);
+      return Number.isFinite(sum) && Math.abs(sum - parseAmount(v.amount)) <= SPLIT_SUM_TOLERANCE;
+    },
+    { message: 'La somme des deux parts doit égaler le montant du remboursement.', path: ['interestAmount'] },
+  );
 type FormValues = z.infer<typeof schema>;
 
 export function RepaymentsPanel({ dealId }: { dealId: string }) {
@@ -48,9 +70,16 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
   useEffect(() => {
     if (!open) return;
     if (editing) {
-      reset({ amount: editing.amount, date: editing.date.slice(0, 10), projected: editing.projected, note: editing.note ?? '' });
+      reset({
+        amount: editing.amount,
+        date: editing.date.slice(0, 10),
+        projected: editing.projected,
+        note: editing.note ?? '',
+        principalAmount: editing.principalAmount ?? '',
+        interestAmount: editing.interestAmount ?? '',
+      });
     } else {
-      reset({ amount: '', date: '', projected: false, note: '' });
+      reset({ amount: '', date: '', projected: false, note: '', principalAmount: '', interestAmount: '' });
     }
   }, [open, editing, reset]);
 
@@ -58,10 +87,26 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
   const openEdit = (r: Repayment) => { setEditing(r); setOpen(true); };
 
   const onSubmit = (values: FormValues) => {
-    const payload = { ...values, amount: parseAmount(values.amount) };
+    const splitFilled = Boolean(values.principalAmount?.trim()) && Boolean(values.interestAmount?.trim());
+    const base = { ...values, amount: parseAmount(values.amount) };
     if (editing) {
+      // Le formulaire d'édition est entièrement contrôlé (état chargé depuis
+      // `editing`, jamais partiel) — ce qu'il affiche à la soumission EST
+      // l'état voulu : des champs vidés valent déliaison explicite (null),
+      // jamais "non touché" (undefined), qui laisserait une ventilation
+      // existante inchangée à l'insu de l'utilisateur.
+      const payload = {
+        ...base,
+        principalAmount: splitFilled ? parseAmount(values.principalAmount!) : null,
+        interestAmount: splitFilled ? parseAmount(values.interestAmount!) : null,
+      };
       updateRepayment.mutate({ id: editing.id, ...payload }, { onSuccess: () => setOpen(false) });
     } else {
+      const payload = {
+        ...base,
+        principalAmount: splitFilled ? parseAmount(values.principalAmount!) : undefined,
+        interestAmount: splitFilled ? parseAmount(values.interestAmount!) : undefined,
+      };
       createRepayment.mutate(payload, { onSuccess: () => setOpen(false) });
     }
   };
@@ -103,6 +148,23 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
                   <Input id="date" type="date" {...register('date')} />
                   {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
                 </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="principalAmount">Dont part capital (€)</Label>
+                    <DecimalInput id="principalAmount" {...register('principalAmount')} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="interestAmount">Dont part intérêts (€)</Label>
+                    <DecimalInput id="interestAmount" {...register('interestAmount')} />
+                  </div>
+                </div>
+                {errors.interestAmount && <p className="text-xs text-destructive">{errors.interestAmount.message}</p>}
+                <p className="text-[11px] text-muted-foreground">
+                  Optionnel — si la ventilation réelle est connue (échéancier, quittance). Sinon ATLAS l'estime par défaut
+                  (intérêts en priorité).
+                </p>
               </div>
               <Controller
                 control={control}
@@ -146,6 +208,11 @@ export function RepaymentsPanel({ dealId }: { dealId: string }) {
                   {r.projected && <Badge variant="warning">Projeté</Badge>}
                 </div>
                 {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}
+                {r.principalAmount != null && r.interestAmount != null && (
+                  <p className="text-xs text-muted-foreground">
+                    dont {formatCurrency(r.principalAmount)} capital · {formatCurrency(r.interestAmount)} intérêts
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
