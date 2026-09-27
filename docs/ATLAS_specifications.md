@@ -1,6 +1,6 @@
 # ATLAS — Spécifications consolidées
 
-*Document regroupant l'ensemble des spécifications ayant guidé le développement d'ATLAS : la spécification principale (grille de risque, Knowledge Graph, Market Intelligence), ses trois compléments autonomes (modules d'entraînement analyste investissement, intégration baromètre-crowdfunding.com, vues inspirées de MARKO), et la spécification de refonte globale v2.0 (séparation Dette/Fractionné, dossier maître, dictionnaire financier). Chaque complément se réfère à la spécification principale sous le nom `ATLAS_spec_v2.md`.*
+*Document regroupant l'ensemble des spécifications ayant guidé le développement d'ATLAS : la spécification principale (grille de risque, Knowledge Graph, Market Intelligence), ses trois compléments autonomes (modules d'entraînement analyste investissement, intégration baromètre-crowdfunding.com, vues inspirées de MARKO), la spécification de refonte globale v2.0 (séparation Dette/Fractionné, dossier maître, dictionnaire financier) et la spécification Cockpit/Fractionné v1.0. Chaque complément se réfère à la spécification principale sous le nom `ATLAS_spec_v2.md`.*
 
 ## Sommaire
 
@@ -9,8 +9,9 @@
 3. **Complément E** — intégration de baromètre-crowdfunding.com (Market Intelligence)
 4. **Complément F** — vues inspirées de MARKO (Kanban, dashboard agrégé, covenants)
 5. **Refonte globale v2.0** — séparation Dette/Fractionné (espaces étanches), dossier maître, dictionnaire financier, migration en 6 lots (A–F)
+6. **Cockpit et Fractionné v1.0** — file de décisions/actions, parcours fractionné en 9 étapes, qualification courte, plateformes multiples, priorités P0-P3
 
-**Non consolidés ici, faute de texte intégral reçu dans cette session** : `ATLAS_Spec_Cockpit_Fractionne_v1.md` (spécification du cockpit et du module Fractionné) et `ATLAS_Examen_Fonctionnel_2026-09-27.md` (audit fonctionnel, 32 constats) — la Partie 5 ci-dessous les cite et s'appuie sur eux, mais seul un résumé de synthèse en a été transmis, jamais le document complet. À coller ici si vous voulez qu'ils soient consolidés à leur tour.
+**Non consolidé ici, faute de texte intégral reçu dans cette session** : `ATLAS_Examen_Fonctionnel_2026-09-27.md` (audit fonctionnel, 32 constats) — la Partie 5 le cite et s'appuie sur lui, mais seul un résumé de synthèse en a été transmis dans cette conversation, jamais le document complet. À coller ici si vous voulez qu'il soit consolidé à son tour.
 
 ---
 
@@ -1129,3 +1130,183 @@ Documents internes à lire ensemble : ATLAS_Examen_Fonctionnel_2026-09-27.md (fa
 ---
 
 *Statut d'implémentation (tenu à jour au fil des livraisons) : Lot A/B — stopgap D02 livré (`DetteScopeGuard`, `User.workspaceScope`), voir PR #26 ; couvre les contrôleurs exclusivement Deal/dette, ne couvre pas encore les objets partagés/polymorphes ni le dossier maître (D01). Reste de la migration (Lots A à F) non commencé — paramètres de la section 12 à trancher avant les modules concernés.*
+
+---
+
+# Partie 6 — Cockpit et Fractionné v1.0
+
+# Atlas Capital — spécification fonctionnelle : cockpit et fractionné
+
+**Version :** 1.0 — 26 septembre 2026
+**Statut :** cadrage produit à valider avant développement
+**Périmètre :** cockpit, liste et fiche Fractionné, liens avec tâches, documents et partenaires
+**Sources de cadrage :** captures d'écran du cockpit et des fiches Fractionné transmises le 26/09/2026 ; échanges avec Nicolas sur le projet conduit avec un associé. Les chiffres et statuts visibles dans les captures sont des exemples de données existantes, pas des hypothèses validées par une plateforme.
+
+## 1. Objectif et principes
+
+Atlas doit répondre à trois questions en moins d'une minute : **que devons-nous décider, quelle action fait avancer chaque dossier, et qui en est responsable ?** Le cockpit est une file de décisions et d'actions. Les analyses approfondies restent dans les dossiers. Le parcours Fractionné doit permettre de qualifier rapidement une opportunité, vérifier sa présentabilité à une ou plusieurs plateformes, préparer sa transmission, puis suivre l'acquisition et la détention.
+
+Principes contraignants :
+
+- Un chiffre calculé peut être affiché avec ses hypothèses ; il ne devient une **conclusion** que si les données minimales requises et le référentiel de décision sont présents.
+- `0`, `non renseigné`, `non applicable` et `non vérifié` sont quatre états différents. Une absence de donnée ne devient jamais automatiquement zéro.
+- Chaque alerte actionable porte un motif, une action, un responsable, une échéance et un lien profond vers l'endroit où agir. Les compteurs sans action restent dans les vues d'analyse.
+- Une opération est rattachée à un espace de travail explicite. Les données de l'activité salariée et celles du projet entrepreneurial ne sont jamais agrégées par défaut ni accessibles par simple changement de filtre non autorisé.
+- Une hypothèse commerciale (partage de frais, critères de plateforme) est étiquetée `à négocier`, `proposée` ou `contractualisée`, avec source et date ; elle n'est pas présentée comme un accord.
+- L'IA peut aider à extraire et résumer des informations, mais ne valide pas seule une source, un contrat ou une décision d'investissement.
+
+## 2. Constat sur l'existant et corrections urgentes
+
+| Constat sur les captures | Effet produit | Comportement attendu |
+| --- | --- | --- |
+| Le cockpit juxtapose dix dossiers à risque, encours, graphiques, frais, remboursements, échéances et activité récente. | La priorité du jour reste difficile à lire ; beaucoup de boutons « Ouvrir ». | Afficher d'abord les décisions et actions dues, filtrées par espace et type de dossier. |
+| « Le parc 149 » affiche `Refusé` et `hard stop`, alors qu'aucun profil plateforme n'est assigné et que 47/47 champs critiques sont indiqués non sourcés. | Une conclusion apparaît sans base suffisante. | `Non évaluable` pour le fit plateforme ; afficher les preuves et paramétrages manquants. Un hard stop n'est possible que si son fait déclencheur est établi et sourcé. |
+| Hurdle plateforme `0 %`, écart `+6,31 pt` et indicateur partiel « Éligible ». | Un profil absent est assimilé à un seuil nul ; messages contradictoires. | Seuil `—` et écart `—` en l'absence de profil ; indicateur immobilier descriptif sans badge d'éligibilité globale. |
+| Scénarios Base et Bear visibles avec mêmes paramètres. | Le stress affiché ne teste pas la sensibilité. | Signaler `Scénario identique au cas central` ; ne pas présenter sa sortie comme un stress testé. |
+| Data room à 0 % et 48 pièces manquantes dès un dossier en structuration. | Tous les manques ont le même poids et la même urgence. | Checklists adaptées à l'étape et au type d'actif, avec pièces nécessaires **maintenant**, **avant présentation**, **avant acquisition**. |
+| Fiche Fractionné avec une douzaine d'onglets et des informations économiques, juridiques et locatives détaillées. | Coût de saisie élevé dès le sourcing. | Fiche de qualification courte ; instruction détaillée progressive lorsque le dossier franchit un seuil de décision. |
+| Dans « Mémoire », le résultat final propose `Succès` par défaut. | Une issue non réalisée peut être enregistrée par erreur. | Aucun résultat final préselectionné ; écran réservé aux dossiers sortis et à leur date effective. |
+
+Ces constats décrivent l'affichage observé, pas une revue du code ni une validation des formules financières.
+
+## 3. Architecture des espaces et navigation
+
+### 3.1 Espaces
+
+Chaque objet métier porte un `workspace_id`. Au minimum : `Projet entrepreneurial` et, seulement si l'usage est autorisé, un espace distinct pour l'activité professionnelle. Le choix d'espace est visible en haut de page et persiste pendant la session. Le cockpit, la recherche, les notifications, les comparables, l'IA, les exports et les agrégats respectent le même périmètre. Les accès de l'associé se limitent à l'espace entrepreneurial et à ses dossiers autorisés. Ne pas dupliquer automatiquement des informations issues d'un autre espace.
+
+### 3.2 Navigation proposée
+
+Dans l'espace entrepreneurial : `Cockpit` → `Opportunités` → `Fractionné` → `Partenaires` → `Documents` → `Analyse` → `Paramètres`. Les modules génériques existants restent accessibles selon les droits, mais n'occupent pas toute la navigation de premier niveau. La liste Fractionné montre le pipeline ; la fiche détaillée conserve ses onglets existants, regroupables en `Décision`, `Actif & baux`, `Modèle & structure`, `Risques & documents`, `Suivi & mémoire`. Le regroupement est une amélioration UX, pas une migration obligatoire du modèle de données.
+
+## 4. Cockpit — vue et comportement
+
+### 4.1 Vue d'ouverture
+
+1. **Bandeau de contexte :** espace actif, date de dernière synchronisation, propriétaire de la vue, raccourci `Nouvelle opportunité` et filtre `Tous / Fractionné / autres activités`.
+2. **À décider :** jusqu'à cinq cartes, ordonnées par échéance réelle et impact d'un blocage. Chaque carte comporte opération, étape, décision attendue, motif en une phrase, responsable, échéance et CTA spécifique (`Qualifier`, `Vérifier le bail`, `Choisir une plateforme`, `Décider poursuivre/arrêter`). Bouton secondaire `Voir les détails`.
+3. **À faire / En attente :** deux colonnes séparées. Une action à faire par nous n'est pas mélangée à une réponse attendue d'une plateforme ou d'un vendeur. Relance proposée seulement si la date prévue est échue ; possibilité de reporter, déléguer ou clore avec motif.
+4. **Pipeline fractionné compact :** nombres par étape et liste des dossiers qui ont changé d'étape ou sont bloqués. Un clic filtre la liste Fractionné.
+5. **Performance utile :** pistes reçues, qualifiées, présentées, accords de principe et acquisitions signées sur une période choisie ; taux de conversion calculé sur des cohortes cohérentes et délais médians lorsque l'échantillon le permet. Avec deux dossiers, afficher les nombres bruts, pas un pourcentage spectaculaire.
+6. **Économie :** honoraires encaissés, contractés non encaissés et scénarios non contractuels en colonnes distinctes. Revenus de détention et de sortie ventilés par année et attribués à la structure, jamais confondus avec le volume d'acquisition ou la collecte.
+
+Les vues historiques `Encours`, `Frais`, `Remboursements`, `Concentration`, graphiques et journal d'activité deviennent une page `Analyse` ou des vues propres à chaque espace. Un widget indisponible ne prend pas une carte entière sur le cockpit ; un état technique compact suffit.
+
+### 4.2 Règles de la file d'actions
+
+Une entrée est créée par une décision explicite, un contrôle bloquant, une échéance, une relance planifiée ou une alerte de suivi dont le propriétaire est identifié. Elle comporte `source_object_id`, `cause`, `action_type`, `owner_id`, `due_at`, `status`, `created_at`, `resolved_at`, `resolution_reason`, `deep_link`. La même cause ne génère qu'une action ouverte par dossier. Un changement de donnée résout ou réévalue automatiquement l'action ; une modification ultérieure peut la rouvrir avec historique. Priorité calculée principalement à partir du caractère bloquant et de la date, avec possibilité de classement manuel motivé ; ne pas recycler un score de risque opaque en ordre de travail.
+
+États : `À faire`, `En attente externe`, `À décider`, `Terminée`, `Écartée`. Toute ligne doit proposer une action réelle et une issue ; `Ouvrir` seul ne remplit pas cette exigence. Les notifications regroupent les événements identiques et évitent de relancer quotidiennement une attente sans changement.
+
+### 4.3 Exemple attendu
+
+`Le parc 149 · Structuration · Fit plateforme non évaluable : aucun profil assigné · Nicolas · [Choisir une plateforme]`. Une deuxième action éventuelle peut traiter les pièces critiques, mais le cockpit n'affiche pas 48 alertes identiques. `Action Saint-Étienne · Analyse · Bail et conditions économiques à vérifier · Associé/Nicolas selon attribution · [Demander les pièces]` est un exemple de formulation, à condition que ces manques soient effectivement présents dans le dossier.
+
+## 5. Fractionné — parcours d'un dossier
+
+### 5.1 Étapes et portes de décision
+
+| Étape | Question à trancher | Minimum requis pour passer | Actions principales |
+| --- | --- | --- | --- |
+| Piste | L'actif mérite-t-il une qualification ? | Adresse ou secteur, type, source, vendeur/contact, fourchette de prix ou mention inconnue. | Assigner, demander les données, écarter avec motif. |
+| Qualification | Vaut-il une analyse approfondie ? | Prix ou fourchette, loyer connu ou à confirmer, occupation, baux clés, travaux connus, stratégie envisagée, premiers risques et inconnues. | Poursuivre, demander pièces, abandonner. |
+| Analyse | La thèse tient-elle sous hypothèses réalistes ? | Sources datées pour prix et baux, coûts d'acquisition, exploitation, scénarios distincts, points bloquants. | Valider l'analyse interne ou réviser. |
+| Plateformes ciblées | À qui présenter quoi ? | Une ou plusieurs plateformes candidates, critères connus/inconnus, interlocuteur et version de l'offre envisagée. | Contacter, comparer, demander critères ; fit `Non évalué` si critères absents. |
+| Présentation | Le dossier transmis est-il complet pour cette plateforme ? | Pack demandé par la plateforme, synthèse, sources et points ouverts explicités ; contrôle humain. | Générer pack, approuver, enregistrer transmission. |
+| Accord et montage | Les conditions sont-elles acceptables pour notre structure et les investisseurs ? | Accord de principe identifiable, hypothèses économiques documentées, parties prenantes, conditions suspensives et responsables. | Comparer offre/hypothèses, négocier, approuver ou refuser. |
+| Collecte / acquisition | Quelles conditions restent à lever avant la signature ? | Jalons, financement et documents requis à ce stade ; dates et interlocuteurs. | Suivre collecte et conditions, préparer acquisition. |
+| Détention | Quels écarts exigent une action ? | Baux, échéances, loyers encaissés, charges, réserves, CAPEX, rapports d'agence. | Valider reporting, traiter impayé, renouvellement, travaux. |
+| Sortie | Quelle décision de cession et quel résultat réel ? | Valorisation datée, coûts, obligations, décision et flux réels. | Préparer sortie, comparer prévision/réalisé, clôturer. |
+
+La transition est journalisée (`avant`, `après`, auteur, date, motif). `Abandonné`, `En sommeil`, `Refusé par plateforme` et `Cédé` sont des issues distinctes des étapes actives. Une présentation à plusieurs plateformes ne duplique pas l'actif ni ses baux : chaque candidature est un sous-objet avec son propre statut.
+
+### 5.2 Qualification courte
+
+Formulaire d'une page, saisie manuelle possible en quelques minutes. Champs obligatoires limités à identité de l'opportunité, type, localisation, source et responsable ; les autres sont explicitement `inconnus` si absents. Les caractéristiques de l'actif alimentent automatiquement les onglets d'analyse existants. À la sortie, Atlas produit une fiche de décision courte : thèse, trois atouts maximum, trois risques maximum, questions à résoudre, prochaine action et responsable. Pas de collecte automatique de 48 pièces à ce stade.
+
+### 5.3 Plateformes et relations
+
+Un référentiel versionné par plateforme contient type d'actifs, tailles, contraintes locatives, rendement cible si communiqué, durée, frais, rôle opérateur, contact, statut de vérification, date et source. Les critères non communiqués restent `à confirmer`. Une même opération peut avoir plusieurs `platform_applications` : plateforme, contact, étape, date du premier échange, dernier retour, prochaine relance, critères comparés, offre reçue, raison de refus. Aucune note de fit n'utilise un hurdle implicite `0 %`.
+
+### 5.4 Décision et preuve
+
+Séparer trois états sur la synthèse :
+
+- **Données :** `À réunir / À vérifier / Suffisantes pour cette étape`, avec les trois pièces qui débloquent la décision. Un score de complétude éventuel porte sur la checklist pertinente à l'étape et affiche son dénominateur.
+- **Analyse de l'actif :** `Non analysé / Thèse à approfondir / Risque bloquant vérifié / Analyse favorable sous réserves`, avec motifs, hypothèses et sources.
+- **Adéquation plateforme :** `Non évaluée / À confirmer / Présentable sous conditions / Non conforme`, séparément pour chaque plateforme et version de ses critères.
+
+Une règle de blocage exige `rule_id`, condition observée, source, date, auteur ou extraction vérifiée, portée (actif ou plateforme), possibilité de lever le blocage et action associée. Si la preuve manque : `à vérifier`, jamais `hard stop`. Les résultats de calcul sont distincts d'un vote humain `poursuivre / suspendre / abandonner`, horodaté et motivé. Ne pas utiliser `Refusé` sans préciser **qui** a refusé : comité interne ou plateforme nommée.
+
+### 5.5 Modèle économique et scénarios
+
+Conserver les calculs d'acquisition, loyers, OPEX, CAPEX, réserves, fiscalité, valorisation, TRI et waterfall existants ; ajouter une vue décisionnelle concise. Séparer les flux de l'actif, ceux des investisseurs, de la plateforme, du véhicule et de la structure portée par Nicolas et son associé. Pour chaque frais ou pourcentage : assiette, montant, bénéficiaire, moment du paiement, prise en charge économique, TVA si pertinente, caractère négocié/confirmé et document source. Vérifier que sources et emplois s'équilibrent ; une différence ou une unité ambiguë (`3` euros ou `3 %`) bloque l'export d'un résultat présenté comme final.
+
+Scénarios `central`, `dégradé`, `sévère` : prix, vacances/impayés, OPEX, CAPEX, croissance des loyers, durée, taux de sortie, frais de cession et délais peuvent varier. Atlas compare les entrées et signale si deux scénarios sont identiques. Rendre visibles les impacts sur distribution, couverture des charges, rendement investisseur, rendement de la structure et valeur de sortie ; un même taux de distribution ne doit pas masquer un risque de perte en capital. Une hypothèse de partage, notamment 50/50 sur frais, 95/3/2 sur loyers et 60/15/25 sur plus-value, est un **scénario de travail** tant qu'elle n'est pas documentée par un accord. Le modèle doit accepter d'autres répartitions et la possibilité qu'aucune rémunération de ce type ne soit acceptée.
+
+La prévision de revenus distingue `réalisé`, `contractualisé`, `proposé`, `hypothétique` et affiche la part de chaque associé ou de la société seulement si elle est renseignée. L'objectif annuel de 250 k€ est une cible de rémunération à définir (chiffre d'affaires, résultat de structure ou revenu personnel) avant tout écart à objectif ; aucune comparaison trompeuse avec les honoraires bruts ou la collecte.
+
+### 5.6 Documents, baux, données et mémoire
+
+Chaque donnée critique garde valeur, unité, source, date de source, date de saisie, auteur, état de vérification et lien vers pièce/page si possible. Une extraction automatique est `à confirmer` jusqu'à validation humaine. Un nouveau bail ou avenant recalcule les indicateurs concernés et signale les décisions à revoir. Les quinze lignes de rent roll du parc 149 doivent pouvoir être importées, rapprochées des baux et contrôlées sur la somme des loyers, les échéances, garanties, indexations, charges, impayés et périodes de franchise. Les statuts « Sécurisé » et « À surveiller » doivent être motivés et reliés à la preuve.
+
+La data room utilise une checklist par étape, type d'actif et exigences de la plateforme. Les doublons sont identifiés ; un document peut répondre à plusieurs contrôles. Afficher en premier les pièces qui bloquent **la prochaine décision**, puis la complétude globale en vue secondaire. La mémoire enregistre décisions, scénarios, offres, résultats réels périodiques et comparaison prévision/réalisé. Le résultat final n'a aucune valeur par défaut ; il est disponible après sortie et exige date, prix/flux réels et source avant calcul du TRI réalisé.
+
+## 6. Modèle de données minimal à ajouter ou adapter
+
+Ne pas imposer de nouvelle base si les tables existantes peuvent porter ces relations ; cette liste décrit les invariants fonctionnels.
+
+- `workspace` et `membership` : espace, utilisateur, rôle, droits par dossier.
+- `opportunity` : identifiant stable, type `fractionné`, étape, issue, responsable, source, dates et actif lié.
+- `decision` : question, choix, motif, auteur, date, version du dossier, sources consultées.
+- `action_item` : cause, type, responsable, statut, échéance, lien profond, résolution.
+- `platform_profile` et `platform_criterion` : version, valeur, unité, provenance, vérification, validité.
+- `platform_application` : relation dossier/plateforme, statut, échanges, offres, prochaines actions.
+- `evidence` : document ou information externe, origine, date, niveau de vérification et droits.
+- `assumption_set` : version, scénario, auteur, date, valeurs et provenance.
+- `economics_term` : assiette, montant/pourcentage, bénéficiaire, statut de négociation, contrat.
+- `stage_requirement` : exigence conditionnelle par étape, type d'actif et plateforme ; caractère bloquant et preuve attendue.
+- `event_log` : changements significatifs, recalculs, notifications et accès/export sensibles.
+
+Prévoir identifiants, horodatages, `workspace_id` et contrôle d'accès sur les lignes enfants, y compris fichiers, tâches, recherche et résultats d'IA. Une source révisée ne doit pas effacer l'historique d'une décision prise avec l'ancienne version.
+
+## 7. Automatisation et limites
+
+Automatiser l'import de données autorisées, l'extraction de pièces, le rapprochement des baux et des hypothèses, le calcul des métriques, la génération des checklists, les rappels à échéance, le brouillon de synthèse et le suivi des écarts de reporting. Une intégration mail future peut rattacher un échange à une candidature plateforme avec confirmation de l'utilisateur en cas d'ambiguïté. Toute action externe (envoi à une plateforme, partage de data room) reste une action explicite d'un utilisateur habilité. L'automatisation doit donner sa source et permettre de corriger une extraction.
+
+## 8. Priorités de livraison
+
+**P0 — fiabilité (avant exposition d'un nouveau cockpit) :** distinguer absent/0 ; corriger le `Refusé` et le hurdle à 0 sans profil ; empêcher qu'une éligibilité partielle soit globale ; supprimer `Succès` par défaut ; isoler les espaces et les agrégats ; tester les calculs monétaires clés sur dossiers connus.
+
+**P1 — MVP utilisable à deux :** qualification courte, étapes, action/responsable/échéance, bloc `À décider`, candidats plateformes multiples, checklist progressive et vues de synthèse par dossier. Migrer les deux dossiers existants sans perte ; leurs champs incertains restent explicitement incertains.
+
+**P2 — économie et collaboration :** versions de conditions, comparatif de plateformes, prévision des flux de la structure, conversions par cohorte, événements déclenchant des tâches, historique de décision et import documentaire.
+
+**P3 — automatisations avancées :** extraction assistée, rapprochement de documents, reporting locatif automatisé, intégrations de communication et simulations multi scénarios enrichies. Prioriser à partir de l'usage réel après les premiers échanges plateformes.
+
+## 9. Critères d'acceptation et cas de test
+
+1. Sur « Le parc 149 » sans profil plateforme, le seuil et l'écart sont `—`, le fit est `Non évalué`, et le CTA mène à `Choisir/comparer une plateforme`. Aucune décision `Refusé` automatique ne résulte de l'absence de profil ou de pièces.
+2. Un risque juridique ou technique sans preuve apparaît `À vérifier`. Après ajout d'une preuve et validation, un blocage documenté peut être créé avec motif et action.
+3. Une opportunité nouvelle peut être saisie et qualifiée sans compléter les douze onglets ni 48 pièces. La checklist s'étend à mesure qu'elle avance.
+4. Un même actif peut être proposé à deux plateformes avec critères, statuts et échanges séparés ; modifier l'une ne modifie pas l'autre.
+5. Une action résolue disparaît de `À faire` et reste dans l'historique ; une attente externe ne se transforme en relance qu'à l'échéance prévue.
+6. Les scénarios Base et Bear identiques déclenchent un avertissement. Une modification de vacance ou de valeur de sortie met à jour les flux et la comparaison sans écraser la version antérieure.
+7. Les frais et partages hypothétiques ne sont jamais inclus dans les revenus réalisés ou contractés ; l'assiette et la somme des répartitions sont contrôlées.
+8. Un utilisateur de l'espace entrepreneurial ne peut retrouver les données d'un autre espace par URL directe, recherche, export, notification ou assistant IA.
+9. Le cockpit indique les trois actions les plus pertinentes des dossiers Fractionné et ouvre directement l'écran et le champ concernés, sur ordinateur comme sur mobile.
+10. Le formulaire de résultat final ne préselectionne ni `Succès` ni aucun TRI réalisé. Un résultat exige des flux datés et une preuve.
+
+## 10. Questions ouvertes à arbitrer avec les deux associés
+
+1. Le cockpit doit-il afficher uniquement le projet entrepreneurial par défaut, ou permettre un changement vers un espace professionnel distinct si cet usage est autorisé ?
+2. Qui peut prendre la décision finale `poursuivre/abandonner`, qui peut modifier les hypothèses financières et qui peut transmettre un dossier à une plateforme ?
+3. Quelle est la définition de la cible `250 k€ annuels` : chiffre d'affaires de la structure, résultat distribuable ou revenu personnel net ; quelle répartition entre associés ?
+4. Pour les premières plateformes contactées, quels critères et modalités économiques ont été **confirmés**, lesquels restent des hypothèses ?
+5. Quel dossier pilote sert à vérifier le parcours complet : Action Saint-Étienne, Le parc 149, ou un nouveau dossier plus simple ?
+
+**Hors périmètre de cette version :** refonte des calculs fiscaux et juridiques, choix définitif du véhicule d'investissement, envoi automatique de dossiers à des tiers et prédiction de rendement par IA. Ces sujets exigent des informations et validations propres à chaque opération.
+
+---
+
+*Statut d'implémentation : la quasi-totalité des P0/P1/P2 de cette spécification a été livrée au fil des PR de cette session (compaction Cockpit "À décider"/listes latérales, qualification courte, platform_application, checklist progressive, historique de décision, import rent roll CSV — voir tâches #94-108). Reste ouvert : les questions de la section 10 (jamais tranchées par les deux associés) et l'isolation d'espace réelle (§3.1, §9 critère 8) — couverte partiellement par le stopgap D02 (PR #26) côté contrôleurs Deal/dette uniquement, pas encore par un vrai `workspace_id` par objet comme décrit ici.*
