@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { DetteScopeGuard } from '../common/guards/dette-scope.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -12,7 +13,7 @@ import { QueryPipelineDto } from './dto/query-pipeline.dto';
 
 @ApiTags('pipeline')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('pipeline')
 export class PipelineController {
   constructor(private readonly pipelineService: PipelineService) {}

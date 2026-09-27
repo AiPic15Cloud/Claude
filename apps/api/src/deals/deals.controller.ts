@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException,
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { DetteScopeGuard } from '../common/guards/dette-scope.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -26,7 +27,7 @@ import { InvestmentNoteSectionsDto } from './dto/investment-note-sections.dto';
 
 @ApiTags('deals')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('deals')
 export class DealsController {
   constructor(

@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { DetteScopeGuard } from '../common/guards/dette-scope.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -11,7 +12,7 @@ import { MarkSubstantiveDefectDto } from './dto/mark-substantive-defect.dto';
 
 @ApiTags('guarantees')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('deals/:dealId/guarantees')
 export class GuaranteesController {
   constructor(private readonly guaranteesService: GuaranteesService) {}

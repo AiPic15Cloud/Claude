@@ -21,6 +21,19 @@ enum Role {
   VIEWER
 }
 
+/// Spec ATLAS v2 §2/D02 (espaces étanches) — stopgap avant le vrai modèle
+/// d'espaces (Lot B, workspace_id par objet). FULL est le comportement
+/// actuel (aucun changement pour les comptes existants) ; FRACTIONAL_ONLY
+/// bloque au niveau du serveur (DetteScopeGuard) l'accès à tous les
+/// contrôleurs exclusivement scopés Deal/dette. Ne couvre pas encore les
+/// objets partagés/polymorphes (documents, notes, tags, action items,
+/// cockpit, alertes, recherche, agents génériques) qui nécessitent un
+/// filtrage par objet — c'est le travail du Lot B, pas de ce stopgap.
+enum WorkspaceScope {
+  FULL
+  FRACTIONAL_ONLY
+}
+
 enum DealType {
   PROMOTION_IMMOBILIERE
   DIVISION_PARCELLAIRE
@@ -302,6 +315,8 @@ model User {
   firstName      String
   lastName       String
   role           Role         @default(ANALYST)
+  /// Stopgap D02 — voir le commentaire sur l'enum WorkspaceScope.
+  workspaceScope WorkspaceScope @default(FULL)
   avatarUrl      String?
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

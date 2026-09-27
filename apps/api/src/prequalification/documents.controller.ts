@@ -3,6 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { DetteScopeGuard } from '../common/guards/dette-scope.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -12,7 +13,7 @@ import { UpdateDocumentDto } from './dto/update-document.dto';
 
 @ApiTags('prequalification')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('prequalification/cases/:caseId/documents')
 export class PrequalDocumentsController {
   constructor(private readonly service: PrequalDocumentsService) {}
@@ -60,7 +61,7 @@ export class PrequalDocumentsController {
 
 @ApiTags('prequalification')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('prequalification/documents/local')
 export class PrequalLocalDocumentsController {
   constructor(private readonly service: PrequalDocumentsService) {}

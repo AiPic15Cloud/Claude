@@ -5,6 +5,7 @@ export interface AuthenticatedUser {
   email: string;
   role: string;
   organizationId: string;
+  workspaceScope: string;
 }
 
 export const CurrentUser = createParamDecorator(

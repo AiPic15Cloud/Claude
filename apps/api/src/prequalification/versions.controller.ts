@@ -1,12 +1,13 @@
 import { BadRequestException, Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { DetteScopeGuard } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { VersionsService } from './versions.service';
 
 @ApiTags('prequalification')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('prequalification/cases/:id/versions')
 export class VersionsController {
   constructor(private readonly service: VersionsService) {}

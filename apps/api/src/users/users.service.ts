@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, WorkspaceScope } from '@prisma/client';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { sanitizeUser } from './sanitize-user.util';
@@ -27,6 +27,8 @@ export class UsersService {
     lastName: string;
     organizationId: string;
     role?: Role;
+    /** Spec ATLAS v2 §2/D02 — FRACTIONAL_ONLY pour tout compte hors Nicolas tant que le vrai modèle d'espaces (Lot B) n'est pas livré. */
+    workspaceScope?: WorkspaceScope;
   }) {
     return this.prisma.user.create({ data });
   }
