@@ -335,7 +335,7 @@ export class DealsService {
     const durationTargetValidated = isDurationTargetValidatedByCheckpoint(durationTargetAlert, deal.checkpoints[0]?.createdAt ?? null);
     const realizedRepayments = await this.prisma.repayment.findMany({
       where: { dealId: id, projected: false },
-      select: { date: true, amount: true },
+      select: { date: true, amount: true, principalAmount: true, interestAmount: true },
     });
     const loanExtensions = await this.prisma.loanExtension.findMany({
       where: { dealId: id },
@@ -346,7 +346,12 @@ export class DealsService {
       Number(deal.amountRaised),
       deal.interestRate ? Number(deal.interestRate) : null,
       deal.startDate,
-      realizedRepayments.map((r) => ({ date: r.date, amount: Number(r.amount) })),
+      realizedRepayments.map((r) => ({
+        date: r.date,
+        amount: Number(r.amount),
+        principalAmount: r.principalAmount != null ? Number(r.principalAmount) : null,
+        interestAmount: r.interestAmount != null ? Number(r.interestAmount) : null,
+      })),
       new Date(),
       { dateEcheanceInitiale: deal.dateEcheanceInitiale ?? deal.endDate, extensions: loanExtensions },
     );

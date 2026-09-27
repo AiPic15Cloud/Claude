@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
 import { UpdateRepaymentDto } from './dto/update-repayment.dto';
+
+// Tolérance d'arrondi de saisie (centimes) — un écart de 0,01€ sur trois
+// champs saisis manuellement n'est pas une incohérence de données, juste un
+// arrondi ; au-delà, la somme des deux parts doit réellement égaler amount.
+const SPLIT_SUM_TOLERANCE = 0.01;
 
 @Injectable()
 export class RepaymentsService {
@@ -17,6 +22,28 @@ export class RepaymentsService {
     return deal;
   }
 
+  /**
+   * La ventilation principal/intérêts (crd.util.ts) est posée ensemble ou
+   * pas du tout, jamais partiellement — sinon computeCrdDetailed ne saurait
+   * pas si l'absence d'un des deux champs signifie "0" ou "inconnu".
+   *
+   * undefined (absent du body) et null (déliaison explicite, formulaire
+   * d'édition vidé) sont tous deux traités comme "pas de ventilation" ici —
+   * la distinction entre "non touché" et "explicitement effacé" se joue
+   * uniquement dans les données Prisma passées à create()/update() ci-dessous
+   * (undefined = champ non modifié, null = remis à NULL en base).
+   */
+  private assertValidSplit(principalAmount: number | null | undefined, interestAmount: number | null | undefined, amount: number) {
+    const principalGiven = principalAmount != null;
+    const interestGiven = interestAmount != null;
+    if (principalGiven !== interestGiven) {
+      throw new BadRequestException('La ventilation principal/intérêts doit être saisie pour les deux montants à la fois, ou pour aucun.');
+    }
+    if (principalGiven && interestGiven && Math.abs(principalAmount! + interestAmount! - amount) > SPLIT_SUM_TOLERANCE) {
+      throw new BadRequestException('La somme de la part capital et de la part intérêts doit égaler le montant du remboursement.');
+    }
+  }
+
   async list(organizationId: string, dealId: string) {
     await this.assertDealAccess(organizationId, dealId);
     return this.prisma.repayment.findMany({ where: { dealId }, orderBy: { date: 'desc' } });
@@ -24,8 +51,18 @@ export class RepaymentsService {
 
   async create(organizationId: string, dealId: string, userId: string, dto: CreateRepaymentDto) {
     const deal = await this.assertDealAccess(organizationId, dealId);
+    this.assertValidSplit(dto.principalAmount, dto.interestAmount, dto.amount);
     const repayment = await this.prisma.repayment.create({
-      data: { dealId, createdById: userId, amount: dto.amount, date: new Date(dto.date), projected: dto.projected ?? false, note: dto.note },
+      data: {
+        dealId,
+        createdById: userId,
+        amount: dto.amount,
+        date: new Date(dto.date),
+        projected: dto.projected ?? false,
+        note: dto.note,
+        principalAmount: dto.principalAmount,
+        interestAmount: dto.interestAmount,
+      },
     });
     const label = dto.projected ? 'Remboursement projeté ajouté' : 'Remboursement enregistré';
     await this.activities.log(dealId, userId, 'DEAL_UPDATED', `${label} : ${dto.amount.toLocaleString('fr-FR')} € (${deal.name})`);
@@ -36,6 +73,12 @@ export class RepaymentsService {
     await this.assertDealAccess(organizationId, dealId);
     const existing = await this.prisma.repayment.findFirst({ where: { id: repaymentId, dealId } });
     if (!existing) throw new NotFoundException('Remboursement introuvable');
+    // Le formulaire d'édition renvoie toujours l'état complet du champ split
+    // (rempli depuis l'existant, jamais partiel) — dto.amount ne détermine
+    // donc pas seul le total à valider : c'est le montant final, qu'il ait
+    // changé ou non.
+    const finalAmount = dto.amount ?? Number(existing.amount);
+    this.assertValidSplit(dto.principalAmount, dto.interestAmount, finalAmount);
     return this.prisma.repayment.update({
       where: { id: repaymentId },
       data: {
@@ -43,6 +86,8 @@ export class RepaymentsService {
         date: dto.date ? new Date(dto.date) : undefined,
         projected: dto.projected,
         note: dto.note,
+        principalAmount: dto.principalAmount,
+        interestAmount: dto.interestAmount,
       },
     });
   }

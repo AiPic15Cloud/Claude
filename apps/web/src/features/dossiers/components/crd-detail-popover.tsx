@@ -55,12 +55,13 @@ export function CrdDetailPopover({ crdCapital, crdInteretsCourus, crdTotal, jour
           </p>
         )}
         <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
-          Intérêts calculés au prorata simple (taux annuel × jours écoulés / 365) sur le capital restant dû, imputés
-          en priorité sur chaque remboursement réalisé avant le capital — ordre légal par défaut à défaut de tableau
-          d'amortissement contractuel (art. 1342-10 du Code civil). Toute journée courue au-delà de l'échéance
-          contractuelle actuelle (hors durée cible dépassée, contractuellement normale) est majorée de 5 points de
-          taux jusqu'à régularisation par prorogation ou remboursement. Les remboursements projetés ne sont jamais
-          déduits.
+          Quand la ventilation réelle d'un remboursement est connue (échéancier, quittance), elle prime toujours.
+          À défaut, intérêts calculés au prorata simple (taux annuel × jours écoulés / 365) sur le capital restant
+          dû, imputés en priorité sur chaque remboursement réalisé avant le capital — ordre légal par défaut à
+          défaut de tableau d'amortissement contractuel (art. 1342-10 du Code civil). Toute journée courue au-delà
+          de l'échéance contractuelle actuelle (hors durée cible dépassée, contractuellement normale) est majorée de
+          5 points de taux jusqu'à régularisation par prorogation ou remboursement. Les remboursements projetés ne
+          sont jamais déduits.
         </p>
       </PopoverContent>
     </Popover>

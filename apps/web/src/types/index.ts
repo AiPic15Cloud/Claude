@@ -878,6 +878,9 @@ export interface Repayment {
   date: string;
   projected: boolean;
   note?: string | null;
+  /** Ventilation réelle, si connue (échéancier, quittance) — posées ensemble ou absentes, jamais l'une sans l'autre. Sinon le CRD estime la répartition (crd.util.ts). */
+  principalAmount?: string | null;
+  interestAmount?: string | null;
   createdAt: string;
 }
 

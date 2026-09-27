@@ -726,6 +726,18 @@ model Repayment {
   projected Boolean  @default(false)
   note      String?
 
+  // Ventilation principal/intérêts réelle, saisie par l'analyste quand elle
+  // est connue (échéancier bancaire, quittance...) — posée par
+  // RepaymentsService.create()/update() ensemble ou pas du tout, jamais l'une
+  // sans l'autre, et leur somme doit égaler `amount`. Absente (les deux
+  // null) sur tout remboursement historique et sur tout nouveau
+  // remboursement dont l'analyste ne connaît pas la ventilation exacte ;
+  // crd.util.ts retombe alors sur son estimation par imputation légale par
+  // défaut (intérêts en priorité, art. 1342-10 du Code civil) — jamais
+  // fabriquée comme une donnée connue.
+  principalAmount Decimal? @db.Decimal(14, 2)
+  interestAmount  Decimal? @db.Decimal(14, 2)
+
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 

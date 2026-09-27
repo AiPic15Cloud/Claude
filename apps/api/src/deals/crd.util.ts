@@ -5,15 +5,21 @@ import { computePostEcheanceSegments } from './loan-lifecycle.util';
  * ou computeCheckpointHealth, c'est une valeur calculée à partir de champs
  * déjà persistés (Deal.amountRaised + Repayment), jamais dupliquée en base.
  *
- * Hypothèse explicite : Repayment n'a pas de ventilation principal/intérêts
- * (un seul champ `amount`), donc chaque remboursement réalisé (projected:
- * false) est traité comme réduisant le capital emprunté à due concurrence.
- * Les remboursements prévisionnels (projected: true) ne sont jamais déduits :
- * ce sont des prévisions, pas des faits.
+ * Ventilation principal/intérêts : Repayment porte des champs optionnels
+ * `principalAmount`/`interestAmount`, saisis par l'analyste quand la
+ * répartition réelle est connue (échéancier bancaire, quittance...). Quand
+ * ils sont présents sur un remboursement réalisé, ils priment — c'est la
+ * réalité contractuelle, pas une estimation. Absents (cas de la plupart des
+ * remboursements historiques), computeCrdDetailed impute par défaut
+ * intérêts-puis-capital (voir sa documentation). Les remboursements
+ * prévisionnels (projected: true) ne sont jamais déduits : ce sont des
+ * prévisions, pas des faits, ventilation connue ou non.
  */
 export const CRD_ASSUMPTION_DISCLAIMER =
-  "Le CRD suppose que chaque remboursement réalisé (non projeté) réduit le capital emprunté d'autant — " +
-  'Repayment ne distingue pas principal et intérêts aujourd\'hui. Les remboursements projetés ne sont jamais déduits.';
+  "Le CRD utilise la ventilation principal/intérêts réelle quand elle est saisie sur le remboursement ; à défaut, " +
+  "chaque remboursement réalisé (non projeté) est supposé imputé en priorité sur les intérêts courus, puis sur le " +
+  'capital (art. 1342-10 du Code civil) — une estimation, à vérifier si les conditions contractuelles réelles ' +
+  'diffèrent. Les remboursements projetés ne sont jamais déduits.';
 
 /** Points de pourcentage ajoutés au taux contractuel pour toute journée d'intérêts courue en dehors du contrat (au-delà de l'échéance actuelle, avant régularisation par prorogation). */
 export const LATE_PAYMENT_PENALTY_PCT = 5;
@@ -105,6 +111,13 @@ function accrueInterest(
  * retenu doit rester documenté et vérifiable dossier par dossier, et
  * confirmé si les conditions contractuelles réelles diffèrent.
  *
+ * Cette imputation par défaut ne s'applique que si le remboursement ne
+ * porte pas de ventilation réelle (`principalAmount`/`interestAmount`,
+ * saisie par l'analyste) — quand elle existe, elle prime toujours sur
+ * l'estimation, remboursement par remboursement (une même fiche peut donc
+ * mélanger des lignes ventilées et estimées, ce n'est jamais tout l'un ou
+ * tout l'autre).
+ *
  * Pénalité de retard : dès que le dossier est hors-contrat (au-delà de son
  * échéance actuelle, avant toute régularisation par prorogation — cf.
  * computePostEcheanceSegments), les jours correspondants courent au taux
@@ -113,11 +126,19 @@ function accrueInterest(
  * échéance contractuelle (segment DEPASSEMENT) n'est pas pénalisé — ce
  * segment reste contractuellement normal (cf. A.3bis).
  */
+export interface RealizedRepaymentInput {
+  date: Date;
+  amount: number;
+  /** Ventilation réelle (voir Repayment.principalAmount/interestAmount) — posée ensemble ou absente, jamais l'une sans l'autre. */
+  principalAmount?: number | null;
+  interestAmount?: number | null;
+}
+
 export function computeCrdDetailed(
   amountRaised: number,
   interestRatePct: number | null | undefined,
   startDate: Date | null | undefined,
-  realizedRepayments: { date: Date; amount: number }[],
+  realizedRepayments: RealizedRepaymentInput[],
   now: Date = new Date(),
   lateInterest?: LateInterestInput,
 ): CrdDetailedResult {
@@ -147,9 +168,18 @@ export function computeCrdDetailed(
   for (const repayment of sorted) {
     const { interest, penalizedDays } = accrueInterest(outstanding, interestRatePct, lastEventDate, repayment.date, horsContratSegments ?? []);
     totalPenalizedDays += penalizedDays;
-    const partInterets = Math.min(repayment.amount, interest);
-    const partCapital = repayment.amount - partInterets;
-    interestArrears += interest - partInterets;
+
+    // Ventilation réelle connue (voir RealizedRepaymentInput) : elle prime
+    // sur l'imputation légale par défaut, remboursement par remboursement.
+    const hasActualSplit = repayment.principalAmount != null && repayment.interestAmount != null;
+    const partInterets = hasActualSplit ? repayment.interestAmount! : Math.min(repayment.amount, interest);
+    const partCapital = hasActualSplit ? repayment.principalAmount! : repayment.amount - partInterets;
+
+    // max(0, ...) : avec une ventilation réelle, la part intérêts payée peut
+    // dépasser l'intérêt théoriquement couru sur la période (paiement
+    // anticipé, arrondi contractuel) — ça ne doit jamais transformer l'arriéré
+    // en solde négatif, qui viendrait à tort compenser un arriéré futur.
+    interestArrears += Math.max(0, interest - partInterets);
     outstanding = Math.max(0, outstanding - partCapital);
     lastEventDate = repayment.date;
   }

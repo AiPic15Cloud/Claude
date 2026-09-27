@@ -14,6 +14,12 @@ export interface CreateRepaymentPayload {
   date: string;
   projected?: boolean;
   note?: string;
+  /**
+   * undefined = non renseigné (create) ; null = déliaison explicite d'une
+   * ventilation existante (update seulement — voir repayments.service.ts).
+   */
+  principalAmount?: number | null;
+  interestAmount?: number | null;
 }
 
 export function useCreateRepayment(dealId: string) {
