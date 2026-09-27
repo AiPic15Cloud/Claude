@@ -13,6 +13,7 @@ import { useThemeStore } from '@/store/theme.store';
 import { formatCurrency } from '@/lib/format';
 import { GRAPH_ENTITY_TYPE_LABELS } from '@/types';
 import { PageHeader } from '@/components/ui/page-header';
+import { TriangleAlert } from 'lucide-react';
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.4];
 
@@ -39,11 +40,19 @@ export function CartographiePage() {
   const theme = useThemeStore((s) => s.theme);
   const navigate = useNavigate();
 
-  const { data: dealsData } = useDeals({ pageSize: 200 });
-  const { data: entities = [] } = useEntities();
+  const { data: dealsData, isLoading: dealsLoading, isError: dealsError } = useDeals({ pageSize: 200 });
+  const { data: entities = [], isLoading: entitiesLoading, isError: entitiesError } = useEntities();
 
   const geoDeals = useMemo(() => (dealsData?.items ?? []).filter((d) => d.lat && d.lng), [dealsData]);
   const geoEntities = useMemo(() => entities.filter((e) => e.lat && e.lng), [entities]);
+
+  // Une carte vide doit toujours dire pourquoi : "0 géolocalisé(s)" est un
+  // résultat réel, un échec de chargement n'en est pas un — jamais fondus
+  // silencieusement dans le même compteur "0" (doctrine Unknown ≠ Zero,
+  // spec §Carte : "afficher un état d'indisponibilité ... si les données
+  // ne sont pas disponibles").
+  const isLoading = dealsLoading || entitiesLoading;
+  const hasError = dealsError || entitiesError;
 
   const tileUrl =
     theme === 'dark'
@@ -75,7 +84,20 @@ export function CartographiePage() {
         }
       />
 
-      <div className="flex-1 overflow-hidden rounded-lg border border-border">
+      {hasError && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          Données{dealsError && entitiesError ? '' : dealsError ? ' opérations' : ' intervenants'} indisponibles — la carte
+          ci-dessous ne reflète pas forcément l'absence réelle de résultats géolocalisés, seulement l'échec du chargement.
+        </div>
+      )}
+
+      <div className="relative flex-1 overflow-hidden rounded-lg border border-border">
+        {isLoading && (
+          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/60 text-sm text-muted-foreground">
+            Chargement des données géolocalisées…
+          </div>
+        )}
         <MapContainer center={FRANCE_CENTER} zoom={6} className="h-full w-full" scrollWheelZoom>
           <TileLayer
             attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors'
