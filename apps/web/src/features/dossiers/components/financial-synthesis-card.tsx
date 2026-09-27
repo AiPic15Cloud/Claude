@@ -143,17 +143,19 @@ export function FinancialSynthesisCard({ synthesis }: { synthesis: FinancialSynt
           <div className="flex flex-wrap gap-1.5">
             <RatioPill label="LTA" value={synthesis.ratios.lta} />
             <RatioPill label="LTC" value={synthesis.ratios.ltc} />
-            <RatioPill label="LTV" value={synthesis.ratios.ltv} />
+            <RatioPill label="LTV initial" value={synthesis.ratios.ltv} />
             {synthesis.bank.enabled && (
               <>
                 <RatioPill label="LTA + banque" value={synthesis.ratios.ltaAvecBanque} />
                 <RatioPill label="LTC + banque" value={synthesis.ratios.ltcAvecBanque} />
-                <RatioPill label="LTV + banque" value={synthesis.ratios.ltvAvecBanque} />
+                <RatioPill label="LTV initial + banque" value={synthesis.ratios.ltvAvecBanque} />
               </>
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            LTA = collecte / foncier · LTC = collecte / coût de revient · LTV = collecte / prix de vente
+            LTA = collecte / foncier · LTC = collecte / coût de revient · LTV initial = collecte / prix de vente
+            prévisionnel — au montage, distinct du LTV de covenant (voir Ratios de covenant) qui suit le capital
+            restant dû actualisé.
           </p>
         </div>
       </CardContent>
