@@ -49,9 +49,18 @@ export class CockpitService {
     private readonly actionItems: ActionItemsService,
   ) {}
 
-  async summary(organizationId: string, userId: string) {
+  /**
+   * `restricted` (Lot B — espaces étanches, spec §11.11 "associé sans accès
+   * dette par toute surface, y compris agrégats") : un compte
+   * FRACTIONAL_ONLY ne doit recevoir aucune donnée dérivée d'un Deal via ce
+   * tableau de bord — chaque requête Deal/task/alert/action-item ci-dessous
+   * est soit sautée, soit filtrée sur `dealId: null`, jamais fusionnée avec
+   * les données Fractionné qui restent, elles, pleinement visibles.
+   */
+  async summary(organizationId: string, userId: string, restricted = false) {
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 86_400_000);
+    const dealExcluded = restricted ? ({ dealId: null } as const) : {};
 
     const [
       kpis,
@@ -68,83 +77,97 @@ export class CockpitService {
       overdueTasksTotal,
       overdueTasksUrgent,
     ] = await Promise.all([
-      this.dealsService.kpis(organizationId),
+      this.dealsService.kpis(organizationId, restricted),
       this.prisma.task.findMany({
         where: {
           assigneeId: userId,
           done: false,
           cancelledAt: null,
           dueDate: { gte: startOfDay(now), lte: endOfDay(now) },
+          ...dealExcluded,
         },
         include: { deal: { select: { id: true, name: true, reference: true } } },
         orderBy: { priority: 'desc' },
       }),
       this.prisma.task.findMany({
-        where: { assigneeId: userId, done: false, cancelledAt: null, priority: { in: ['HIGH', 'URGENT'] } },
+        where: { assigneeId: userId, done: false, cancelledAt: null, priority: { in: ['HIGH', 'URGENT'] }, ...dealExcluded },
         include: { deal: { select: { id: true, name: true, reference: true } } },
         orderBy: { dueDate: 'asc' },
         take: 10,
       }),
       this.prisma.task.findMany({
-        where: { assigneeId: userId, done: false, cancelledAt: null, dueDate: { gte: startOfDay(now), lte: in7Days } },
+        where: { assigneeId: userId, done: false, cancelledAt: null, dueDate: { gte: startOfDay(now), lte: in7Days }, ...dealExcluded },
         include: { deal: { select: { id: true, name: true, reference: true } } },
         orderBy: { dueDate: 'asc' },
         take: 20,
       }),
       this.prisma.alert.findMany({
-        where: { organizationId, read: false },
+        where: { organizationId, read: false, ...dealExcluded },
         include: { deal: { select: { id: true, name: true, reference: true } } },
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
-      this.activitiesService.listRecentForOrganization(organizationId, 10),
-      this.prisma.deal.findMany({
-        where: { organizationId, status: 'ACTIVE' },
-        select: { id: true, name: true, reference: true, stage: true, amountTarget: true, amountRaised: true },
-      }),
-      this.prisma.deal.findMany({
-        where: { organizationId, status: 'ACTIVE', dateMax: { not: null }, repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] } },
-        select: { id: true, name: true, reference: true, dateMax: true },
-      }),
-      this.prisma.deal.findMany({
-        where: { organizationId },
-        select: {
-          amountRaised: true,
-          startDate: true,
-          createdAt: true,
-          repayments: { where: { projected: false }, select: { amount: true, date: true } },
-        },
-      }),
-      this.prisma.guarantee.findMany({
-        where: {
-          status: 'ACTIVE',
-          endDate: { not: null },
-          deal: { organizationId, repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] } },
-        },
-        select: {
-          id: true,
-          type: true,
-          description: true,
-          endDate: true,
-          dealId: true,
-          substantiveDefect: true,
-          deal: { select: { name: true, reference: true } },
-        },
-      }),
-      this.prisma.deal.findMany({
-        where: { organizationId, status: 'ACTIVE', repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] }, riskScore: { not: null } },
-        select: { id: true, name: true, reference: true, amountRaised: true, riskScore: true, riskScorePrevious: true, surveillanceStatus: true, dateMax: true },
-      }),
+      // Activity n'a pas de fractionalProjectId — c'est exclusivement un
+      // journal Deal (voir schema.prisma) : pour un compte restreint, la
+      // seule réponse honnête est [], jamais une requête filtrée après coup.
+      restricted ? Promise.resolve([]) : this.activitiesService.listRecentForOrganization(organizationId, 10),
+      restricted
+        ? Promise.resolve([])
+        : this.prisma.deal.findMany({
+            where: { organizationId, status: 'ACTIVE' },
+            select: { id: true, name: true, reference: true, stage: true, amountTarget: true, amountRaised: true },
+          }),
+      restricted
+        ? Promise.resolve([])
+        : this.prisma.deal.findMany({
+            where: { organizationId, status: 'ACTIVE', dateMax: { not: null }, repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] } },
+            select: { id: true, name: true, reference: true, dateMax: true },
+          }),
+      restricted
+        ? Promise.resolve([])
+        : this.prisma.deal.findMany({
+            where: { organizationId },
+            select: {
+              amountRaised: true,
+              startDate: true,
+              createdAt: true,
+              repayments: { where: { projected: false }, select: { amount: true, date: true } },
+            },
+          }),
+      restricted
+        ? Promise.resolve([])
+        : this.prisma.guarantee.findMany({
+            where: {
+              status: 'ACTIVE',
+              endDate: { not: null },
+              deal: { organizationId, repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] } },
+            },
+            select: {
+              id: true,
+              type: true,
+              description: true,
+              endDate: true,
+              dealId: true,
+              substantiveDefect: true,
+              deal: { select: { name: true, reference: true } },
+            },
+          }),
+      restricted
+        ? Promise.resolve([])
+        : this.prisma.deal.findMany({
+            where: { organizationId, status: 'ACTIVE', repaid: false, stage: { notIn: ['DEFAUT', 'REMBOURSE'] }, riskScore: { not: null } },
+            select: { id: true, name: true, reference: true, amountRaised: true, riskScore: true, riskScorePrevious: true, surveillanceStatus: true, dateMax: true },
+          }),
       // Remontée portefeuille (A.7) — toute l'organisation, pas seulement
       // l'utilisateur courant (todayTasks/priorityTasks/agendaTasks
       // ci-dessus sont personnels) : un agrégat "portefeuille" doit compter
       // les tâches en retard de tout le monde.
-      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now } } }),
-      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, priority: 'URGENT' } }),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, ...dealExcluded } }),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, priority: 'URGENT', ...dealExcluded } }),
     ]);
 
     const decisions = await this.buildDecisions(organizationId, riskDeals);
-    const openActionItems = await this.actionItems.findOpenForOrganization(organizationId);
+    const openActionItems = await this.actionItems.findOpenForOrganization(organizationId, restricted);
     const actionQueue = this.buildActionQueue(decisions, openActionItems);
     const [fractionalStatusHistory, fractionalProjectCount] = await Promise.all([
       this.prisma.fractionalStatusHistory.findMany({
@@ -275,12 +298,13 @@ export class CockpitService {
    * widgets personnels (tâches du jour, alertes non lues, pipeline...) qui
    * n'ont pas leur place dans un rapport destiné à un tiers.
    */
-  async exportPortfolioReport(organizationId: string) {
+  async exportPortfolioReport(organizationId: string, restricted = false) {
     const now = new Date();
+    const dealExcluded = restricted ? ({ dealId: null } as const) : {};
     const [kpis, overdueTasksTotal, overdueTasksUrgent] = await Promise.all([
-      this.dealsService.kpis(organizationId),
-      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now } } }),
-      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, priority: 'URGENT' } }),
+      this.dealsService.kpis(organizationId, restricted),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, ...dealExcluded } }),
+      this.prisma.task.count({ where: { organizationId, done: false, cancelledAt: null, dueDate: { lt: now }, priority: 'URGENT', ...dealExcluded } }),
     ]);
 
     return {

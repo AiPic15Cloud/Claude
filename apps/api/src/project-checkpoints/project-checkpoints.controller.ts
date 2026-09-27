@@ -3,13 +3,14 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { DetteScopeGuard } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { ProjectCheckpointsService } from './project-checkpoints.service';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
 
 @ApiTags('project-checkpoints')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('deals/:dealId/checkpoints')
 export class ProjectCheckpointsController {
   constructor(private readonly service: ProjectCheckpointsService) {}

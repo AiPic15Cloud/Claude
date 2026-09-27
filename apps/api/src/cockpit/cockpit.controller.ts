@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { isDetteRestricted } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { CockpitService } from './cockpit.service';
 import { PdfRenderService } from '../pdf-export/pdf-render.service';
@@ -21,14 +22,14 @@ export class CockpitController {
 
   @Get('summary')
   summary(@CurrentUser() user: AuthenticatedUser) {
-    return this.cockpitService.summary(user.organizationId, user.id);
+    return this.cockpitService.summary(user.organizationId, user.id, isDetteRestricted(user.workspaceScope));
   }
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')
   @Get('report')
   exportReport(@CurrentUser() user: AuthenticatedUser) {
-    return this.cockpitService.exportPortfolioReport(user.organizationId);
+    return this.cockpitService.exportPortfolioReport(user.organizationId, isDetteRestricted(user.workspaceScope));
   }
 
   /**
@@ -40,7 +41,7 @@ export class CockpitController {
   @Roles('ADMIN', 'ANALYST')
   @Get('report-pdf')
   async exportReportPdf(@CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
-    const report = await this.cockpitService.exportPortfolioReport(user.organizationId);
+    const report = await this.cockpitService.exportPortfolioReport(user.organizationId, isDetteRestricted(user.workspaceScope));
     const html = buildPortfolioReportHtml(report.kpis, report.overdueTasks);
     const pdf = await this.pdfRender.renderHtmlToPdf(html);
     res.setHeader('Content-Type', 'application/pdf');

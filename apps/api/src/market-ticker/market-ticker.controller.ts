@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { isDetteRestricted } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { MarketTickerService } from './market-ticker.service';
 
@@ -13,6 +14,6 @@ export class MarketTickerController {
 
   @Get()
   summary(@CurrentUser() user: AuthenticatedUser) {
-    return this.marketTickerService.summary(user.organizationId);
+    return this.marketTickerService.summary(user.organizationId, isDetteRestricted(user.workspaceScope));
   }
 }

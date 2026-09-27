@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import type { ActionItemStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { isDetteRestricted } from '../common/guards/dette-scope.guard';
 import { CreateActionItemDto } from './dto/create-action-item.dto';
 import { ResolveActionItemDto } from './dto/resolve-action-item.dto';
 import { ReassignActionItemDto } from './dto/reassign-action-item.dto';
@@ -35,8 +36,9 @@ export interface EnsureOpenActionItemInput {
 export class ActionItemsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private scopeWhere(organizationId: string): Prisma.ActionItemWhereInput {
-    return { organizationId };
+  /** Lot B (espaces étanches) : un compte FRACTIONAL_ONLY ne doit jamais voir une action liée à un Deal, même via la file générique. */
+  private scopeWhere(user: AuthenticatedUser): Prisma.ActionItemWhereInput {
+    return { organizationId: user.organizationId, ...(isDetteRestricted(user.workspaceScope) ? { dealId: null } : {}) };
   }
 
   async list(
@@ -45,7 +47,7 @@ export class ActionItemsService {
   ) {
     return this.prisma.actionItem.findMany({
       where: {
-        ...this.scopeWhere(user.organizationId),
+        ...this.scopeWhere(user),
         ...(filters.status ? { status: filters.status } : filters.openOnly ? { status: { in: OPEN_STATUSES } } : {}),
         ...(filters.ownerId ? { ownerId: filters.ownerId } : {}),
       },
@@ -54,9 +56,9 @@ export class ActionItemsService {
   }
 
   /** Liste ouverte brute pour la fusion côté Cockpit — tri par blocage puis échéance (spec §4.2). */
-  async findOpenForOrganization(organizationId: string) {
+  async findOpenForOrganization(organizationId: string, restricted = false) {
     return this.prisma.actionItem.findMany({
-      where: { organizationId, status: { in: OPEN_STATUSES } },
+      where: { organizationId, status: { in: OPEN_STATUSES }, ...(restricted ? { dealId: null } : {}) },
       include: {
         owner: { select: { firstName: true, lastName: true } },
         deal: { select: { id: true, name: true, reference: true } },

@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { isDetteRestricted } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { MeilisearchService } from './meilisearch.service';
 
@@ -13,6 +14,6 @@ export class SearchController {
 
   @Get()
   search(@CurrentUser() user: AuthenticatedUser, @Query('q') q = '') {
-    return this.meilisearch.search(user.organizationId, q);
+    return this.meilisearch.search(user.organizationId, q, isDetteRestricted(user.workspaceScope));
   }
 }

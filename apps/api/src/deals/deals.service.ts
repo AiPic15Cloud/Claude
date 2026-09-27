@@ -743,8 +743,15 @@ export class DealsService {
    * sous-ensemble stage SUIVI de portfolioOverview() ci-dessous — les deux
    * scopes sont documentés séparément, jamais fusionnés silencieusement).
    */
-  async kpis(organizationId: string) {
-    const deals = await this.prisma.deal.findMany({
+  /**
+   * `restricted` (Lot B — espaces étanches, spec §11.11 "associé sans accès
+   * dette par toute surface, y compris agrégats") : un compte
+   * FRACTIONAL_ONLY ne voit aucun Deal, donc tous les agrégats ci-dessous se
+   * calculent sur un ensemble vide — pas un 0 fabriqué, le vrai résultat
+   * "aucun dossier dette visible dans cet espace" pour ce compte précis.
+   */
+  async kpis(organizationId: string, restricted = false) {
+    const deals = restricted ? [] : await this.prisma.deal.findMany({
       where: { organizationId, status: 'ACTIVE' },
       select: {
         id: true,

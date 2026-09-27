@@ -10,9 +10,10 @@ export class AlertsService {
     private readonly push: PushService,
   ) {}
 
-  list(organizationId: string, unreadOnly = false) {
+  /** `restricted` (Lot B) : un compte FRACTIONAL_ONLY ne doit jamais voir une alerte liée à un Deal. */
+  list(organizationId: string, unreadOnly = false, restricted = false) {
     return this.prisma.alert.findMany({
-      where: { organizationId, ...(unreadOnly ? { read: false } : {}) },
+      where: { organizationId, ...(unreadOnly ? { read: false } : {}), ...(restricted ? { dealId: null } : {}) },
       include: {
         deal: { select: { id: true, name: true, reference: true } },
         article: { select: { id: true, url: true } },
