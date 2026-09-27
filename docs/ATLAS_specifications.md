@@ -1,6 +1,6 @@
 # ATLAS — Spécifications consolidées
 
-*Document regroupant l'ensemble des spécifications ayant guidé le développement d'ATLAS : la spécification principale (grille de risque, Knowledge Graph, Market Intelligence) et ses trois compléments autonomes (modules d'entraînement analyste investissement, intégration baromètre-crowdfunding.com, vues inspirées de MARKO). Chaque complément se réfère à la spécification principale sous le nom `ATLAS_spec_v2.md`.*
+*Document regroupant l'ensemble des spécifications ayant guidé le développement d'ATLAS : la spécification principale (grille de risque, Knowledge Graph, Market Intelligence), ses trois compléments autonomes (modules d'entraînement analyste investissement, intégration baromètre-crowdfunding.com, vues inspirées de MARKO), et la spécification de refonte globale v2.0 (séparation Dette/Fractionné, dossier maître, dictionnaire financier). Chaque complément se réfère à la spécification principale sous le nom `ATLAS_spec_v2.md`.*
 
 ## Sommaire
 
@@ -8,6 +8,9 @@
 2. **Complément D** — modules d'entraînement au métier d'analyste investissement (fonds)
 3. **Complément E** — intégration de baromètre-crowdfunding.com (Market Intelligence)
 4. **Complément F** — vues inspirées de MARKO (Kanban, dashboard agrégé, covenants)
+5. **Refonte globale v2.0** — séparation Dette/Fractionné (espaces étanches), dossier maître, dictionnaire financier, migration en 6 lots (A–F)
+
+**Non consolidés ici, faute de texte intégral reçu dans cette session** : `ATLAS_Spec_Cockpit_Fractionne_v1.md` (spécification du cockpit et du module Fractionné) et `ATLAS_Examen_Fonctionnel_2026-09-27.md` (audit fonctionnel, 32 constats) — la Partie 5 ci-dessous les cite et s'appuie sur eux, mais seul un résumé de synthèse en a été transmis, jamais le document complet. À coller ici si vous voulez qu'ils soient consolidés à leur tour.
 
 ---
 
@@ -855,3 +858,274 @@ Faible pour le LTV seul (données déjà là) ; moyen à élevé pour ICR/DSCR (
 ---
 
 *Ce document est un complément à ATLAS_spec_v2.md — les renvois entre parenthèses (A.x, C.x, D.x) référencent les sections de ce document principal ou du document de formation investisseur (ATLAS_spec_module_formation_investisseur.md).*
+
+---
+
+# Partie 5 — Refonte globale v2.0
+
+# Atlas Capital — spécification de refonte globale
+
+Version 2.0 — 27 septembre 2026
+Statut : base fonctionnelle validée par Nicolas, paramètres opérationnels et contractuels à renseigner avant réalisation des fonctions concernées.
+
+## 0. Objet, périmètre et lecture
+
+Atlas doit devenir le système de travail qui relie opportunité → analyse → décision → engagement → suivi → résultat, pour deux activités :
+
+1. Dette : préqualification, instruction, décision, financement, surveillance, échéances, remboursements et résolution des incidents. Cet espace est accessible à Nicolas et aux seules personnes expressément habilitées ; il n'est pas accessible à l'associé du fractionné.
+2. Immobilier fractionné : sourcing, analyse, montage, relation avec les plateformes, acquisition, travaux, exploitation et sortie. L'espace de travail commun est accessible à Nicolas et à l'associé selon leurs responsabilités.
+
+La vue personnelle de Nicolas peut réunir des actions issues des deux espaces, tout en conservant le contrôle d'accès de chaque action. La vue de l'associé ne contient que les informations du fractionné. Un agrégat, une recherche, une notification ou une réponse de l'assistant ne doivent jamais contourner cette séparation.
+
+Cette spécification complète ATLAS_Spec_Cockpit_Fractionne_v1.md et transpose les constats F01–F32 de ATLAS_Examen_Fonctionnel_2026-09-27.md en lots réalisables. Elle n'atteste ni l'état du code, ni l'existence d'intégrations, ni l'exactitude de données externes : ces points demandent un audit technique du dépôt et des sources avant implémentation. GitHub est reporté ; le document est conçu pour préparer la réalisation sans présumer un accès au dépôt.
+
+### Résultat attendu
+
+• Ouvrir Atlas et savoir ce qui exige une décision, une action ou une attente, avec propriétaire, échéance, contexte et lien direct.
+• Consulter une valeur et comprendre définition, périmètre, unité, date, source, version et calcul.
+• Enregistrer une décision humaine traçable, puis comparer ses hypothèses à la réalité.
+• Automatiser la collecte, les contrôles, le rapprochement et la préparation des actions, avec une intervention humaine sur les décisions et communications engageantes.
+• Mesurer les améliorations par le temps gagné, les erreurs évitées et la qualité des décisions ; ne pas utiliser le nombre d'alertes ou de champs remplis comme objectif.
+
+## 1. Décisions de conception et motifs
+
+| Décision | Règle de conception | Motif et conséquence |
+|---|---|---|
+| D01 — Dossier maître | Une opportunité a un identifiant stable ; pipeline, préqual, portefeuille, documents, actions et événements sont des vues ou objets liés. | Supprime les statuts parallèles constatés sur Zeki et limite la double saisie. Ne pas fusionner automatiquement deux noms ressemblants. |
+| D02 — Espaces étanches | Autorisation contrôlée au serveur sur chaque objet et ses enfants, y compris fichiers, agrégats, recherche et IA. | La dette ne doit pas devenir visible via le cockpit commun, un export ou une URL devinée. Le simple masquage du menu est insuffisant. |
+| D03 — Valeur et preuve séparées | Valeur, unité, assiette, date, version, provenance et statut de vérification sont des champs distincts. | Résout les unités ambiguës et les conclusions tirées de garanties ou de critères non vérifiés. |
+| D04 — Inconnu n'est pas zéro | `absent`, `non applicable`, `estimé`, `confirmé zéro` et `confirmé positif` sont distincts. | Évite des rendements à 0 % et des CAPEX à 0 € lorsqu'un dénominateur ou un budget manque. |
+| D05 — Calcul, règle, décision | Un calcul produit une métrique ; une règle produit une anomalie ou un blocage qualifié ; seule une personne habilitée produit `poursuivre`, `refuser`, `engager`, `clore`. | Évite qu'un montage incomplet soit compté comme un refus commercial. |
+| D06 — Actions issues d'événements | Une variation significative crée ou met à jour une action dédupliquée, avec cause, personne, date, dépendance et résolution. | Transforme la veille et les tableaux de bord en travail concret et réduit le bruit. |
+| D07 — Historique conservé | Document, hypothèse, offre, décision, calcul publié et observation réelle sont versionnés ; une correction ne réécrit pas une décision passée. | Permet d'expliquer une recommandation ancienne avec les informations disponibles à ce moment. |
+| D08 — Deux parcours métier | Dette et fractionné partagent identité, preuves, tâches et événements, mais gardent étapes, calculs, seuils et habilitations spécifiques. | Évite un formulaire universel trop long ou un indicateur trompeur. |
+| D09 — Réalisé opposable au prévisionnel | Plan initial approuvé, dernier plan actualisé et flux observés restent comparables. | C'est la condition pour apprendre des écarts et piloter un actif après l'investissement. |
+| D10 — Automatisation vérifiable | Imports, extractions et brouillons indiquent source et confiance ; incohérences sont exposées ; actions externes demandent validation. | Réduit le temps administratif sans faire passer une interprétation pour un fait. |
+| D11 — Connecteurs mesurés | Chaque source affiche dernier succès, latence, taux d'échec et date de dernière vérification humaine. | Un connecteur annoncé mais non opérationnel ne doit pas donner l'impression d'une veille exhaustive. |
+| D12 — Priorités mesurables | Chaque lot a ses prérequis, sa recette, un retour arrière possible et un indicateur d'usage. | Empêche qu'une nouvelle interface masque des calculs contradictoires. |
+
+## 2. Accès, rôles et navigation
+
+### 2.1 Matrice fonctionnelle
+
+| Objet/action | Nicolas | Associé fractionné | Autre personne habilitée |
+|---|---|---|---|
+| Dette : dossiers, acteurs, documents, encours, tâches, recherche, IA et exports | Selon habilitation dette | **Aucun accès** | Droit explicite, limité par rôle et dossier |
+| Fractionné : sourcing, fiches techniques, visites et pièces | Lecture/écriture | Lecture/écriture dans l'espace commun | Droit explicite |
+| Fractionné : hypothèses économiques, conditions plateforme et gestionnaire | Pilote ; écriture et décision selon pouvoirs | Lecture et commentaires ; modification si délégation explicite | Droit explicite |
+| Décisions engageantes, transmission externe, budgets et sortie | Selon délégations convenues | Selon délégations convenues | Droit explicite |
+| Vue personnelle transversale | Actions de ses deux espaces | Actions du fractionné uniquement | Espaces autorisés uniquement |
+
+Les droits exacts d'engagement, les seuils de dépenses et le circuit de remplacement en cas d'absence sont à définir par les associés. Atlas doit pouvoir les paramétrer et les dater, sans inventer de pouvoir par défaut. L'accès aux pièces sensibles peut être plus restreint que celui au dossier. Journaliser consultations et exports sensibles selon une politique de conservation définie.
+
+Recette sécurité : connecté comme associé, toute tentative de consulter dette par URL, API, recherche, suggestions, notification, rapport, export ou question à l'IA renvoie un résultat sans donnée de dette. Une action transversale adressée à Nicolas ne transporte pas de détail dette dans un canal auquel l'associé a accès.
+
+### 2.2 Trois vues utiles
+
+• Mes priorités (Nicolas) : À décider, À faire, En attente tiers ; À attribuer pour les exceptions critiques sans propriétaire. Dette et fractionné y sont identifiés, avec regroupement par dossier et sans divulgation entre espaces.
+• Fractionné partagé : dossiers, décisions à deux, sourcing de l'associé, analyse Nicolas, travaux, gestion locative et échéances. Affiche charge et blocages, sans score automatique du mérite de chacun.
+• Dette : pipeline et portefeuille, échéances, engagements contractuels, flux, garanties, incidents, contreparties et concentrations.
+
+Une carte, une veille et une recherche globale ne sont affichées que si elles sont opérationnelles et filtrées par les mêmes autorisations. Les pages existantes restent atteignables pendant la migration, avec redirection vers les objets maîtres après vérification.
+
+## 3. Référentiel de données et règles de calcul
+
+### 3.1 Objets communs
+
+| Objet | Champs/invariants minimaux |
+|---|---|
+| `workspace` / `membership` / `grant` | Espace, utilisateur, rôle, portée dossier, droit, période de validité et auteur de l'habilitation. |
+| `opportunity` | Identifiant stable, espace, activité, source, actif/projet, responsable, étape et issue ; liens vers acteurs et dossiers antérieurs. |
+| `party` / `party_relation` | Identité légale vérifiable, noms alternatifs, rôle, relation datée, source, qualité de rapprochement ; plusieurs contacts possibles. |
+| `evidence` / `fact` | Fichier ou URL autorisée, version, date, page, champ extrait, valeur, unité, vérification, validité, sensibilité. |
+| `assumption_set` / `model_run` | Scénario, versions des entrées, formule/version du moteur, résultat, état de calculabilité et date. |
+| `decision` | Question, options, choix, motif, décideur, périmètre, date, versions et preuves consultées. |
+| `event` / `action_item` | Événement source, sévérité, règle/version, dossier, propriétaire, échéance, statut, déduplication, lien profond, preuve de clôture. |
+| `document_request` | Pièce requise, stade, condition d'applicabilité, tiers attendu, échéance, document reçu, vérification. |
+| `integration_run` | Source, licence ou permission, état, couverture, dernière collecte, erreurs, volume, fraîcheur des données. |
+
+Tous les objets enfants portent un workspace_id contrôlé à l'écriture et à la lecture. Une relation entre espaces n'accorde aucun droit d'accès implicite. La recherche et l'indexation de l'IA héritent des droits de l'objet source. Conserver les anciennes valeurs ambiguës dans une zone historique à confirmer et demander leur qualification avant calcul final.
+
+### 3.2 Dictionnaire financier obligatoire
+
+| Terme | Définition et séparation requises |
+|---|---|
+| Principal initial | Montant effectivement financé, avec dates des tirages si fractionnés. |
+| Principal restant dû | Principal initial et tirages moins principal effectivement remboursé, à une date donnée. |
+| Intérêts courus / échus / encaissés | Trois montants distincts ; ne pas les incorporer silencieusement au principal. |
+| Créance totale | Somme des composantes contractuelles explicitées, à une date donnée. |
+| Encours portefeuille | Agrégat du principal restant selon une liste de statuts et un périmètre publiés ; pont de réconciliation avec les autres vues. |
+| LTV initial / actualisé / de covenant | Numérateur, valeur de référence, date, version et règle contractuelle distincts. |
+| Valeur de garantie | Nominal, preuve juridique, rang applicable, estimation de réalisation et chevauchement séparés ; pas de somme qualifiée automatiquement de couverture effective. |
+| Flux fractionné | Flux de l'actif, des investisseurs, du véhicule, de la plateforme et des porteurs séparés ; assiette et bénéficiaire de chaque frais. |
+
+Les calculs utilisent un type monétaire avec devise et convention d'arrondi documentée. Un pourcentage inclut son assiette (% du prix, % des loyers encaissés, etc.). Une date civile d'échéance reste une date civile dans tous les écrans, même si le serveur est en UTC ; le compte à rebours nomme l'événement. Les ratios non calculables affichent la variable manquante, sans zéro substitué. Toute statistique publie sa population et sa date de référence.
+
+### 3.3 Qualité et provenance
+
+Statuts de fait : non renseigné, extrait automatiquement à confirmer, déclaré par tiers, vérifié par personne, contredit, périmé, non applicable. Une donnée vérifiée peut devenir périmée à l'échéance de validité. Pour chaque conclusion importante, Atlas affiche les trois informations les plus influentes et celles qui la rendent incertaine. Un contrôle de cohérence doit comparer pièce, rent roll, modèle et reporting avant d'actualiser un indicateur publié.
+
+## 4. Parcours Dette : de l'instruction à la résolution
+
+| Étape | Données et contrôles | Automatisations | Porte humaine |
+|---|---|---|---|
+| Origination / préqual | Porteur, galaxie d'entreprises et liens justifiés, projet, besoin, calendrier, précommercialisation, urbanisme et financement existant. | Détection de dossiers/acteurs semblables ; checklist adaptée ; synthèse courte avec questions bloquantes. | Poursuivre, demander des éléments, ajourner ou abandonner, avec motif. |
+| Instruction | Bilan emplois/ressources, marges et scénarios, sûretés, garanties, conditions de tirage, documents juridiques, covenants applicables. | Calculs explicables, contradictions, pièces manquantes, brouillon de note de comité. | Avis et décision enregistrés avec version et réserves. |
+| Montage / engagement | Termes finaux, signataires, conditions préalables, tirages et échéancier. | Comparaison accord vs dernière analyse ; rappels des conditions avant décaissement. | Confirmation des conditions et de l'engagement par rôle habilité. |
+| Suivi actif | Livrables attendus, travaux, commercialisation, situation financière, sûretés, échéances, événements société et actualisation des risques. | Rappels conditionnels, lecture du reporting, variation de seuils et dossiers à revoir ; cadence selon risque réel. | Qualification de l'alerte et plan d'action. |
+| Remboursement / incident | Flux attendus, reçus, affectation capital/intérêts/frais, retard confirmé, intérêts et actions de résolution. | Rapprochement, écarts, relances proposées, projection de récupération avec hypothèses séparées. | Validation du statut, de la communication et des décisions de restructuration ou de clôture. |
+
+### 4.1 Échéancier et grand livre des flux
+
+Créer un échéancier versionné et un registre append-only des flux observés, chacun avec date de valeur, montant, origine et justificatif. Rapprocher selon référence et montant ; les rapprochements ambigus restent à traiter. Configurer l'ordre contractuel d'affectation des flux et conserver son historique. Distinguer prévu, prévision échue à confirmer, partiellement reçu, reçu et rapproché, écart à analyser, incident confirmé. Un défaut n'est pas déduit de la seule absence de saisie. Réconcilier la somme du principal, des intérêts et frais avec les agrégats de portefeuille.
+
+Exemple de recette : une échéance de 100 000 € prévue au 4 octobre, dont 60 000 € reçus, devient partiellement reçu, avec le solde et sa ventilation ; le calcul de principal n'est actualisé qu'après validation du rapprochement. Si aucun flux n'est accessible, Atlas indique données de flux indisponibles.
+
+### 4.2 Contrats, garanties et covenants
+
+Chaque engagement a sa formule, son seuil, sa fréquence, sa source, son responsable et ses exceptions. Un ratio contractuel calculé sur des données non vérifiées reste à confirmer. Les garanties ont des catégories adaptées à leur nature : sûreté réelle, caution, assurance, nantissement, etc. Afficher nominal et rang uniquement quand ils ont un sens pour cette garantie, puis documents, opposabilité/statut déclaré, vérification, valeur estimée et dépendances à la même contrepartie. La qualification juridique et la valeur de réalisation doivent être validées par les professionnels compétents ; Atlas documente le raisonnement, il ne les certifie pas.
+
+### 4.3 Galaxie des acteurs et risque de contagion
+
+Relier personnes et sociétés par des relations datées et sourcées : direction, participation, contrôle, garantie, opération commune, adresse commune, événement public. Une correspondance de nom ou d'adresse produit une relation candidate, jamais une identité certaine. Un événement sur une autre entreprise de la galaxie peut générer signal à examiner si le lien et la transmission plausible du risque sont indiqués. Éviter qu'une procédure éloignée devienne automatiquement un défaut du dossier financé. Conserver la provenance et les contraintes d'utilisation de chaque source.
+
+### 4.4 Analyses de portefeuille
+
+Comparer encours, échéances, statut des flux, concentrations par groupe/plateforme/zone/type d'actif, exposition garantie et évolution des cohortes. Les courbes de retards, défauts et récupérations ne mélangent pas population, millésime et définition. Un score expert peut orienter l'attention ; son niveau, son intervalle d'incertitude et la priorité de traitement sont trois informations distinctes. Réviser et calibrer un modèle prédictif seulement après constitution d'un historique propre et suffisamment large.
+
+## 5. Parcours Fractionné : sélection, exécution et portefeuille
+
+La spécification ATLAS_Spec_Cockpit_Fractionne_v1.md détaille déjà les étapes et le binôme ; les fonctions suivantes l'étendent.
+
+### 5.1 Sourcing et mémoire des décisions
+
+L'associé peut saisir une opportunité en quelques minutes : source, actif, localisation, ordre de grandeur du prix, interlocuteur et prochaine étape. Atlas propose les liens vers dossiers existants et crée une préqual courte. Les refus, abandons, pertes, attentes et dossiers financés ailleurs ont des motifs distincts, datés et rattachés aux hypothèses. Une nouvelle offre ressemblant à un dossier passé propose un rappel contextualisé, sans copier automatiquement une ancienne conclusion.
+
+Décision : conserver également les dossiers non poursuivis. Raison : identifier doublons, vendeurs et biais de sélection ; mesurer à terme quelles raisons de refus correspondaient à des risques avérés. L'analyse des motifs ne prétend pas prouver qu'un dossier refusé aurait réussi.
+
+### 5.2 Interlocuteurs, plateformes et conditions
+
+Une fiche relation relie personnes, structures, rôle, affaires présentées, dates de réponse, engagements tenus et pièces obtenues. Les critères et offres des plateformes sont versionnés, avec preuve et état à confirmer quand ils n'ont pas été communiqués. Une opération peut avoir plusieurs candidatures indépendantes. Les répartitions de frais envisagées ne deviennent des revenus contractés qu'après accord identifié. Une vue compare montant, contraintes, calendrier, frais, obligations de reporting et points ouverts ; elle conserve le nom de l'interlocuteur et la version des conditions.
+
+### 5.3 Moteur de scénarios
+
+Pour un actif, figer le scénario de présentation ou d'acquisition approuvé ; conserver ensuite des scénarios central, dégradé et sévère avec variations explicites de loyers, vacance, coûts, CAPEX, financement, durée, rendement exigé et valeur de sortie. Calculer flux de l'actif puis flux par bénéficiaire ; comparer TRI, multiple, distributions et capital restitué avec un pont de réconciliation. Si la collecte ou une assiette manque, les métriques qui en dépendent affichent non calculable. Si deux scénarios ont les mêmes entrées, Atlas signale qu'ils ne testent rien de différent.
+
+### 5.4 Baux, exploitation et gestionnaire
+
+Créer un registre des baux avec loyer actuel, charges, indexation, franchise, garantie, échéances, options de sortie, identité du locataire, encaissements et preuve. Générer une fenêtre d'action avant les dates pertinentes, réglable selon le bail et les pouvoirs du gestionnaire. Le gestionnaire fournit un reporting standard périodique : rent roll, appels, encaissé, impayés, charges, travaux et incidents. Atlas rapproche ce reporting du budget et du précédent état, prépare les questions à adresser et signale les retards de livraison. Nicolas pilote la relation avec le gestionnaire ; l'associé traite l'expertise technique suivant le circuit convenu.
+
+### 5.5 Budget travaux et modifications
+
+Pour chaque poste : non chiffré, estimé, devis reçu, approuvé, engagé, facturé, payé ; quantité, prix, TVA le cas échéant, responsable, calendrier, réserve et pièce. Une modification présente coût et délai potentiels avant approbation ; après approbation, elle actualise le budget et déclenche le recalcul du financement et du scénario. Une facture ne devient pas un coût réalisé sans rapprochement. L'associé qualifie l'avancement et les devis ; Nicolas mesure l'effet financier ; l'engagement suit les pouvoirs décidés à deux.
+
+### 5.6 Suivi réel, sortie et apprentissage
+
+Pour chaque période : budget approuvé, dernier prévisionnel, réalisé et variance expliquée. Inclure loyers, impayés, OPEX, CAPEX, cash disponible, baux, valorisation datée et conditions de sortie. Une sortie exige flux datés et pièces justificatives ; le résultat final n'est jamais prérempli. Comparer les hypothèses originales aux réalisations, puis classer les écarts : hypothèse erronée, événement imprévisible, mauvaise exécution, donnée initiale absente ou modification voulue. Ce classement est une analyse humaine appuyée par des calculs.
+
+## 6. Intelligence documentaire et veille
+
+### 6.1 Documents orientés décision
+
+Une checklist varie selon activité, phase, type d'actif et plateforme/contrat. Les pièces qui bloquent la prochaine décision sont affichées avant le taux global de complétude. L'extraction assiste l'utilisateur : champ suggéré, citation de la page, éventuelle contradiction avec la base, date et validation. Une réponse de l'assistant à une question sur un dossier indique ses pièces consultées et sépare fait, calcul, hypothèse et recommandation. Si les sources sont insuffisantes, la réponse est je ne peux pas conclure avec les pièces nécessaires.
+
+### 6.2 Veille et détection
+
+Pour les annonces de collecte, conserver COLLECTE_ANNOUNCED et COLLECTE_OPENED avec source, horodatage observé, identifiant projet, plateforme et degré de confirmation. Dédupliquer les reprises et changements de page. Relier les sociétés de projet et opérateurs au graphe après vérification de l'identité. Fréquence par source et permissions, avec une cible rapide seulement si faisable et utile ; afficher la latence réelle. Sources publiques, API, flux, newsletters et échanges intégrés suivent leurs droits et conditions d'usage. Les cinq watchers observés comme non opérationnels ne sont pas présentés comme couverture active avant test de bout en bout.
+
+### 6.3 Alertes et charge cognitive
+
+Moteur de règles conditionnelles par étape et rôle : un reporting mensuel n'est attendu que si le financement est actif et que l'obligation existe. Grouper les signaux liés à un même dossier et à une même cause ; retarder les notifications non urgentes ; permettre acquittement motivé, mise en attente et rappel. Une alerte de veille générale n'a pas la même priorité qu'une échéance contractuelle, une garantie expirée ou une incohérence qui invalide une décision. Chaque alerte affiche pourquoi elle est remontée, sa source, son destinataire et l'action possible.
+
+## 7. Automatisation : déclencheurs, sorties et contrôle
+
+| Déclencheur | Traitement automatique | Intervention attendue |
+|---|---|---|
+| Nouveau dossier ou document | Recherche de doublons candidats, extraction, checklist et préqual provisoire. | Confirmer identité et données utilisées dans l'analyse. |
+| Pièce nouvelle ou modifiée | Recalcul des métriques affectées ; comparaison à la décision enregistrée ; liste des contradictions. | Valider nouvelle version et rouvrir une décision si nécessaire. |
+| Échéance approchante ou dépassée | Action attribuée selon l'obligation et calendrier ; rappel gradué et dédupliqué. | Qualifier le statut réel, contacter un tiers si nécessaire. |
+| Reporting tiers reçu | Extraction, rapprochement au contrat et à la prévision, variance et brouillon de questions. | Confirmer les exceptions et approuver l'échange externe. |
+| Flux de remboursement reçu | Rapprochement au contrat et à l'échéancier, proposition d'affectation. | Résoudre ambiguïtés et valider l'imputation. |
+| Devis/avenant travaux | Impact sur budget, délai, réserves et scénarios ; proposition de décision. | Approbation suivant les pouvoirs documentés. |
+| Événement sur une société liée | Vérification de l'identité, de la relation et de l'exposition ; signal contextualisé. | Juger pertinence et éventuelle action de risque. |
+| Fin de dossier | Génération de comparaison prévision/réalisé et d'un résumé des enseignements. | Qualifier les causes et approuver la clôture. |
+
+Chaque tâche automatique possède état en attente, en cours, réussi, échoué, à revoir, historique, propriétaire technique, reprise idempotente et signalement d'erreur. Un nouvel essai ne duplique ni dossier ni notification. Les tâches prioritaires ne dépendent pas d'une visite sur l'interface pour s'exécuter. L'envoi à un tiers, la validation d'une décision ou d'une extraction engageante et l'ouverture d'un accès externe requièrent un utilisateur habilité.
+
+## 8. Expérience et performance
+
+• Page d'accueil : trois actions prioritaires par domaine et vue complète filtrable ; expliquer classement par échéance, gravité, impact et blocage d'un tiers. Ouvrir directement la section pertinente du dossier.
+• Dossier : résumé court, prochaine décision, qualité des données, écarts, chronologie et pièces bloquantes ; détail complet accessible sans faire défiler douze onglets pour une préqual.
+• Recherche : noms alternatifs, projet, société, adresse et identifiant ; résultats filtrés par habilitation. Corriger le cas où parc ne retrouve pas Parc 149.
+• Rapidité : mesurer temps d'ouverture, temps de recherche, génération de préqual et traitement d'événement avec jeux représentatifs du portefeuille. Les objectifs chiffrés sont fixés après mesure initiale, puis testés sur ordinateur et mobile ; ne pas annoncer un seuil sans mesure.
+• Accessibilité : états lisibles sans couleur seule, dates et unités explicites, navigation clavier, retours d'erreur compréhensibles.
+• Carte : afficher un état d'indisponibilité et une vue liste utilisable si la clé ou le fond cartographique manque ; vérifier les droits d'affichage de toute géodonnée sensible.
+
+## 9. Sécurité, conservation et exploitation
+
+L'audit fonctionnel n'a pas certifié la sécurité réelle. Avant déploiement, vérifier dans le code et l'infrastructure : authentification et sessions, autorisation côté serveur, isolation des espaces, permissions des fichiers et index de recherche, secrets, chiffrement en transit et au repos, sauvegardes, restauration testée, journaux d'accès, rétention, export et suppression, rotation des accès, surveillance des erreurs et coûts des connecteurs. Prévoir environnements distincts de développement et production ; les copies de production destinées aux essais sont masquées ou synthétiques. Toute intégration externe consigne provenance, permission, limites de débit, arrêt sur erreur et traitement des données personnelles.
+
+Une restauration réussie sur un environnement isolé est un critère de sortie, avec vérification de l'intégrité des dossiers, pièces, relations et droits. Les événements métier et les erreurs techniques disposent d'identifiants de corrélation ; un administrateur peut identifier quelle source ou règle a créé une action. La stratégie de conservation et les droits sur des données liées à l'activité salariée de Nicolas doivent être validés avant import ; aucun transfert de données de l'employeur n'est présumé autorisé.
+
+## 10. Migration et séquence de réalisation
+
+| Lot | Livrables et dépendances | Recette de sortie |
+|---|---|---|
+| **A — Socle fiable** | Dictionnaire financier, unités, `inconnu ≠ 0`, dates, calculabilité, statuts et décisions séparés ; inventaire du code et des sources. | F01–F06 corrigés ; chiffres dette réconciliés ; migration des valeurs ambiguës sans conversion silencieuse. |
+| **B — Identité et droits** | Dossier maître, liens préqual/pipeline/portefeuille, espaces et autorisations en profondeur, recherche filtrée, sauvegardes. | Zeki relié sans doublon ; associé exclu de tous les chemins de lecture dette ; restauration vérifiée. |
+| **C — Actions et parcours** | Cockpits personnel/partagé/dette, tâches événementielles, étapes spécifiques, demandes documentaires. | Chaque blocage majeur crée une action pertinente ; compteurs fractionnés et portefeuille cohérents ; 54 tâches historiques requalifiées sans pertes. |
+| **D — Dette opérationnelle** | Échéancier, engagements, garanties, rapprochement des flux si source disponible, concentrations et incidents. | Parcours L'Aiguille réexaminé : métriques, garanties, échéances et risque expliqués ; rapprochement démontré sur cas contrôlés. |
+| **E — Fractionné opérationnel** | Relations et plateformes, scénarios, baux, CAPEX, gestionnaire, comparaison prévision/réalisé. | Parc 149 et Action montrent clairement les inconnues ; scénarios différenciés ; action technique et financière attribuée. |
+| **F — Intégrations et apprentissage** | Veille réellement mesurée, extraction assistée, graphes d'acteurs sourcés, mémoire des refus, analyses de cohortes et rapports. | Taux de couverture et échecs visibles ; historique exploitable ; aucun score prédictif sans données suffisantes et validation. |
+
+Un lot peut être livré en incréments plus petits. Chaque incrément inclut migration réversible, test d'autorisation, vérification des calculs affectés et mesure de son usage. Conserver une correspondance avec les anciens identifiants ; identifier les dossiers possiblement dupliqués (Le Arnold/Le Arnorld) comme candidats à revue. Les calculs historiques publiés restent consultables avec leur version.
+
+## 11. Scénarios de recette transversale
+
+1. Parc 149 — unité : 3 € et 3 % du prix ont des résultats distincts ; une saisie ancienne 3 est à confirmer ; sens et détail de l'écart sources/emplois sont visibles.
+2. Action Saint-Étienne — collecte absente : rendement investisseur et solveur sont non calculables, jamais 0 % ni hors de portée ; les calculs indépendants restent disponibles.
+3. Portefeuille dette — encours : bandeau, cockpit et portefeuille montrent définition, date et sous-population ; une liste d'inclusions/exclusions réconcilie 39 M€, 59 M€ et 37 M€ observés ou identifie les erreurs à corriger.
+4. L'Aiguille — garanties : deux montants nominaux non vérifiés ne deviennent pas une protection certaine de 220 % ; hypothèque, caution, rang et valeur de réalisation ont leurs champs et preuves propres.
+5. L'Aiguille — dates et risque : date contractuelle, vote et garantie sont distincts ; compte à rebours identique selon fuseau ; risque et priorité d'action utilisent les mêmes définitions sur toutes les vues.
+6. Zeki — continuité : préqual, pipeline et portefeuille partagent l'identité de l'opération, avec étapes et décisions datées ; une conversion relancée ne crée pas un second dossier.
+7. Fractions — absence de décision : plan incomplet produit montage à corriger, sans refus humain fictif ni dégradation du taux de conversion.
+8. Baux et travaux : un avenant de bail ou un devis approuvé recalcule les métriques affectées et propose une revue de décision ; version précédente consultable.
+9. Flux dette : une échéance partiellement reçue se ventile sans confondre principal, intérêts et frais ; absence d'import = état inconnu, pas défaut présumé.
+10. Veille : annonce et ouverture de collecte ont deux événements distincts, sans duplication à chaque passage ; connecteur défaillant visible.
+11. Droits : associé sans accès dette par toute surface, y compris agrégats et IA ; tâche fractionnée partagée reste accessible selon rôle.
+12. Sortie et mémoire : résultat final exige flux datés ; note compare hypothèses et réalisés ; dossiers abandonnés restent recherchables avec motif sans être comptés comme financés.
+
+## 12. Mesure de valeur et arbitrages encore ouverts
+
+Indicateurs de départ et d'après livraison : temps de qualification d'une opportunité, part des tâches en retard réellement pertinentes, proportion de dossiers avec prochaine action et responsable, taux de pièces critiques sourcées, taux de rapprochement des flux, contradictions financières non résolues, délai de détection d'un événement, proportion de connecteurs opérationnels, temps de production d'un rapport et taux de décisions dont le résultat peut être comparé à l'hypothèse initiale. Mesurer sur un échantillon stable ; publier le dénominateur.
+
+Paramètres à trancher avant les modules correspondants :
+
+1. Périmètre exact et autorisation d'usage des données dette, notamment toute donnée liée à l'activité salariée ; utilisateurs habilités en plus de Nicolas.
+2. Sources des flux réels, formats, fréquence et propriétaire de la réconciliation ; sans ces flux, le suivi des remboursements reste un registre déclaratif.
+3. Pouvoirs respectifs des associés, seuils de travaux, validation des transmissions et circuit d'urgence.
+4. Plateformes, gestionnaires et intermédiaires prioritaires ; critères/conditions confirmés par écrit versus hypothèses commerciales.
+5. Périodicité et format de reporting exigibles de chaque gestionnaire ou opérateur ; pièces contractuellement dues.
+6. Règles de calcul métier et conventions juridiques validées pour les garanties, covenants, frais, fiscalité et distribution ; Atlas doit rester configurable quand elles diffèrent par contrat.
+7. Objectifs de délai et volume de la veille, après test réel des sources, permissions, coûts et taux d'erreur.
+
+Ces paramètres n'empêchent pas de réaliser les lots A et B. Ils empêchent de figer silencieusement des règles commerciales ou juridiques sans fondement.
+
+## 13. Références de benchmark et portée
+
+Les fonctions des éditeurs ci-dessous ont servi de repères de conception ; leur documentation commerciale ne démontre ni leur performance sur Atlas ni la disponibilité de leurs données pour nous. Les choix d'Atlas ci-dessus sont des propositions adaptées à nos parcours.
+
+• Dealpath, pipeline, historique des opérations et contexte entre acquisition et portefeuille : https://www.dealpath.com/ ; https://www.dealpath.com/portfolio-insights/ ; https://www.dealpath.com/dispositions/
+• Intapp DealCloud, sourcing et intelligence des relations : https://www.intapp.com/dealcloud/
+• Altus ARGUS Enterprise, modélisation des flux immobiliers et scénarios : https://www.altusgroup.com/solutions/argus-enterprise/ ; https://www.altusgroup.com/webinars/how-to-do-portfolio-modeling-analysis-in-argus-enterprise/
+• Finley, covenants, livrables contractuels et analyse du portefeuille de dette : https://www.finleycms.com/platform/portfolio-analytics ; https://www.finleycms.com/solutions/loan-servicing
+• LoanPro, règles d'affectation des paiements et notifications événementielles : https://www.loanpro.io/payments/ ; https://help.loanpro.io/automated-communication
+• VTS, échéances locatives, vacance et risque de renouvellement : https://www.vts.com/
+• Procore, modifications de travaux liées au budget : https://www.procore.com/fr/gestion-financiere/ordres-de-changement
+• Juniper Square, données d'investissement, performance et reporting : https://www.junipersquare.com/platform ; https://www.junipersquare.com/finance-and-reporting/investor-reporting
+
+Documents internes à lire ensemble : ATLAS_Examen_Fonctionnel_2026-09-27.md (faits observés et limites de l'examen) ; ATLAS_Spec_Cockpit_Fractionne_v1.md (parcours et responsabilités détaillés). Le présent document arbitre la structure globale et les nouveaux modules ; en cas de divergence, vérifier l'état réel de l'application et faire trancher la règle métier avant développement.
+
+---
+
+*Statut d'implémentation (tenu à jour au fil des livraisons) : Lot A/B — stopgap D02 livré (`DetteScopeGuard`, `User.workspaceScope`), voir PR #26 ; couvre les contrôleurs exclusivement Deal/dette, ne couvre pas encore les objets partagés/polymorphes ni le dossier maître (D01). Reste de la migration (Lots A à F) non commencé — paramètres de la section 12 à trancher avant les modules concernés.*
