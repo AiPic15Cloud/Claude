@@ -689,6 +689,8 @@ export interface PipelineConversionResult {
   sampleTooSmallForRates: boolean;
   stages: FunnelStageResult[];
   conversions: FunnelConversionResult[];
+  /** Dossiers Fractionné existants mais sans aucun historique de statut — jamais fondus dans "0 dossier en pipeline" (Unknown != Zero). */
+  projectsWithoutHistory: number;
 }
 
 /** File de décisions et d'actions générique (spec Cockpit/Fractionné P1 §4.1/§4.2). */

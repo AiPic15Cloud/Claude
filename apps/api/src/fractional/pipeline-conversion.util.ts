@@ -69,6 +69,17 @@ export interface PipelineConversionResult {
   sampleTooSmallForRates: boolean;
   stages: FunnelStageResult[];
   conversions: FunnelConversionResult[];
+  /**
+   * FractionalProject de l'organisation sans aucune ligne FractionalStatusHistory
+   * — ne peuvent apparaître dans aucune étape du funnel puisque celui-ci se
+   * construit entièrement à partir de l'historique (jamais du statut actuel
+   * seul). Un dossier importé/seedé hors du chemin create()/update() normal
+   * (qui journalise toujours) tombe dans ce cas. Doctrine "Unknown ≠ Zero"
+   * (spec refonte v2.0 §3.2, audit : dossiers fractionnés absents du
+   * cockpit alors que présents dans le module Fractionné) : ce nombre est
+   * distinct de "0 dossier en pipeline", jamais fondu silencieusement dedans.
+   */
+  projectsWithoutHistory: number;
 }
 
 function median(values: number[]): number | null {
@@ -78,7 +89,7 @@ function median(values: number[]): number | null {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-export function computePipelineConversion(history: StatusHistoryRow[]): PipelineConversionResult {
+export function computePipelineConversion(history: StatusHistoryRow[], totalProjectCount: number): PipelineConversionResult {
   const byProject = new Map<string, StatusHistoryRow[]>();
   for (const row of history) {
     if (!(row.toStatus in STAGE_ORDER)) continue; // REFUSE/ABANDONNE : jamais une étape du funnel
@@ -129,5 +140,11 @@ export function computePipelineConversion(history: StatusHistoryRow[]): Pipeline
     });
   }
 
-  return { totalProjects, sampleTooSmallForRates: totalProjects < MIN_SAMPLE_FOR_RATES, stages, conversions };
+  return {
+    totalProjects,
+    sampleTooSmallForRates: totalProjects < MIN_SAMPLE_FOR_RATES,
+    stages,
+    conversions,
+    projectsWithoutHistory: Math.max(0, totalProjectCount - totalProjects),
+  };
 }
