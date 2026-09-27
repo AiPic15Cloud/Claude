@@ -97,7 +97,7 @@ function pctDelta(from: number | null, to: number | null): number | null {
 
 function describeGuaranteeCoverage(ratio: number | null): string {
   if (ratio === null || ratio === 0) return 'Aucune garantie de premier rang active.';
-  return `Garanties de rang 1 couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.`;
+  return `Garanties de rang 1 valides couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.`;
 }
 
 /**
@@ -311,8 +311,14 @@ export class RiskEngineService implements OnApplicationBootstrap {
     let rank1Sum = 0;
 
     for (const g of deal.guarantees) {
-      if (g.rank === 1) rank1Sum += Number(g.amount);
       const expiry = computeGuaranteeExpiry(g.type, g.endDate, g.substantiveDefect, now, false);
+      // Une garantie NON_VALIDE (expirée ou vice de fond constaté) ne
+      // protège plus rien aujourd'hui — l'inclure dans rank1Sum présenterait
+      // un nominal sans protection effective comme une couverture réelle
+      // (spec refonte v2.0 §3.2 : "pas de somme qualifiée automatiquement
+      // de couverture effective" — audit "L'Aiguille", garanties non
+      // vérifiées comptées comme une protection de 220%).
+      if (g.rank === 1 && expiry.validity === 'VALIDE') rank1Sum += Number(g.amount);
       if (expiry.validity === 'NON_VALIDE') {
         guaranteeNonValideCount += 1;
         const sharePct = amountRaised > 0 ? Number(g.amount) / amountRaised : 0;
