@@ -113,15 +113,15 @@ export function MemoireTab({
               <Input id="actualPeriod" className="w-28" required value={actualForm.period} onChange={(e) => setActualForm((p) => ({ ...p, period: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="actualLoyers">Loyers réels</Label>
+              <Label htmlFor="actualLoyers">Loyers réels (€)</Label>
               <DecimalInput id="actualLoyers" className="w-36" value={actualForm.loyersReels} onChange={(e) => setActualForm((p) => ({ ...p, loyersReels: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="actualOpex">OPEX réel</Label>
+              <Label htmlFor="actualOpex">OPEX réel (€)</Label>
               <DecimalInput id="actualOpex" className="w-36" value={actualForm.opexReel} onChange={(e) => setActualForm((p) => ({ ...p, opexReel: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="actualDist">Distributions réelles</Label>
+              <Label htmlFor="actualDist">Distributions réelles (€)</Label>
               <DecimalInput id="actualDist" className="w-40" value={actualForm.distributionsReelles} onChange={(e) => setActualForm((p) => ({ ...p, distributionsReelles: e.target.value }))} />
             </div>
             <Button type="submit" size="sm" disabled={createActual.isPending}>

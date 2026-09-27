@@ -34,17 +34,20 @@ export interface ExitYieldScenarioResult {
 }
 
 export interface ExitYieldEngineInput {
-  entryYieldPct: number;
+  /** null si le yield d'entrée n'est pas calculable (Sources & Uses incomplètes). */
+  entryYieldPct: number | null;
   /** null si aucun comparable VENTE avec yield renseigné n'existe pour la commune du projet — jamais un 0% inventé. */
   marketYieldPct: number | null;
-  baseExitYieldPct: number;
+  /** null si le Cap Rate Build-Up de sortie n'a pas pu produire un yield implicite — dans ce cas aucun scénario Bear/Severe ne peut être dérivé (ils sont relatifs à ce Base). */
+  baseExitYieldPct: number | null;
   lastYearNoi: number;
   acquisitionValueEur: number;
 }
 
 export interface ExitYieldEngineResult {
-  entryYieldPct: number;
+  entryYieldPct: number | null;
   marketYieldPct: number | null;
+  /** Vide si baseExitYieldPct est null — jamais des scénarios Bear/Severe fabriqués sans Base. */
   scenarios: ExitYieldScenarioResult[];
 }
 
@@ -59,6 +62,9 @@ function computeScenario(scenario: ExitYieldScenario, exitYieldPct: number, noi:
 }
 
 export function computeExitYieldEngine(input: ExitYieldEngineInput): ExitYieldEngineResult {
+  if (input.baseExitYieldPct === null) {
+    return { entryYieldPct: input.entryYieldPct, marketYieldPct: input.marketYieldPct, scenarios: [] };
+  }
   const bearExitYieldPct = input.baseExitYieldPct + BEAR_EXIT_YIELD_EXPANSION_BPS / 100;
   const severeExitYieldPct = input.baseExitYieldPct + SEVERE_EXIT_YIELD_EXPANSION_BPS / 100;
 

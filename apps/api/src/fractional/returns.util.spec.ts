@@ -166,7 +166,7 @@ describe('computeReturnsEngine — Total Return & Yield Dependency (spec §15)',
     expect(result.yieldDependency.resaleContributionEur).toBeCloseTo(0, 4);
     expect(result.yieldDependency.rentSharePct!).toBeCloseTo(100, 4);
     expect(result.capitalReturnPct).toBeCloseTo(0, 6);
-    expect(result.totalReturnPct).toBeCloseTo(result.incomeReturnPct, 6);
+    expect(result.totalReturnPct).toBeCloseTo(result.incomeReturnPct!, 6);
   });
 
   it('la croissance des loyers alimente indexationContributionEur, positif si les loyers augmentent', () => {
@@ -199,6 +199,15 @@ describe('computeReturnsEngine — Total Return & Yield Dependency (spec §15)',
 
   it('totalReturnPct est toujours la somme d\'incomeReturnPct et capitalReturnPct', () => {
     const result = computeReturnsEngine(makeBaseInput({ rentGrowthPctPerYear: 1.5, exitValue: 1100000 }));
-    expect(result.totalReturnPct).toBeCloseTo(result.incomeReturnPct + result.capitalReturnPct, 8);
+    expect(result.totalReturnPct).toBeCloseTo(result.incomeReturnPct! + result.capitalReturnPct!, 8);
+  });
+
+  it('collecteMontant a 0 renvoie null sur les rendements/parts investisseur (Unknown != Zero), jamais 0%', () => {
+    const result = computeReturnsEngine(makeBaseInput({ sourcesUses: { ...makeBaseInput().sourcesUses, collecteMontant: 0 } }));
+    expect(result.securedNetYieldPct).toBeNull();
+    expect(result.investorNetYieldPct).toBeNull();
+    expect(result.incomeReturnPct).toBeNull();
+    expect(result.capitalReturnPct).toBeNull();
+    expect(result.totalReturnPct).toBeNull();
   });
 });

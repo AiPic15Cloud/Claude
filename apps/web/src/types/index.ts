@@ -2156,19 +2156,20 @@ export interface FractionalReturnsResult {
   };
   yearlyModel: FractionalOperatingModelYear[];
   terminalProceeds: { netSaleProceeds: number; capitalGain: number; investorTerminalProceeds: number };
-  grossYieldPct: number;
-  grossYieldAiPct: number;
-  netPropertyYieldPct: number;
-  investorNetYieldPct: number;
-  securedNetYieldPct: number;
-  yieldOnCostPct: number;
+  /** null si le calcul sous-jacent (ex. collecteMontant) manque — jamais un 0% fabriqué (Unknown != Zero). */
+  grossYieldPct: number | null;
+  grossYieldAiPct: number | null;
+  netPropertyYieldPct: number | null;
+  investorNetYieldPct: number | null;
+  securedNetYieldPct: number | null;
+  yieldOnCostPct: number | null;
   irrPct: number | null;
   equityMultiple: number | null;
   /** Écart de TRI (pts) imputable au seul décalage de trésorerie TVA (tva-cashflow.util.ts) — null si aucun régime PRIX_TOTAL_OPTION_LOYERS n'est modélisé. */
   irrImpactFromTvaTimingPts: number | null;
-  incomeReturnPct: number;
-  capitalReturnPct: number;
-  totalReturnPct: number;
+  incomeReturnPct: number | null;
+  capitalReturnPct: number | null;
+  totalReturnPct: number | null;
   yieldDependency: {
     rentContributionEur: number;
     indexationContributionEur: number;
@@ -2199,10 +2200,13 @@ export interface EligibilityResult {
   notEvaluableReason: EligibilityNotEvaluableReason | null;
 }
 
+export type ReverseSolverNotEvaluableReason = 'NO_COLLECTE';
 export interface ReverseSolverResult {
   value: number | null;
   achievedYieldPct: number | null;
   iterations: number;
+  /** 'NO_COLLECTE' quand le rendement lui-même n'est pas calculable (collecte absente) — jamais confondu avec un hurdle réellement hors de portée. */
+  notEvaluableReason: ReverseSolverNotEvaluableReason | null;
 }
 
 export interface FractionalDCFYearCashFlow {
@@ -2424,8 +2428,8 @@ export const STRESS_SCENARIO_LABELS: Record<StressScenarioKey | BreakStressScena
 export interface StressScenarioResult {
   scenario: StressScenarioKey | BreakStressScenarioKey;
   noi: number;
-  investorNetYieldPct: number;
-  securedNetYieldPct: number;
+  investorNetYieldPct: number | null;
+  securedNetYieldPct: number | null;
   irrPct: number | null;
   equityMultiple: number | null;
   exitValue: number;
@@ -2816,8 +2820,9 @@ export interface CapRateBuildUpResult {
 
 export interface CapRateComparisonResult {
   buildUp: CapRateBuildUpResult;
-  impliedCapRatePct: number;
-  gapPts: number;
+  /** null si le yield implicite n'est pas calculable (Sources & Uses incomplètes) — jamais un 0% inventé. */
+  impliedCapRatePct: number | null;
+  gapPts: number | null;
 }
 
 export type CapRateBuildUpResponse =
@@ -2857,7 +2862,7 @@ export type ExitYieldResponse =
   | { status: 'TEC10_MISSING' }
   | {
       status: 'OK';
-      entryYieldPct: number;
+      entryYieldPct: number | null;
       marketYieldPct: number | null;
       scenarios: ExitYieldScenarioResult[];
       capRateSensitivity: CapRateSensitivityPoint[];

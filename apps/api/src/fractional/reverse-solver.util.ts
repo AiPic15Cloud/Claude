@@ -18,17 +18,29 @@ const MAX_ITERATIONS = 60;
 const TOLERANCE_PCT = 0.01;
 
 export interface ReverseSolverResult {
-  /** null si le hurdle est déjà hors de portée même aux bornes de la recherche. */
+  /** null si le hurdle est déjà hors de portée même aux bornes de la recherche, OU si le rendement lui-même n'est pas calculable — distingué par notEvaluableReason. */
   value: number | null;
   achievedYieldPct: number | null;
   iterations: number;
+  /** 'NO_COLLECTE' quand securedNetYieldPct lui-même est null (collecte absente) — jamais confondu avec un hurdle réellement hors de portée (doctrine "Unknown ≠ Zero"). */
+  notEvaluableReason: 'NO_COLLECTE' | null;
 }
 
-export function bisect(lowValue: number, highValue: number, targetHurdlePct: number, yieldAt: (value: number) => number, decreasing: boolean): ReverseSolverResult {
+export function bisect(
+  lowValue: number,
+  highValue: number,
+  targetHurdlePct: number,
+  yieldAt: (value: number) => number | null,
+  decreasing: boolean,
+): ReverseSolverResult {
   let low = lowValue;
   let high = highValue;
   const yieldLow = yieldAt(low);
   const yieldHigh = yieldAt(high);
+
+  if (yieldLow === null || yieldHigh === null) {
+    return { value: null, achievedYieldPct: null, iterations: 0, notEvaluableReason: 'NO_COLLECTE' };
+  }
 
   // yieldAt doit être monotone décroissante en `value` (prix ↑ ⇒ yield ↓) ou
   // croissante (loyer ↑ ⇒ yield ↑) selon `decreasing` — sinon pas de racine unique.
@@ -40,21 +52,25 @@ export function bisect(lowValue: number, highValue: number, targetHurdlePct: num
     // yieldHigh >= yieldLow sinon — Math.max donne donc déjà la bonne borne
     // dans les deux cas, sans avoir besoin de brancher sur `decreasing` ici.
     const achievable = Math.max(yieldLow, yieldHigh);
-    return { value: null, achievedYieldPct: achievable, iterations: 0 };
+    return { value: null, achievedYieldPct: achievable, iterations: 0, notEvaluableReason: null };
   }
 
   let mid = (low + high) / 2;
+  let yieldMid: number | null = yieldAt(mid);
   let iterations = 0;
   for (; iterations < MAX_ITERATIONS; iterations++) {
     mid = (low + high) / 2;
-    const yieldMid = yieldAt(mid);
+    yieldMid = yieldAt(mid);
+    if (yieldMid === null) {
+      return { value: null, achievedYieldPct: null, iterations, notEvaluableReason: 'NO_COLLECTE' };
+    }
     if (Math.abs(yieldMid - targetHurdlePct) < TOLERANCE_PCT) break;
     const goLower = decreasing ? yieldMid < targetHurdlePct : yieldMid > targetHurdlePct;
     if (goLower) high = mid;
     else low = mid;
   }
 
-  return { value: mid, achievedYieldPct: yieldAt(mid), iterations };
+  return { value: mid, achievedYieldPct: yieldMid, iterations, notEvaluableReason: null };
 }
 
 /**
@@ -88,7 +104,12 @@ export function solveMinSecuredRent(base: ReturnsEngineInput, targetHurdlePct: n
     computeReturnsEngine({ ...base, leases: base.leases.map((l) => ({ ...l, loyerFacialAnnuel: l.loyerFacialAnnuel * factor })) }).securedNetYieldPct;
 
   const result = bisect(0.1, 3, targetHurdlePct, yieldAtFactor, false);
-  return { value: result.value === null ? null : result.value * baseTotalLoyer, achievedYieldPct: result.achievedYieldPct, iterations: result.iterations };
+  return {
+    value: result.value === null ? null : result.value * baseTotalLoyer,
+    achievedYieldPct: result.achievedYieldPct,
+    iterations: result.iterations,
+    notEvaluableReason: result.notEvaluableReason,
+  };
 }
 
 /** Vacance & impayés maximum compatible avec le hurdle — tout le reste fixe. Borne haute 90% (au-delà, la notion même de vacance perd son sens économique). */
@@ -127,7 +148,9 @@ export interface LeaseSecuringSolverResult {
    * disponibles ne suffit pas.
    */
   leasesToSecure: LeaseToSecure[] | null;
-  achievedYieldPct: number;
+  achievedYieldPct: number | null;
+  /** 'NO_COLLECTE' quand securedNetYieldPct n'est pas calculable (collecte absente). */
+  notEvaluableReason: 'NO_COLLECTE' | null;
 }
 
 /**
@@ -141,8 +164,11 @@ export interface LeaseSecuringSolverResult {
  */
 export function solveLeasesToSecure(base: ReturnsEngineInput, targetHurdlePct: number): LeaseSecuringSolverResult {
   const baseResult = computeReturnsEngine(base);
+  if (baseResult.securedNetYieldPct === null) {
+    return { leasesToSecure: null, achievedYieldPct: null, notEvaluableReason: 'NO_COLLECTE' };
+  }
   if (baseResult.securedNetYieldPct >= targetHurdlePct) {
-    return { leasesToSecure: [], achievedYieldPct: baseResult.securedNetYieldPct };
+    return { leasesToSecure: [], achievedYieldPct: baseResult.securedNetYieldPct, notEvaluableReason: null };
   }
 
   const candidates = baseResult.leaseSecurity.assessments
@@ -150,17 +176,18 @@ export function solveLeasesToSecure(base: ReturnsEngineInput, targetHurdlePct: n
     .sort((a, b) => b.weightPct - a.weightPct);
 
   const securedIds = new Set<string>();
-  let achievedYieldPct = baseResult.securedNetYieldPct;
+  let achievedYieldPct: number | null = baseResult.securedNetYieldPct;
   for (const candidate of candidates) {
     securedIds.add(candidate.leaseId);
     const testLeases = base.leases.map((l) => (securedIds.has(l.id) ? { ...l, statutRenouvellement: 'SIGNE' as const } : l));
     achievedYieldPct = computeReturnsEngine({ ...base, leases: testLeases }).securedNetYieldPct;
-    if (achievedYieldPct >= targetHurdlePct) {
+    if (achievedYieldPct !== null && achievedYieldPct >= targetHurdlePct) {
       return {
         leasesToSecure: candidates.filter((c) => securedIds.has(c.leaseId)).map((c) => ({ leaseId: c.leaseId, tenantName: c.tenantName, weightPct: c.weightPct })),
         achievedYieldPct,
+        notEvaluableReason: null,
       };
     }
   }
-  return { leasesToSecure: null, achievedYieldPct };
+  return { leasesToSecure: null, achievedYieldPct, notEvaluableReason: achievedYieldPct === null ? 'NO_COLLECTE' : null };
 }

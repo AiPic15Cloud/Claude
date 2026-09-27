@@ -96,11 +96,12 @@ export function computeCapRateBuildUp(input: CapRateBuildUpInput): CapRateBuildU
 
 export interface CapRateComparisonResult {
   buildUp: CapRateBuildUpResult;
-  impliedCapRatePct: number;
-  /** impliedCapRatePct - buildUp.capRatePct — positif : acheté au-dessus du cap rate Atlas (décote de prix) ; négatif : acheté en dessous (prix cher, la thèse dépend d'une compression de taux — spec §11.1). */
-  gapPts: number;
+  /** null si le yield implicite n'est pas calculable (Sources & Uses incomplètes — Unknown ≠ Zero), jamais un 0% inventé. */
+  impliedCapRatePct: number | null;
+  /** impliedCapRatePct - buildUp.capRatePct — positif : acheté au-dessus du cap rate Atlas (décote de prix) ; négatif : acheté en dessous (prix cher, la thèse dépend d'une compression de taux — spec §11.1). null si impliedCapRatePct est null. */
+  gapPts: number | null;
 }
 
-export function compareToImpliedCapRate(buildUp: CapRateBuildUpResult, impliedCapRatePct: number): CapRateComparisonResult {
-  return { buildUp, impliedCapRatePct, gapPts: impliedCapRatePct - buildUp.capRatePct };
+export function compareToImpliedCapRate(buildUp: CapRateBuildUpResult, impliedCapRatePct: number | null): CapRateComparisonResult {
+  return { buildUp, impliedCapRatePct, gapPts: impliedCapRatePct === null ? null : impliedCapRatePct - buildUp.capRatePct };
 }

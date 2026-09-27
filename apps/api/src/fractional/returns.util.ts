@@ -80,12 +80,13 @@ export interface ReturnsEngineResult {
   yearlyModel: OperatingModelYearResult[];
   terminalProceeds: TerminalProceedsResult;
 
-  grossYieldPct: number;
-  grossYieldAiPct: number;
-  netPropertyYieldPct: number;
-  investorNetYieldPct: number;
-  securedNetYieldPct: number;
-  yieldOnCostPct: number;
+  /** null quand le dénominateur requis (prix, collecte, coût...) est absent ou nul — jamais confondu avec un rendement réellement nul (doctrine "Unknown ≠ Zero"). */
+  grossYieldPct: number | null;
+  grossYieldAiPct: number | null;
+  netPropertyYieldPct: number | null;
+  investorNetYieldPct: number | null;
+  securedNetYieldPct: number | null;
+  yieldOnCostPct: number | null;
 
   irrPct: number | null;
   equityMultiple: number | null;
@@ -94,9 +95,9 @@ export interface ReturnsEngineResult {
   irrImpactFromTvaTimingPts: number | null;
 
   /** Total Return (spec §15) = Income Return + Capital Return, cumulés sur tout l'horizon de détention (non annualisés — même convention que equityMultiple). */
-  incomeReturnPct: number;
-  capitalReturnPct: number;
-  totalReturnPct: number;
+  incomeReturnPct: number | null;
+  capitalReturnPct: number | null;
+  totalReturnPct: number | null;
   yieldDependency: YieldDependencyBreakdown;
 }
 
@@ -159,12 +160,12 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
   });
 
   const year1 = yearlyModel[0];
-  const grossYieldPct = input.sourcesUses.prixNetVendeur > 0 ? (leaseSecurity.totalLoyerFacial / input.sourcesUses.prixNetVendeur) * 100 : 0;
-  const grossYieldAiPct = sourcesUsesResult.coutActeEnMain > 0 ? (leaseSecurity.totalLoyerFacial / sourcesUsesResult.coutActeEnMain) * 100 : 0;
-  const netPropertyYieldPct = sourcesUsesResult.coutActeEnMain > 0 && year1 ? (year1.noi / sourcesUsesResult.coutActeEnMain) * 100 : 0;
-  const investorNetYieldPct = collecte > 0 && year1 ? (year1.investorDistribution / collecte) * 100 : 0;
-  const securedNetYieldPct = collecte > 0 ? (securedYear1.investorDistribution / collecte) * 100 : 0;
-  const yieldOnCostPct = sourcesUsesResult.coutTotal > 0 && year1 ? (year1.noi / sourcesUsesResult.coutTotal) * 100 : 0;
+  const grossYieldPct = input.sourcesUses.prixNetVendeur > 0 ? (leaseSecurity.totalLoyerFacial / input.sourcesUses.prixNetVendeur) * 100 : null;
+  const grossYieldAiPct = sourcesUsesResult.coutActeEnMain > 0 ? (leaseSecurity.totalLoyerFacial / sourcesUsesResult.coutActeEnMain) * 100 : null;
+  const netPropertyYieldPct = sourcesUsesResult.coutActeEnMain > 0 && year1 ? (year1.noi / sourcesUsesResult.coutActeEnMain) * 100 : null;
+  const investorNetYieldPct = collecte > 0 && year1 ? (year1.investorDistribution / collecte) * 100 : null;
+  const securedNetYieldPct = collecte > 0 ? (securedYear1.investorDistribution / collecte) * 100 : null;
+  const yieldOnCostPct = sourcesUsesResult.coutTotal > 0 && year1 ? (year1.noi / sourcesUsesResult.coutTotal) * 100 : null;
 
   const cashFlows: CashFlow[] = [{ date: input.asOfDate, amount: -collecte }];
   yearlyModel.forEach((y, idx) => {
@@ -210,8 +211,8 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
     indexationSharePct: totalPerformanceEur > 0 ? (indexationContributionEur / totalPerformanceEur) * 100 : null,
     resaleSharePct: totalPerformanceEur > 0 ? (resaleContributionEur / totalPerformanceEur) * 100 : null,
   };
-  const incomeReturnPct = collecte > 0 ? (cumulativeDistributions / collecte) * 100 : 0;
-  const capitalReturnPct = collecte > 0 ? (resaleContributionEur / collecte) * 100 : 0;
+  const incomeReturnPct = collecte > 0 ? (cumulativeDistributions / collecte) * 100 : null;
+  const capitalReturnPct = collecte > 0 ? (resaleContributionEur / collecte) * 100 : null;
 
   return {
     sourcesUsesResult,
@@ -230,7 +231,7 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
     irrImpactFromTvaTimingPts,
     incomeReturnPct,
     capitalReturnPct,
-    totalReturnPct: incomeReturnPct + capitalReturnPct,
+    totalReturnPct: incomeReturnPct !== null && capitalReturnPct !== null ? incomeReturnPct + capitalReturnPct : null,
     yieldDependency,
   };
 }

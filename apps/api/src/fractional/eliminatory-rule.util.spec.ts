@@ -81,6 +81,14 @@ describe('evaluateEliminatoryRules', () => {
     expect(unbalanced.passed).toBe(false);
   });
 
+  it('SECURED_NET_YIELD_PCT null (collecte absente côté returns.util.ts) est unverifiable, jamais un NO_GO automatique (regression audit)', () => {
+    const [result] = evaluateEliminatoryRules([rule()], { ...metrics, securedNetYieldPct: null });
+    expect(result.observedValue).toBeNull();
+    expect(result.unverifiable).toBe(true);
+    expect(result.passed).toBe(false);
+    expect(result.failMessage).not.toBe('Rendement net sécurisé sous le seuil Tantiem (6,5 %).');
+  });
+
   it('évalue plusieurs règles indépendamment', () => {
     const results = evaluateEliminatoryRules(
       [rule({ id: 'r1', threshold: 5 }), rule({ id: 'r2', metricKey: 'GROSS_YIELD_PCT', operator: 'GTE', threshold: 20 })],

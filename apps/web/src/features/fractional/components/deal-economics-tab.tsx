@@ -319,7 +319,7 @@ export function DealEconomicsTab({
               <Input id="stakeholderName" required value={stakeholderForm.name} onChange={(e) => setStakeholderForm((p) => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="stakeholderCapital">Capital engagé</Label>
+              <Label htmlFor="stakeholderCapital">Capital engagé (€)</Label>
               <DecimalInput id="stakeholderCapital" className="w-40" value={stakeholderForm.capitalEngaged} onChange={(e) => setStakeholderForm((p) => ({ ...p, capitalEngaged: e.target.value }))} />
             </div>
             <Button type="submit" size="sm" disabled={createStakeholder.isPending}>

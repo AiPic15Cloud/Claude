@@ -979,7 +979,7 @@ export class FractionalProjectsService {
       esgPremiumPct,
     });
     const lastYear = baseResult.yearlyModel[baseResult.yearlyModel.length - 1];
-    const impliedExitYieldPct = lastYear && baseInput.exitValue > 0 ? (lastYear.noi / baseInput.exitValue) * 100 : 0;
+    const impliedExitYieldPct = lastYear && baseInput.exitValue > 0 ? (lastYear.noi / baseInput.exitValue) * 100 : null;
     const exit = compareToImpliedCapRate(exitBuildUp, impliedExitYieldPct);
 
     return { status: 'OK' as const, tec10Source: tec10.source, tec10AsOf: tec10.asOf, entry, exit };

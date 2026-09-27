@@ -65,12 +65,20 @@ describe('solveMaxAcquisitionPrice / solveMinSecuredRent (P0 existants — non-r
       ...base,
       sourcesUses: { ...base.sourcesUses, prixNetVendeur: higherPrice, collecteMontant: base.sourcesUses.collecteMontant + (higherPrice - base.sourcesUses.prixNetVendeur) },
     }).securedNetYieldPct;
-    expect(yieldAtHigherPrice).toBeLessThan(yieldAtBasePrice);
+    expect(yieldAtHigherPrice).toBeLessThan(yieldAtBasePrice!);
   });
 
   it('renvoie null si le hurdle est hors de portée meme aux bornes', () => {
     const result = solveMinSecuredRent(makeBaseInput(), 500); // hurdle irréaliste
     expect(result.value).toBeNull();
+  });
+
+  it('collecteMontant a 0 renvoie notEvaluableReason NO_COLLECTE, jamais un simple "hors de portee" fabrique', () => {
+    const base = makeBaseInput({ sourcesUses: { ...makeBaseInput().sourcesUses, collecteMontant: 0 } });
+    const result = solveMaxAcquisitionPrice(base, 5);
+    expect(result.value).toBeNull();
+    expect(result.achievedYieldPct).toBeNull();
+    expect(result.notEvaluableReason).toBe('NO_COLLECTE');
   });
 });
 
@@ -85,7 +93,7 @@ describe('solveMaxVacancyCreditLossPct', () => {
   it('une vacance plus elevee degrade toujours le secured net yield (monotonie)', () => {
     const yieldAt0 = computeReturnsEngine(makeBaseInput({ vacancyCreditLossPct: 0 })).securedNetYieldPct;
     const yieldAt10 = computeReturnsEngine(makeBaseInput({ vacancyCreditLossPct: 10 })).securedNetYieldPct;
-    expect(yieldAt10).toBeLessThan(yieldAt0);
+    expect(yieldAt10).toBeLessThan(yieldAt0!);
   });
 
   it('renvoie null si meme 0% de vacance ne suffit pas a tenir un hurdle irrealiste', () => {
@@ -148,7 +156,7 @@ describe('solveLeasesToSecure', () => {
     ];
     const base = makeBaseInput({}, leases);
     const baseYield = solveLeasesToSecure(base, 0).achievedYieldPct; // hurdle 0 -> pas de securisation necessaire, juste pour lire le yield de base
-    const result = solveLeasesToSecure(base, baseYield + 1); // hurdle legerement au-dessus du yield actuel
+    const result = solveLeasesToSecure(base, baseYield! + 1); // hurdle legerement au-dessus du yield actuel
     expect(result.leasesToSecure).not.toBeNull();
     expect(result.leasesToSecure!.some((l) => l.leaseId === 'unsecured')).toBe(true);
   });
