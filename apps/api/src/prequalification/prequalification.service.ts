@@ -108,6 +108,10 @@ const CASE_DETAIL_INCLUDE = {
   requests: true,
   assignedAnalyst: { select: { id: true, firstName: true, lastName: true } },
   createdBy: { select: { id: true, firstName: true, lastName: true } },
+  // Dossier pipeline lié manuellement (voir PipelineEntry.prequalificationCaseId)
+  // — signale un statut comité potentiellement différent du statut Préqual,
+  // sans les fondre en un seul (audit : confusion de statut "Zeki Demirel").
+  linkedPipelineEntry: { select: { id: true, committee: true, operator: true } },
 };
 
 @Injectable()
@@ -148,6 +152,7 @@ export class PrequalificationService {
         assignedAnalyst: { select: { id: true, firstName: true, lastName: true } },
         project: { select: { city: true } },
         _count: { select: { findings: true, documents: true } },
+        linkedPipelineEntry: { select: { id: true, committee: true } },
       },
     });
     if (cases.length === 0) return cases;

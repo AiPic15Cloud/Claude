@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdatePipelineEntry } from '../hooks/use-pipeline';
-import { COMMITTEE_STATUS_LABELS, type CommitteeStatus, type PipelineEntry } from '@/types';
+import { usePrequalificationCases } from '@/features/prequalification/hooks/use-prequalification';
+import { COMMITTEE_STATUS_LABELS, PREQUALIFICATION_STATUS_LABELS, type CommitteeStatus, type PipelineEntry } from '@/types';
 import { ApiError } from '@/lib/api';
 import { parseLocaleNumber } from '@/lib/locale-number';
 
@@ -40,8 +41,13 @@ const schema = z.object({
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   committee: z.enum(['PAS_DE_COMITE', 'VALIDE', 'CONDITIONS_SUSPENSIVES', 'REFUSE']),
   decision: z.string().optional(),
+  prequalificationCaseId: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
+
+// Sentinel Radix Select value pour "aucun dossier lié" — un <SelectItem> ne
+// peut pas avoir value="" (réservé en interne par Radix pour "vide").
+const NO_PREQUAL_CASE = '__none__';
 
 function buildDefaultValues(entry: PipelineEntry): FormValues {
   return {
@@ -54,12 +60,18 @@ function buildDefaultValues(entry: PipelineEntry): FormValues {
     feesRate: entry.feesRate ? Number(entry.feesRate) : undefined,
     committee: entry.committee,
     decision: entry.decision ?? '',
+    prequalificationCaseId: entry.prequalificationCaseId ?? NO_PREQUAL_CASE,
   };
 }
 
 export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
   const [open, setOpen] = useState(false);
   const updateEntry = useUpdatePipelineEntry();
+  const { data: prequalCases } = usePrequalificationCases();
+  // Un dossier déjà lié à CE dossier pipeline reste sélectionnable même
+  // archivé (sinon impossible de le revoir dans le select) ; les autres
+  // dossiers archivés sont exclus comme à la création.
+  const linkableCases = (prequalCases ?? []).filter((c) => c.status !== 'ARCHIVED' || c.id === entry.prequalificationCaseId);
   const {
     register,
     handleSubmit,
@@ -72,7 +84,11 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
   });
 
   const onSubmit = (values: FormValues) => {
-    updateEntry.mutate({ id: entry.id, ...values }, { onSuccess: () => setOpen(false) });
+    // '' plutôt qu'undefined : "Aucun" doit toujours se traduire par une
+    // déliaison explicite (le backend convertit '' en NULL), jamais par "ne
+    // rien envoyer" qui laisserait un lien existant en place silencieusement.
+    const payload = { ...values, prequalificationCaseId: values.prequalificationCaseId === NO_PREQUAL_CASE ? '' : values.prequalificationCaseId };
+    updateEntry.mutate({ id: entry.id, ...payload }, { onSuccess: () => setOpen(false) });
   };
 
   return (
@@ -162,6 +178,31 @@ export function EditPipelineEntryDialog({ entry }: { entry: PipelineEntry }) {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="edit-decision">Décision / commentaire</Label>
             <Input id="edit-decision" {...register('decision')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Dossier de préqualification lié (optionnel)</Label>
+            <Controller
+              control={control}
+              name="prequalificationCaseId"
+              render={({ field }) => (
+                <Select value={field.value ?? NO_PREQUAL_CASE} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_PREQUAL_CASE}>Aucun</SelectItem>
+                    {linkableCases.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} — {PREQUALIFICATION_STATUS_LABELS[c.status]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Rapproche ce dossier pipeline du dossier Préqual dont il est issu — les deux statuts restent distincts et s'affichent chacun de leur côté.
+            </p>
           </div>
           {updateEntry.isError && (
             <p className="text-xs text-destructive">

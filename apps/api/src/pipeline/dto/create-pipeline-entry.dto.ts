@@ -51,4 +51,9 @@ export class CreatePipelineEntryDto {
   @IsString()
   @MaxLength(500)
   decision?: string;
+
+  @ApiProperty({ required: false, description: 'Rapproche ce dossier du PrequalificationCase dont il est potentiellement issu — lien manuel, jamais déduit automatiquement' })
+  @IsOptional()
+  @IsString()
+  prequalificationCaseId?: string;
 }
