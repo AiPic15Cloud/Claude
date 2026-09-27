@@ -17,7 +17,8 @@ export function KpiBar() {
 
   const stats = [
     { label: 'Opérations actives', value: String(data.activeDeals) },
-    { label: 'Encours', value: formatCurrency(data.totalAum) },
+    { label: 'Objectif de collecte', value: formatCurrency(data.totalTarget) },
+    { label: 'Encours', value: formatCurrency(data.totalCrd) },
     { label: 'Collecté', value: formatCurrency(data.totalRaised) },
     { label: 'Avancement', value: `${data.fundingProgress}%` },
     { label: 'Taux moyen', value: `${data.averageInterestRate}%` },

@@ -452,9 +452,10 @@ export interface StressTest {
 
 export interface DealKpis {
   activeDeals: number;
-  totalAum: number;
+  /** Objectif de collecte cumulé (somme des amountTarget) — jamais l'encours (cf. totalCrd). */
+  totalTarget: number;
   totalRaised: number;
-  /** Capital restant dû total (dossiers ACTIVE) — voir Deal.crd. */
+  /** Capital restant dû total (dossiers ACTIVE) — voir Deal.crd. C'est "l'Encours portefeuille" au sens du dictionnaire financier (spec refonte v2.0, §3.2), jamais totalTarget. */
   totalCrd: number;
   fundingProgress: number;
   averageInterestRate: number;

@@ -45,7 +45,7 @@ export function buildPortfolioReportHtml(kpis: DealKpis, overdueTasks: { total: 
     </header>
 
     <section class="grid" style="grid-template-columns:repeat(4,1fr);">
-      <div><p class="small muted">Montant cible cumulé</p><p style="font-size:16px; font-weight:600;">${money(kpis.totalAum)}</p></div>
+      <div><p class="small muted">Montant cible cumulé</p><p style="font-size:16px; font-weight:600;">${money(kpis.totalTarget)}</p></div>
       <div><p class="small muted">Capital restant dû cumulé</p><p style="font-size:16px; font-weight:600;">${money(kpis.totalCrd)}</p></div>
       <div><p class="small muted">Taux moyen</p><p style="font-size:16px; font-weight:600;">${kpis.averageInterestRate}%</p></div>
       <div><p class="small muted">Actions en retard</p><p style="font-size:16px; font-weight:600;">${overdueTasks.total}${overdueTasks.urgent > 0 ? ` <span class="small muted" style="font-weight:400;">dont ${overdueTasks.urgent} urgente${overdueTasks.urgent > 1 ? 's' : ''}</span>` : ''}</p></div>

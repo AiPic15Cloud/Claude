@@ -54,7 +54,7 @@ export function MobileCockpitPage() {
 
       <div className="pt-6">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Encours sous gestion</p>
-        <p className="mt-1 font-display text-5xl font-light tracking-tight tabular-nums">{formatCurrency(data.kpis.totalAum)}</p>
+        <p className="mt-1 font-display text-5xl font-light tracking-tight tabular-nums">{formatCurrency(data.kpis.totalCrd)}</p>
         {data.kpis.lateDeals > 0 && (
           <button
             onClick={() => navigate('/portfolio?late=true')}
