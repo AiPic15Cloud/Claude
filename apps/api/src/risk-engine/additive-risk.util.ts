@@ -205,11 +205,12 @@ function pushDependanceBancaire(out: TriggeredIndicator[], enabled: boolean, sha
   else if (share >= 0.3) out.push({ key: 'DEPENDANCE_BANCAIRE', label: 'Dépendance modérée au financement bancaire', points: 5, explanation: `Financement bancaire = ${(share * 100).toFixed(0)}% du financement total.` });
 }
 
+/** ratio (risk-engine.service.ts guaranteeCoverageRatio) exclut déjà les garanties NON_VALIDE (expirées ou vice de fond) — jamais un nominal sans protection effective compté comme couverture (spec refonte v2.0 §3.2). Toujours qualifié "valides" ici pour ne jamais laisser croire à une couverture brute non vérifiée. */
 function pushGarantiesRang1Faibles(out: TriggeredIndicator[], ratio: number | null) {
   if (ratio === null) return;
-  if (ratio < 0.2) out.push({ key: 'GARANTIES_RANG1_FAIBLES', label: 'Garanties de rang 1 très insuffisantes', points: 15, explanation: ratio === 0 ? 'Aucune garantie de premier rang active.' : `Garanties de rang 1 couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.` });
-  else if (ratio < 0.5) out.push({ key: 'GARANTIES_RANG1_FAIBLES', label: 'Garanties de rang 1 insuffisantes', points: 8, explanation: `Garanties de rang 1 couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.` });
-  else if (ratio < 1.0) out.push({ key: 'GARANTIES_RANG1_FAIBLES', label: 'Garanties de rang 1 partielles', points: 3, explanation: `Garanties de rang 1 couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.` });
+  if (ratio < 0.2) out.push({ key: 'GARANTIES_RANG1_FAIBLES', label: 'Garanties de rang 1 très insuffisantes', points: 15, explanation: ratio === 0 ? 'Aucune garantie de premier rang active.' : `Garanties de rang 1 valides couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.` });
+  else if (ratio < 0.5) out.push({ key: 'GARANTIES_RANG1_FAIBLES', label: 'Garanties de rang 1 insuffisantes', points: 8, explanation: `Garanties de rang 1 valides couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.` });
+  else if (ratio < 1.0) out.push({ key: 'GARANTIES_RANG1_FAIBLES', label: 'Garanties de rang 1 partielles', points: 3, explanation: `Garanties de rang 1 valides couvrant ${(ratio * 100).toFixed(0)}% du capital restant dû.` });
 }
 
 // ── Dynamiques (ex-Performance + ex-EWS) ─────────────────────────────────
