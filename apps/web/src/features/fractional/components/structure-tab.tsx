@@ -191,7 +191,7 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
               <Input id="capexAnnee" type="number" className="w-28" value={capexForm.annee} onChange={(e) => setCapexForm((p) => ({ ...p, annee: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="capexMontant">Montant</Label>
+              <Label htmlFor="capexMontant">Montant (€)</Label>
               <DecimalInput id="capexMontant" className="w-36" required value={capexForm.montant} onChange={(e) => setCapexForm((p) => ({ ...p, montant: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -268,7 +268,7 @@ export function StructureTab({ project }: { project: FractionalProjectDetail }) 
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="valuationValue">Valeur</Label>
+              <Label htmlFor="valuationValue">Valeur (€)</Label>
               <DecimalInput id="valuationValue" className="w-40" required value={valuationForm.value} onChange={(e) => setValuationForm((p) => ({ ...p, value: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">

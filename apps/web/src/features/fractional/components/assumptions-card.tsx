@@ -203,7 +203,7 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
               <DecimalInput id="discountRatePct" value={form.discountRatePct} onChange={(e) => setForm((p) => ({ ...p, discountRatePct: e.target.value }))} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="exitValueOverride">Valeur de sortie (override, optionnel)</Label>
+              <Label htmlFor="exitValueOverride">Valeur de sortie (€, override, optionnel)</Label>
               <DecimalInput id="exitValueOverride" value={form.exitValueOverride} onChange={(e) => setForm((p) => ({ ...p, exitValueOverride: e.target.value }))} />
             </div>
           </div>

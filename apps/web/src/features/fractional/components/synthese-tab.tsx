@@ -46,11 +46,19 @@ function CapRateBreakdown({ label, result }: { label: string; result: CapRateCom
         {buildUp.liquidityPremiumPct.toFixed(2)}pt + ESG {buildUp.esgPremiumPct.toFixed(2)}pt
       </p>
       <p className="mt-1 text-[11px]">
-        Cap rate implicite : <span className="font-medium tabular-nums">{impliedCapRatePct.toFixed(2)} %</span> — écart{' '}
-        <span className={`font-medium tabular-nums ${gapPts >= 0 ? 'text-success' : 'text-warning'}`}>
-          {gapPts >= 0 ? '+' : ''}
-          {gapPts.toFixed(2)} pt
-        </span>
+        Cap rate implicite : <span className="font-medium tabular-nums">{pct(impliedCapRatePct)}</span>
+        {gapPts !== null ? (
+          <>
+            {' '}
+            — écart{' '}
+            <span className={`font-medium tabular-nums ${gapPts >= 0 ? 'text-success' : 'text-warning'}`}>
+              {gapPts >= 0 ? '+' : ''}
+              {gapPts.toFixed(2)} pt
+            </span>
+          </>
+        ) : (
+          <span className="text-muted-foreground"> — écart non calculable (yield implicite indisponible)</span>
+        )}
       </p>
     </div>
   );

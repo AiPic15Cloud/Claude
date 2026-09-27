@@ -111,8 +111,8 @@ function applyScenario(base: ReturnsEngineInput, scenario: StressScenarioKey): R
 export interface StressScenarioResult {
   scenario: StressScenarioKey | BreakStressScenarioKey;
   noi: number;
-  investorNetYieldPct: number;
-  securedNetYieldPct: number;
+  investorNetYieldPct: number | null;
+  securedNetYieldPct: number | null;
   irrPct: number | null;
   equityMultiple: number | null;
   exitValue: number;
@@ -142,12 +142,13 @@ function buildStressScenarioResult(
   // (jamais affiché tel quel — voir eligibility.util.ts) : compter les
   // années "sous un hurdle" fabriqué n'aurait pas de sens, donc `null` ici
   // plutôt qu'un compte silencieusement faux.
-  const yearsUnderHurdle = hasPlatformProfile
-    ? result.yearlyModel.filter((y) => {
-        const yearYieldPct = collecte > 0 ? (y.investorDistribution / collecte) * 100 : 0;
-        return yearYieldPct < hurdlePct;
-      }).length
-    : null;
+  const yearsUnderHurdle =
+    hasPlatformProfile && collecte > 0
+      ? result.yearlyModel.filter((y) => {
+          const yearYieldPct = (y.investorDistribution / collecte) * 100;
+          return yearYieldPct < hurdlePct;
+        }).length
+      : null;
 
   const maxLoss = result.equityMultiple !== null && result.equityMultiple < 1 ? collecte * (1 - result.equityMultiple) : 0;
 
@@ -161,7 +162,7 @@ function buildStressScenarioResult(
     exitValue: input.exitValue,
     maxLoss,
     yearsUnderHurdle,
-    eligibility: computeEligibility(collecte > 0 ? result.securedNetYieldPct : null, hasPlatformProfile ? hurdlePct : null),
+    eligibility: computeEligibility(result.securedNetYieldPct, hasPlatformProfile ? hurdlePct : null),
   };
 }
 

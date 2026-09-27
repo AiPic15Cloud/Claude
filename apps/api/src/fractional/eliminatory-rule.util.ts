@@ -45,9 +45,9 @@ export const COMPARISON_OPERATOR_LABELS: Record<ComparisonOperator, string> = {
 };
 
 export interface EliminatoryMetricsInput {
-  securedNetYieldPct: number;
-  investorNetYieldPct: number;
-  grossYieldPct: number;
+  securedNetYieldPct: number | null;
+  investorNetYieldPct: number | null;
+  grossYieldPct: number | null;
   walbYears: number | null;
   waltYears: number | null;
   irrPct: number | null;

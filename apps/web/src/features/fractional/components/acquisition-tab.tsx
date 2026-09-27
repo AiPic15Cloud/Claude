@@ -12,20 +12,24 @@ import { TVA_REGIME_LABELS, type FractionalSourcesUses, type TvaRegime } from '@
 
 const TVA_REGIMES: TvaRegime[] = ['NON_ASSUJETTI', 'MARGE', 'PRIX_TOTAL_OPTION_LOYERS'];
 
+// Chaque champ est un montant en euros — jamais un pourcentage ni un
+// multiple — mais rien ne le disait à l'écran avant ce libellé explicite
+// (constat d'audit : une valeur saisie en pensant "milliers d'euros" ou
+// "%" est silencieusement traitée comme des euros bruts, cf. Le Parc 149).
 const FIELDS: { key: keyof FormState; label: string; required?: boolean }[] = [
-  { key: 'prixNetVendeur', label: 'Prix net vendeur', required: true },
-  { key: 'droitsNotaire', label: 'Droits / notaire' },
-  { key: 'honoraires', label: 'Honoraires' },
-  { key: 'travauxInitiaux', label: 'Travaux initiaux' },
-  { key: 'capexDiffereReserve', label: 'CAPEX différé (réserve)' },
-  { key: 'fraisPlateformeEntree', label: "Frais plateforme d'entrée" },
-  { key: 'reserveVacance', label: 'Réserve vacance' },
-  { key: 'reserveTravaux', label: 'Réserve travaux' },
-  { key: 'reserveTresorerie', label: 'Réserve trésorerie' },
-  { key: 'collecteMontant', label: 'Collecte (capital investisseurs)' },
-  { key: 'sponsorEquity', label: 'Sponsor equity' },
-  { key: 'detteEventuelle', label: 'Dette éventuelle' },
-  { key: 'autresSources', label: 'Autres sources' },
+  { key: 'prixNetVendeur', label: 'Prix net vendeur (€)', required: true },
+  { key: 'droitsNotaire', label: 'Droits / notaire (€)' },
+  { key: 'honoraires', label: 'Honoraires (€)' },
+  { key: 'travauxInitiaux', label: 'Travaux initiaux (€)' },
+  { key: 'capexDiffereReserve', label: 'CAPEX différé (réserve) (€)' },
+  { key: 'fraisPlateformeEntree', label: "Frais plateforme d'entrée (€)" },
+  { key: 'reserveVacance', label: 'Réserve vacance (€)' },
+  { key: 'reserveTravaux', label: 'Réserve travaux (€)' },
+  { key: 'reserveTresorerie', label: 'Réserve trésorerie (€)' },
+  { key: 'collecteMontant', label: 'Collecte (capital investisseurs) (€)' },
+  { key: 'sponsorEquity', label: 'Sponsor equity (€)' },
+  { key: 'detteEventuelle', label: 'Dette éventuelle (€)' },
+  { key: 'autresSources', label: 'Autres sources (€)' },
 ];
 
 type FormState = Record<
