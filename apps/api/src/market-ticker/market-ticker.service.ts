@@ -232,17 +232,25 @@ export class MarketTickerService {
     return this.cac40Cache; // serve last known value if we have one, else null
   }
 
-  async summary(organizationId: string) {
+  /**
+   * `restricted` (Lot B, spec §11.11 "y compris agrégats") : ce bandeau
+   * s'affiche sur toutes les pages, y compris pour un compte
+   * FRACTIONAL_ONLY — aum/activeDeals ne doivent jamais exposer le CRD ou le
+   * nombre de dossiers dette pour ce compte, même en tant que simple total.
+   */
+  async summary(organizationId: string, restricted = false) {
     const [fx, cac40, btc, indicators, activeDeals, activeCount] = await Promise.all([
       this.fetchFx(),
       this.fetchCac40(),
       this.fetchBtc(),
       this.marketIndicators.summary(),
-      this.prisma.deal.findMany({
-        where: { organizationId, status: 'ACTIVE' },
-        select: { id: true, amountRaised: true },
-      }),
-      this.prisma.deal.count({ where: { organizationId, status: 'ACTIVE' } }),
+      restricted
+        ? []
+        : this.prisma.deal.findMany({
+            where: { organizationId, status: 'ACTIVE' },
+            select: { id: true, amountRaised: true },
+          }),
+      restricted ? 0 : this.prisma.deal.count({ where: { organizationId, status: 'ACTIVE' } }),
     ]);
 
     // "Encours" = CRD, pas le montant collecté brut — voir crd.util.ts.

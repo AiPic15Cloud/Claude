@@ -1,6 +1,7 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { isDetteRestricted } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { AlertsService } from './alerts.service';
 
@@ -13,7 +14,7 @@ export class AlertsController {
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Query('unreadOnly') unreadOnly?: string) {
-    return this.alertsService.list(user.organizationId, unreadOnly === 'true');
+    return this.alertsService.list(user.organizationId, unreadOnly === 'true', isDetteRestricted(user.workspaceScope));
   }
 
   @Patch(':id/read')

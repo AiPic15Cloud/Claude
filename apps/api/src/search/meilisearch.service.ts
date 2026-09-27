@@ -94,19 +94,24 @@ export class MeilisearchService implements OnModuleInit {
     await this.safe(() => this.client.index(ARTICLES_INDEX).addDocuments([doc]));
   }
 
-  async search(organizationId: string, query: string) {
+  /**
+   * `restricted` (Lot B, spec §11.11) : un compte FRACTIONAL_ONLY ne doit
+   * jamais retrouver un Deal par la recherche universelle — la requête vers
+   * DEALS_INDEX est sautée entièrement plutôt que filtrée après coup.
+   */
+  async search(organizationId: string, query: string, restricted = false) {
     if (!this.available || !query.trim()) return { deals: [], entities: [], articles: [], degraded: !this.available };
 
     try {
       const filter = `organizationId = "${organizationId}"`;
       const result = await this.client.multiSearch({
         queries: [
-          { indexUid: DEALS_INDEX, q: query, filter, limit: 6 },
+          ...(restricted ? [] : [{ indexUid: DEALS_INDEX, q: query, filter, limit: 6 }]),
           { indexUid: ENTITIES_INDEX, q: query, filter, limit: 6 },
           { indexUid: ARTICLES_INDEX, q: query, filter, limit: 6 },
         ],
       });
-      const [deals, entities, articles] = result.results;
+      const [deals, entities, articles] = restricted ? [undefined, ...result.results] : result.results;
       return {
         deals: deals?.hits ?? [],
         entities: entities?.hits ?? [],

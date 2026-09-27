@@ -8,6 +8,10 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { QueryTasksDto } from './dto/query-tasks.dto';
 
+// Lot B (espaces étanches) : un compte FRACTIONAL_ONLY ne doit jamais voir
+// une tâche liée à un Deal, même dans sa propre liste personnelle.
+const DETTE_EXCLUDED: Prisma.TaskWhereInput = { dealId: null };
+
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
@@ -18,8 +22,9 @@ export class TasksService {
     private readonly alerts: AlertsService,
   ) {}
 
-  async create(organizationId: string, userId: string, dto: CreateTaskDto) {
+  async create(organizationId: string, userId: string, dto: CreateTaskDto, restricted = false) {
     if (dto.dealId) {
+      if (restricted) throw new NotFoundException('Opération introuvable');
       const deal = await this.prisma.deal.findFirst({ where: { id: dto.dealId, organizationId } });
       if (!deal) throw new NotFoundException('Opération introuvable');
     }
@@ -46,7 +51,7 @@ export class TasksService {
     return task;
   }
 
-  async findAllForOrganization(organizationId: string, userId: string, query: QueryTasksDto) {
+  async findAllForOrganization(organizationId: string, userId: string, query: QueryTasksDto, restricted = false) {
     const where: Prisma.TaskWhereInput = {
       organizationId,
       cancelledAt: null,
@@ -55,6 +60,7 @@ export class TasksService {
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.dueBefore ? { dueDate: { lte: new Date(query.dueBefore) } } : {}),
       ...(query.typeTache ? { typeTache: query.typeTache } : {}),
+      ...(restricted ? DETTE_EXCLUDED : {}),
     };
 
     // Le frontend (Kanban F.1) consomme un tableau plat, pas une réponse
@@ -86,8 +92,8 @@ export class TasksService {
     });
   }
 
-  async update(organizationId: string, id: string, userId: string, dto: UpdateTaskDto) {
-    const task = await this.prisma.task.findFirst({ where: { id, organizationId, cancelledAt: null } });
+  async update(organizationId: string, id: string, userId: string, dto: UpdateTaskDto, restricted = false) {
+    const task = await this.prisma.task.findFirst({ where: { id, organizationId, cancelledAt: null, ...(restricted ? DETTE_EXCLUDED : {}) } });
     if (!task) throw new NotFoundException('Tâche introuvable');
 
     const wasIncomplete = !task.done;
@@ -125,8 +131,8 @@ export class TasksService {
    * quand, elle disparaît seulement des listes actives (cf. filtres
    * `cancelledAt: null` ci-dessus).
    */
-  async remove(organizationId: string, id: string, userId: string) {
-    const task = await this.prisma.task.findFirst({ where: { id, organizationId, cancelledAt: null } });
+  async remove(organizationId: string, id: string, userId: string, restricted = false) {
+    const task = await this.prisma.task.findFirst({ where: { id, organizationId, cancelledAt: null, ...(restricted ? DETTE_EXCLUDED : {}) } });
     if (!task) throw new NotFoundException('Tâche introuvable');
     await this.prisma.task.update({ where: { id }, data: { cancelledAt: new Date(), cancelledById: userId } });
   }

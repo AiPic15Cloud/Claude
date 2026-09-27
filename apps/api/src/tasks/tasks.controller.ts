@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { isDetteRestricted } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -18,19 +19,19 @@ export class TasksController {
 
   @Get()
   findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryTasksDto) {
-    return this.tasksService.findAllForOrganization(user.organizationId, user.id, query);
+    return this.tasksService.findAllForOrganization(user.organizationId, user.id, query, isDetteRestricted(user.workspaceScope));
   }
 
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateTaskDto) {
-    return this.tasksService.create(user.organizationId, user.id, dto);
+    return this.tasksService.create(user.organizationId, user.id, dto, isDetteRestricted(user.workspaceScope));
   }
 
   @UseGuards(RolesGuard)
   @Roles('ADMIN', 'ANALYST')
   @Patch(':id')
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateTaskDto) {
-    return this.tasksService.update(user.organizationId, id, user.id, dto);
+    return this.tasksService.update(user.organizationId, id, user.id, dto, isDetteRestricted(user.workspaceScope));
   }
 
   @UseGuards(RolesGuard)
@@ -38,6 +39,6 @@ export class TasksController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
-    return this.tasksService.remove(user.organizationId, id, user.id);
+    return this.tasksService.remove(user.organizationId, id, user.id, isDetteRestricted(user.workspaceScope));
   }
 }

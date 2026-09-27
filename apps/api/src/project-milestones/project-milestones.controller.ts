@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { DetteScopeGuard } from '../common/guards/dette-scope.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { ProjectMilestonesService } from './project-milestones.service';
 import { CreateMilestoneDto } from './dto/create-milestone.dto';
@@ -11,7 +12,7 @@ import { ReorderMilestonesDto } from './dto/reorder-milestones.dto';
 
 @ApiTags('project-milestones')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, DetteScopeGuard)
 @Controller('deals/:dealId/milestones')
 export class ProjectMilestonesController {
   constructor(private readonly milestonesService: ProjectMilestonesService) {}
