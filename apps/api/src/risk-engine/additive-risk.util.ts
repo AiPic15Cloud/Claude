@@ -191,11 +191,12 @@ function pushLtcEleve(out: TriggeredIndicator[], ltc: number | null) {
   else if (ltc > 0.8) out.push({ key: 'LTC_ELEVE', label: 'Loan-to-Cost modéré', points: 6, explanation: `LTC de ${(ltc * 100).toFixed(0)}%.` });
 }
 
+/** params.ltv vient de synthesis.ratios.ltv (collecte / prix de vente prévisionnel) — le LTV initial du montage, distinct du LTV de covenant (covenant.util.ts, CRD actualisé / valeur de sortie visée). Toujours qualifié "initial" dans l'explication pour ne jamais être confondu avec ce dernier (cf. dictionnaire financier, spec refonte v2.0 §3.2). */
 function pushLtvEleve(out: TriggeredIndicator[], ltv: number | null) {
   if (ltv === null) return;
-  if (ltv > 1.0) out.push({ key: 'LTV_ELEVE', label: 'Loan-to-Value très élevé', points: 15, explanation: `LTV de ${(ltv * 100).toFixed(0)}%.` });
-  else if (ltv > 0.9) out.push({ key: 'LTV_ELEVE', label: 'Loan-to-Value élevé', points: 9, explanation: `LTV de ${(ltv * 100).toFixed(0)}%.` });
-  else if (ltv > 0.8) out.push({ key: 'LTV_ELEVE', label: 'Loan-to-Value modéré', points: 4, explanation: `LTV de ${(ltv * 100).toFixed(0)}%.` });
+  if (ltv > 1.0) out.push({ key: 'LTV_ELEVE', label: 'Loan-to-Value initial très élevé', points: 15, explanation: `LTV initial de ${(ltv * 100).toFixed(0)}%.` });
+  else if (ltv > 0.9) out.push({ key: 'LTV_ELEVE', label: 'Loan-to-Value initial élevé', points: 9, explanation: `LTV initial de ${(ltv * 100).toFixed(0)}%.` });
+  else if (ltv > 0.8) out.push({ key: 'LTV_ELEVE', label: 'Loan-to-Value initial modéré', points: 4, explanation: `LTV initial de ${(ltv * 100).toFixed(0)}%.` });
 }
 
 function pushDependanceBancaire(out: TriggeredIndicator[], enabled: boolean, share: number | null) {

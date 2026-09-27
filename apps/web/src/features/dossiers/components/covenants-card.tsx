@@ -18,7 +18,7 @@ function statusBadge(breached: boolean | null) {
  */
 export function CovenantsCard({ covenants }: { covenants: Covenants }) {
   const rows = [
-    { label: 'LTV', value: covenants.ltvPct, unit: '%', threshold: `< ${covenants.ltvThresholdPct}%`, breached: covenants.ltvBreached },
+    { label: 'LTV de covenant', value: covenants.ltvPct, unit: '%', threshold: `< ${covenants.ltvThresholdPct}%`, breached: covenants.ltvBreached },
     { label: 'ICR', value: covenants.icr, unit: 'x', threshold: `> ${covenants.icrThreshold}x`, breached: covenants.icrBreached },
     { label: 'DSCR', value: covenants.dscr, unit: 'x', threshold: `> ${covenants.dscrThreshold}x`, breached: covenants.dscrBreached },
   ];
@@ -31,6 +31,11 @@ export function CovenantsCard({ covenants }: { covenants: Covenants }) {
       <CardContent className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">
           Seuils indicatifs par typologie d'opération — à valider avant tout usage en décision réelle.
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          LTV de covenant = capital restant dû actualisé (capital + intérêts courus) / valeur de sortie visée —
+          suit l'exposition réelle au fil du remboursement, distinct du LTV initial (voir Synthèse financière)
+          calculé au montage sur la collecte.
         </p>
         <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 gap-y-2 text-sm">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ratio</span>
