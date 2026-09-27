@@ -72,9 +72,10 @@ export function DesktopCockpitPage() {
 
       <HeroMetric
         label="Encours sous gestion"
-        value={formatCurrency(data.kpis.totalAum)}
+        value={formatCurrency(data.kpis.totalCrd)}
         context={`${formatCurrency(data.kpis.totalRaised)} collectés à ce jour`}
         stats={[
+          { label: 'Objectif de collecte', value: formatCurrency(data.kpis.totalTarget) },
           { label: 'Avancement de collecte', value: `${data.kpis.fundingProgress}%` },
           { label: 'Taux moyen', value: `${data.kpis.averageInterestRate}%` },
           {

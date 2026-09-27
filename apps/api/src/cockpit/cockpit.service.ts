@@ -427,7 +427,7 @@ export class CockpitService {
 
     const headline =
       `${kpis.activeDeals} opération${kpis.activeDeals > 1 ? 's' : ''} active${kpis.activeDeals > 1 ? 's' : ''}` +
-      ` pour ${this.formatAmount(kpis.totalAum)} sous gestion, collecte à ${kpis.fundingProgress}%.`;
+      ` pour ${this.formatAmount(kpis.totalCrd)} d'encours, collecte à ${kpis.fundingProgress}% de l'objectif.`;
 
     const items: { label: string; severity: 'critical' | 'warning' | 'info' }[] = [];
 

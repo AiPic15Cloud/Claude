@@ -726,6 +726,18 @@ export class DealsService {
     void this.search.removeDeal(id);
   }
 
+  /**
+   * Spec ATLAS v2 refonte, §3.2 (dictionnaire financier) — "Encours
+   * portefeuille" est l'agrégat du principal restant dû (totalCrd), jamais
+   * l'objectif de collecte (totalTarget, somme des amountTarget) : les deux
+   * étaient auparavant confondus sous un seul nom `totalAum` que le
+   * frontend affichait comme "Encours" (bug corrigé — cf. Lot A de la
+   * refonte v2.0, scénario de recette §11.3 : trois montants d'encours
+   * différents observés selon la vue). Population : tous les Deal
+   * organizationId + status ACTIVE, tous stades confondus (distinct du
+   * sous-ensemble stage SUIVI de portfolioOverview() ci-dessous — les deux
+   * scopes sont documentés séparément, jamais fusionnés silencieusement).
+   */
   async kpis(organizationId: string) {
     const deals = await this.prisma.deal.findMany({
       where: { organizationId, status: 'ACTIVE' },
@@ -753,7 +765,8 @@ export class DealsService {
     const realizedByDeal = new Map(realized.map((r) => [r.dealId, Number(r._sum.amount ?? 0)]));
     const crdByDeal = new Map(deals.map((d) => [d.id, computeCrd(Number(d.amountRaised), realizedByDeal.get(d.id) ?? 0)]));
 
-    const totalAum = deals.reduce((sum, d) => sum + Number(d.amountTarget), 0);
+    /** Objectif de collecte cumulé — jamais l'encours (voir doc-comment de kpis() ci-dessus). */
+    const totalTarget = deals.reduce((sum, d) => sum + Number(d.amountTarget), 0);
     const totalRaised = deals.reduce((sum, d) => sum + Number(d.amountRaised), 0);
     const totalCrd = deals.reduce((sum, d) => sum + (crdByDeal.get(d.id) ?? 0), 0);
     const avgRate =
@@ -850,10 +863,10 @@ export class DealsService {
 
     return {
       activeDeals: deals.length,
-      totalAum,
+      totalTarget,
       totalRaised,
       totalCrd,
-      fundingProgress: totalAum > 0 ? Math.round((totalRaised / totalAum) * 100) : 0,
+      fundingProgress: totalTarget > 0 ? Math.round((totalRaised / totalTarget) * 100) : 0,
       averageInterestRate: Math.round(avgRate * 100) / 100,
       lateDeals,
       byStage,
