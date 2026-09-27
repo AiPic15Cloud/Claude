@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { usePrequalificationCases } from './hooks/use-prequalification';
 import { CreateCaseDialog } from './components/create-case-dialog';
-import { PREQUALIFICATION_STATUS_LABELS, PREQUALIFICATION_ORIENTATION_LABELS } from '@/types';
+import { PREQUALIFICATION_STATUS_LABELS, PREQUALIFICATION_ORIENTATION_LABELS, COMMITTEE_STATUS_LABELS } from '@/types';
 
 const ORIENTATION_VARIANT: Record<string, 'default' | 'outline' | 'secondary' | 'destructive'> = {
   GO: 'default',
@@ -69,6 +69,11 @@ export function PrequalificationListPage() {
                   </span>
                 )}
                 {c.orientation && <Badge variant={ORIENTATION_VARIANT[c.orientation]}>{PREQUALIFICATION_ORIENTATION_LABELS[c.orientation]}</Badge>}
+                {c.linkedPipelineEntry && (
+                  <span className="text-xs text-muted-foreground">
+                    Pipeline : {COMMITTEE_STATUS_LABELS[c.linkedPipelineEntry.committee]} — dossiers distincts, statuts indépendants
+                  </span>
+                )}
                 {c.assignedAnalyst && (
                   <span className="text-xs text-muted-foreground">
                     Analyste : {c.assignedAnalyst.firstName} {c.assignedAnalyst.lastName}

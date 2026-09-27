@@ -27,6 +27,7 @@ export interface CreatePipelineEntryPayload {
   feesRate?: number;
   committee?: CommitteeStatus;
   decision?: string;
+  prequalificationCaseId?: string;
 }
 
 function invalidatePipeline(queryClient: ReturnType<typeof useQueryClient>) {

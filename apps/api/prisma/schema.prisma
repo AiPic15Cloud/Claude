@@ -685,6 +685,18 @@ model PipelineEntry {
   convertedDealId String? @unique
   convertedDeal   Deal?   @relation("PipelineConvertedDeal", fields: [convertedDealId], references: [id])
 
+  // Rapproche ce dossier pipeline du PrequalificationCase dont il est
+  // potentiellement issu. Les deux existent et évoluent indépendamment —
+  // rien ne crée automatiquement l'un à partir de l'autre — donc sans ce
+  // lien explicite, un même porteur peut légitimement apparaître "Brouillon"
+  // en Préqual et "Validé" au comité pipeline sans qu'aucun des deux statuts
+  // ne soit faux : ce sont deux dossiers non reliés, pas un statut désynchro-
+  // nisé (audit : confusion de statut constatée sur un dossier réel). Optionnel
+  // et posé manuellement par l'analyste, jamais déduit d'une correspondance de
+  // nom (trop fragile pour être automatique).
+  prequalificationCaseId String?               @unique
+  prequalificationCase   PrequalificationCase? @relation(fields: [prequalificationCaseId], references: [id], onDelete: SetNull)
+
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
@@ -3833,6 +3845,11 @@ model PrequalificationCase {
   /// évite une requête de recherche du "dernier" numéro de version pour
   /// retrouver le snapshot exact utilisé lors de la décision.
   promotedVersionNumber Int?
+
+  /// Côté inverse de PipelineEntry.prequalificationCaseId (voir son
+  /// commentaire) — un dossier pipeline lié manuellement par un analyste,
+  /// distinct de la promotion (promotedDeal) qui crée un vrai Deal.
+  linkedPipelineEntry PipelineEntry?
 
   @@index([organizationId, status])
   @@map("prequalification_cases")

@@ -11,7 +11,7 @@ import { CreatePipelineEntryDialog } from './components/create-pipeline-entry-di
 import { EditPipelineEntryDialog } from './components/edit-pipeline-entry-dialog';
 import { ConvertPipelineEntryDialog } from './components/convert-pipeline-entry-dialog';
 import { NewslettersCard } from './components/newsletters-card';
-import { COMMITTEE_STATUS_LABELS, type CommitteeStatus } from '@/types';
+import { COMMITTEE_STATUS_LABELS, PREQUALIFICATION_STATUS_LABELS, type CommitteeStatus } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -164,7 +164,17 @@ export function PipelinePage() {
               entries.map((e) => (
                 <TableRow key={e.id}>
                   <TableCell className="whitespace-nowrap font-mono tabular-nums text-muted-foreground">{formatDate(e.date)}</TableCell>
-                  <TableCell className="font-medium">{e.operator}</TableCell>
+                  <TableCell className="font-medium">
+                    {e.operator}
+                    {e.prequalificationCase && (
+                      <Link
+                        to={`/prequalification/${e.prequalificationCase.id}`}
+                        className="block text-[11px] font-normal text-muted-foreground hover:text-primary hover:underline"
+                      >
+                        Préqual : {PREQUALIFICATION_STATUS_LABELS[e.prequalificationCase.status]}
+                      </Link>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{e.typology || '—'}</TableCell>
                   <TableCell className="text-muted-foreground">{e.source || '—'}</TableCell>
                   <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{formatCurrency(e.amount)}</TableCell>

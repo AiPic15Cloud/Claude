@@ -833,6 +833,9 @@ export interface PipelineEntry {
   decision?: string | null;
   convertedDealId?: string | null;
   convertedDeal?: { id: string; name: string; reference: string } | null;
+  /** Dossier de préqualification lié manuellement — voir PrequalificationCase.linkedPipelineEntry. */
+  prequalificationCaseId?: string | null;
+  prequalificationCase?: { id: string; name: string; status: PrequalificationStatus } | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -3639,6 +3642,8 @@ export interface PrequalificationCase {
   blockingFindingsCount?: number;
   /** Idem, projet lié — absent tant qu'aucune fiche projet n'a été renseignée. */
   project?: { city?: string | null } | null;
+  /** Dossier pipeline lié manuellement — son statut comité peut légitimement différer du statut Préqual (voir PipelineEntry.prequalificationCaseId). */
+  linkedPipelineEntry?: { id: string; committee: CommitteeStatus; operator?: string } | null;
 }
 
 export interface PrequalificationCaseDetail extends PrequalificationCase {

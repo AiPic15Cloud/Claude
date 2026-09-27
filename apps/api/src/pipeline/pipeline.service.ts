@@ -8,6 +8,7 @@ import { QueryPipelineDto } from './dto/query-pipeline.dto';
 
 const PIPELINE_ENTRY_INCLUDE = {
   convertedDeal: { select: { id: true, name: true, reference: true } },
+  prequalificationCase: { select: { id: true, name: true, status: true } },
 } as const;
 
 @Injectable()
@@ -18,8 +19,19 @@ export class PipelineService {
   ) {}
 
   async create(organizationId: string, userId: string, dto: CreatePipelineEntryDto) {
+    const { prequalificationCaseId, ...rest } = dto;
+    if (prequalificationCaseId) await this.assertPrequalCaseLinkable(organizationId, prequalificationCaseId);
     return this.prisma.pipelineEntry.create({
-      data: { ...dto, date: new Date(dto.date), organizationId, createdById: userId },
+      data: {
+        ...rest,
+        date: new Date(dto.date),
+        organizationId,
+        createdById: userId,
+        // '' ("aucun dossier lié" côté formulaire) ne doit jamais être écrit
+        // tel quel — la colonne est @unique et plusieurs dossiers avec ''
+        // se percuteraient en base, contrairement à plusieurs NULL.
+        prequalificationCaseId: prequalificationCaseId || undefined,
+      },
       include: PIPELINE_ENTRY_INCLUDE,
     });
   }
@@ -45,10 +57,17 @@ export class PipelineService {
 
   async update(organizationId: string, id: string, dto: UpdatePipelineEntryDto) {
     await this.assertExists(organizationId, id);
-    const { date, ...rest } = dto;
+    if (dto.prequalificationCaseId) await this.assertPrequalCaseLinkable(organizationId, dto.prequalificationCaseId, id);
+    const { date, prequalificationCaseId, ...rest } = dto;
     return this.prisma.pipelineEntry.update({
       where: { id },
-      data: { ...rest, date: date ? new Date(date) : undefined },
+      data: {
+        ...rest,
+        date: date ? new Date(date) : undefined,
+        // Absent du body (undefined) = champ non touché ; '' = déliaison
+        // explicite (converti en NULL, jamais écrit tel quel — voir create()).
+        ...(prequalificationCaseId !== undefined ? { prequalificationCaseId: prequalificationCaseId || null } : {}),
+      },
       include: PIPELINE_ENTRY_INCLUDE,
     });
   }
@@ -141,5 +160,22 @@ export class PipelineService {
   private async assertExists(organizationId: string, id: string) {
     const entry = await this.prisma.pipelineEntry.findFirst({ where: { id, organizationId }, select: { id: true } });
     if (!entry) throw new NotFoundException('Entrée pipeline introuvable');
+  }
+
+  /**
+   * Vérifie qu'un PrequalificationCase existe dans la même organisation et
+   * n'est pas déjà lié à un AUTRE dossier pipeline avant d'écrire le lien —
+   * la contrainte @unique en base rejetterait la deuxième liaison de toute
+   * façon, mais avec une erreur Prisma brute plutôt qu'un message exploitable.
+   */
+  private async assertPrequalCaseLinkable(organizationId: string, prequalificationCaseId: string, excludingEntryId?: string) {
+    const prequalCase = await this.prisma.prequalificationCase.findFirst({
+      where: { id: prequalificationCaseId, organizationId },
+      select: { id: true, linkedPipelineEntry: { select: { id: true } } },
+    });
+    if (!prequalCase) throw new NotFoundException('Dossier de préqualification introuvable');
+    if (prequalCase.linkedPipelineEntry && prequalCase.linkedPipelineEntry.id !== excludingEntryId) {
+      throw new ConflictException('Ce dossier de préqualification est déjà lié à un autre dossier pipeline');
+    }
   }
 }

@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreatePipelineEntry } from '../hooks/use-pipeline';
-import { COMMITTEE_STATUS_LABELS, type CommitteeStatus } from '@/types';
+import { usePrequalificationCases } from '@/features/prequalification/hooks/use-prequalification';
+import { COMMITTEE_STATUS_LABELS, PREQUALIFICATION_STATUS_LABELS, type CommitteeStatus } from '@/types';
 import { ApiError } from '@/lib/api';
 import { parseLocaleNumber } from '@/lib/locale-number';
 
@@ -40,22 +41,37 @@ const schema = z.object({
   feesRate: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(100).optional()),
   committee: z.enum(['PAS_DE_COMITE', 'VALIDE', 'CONDITIONS_SUSPENSIVES', 'REFUSE']),
   decision: z.string().optional(),
+  prequalificationCaseId: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
+
+// Sentinel Radix Select value pour "aucun dossier lié" — un <SelectItem> ne
+// peut pas avoir value="" (réservé en interne par Radix pour "vide").
+const NO_PREQUAL_CASE = '__none__';
 
 export function CreatePipelineEntryDialog() {
   const [open, setOpen] = useState(false);
   const createEntry = useCreatePipelineEntry();
+  // Dossiers non archivés seulement — un dossier archivé n'a plus de sens à
+  // lier à un nouveau dossier pipeline. Ne filtre pas sur "déjà lié" côté
+  // client (le backend le refuse proprement) pour rester simple.
+  const { data: prequalCases } = usePrequalificationCases();
+  const linkableCases = (prequalCases ?? []).filter((c) => c.status !== 'ARCHIVED');
   const {
     register,
     handleSubmit,
     control,
     reset,
     formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { committee: 'PAS_DE_COMITE' } });
+  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { committee: 'PAS_DE_COMITE', prequalificationCaseId: NO_PREQUAL_CASE } });
 
   const onSubmit = (values: FormValues) => {
-    createEntry.mutate(values, { onSuccess: () => { setOpen(false); reset(); } });
+    // '' plutôt qu'undefined : le formulaire est la source de vérité à la
+    // soumission, "Aucun" doit se traduire par "aucun lien", jamais par "ne
+    // rien envoyer" qui laisserait un lien précédent en place à l'insu de
+    // l'utilisateur (voir edit-pipeline-entry-dialog, même logique).
+    const payload = { ...values, prequalificationCaseId: values.prequalificationCaseId === NO_PREQUAL_CASE ? '' : values.prequalificationCaseId };
+    createEntry.mutate(payload, { onSuccess: () => { setOpen(false); reset(); } });
   };
 
   return (
@@ -133,6 +149,31 @@ export function CreatePipelineEntryDialog() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="decision">Décision / commentaire</Label>
             <Input id="decision" {...register('decision')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Dossier de préqualification lié (optionnel)</Label>
+            <Controller
+              control={control}
+              name="prequalificationCaseId"
+              render={({ field }) => (
+                <Select value={field.value ?? NO_PREQUAL_CASE} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_PREQUAL_CASE}>Aucun</SelectItem>
+                    {linkableCases.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} — {PREQUALIFICATION_STATUS_LABELS[c.status]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Rapproche ce dossier pipeline du dossier Préqual dont il est issu — les deux statuts restent distincts et s'affichent chacun de leur côté.
+            </p>
           </div>
           {createEntry.isError && (
             <p className="text-xs text-destructive">
