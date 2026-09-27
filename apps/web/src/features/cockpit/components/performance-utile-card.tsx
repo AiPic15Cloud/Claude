@@ -18,6 +18,11 @@ export function PerformanceUtileCard({ data }: { data: PipelineConversionResult 
             {data.totalProjects} dossier{data.totalProjects > 1 ? 's' : ''} au total — nombres bruts affichés, taux de conversion pas encore significatifs.
           </p>
         )}
+        {data.projectsWithoutHistory > 0 && (
+          <p className="text-xs text-warning">
+            {data.projectsWithoutHistory} dossier{data.projectsWithoutHistory > 1 ? 's' : ''} Fractionné sans historique de statut — absent{data.projectsWithoutHistory > 1 ? 's' : ''} du funnel ci-dessous, à vérifier dans le module Fractionné.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

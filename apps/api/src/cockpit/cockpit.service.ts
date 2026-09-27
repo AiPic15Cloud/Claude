@@ -146,11 +146,14 @@ export class CockpitService {
     const decisions = await this.buildDecisions(organizationId, riskDeals);
     const openActionItems = await this.actionItems.findOpenForOrganization(organizationId);
     const actionQueue = this.buildActionQueue(decisions, openActionItems);
-    const fractionalStatusHistory = await this.prisma.fractionalStatusHistory.findMany({
-      where: { project: { organizationId } },
-      select: { projectId: true, toStatus: true, changedAt: true },
-    });
-    const fractionalPipelineConversion = computePipelineConversion(fractionalStatusHistory);
+    const [fractionalStatusHistory, fractionalProjectCount] = await Promise.all([
+      this.prisma.fractionalStatusHistory.findMany({
+        where: { project: { organizationId } },
+        select: { projectId: true, toStatus: true, changedAt: true },
+      }),
+      this.prisma.fractionalProject.count({ where: { organizationId } }),
+    ]);
+    const fractionalPipelineConversion = computePipelineConversion(fractionalStatusHistory, fractionalProjectCount);
     const pipeline = this.buildPipeline(pipelineDeals);
     const aumHistory = this.buildAumHistory(historyDeals);
     const deadlineAlerts = deadlineDeals
