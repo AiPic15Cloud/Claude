@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCrowdfundingPlatforms } from '../hooks/use-crowdfunding-watch';
-import { CROWDFUNDING_CONNECTOR_STATUS_LABELS, type CrowdfundingConnectorStatus } from '@/types';
+import { CROWDFUNDING_CONNECTOR_STATUS_LABELS, SOURCE_HEALTH_LABELS, type CrowdfundingConnectorStatus, type SourceHealth } from '@/types';
 import { cn } from '@/lib/utils';
 
 const CONNECTOR_STATUS_VARIANT: Record<CrowdfundingConnectorStatus, string> = {
@@ -12,6 +12,15 @@ const CONNECTOR_STATUS_VARIANT: Record<CrowdfundingConnectorStatus, string> = {
   PARTIAL: 'bg-warning/15 text-warning border-warning/30',
   BLOCKED: 'bg-destructive/15 text-destructive border-destructive/30',
   TO_BUILD: 'bg-muted text-muted-foreground border-border',
+};
+
+// Même palette que source-coverage-card.tsx (intelligence-marche) — même
+// doctrine de santé de source appliquée ici.
+const HEALTH_DOT: Record<SourceHealth, string> = {
+  OPERATIONAL: 'bg-success',
+  DEGRADED: 'bg-warning',
+  BROKEN: 'bg-destructive',
+  UNKNOWN: 'bg-muted-foreground/40',
 };
 
 function formatFrequency(seconds: number | null): string {
@@ -47,6 +56,7 @@ export function PlatformCoverageTable() {
               <TableRow>
                 <TableHead>Plateforme</TableHead>
                 <TableHead>Connecteur</TableHead>
+                <TableHead>Santé live</TableHead>
                 <TableHead>Méthode</TableHead>
                 <TableHead>Fréquence cible</TableHead>
                 <TableHead>Fréquence effective</TableHead>
@@ -62,6 +72,17 @@ export function PlatformCoverageTable() {
                     <Badge variant="outline" className={cn('whitespace-nowrap', CONNECTOR_STATUS_VARIANT[platform.connectorStatus])}>
                       {CROWDFUNDING_CONNECTOR_STATUS_LABELS[platform.connectorStatus]}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const health = platform.registryEntry?.health ?? 'UNKNOWN';
+                      return (
+                        <span title={SOURCE_HEALTH_LABELS[health]} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className={cn('h-2 w-2 shrink-0 rounded-full', HEALTH_DOT[health])} />
+                          {SOURCE_HEALTH_LABELS[health]}
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{platform.accessMethod}</TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{formatFrequency(platform.targetCheckFrequencySeconds)}</TableCell>
@@ -79,7 +100,10 @@ export function PlatformCoverageTable() {
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
           Un connecteur "Partiel" a du code de collecte écrit mais jamais confirmé contre une page réelle — jamais présenté comme
-          opérationnel avant vérification effective en production (spec §1).
+          opérationnel avant vérification effective en production (spec §1). "Connecteur" est déclaré par un humain à la
+          configuration ; "Santé live" est mesurée automatiquement à chaque cycle et peut donc s'en écarter (ex. connecteur
+          déclaré opérationnel mais site source ayant changé de structure depuis) — audit : un badge statique ne doit jamais
+          rester vert indéfiniment pendant qu'un connecteur réel est cassé.
         </p>
       </CardContent>
     </Card>
