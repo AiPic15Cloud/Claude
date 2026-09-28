@@ -23,6 +23,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { formatCurrency } from '@/lib/format';
 
+/**
+ * ~15 blocs d'analyse à la suite sans aucun repère n'avait plus rien d'un
+ * "coup d'œil" — juste un mur de cartes (retour utilisateur direct). Un
+ * séparateur de section reste sous le radar (pas un nouveau Card, pas de
+ * fond) : juste de quoi dire "vous changez de sujet" en scrollant.
+ */
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <p className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</p>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
 export function DesktopCockpitPage() {
   const user = useAuthStore((s) => s.user);
   const { data, isLoading } = useCockpitSummary();
@@ -58,9 +73,11 @@ export function DesktopCockpitPage() {
         description={`Voici l'état de votre activité au ${new Date(data.generatedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`}
       />
 
-      <DecisionCenterCard decisions={data.decisions} />
+      <DecisionCenterCard cards={data.actionQueue.aDecider} />
 
       <ActionFollowUpCard aFaire={data.actionQueue.aFaire} enAttente={data.actionQueue.enAttente} />
+
+      <SectionLabel>Synthèse</SectionLabel>
 
       <PerformanceUtileCard data={data.fractionalPipelineConversion} />
 
@@ -69,6 +86,8 @@ export function DesktopCockpitPage() {
       <AutoSummaryCard summary={data.autoSummary} generatedAt={data.generatedAt} />
 
       <MarketDigestCard />
+
+      <SectionLabel>Vue d'ensemble</SectionLabel>
 
       <HeroMetric
         label="Encours sous gestion"
@@ -96,6 +115,8 @@ export function DesktopCockpitPage() {
         <TaskListCard title="Aujourd'hui" tasks={data.today} emptyLabel="Aucune tâche pour aujourd'hui" quickAdd />
       </div>
 
+      <SectionLabel>Performance</SectionLabel>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <FeesChartCard />
         <RepaymentsChartCard />
@@ -106,10 +127,14 @@ export function DesktopCockpitPage() {
         <DealTypeDonutCard />
       </div>
 
+      <SectionLabel>Risque</SectionLabel>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RiskExposureCard exposureByRiskTier={data.kpis.exposureByRiskTier} stressTest={data.kpis.stressTest} />
         <ConcentrationCard operators={data.kpis.topOperatorConcentration} cities={data.kpis.exposureByCity} />
       </div>
+
+      <SectionLabel>Échéances &amp; activité</SectionLabel>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <DeadlineAlertsCard alerts={data.deadlineAlerts} />

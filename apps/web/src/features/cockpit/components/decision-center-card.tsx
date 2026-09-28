@@ -5,83 +5,81 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { formatCurrency } from '@/lib/format';
-import type { DecisionRow } from '@/types';
+import type { ActionQueueCard } from '@/types';
 
-const TIER_LABEL: Record<DecisionRow['tier'], string> = { HIGH: 'Critique', WATCH: 'Vigilance' };
-const TIER_VARIANT: Record<DecisionRow['tier'], 'destructive' | 'warning'> = { HIGH: 'destructive', WATCH: 'warning' };
 const COLLAPSED_ROW_LIMIT = 5;
 
-function formatDeadline(daysToMax: number | null): string {
-  if (daysToMax === null) return '—';
-  if (daysToMax <= 0) return `J+${Math.abs(daysToMax)}`;
-  return `J-${daysToMax}`;
+function formatDueAt(dueAt: string | null): string {
+  if (!dueAt) return '—';
+  return new Date(dueAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
 interface DecisionCenterCardProps {
-  decisions: DecisionRow[];
+  cards: ActionQueueCard[];
 }
 
 /**
  * Premier écran du "Real Estate Intelligence OS" : plutôt que de dire "voici
- * votre portefeuille", dit "voici ce dont vous devez vous occuper aujourd'hui".
- * Purement une agrégation du Risk Engine (zones WATCH/HIGH triées par score) —
- * aucune nouvelle règle métier, le facteur dominant du score sert de "Signal".
+ * votre portefeuille", dit "voici ce dont vous devez vous occuper
+ * aujourd'hui". Consomme `actionQueue.aDecider` — la même file unifiée que
+ * le Cockpit mobile (Deal en risque, blocage Préqual, ActionItem) : avant
+ * cette passe, ce bloc ne montrait que les décisions Deal (`data.decisions`,
+ * legacy) et un covenant rompu ou un blocage Préqual n'apparaissait jamais
+ * ici, seulement sur mobile — jamais deux vérités différentes de "ce qui
+ * bloque" entre les deux écrans.
  */
-export function DecisionCenterCard({ decisions }: DecisionCenterCardProps) {
+export function DecisionCenterCard({ cards }: DecisionCenterCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const hasOverflow = decisions.length > COLLAPSED_ROW_LIMIT;
-  const visibleDecisions = expanded ? decisions : decisions.slice(0, COLLAPSED_ROW_LIMIT);
+  const hasOverflow = cards.length > COLLAPSED_ROW_LIMIT;
+  const visibleCards = expanded ? cards : cards.slice(0, COLLAPSED_ROW_LIMIT);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3">
         <div>
           <CardTitle className="text-base">Centre de décision</CardTitle>
-          <p className="text-xs text-muted-foreground">Dossiers nécessitant une action, classés par risque.</p>
+          <p className="text-xs text-muted-foreground">Dossiers et blocages nécessitant une décision, tous producteurs confondus.</p>
         </div>
-        <span className="text-xs text-muted-foreground">{decisions.length}</span>
+        <span className="text-xs text-muted-foreground">{cards.length}</span>
       </CardHeader>
       <CardContent className="p-0">
-        {decisions.length === 0 && (
+        {cards.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">Aucun dossier ne nécessite d'attention immédiate.</p>
         )}
-        {decisions.length > 0 && (
+        {cards.length > 0 && (
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Priorité</TableHead>
                 <TableHead>Opération</TableHead>
-                <TableHead>Signal</TableHead>
-                <TableHead className="text-right">Exposition</TableHead>
+                <TableHead>Motif</TableHead>
+                <TableHead>Propriétaire</TableHead>
                 <TableHead className="text-right">Échéance</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visibleDecisions.map((d) => (
-                <TableRow key={d.dealId}>
+              {visibleCards.map((card) => (
+                <TableRow key={card.id}>
                   <TableCell className="whitespace-nowrap py-1.5">
-                    <Badge variant={TIER_VARIANT[d.tier]}>
-                      {TIER_LABEL[d.tier]} · {d.score}/100
-                    </Badge>
+                    <Badge variant={card.blocking ? 'destructive' : 'warning'}>{card.blocking ? 'Bloquant' : 'À arbitrer'}</Badge>
                   </TableCell>
                   <TableCell className="whitespace-nowrap py-1.5">
-                    <Link to={`/deals/${d.dealId}`} className="font-medium hover:text-primary hover:underline">
-                      {d.dealName}
+                    <Link to={card.deepLink} className="font-medium hover:text-primary hover:underline">
+                      {card.operation}
                     </Link>
-                    <span className="ml-1.5 text-xs text-muted-foreground">{d.dealReference}</span>
+                    {card.reference && <span className="ml-1.5 text-xs text-muted-foreground">{card.reference}</span>}
                   </TableCell>
-                  <TableCell className="max-w-xs truncate py-1.5 text-sm font-medium" title={d.signalExplanation || undefined}>
-                    {d.signalLabel}
+                  <TableCell className="max-w-xs truncate py-1.5 text-sm font-medium" title={card.motif}>
+                    {card.motif}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap py-1.5 text-right font-mono tabular-nums">{formatCurrency(d.exposition)}</TableCell>
+                  <TableCell className="whitespace-nowrap py-1.5 text-sm text-muted-foreground">{card.ownerLabel ?? 'Non assigné'}</TableCell>
                   <TableCell className="whitespace-nowrap py-1.5 text-right font-mono tabular-nums text-muted-foreground">
-                    {formatDeadline(d.daysToMax)}
+                    {formatDueAt(card.dueAt)}
                   </TableCell>
                   <TableCell className="py-1.5 text-right">
                     <Button asChild size="sm" variant="outline">
-                      <Link to={`/deals/${d.dealId}`}>Ouvrir</Link>
+                      <Link to={card.deepLink}>{card.ctaLabel}</Link>
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -103,7 +101,7 @@ export function DecisionCenterCard({ decisions }: DecisionCenterCardProps) {
             ) : (
               <>
                 <ChevronDown className="h-3.5 w-3.5" />
-                Afficher les {decisions.length - COLLAPSED_ROW_LIMIT} autres
+                Afficher les {cards.length - COLLAPSED_ROW_LIMIT} autres
               </>
             )}
           </button>

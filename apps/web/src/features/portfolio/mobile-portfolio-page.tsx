@@ -8,6 +8,7 @@ import { useCockpitSummary } from '@/features/cockpit/hooks/use-cockpit-summary'
 import { useRecentDealsStore } from '@/store/recent-deals.store';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
+import { cn } from '@/lib/utils';
 
 /**
  * Portefeuille mobile — écran distinct du desktop plutôt qu'une variante à
@@ -26,8 +27,14 @@ export function MobilePortfolioPage() {
   const { data, isLoading } = useDeals(filters);
   const deals = data?.items ?? [];
 
+  // Même file unifiée que le Cockpit (À décider — Deal en risque, blocage
+  // Préqual, ActionItem), déjà triée blocage-puis-échéance : son premier
+  // élément est "ce qui réclame vraiment une action" au sens large, pas
+  // seulement un Deal en tier HIGH comme avant (régression identique à
+  // celle corrigée sur le Cockpit desktop — voir decision-center-card.tsx).
   const { data: cockpit } = useCockpitSummary();
-  const urgent = cockpit?.decisions.find((d) => d.tier === 'HIGH') ?? null;
+  const urgent = cockpit?.actionQueue.aDecider[0] ?? null;
+  const urgentDealId = urgent ? (/^\/deals\/([^/?]+)/.exec(urgent.deepLink)?.[1] ?? null) : null;
 
   const recentDeals = useRecentDealsStore((s) => s.deals);
   const addRecentDeal = useRecentDealsStore((s) => s.addRecentDeal);
@@ -35,6 +42,12 @@ export function MobilePortfolioPage() {
   const openDeal = (id: string, name: string) => {
     addRecentDeal({ id, name });
     navigate(`/deals/${id}`);
+  };
+
+  const openUrgent = () => {
+    if (!urgent) return;
+    if (urgentDealId) addRecentDeal({ id: urgentDealId, name: urgent.operation });
+    navigate(urgent.deepLink);
   };
 
   return (
@@ -70,17 +83,14 @@ export function MobilePortfolioPage() {
       {/* La seule note colorée de l'écran : ce qui réclame vraiment une action.
           Absente s'il n'y a rien de critique — jamais un bandeau vide ou générique. */}
       {urgent && (
-        <button
-          onClick={() => openDeal(urgent.dealId, urgent.dealName)}
-          className="flex items-start gap-2.5 pt-8 text-left"
-        >
-          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
+        <button onClick={openUrgent} className="flex items-start gap-2.5 pt-8 text-left">
+          <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', urgent.blocking ? 'bg-destructive' : 'bg-warning')} />
           <span className="flex-1">
-            <span className="block text-[11px] font-semibold uppercase tracking-wide text-destructive">
+            <span className={cn('block text-[11px] font-semibold uppercase tracking-wide', urgent.blocking ? 'text-destructive' : 'text-warning')}>
               Nécessite une action
             </span>
             <span className="mt-0.5 block text-[15px] font-medium">
-              {urgent.dealName} — {urgent.signalLabel}
+              {urgent.operation} — {urgent.motif}
             </span>
           </span>
           <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -101,7 +111,7 @@ export function MobilePortfolioPage() {
         <ListView
           deals={deals}
           onSelectDeal={(id) => openDeal(id, deals.find((d) => d.id === id)?.name ?? '')}
-          mutedStatusDealIds={urgent ? [urgent.dealId] : undefined}
+          mutedStatusDealIds={urgentDealId ? [urgentDealId] : undefined}
         />
       )}
     </div>
