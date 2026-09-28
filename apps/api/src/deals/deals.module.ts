@@ -22,6 +22,7 @@ import { EntityGraphModule } from '../entity-graph/entity-graph.module';
 import { PlaybooksModule } from '../playbooks/playbooks.module';
 import { GuaranteesModule } from '../guarantees/guarantees.module';
 import { PdfExportModule } from '../pdf-export/pdf-export.module';
+import { ActionItemsModule } from '../action-items/action-items.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PdfExportModule } from '../pdf-export/pdf-export.module';
     PlaybooksModule,
     GuaranteesModule,
     PdfExportModule,
+    ActionItemsModule,
   ],
   providers: [
     DealsService,

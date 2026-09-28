@@ -329,6 +329,7 @@ model User {
   assignedDeals                   Deal[]                           @relation("DealAssignedTo")
   notes                           Note[]
   documents                       Document[]
+  dealDocumentRequestsRequested   DealDocumentRequest[]            @relation("DealDocumentRequestRequestedBy")
   repayments                      Repayment[]
   interestPayments                InterestPayment[]
   loanExtensions                  LoanExtension[]
@@ -617,6 +618,7 @@ model Deal {
   contagionSignals             ContagionSignal[]
   milestones                   PortfolioMilestone[]
   actionItems                  ActionItem[]
+  documentRequests             DealDocumentRequest[]
   /// Back-relation de PrequalificationCase.promotedDeal — un Deal promu
   /// depuis une préqualification pointe vers elle, jamais l'inverse dans
   /// l'autre sens (une préqualification WAIT/NO_GO n'a jamais de Deal).
@@ -903,11 +905,41 @@ model Document {
   uploadedBy   User   @relation(fields: [uploadedById], references: [id])
 
   fieldChanges FieldChange[]
+  linkedToRequests DealDocumentRequest[]
 
   createdAt DateTime @default(now())
 
   @@index([dealId])
   @@map("documents")
+}
+
+/// Lot C (Actions et parcours) — "demandes documentaires" côté Portefeuille,
+/// équivalent de PrequalDocumentRequest mais pour un dossier déjà promu en
+/// Deal. `block` reste libre et optionnel : contrairement à la Préqual, la
+/// spec ne définit pas de taxonomie fermée de sections de data room pour un
+/// dossier en vie (suivi, travaux, contentieux...) — pas de vocabulaire
+/// inventé faute de source.
+model DealDocumentRequest {
+  id     String @id @default(cuid())
+  dealId String
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  label String
+  block String?
+  /// requested/received/expired/contradictory/not_usable — même vocabulaire que PrequalDocumentRequest.
+  status String @default("requested")
+
+  linkedDocumentId String?
+  linkedDocument   Document? @relation(fields: [linkedDocumentId], references: [id], onDelete: SetNull)
+
+  requestedById String
+  requestedBy   User   @relation("DealDocumentRequestRequestedBy", fields: [requestedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealId])
+  @@map("deal_document_requests")
 }
 
 // Journal d'audit générique par champ — distinct d'Activity (fil narratif

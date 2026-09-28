@@ -24,6 +24,7 @@ import { ProjectMilestonesModule } from './project-milestones/project-milestones
 import { WorkloadModule } from './workload/workload.module';
 import { FinancialModelModule } from './financial-model/financial-model.module';
 import { ProjectCheckpointsModule } from './project-checkpoints/project-checkpoints.module';
+import { DealDocumentRequestsModule } from './deal-document-requests/deal-document-requests.module';
 import { RiskEngineModule } from './risk-engine/risk-engine.module';
 import { RiskDataModule } from './risk-data/risk-data.module';
 import { FieldChangeModule } from './field-changes/field-change.module';
@@ -74,6 +75,7 @@ import { HealthController } from './health/health.controller';
     WorkloadModule,
     FinancialModelModule,
     ProjectCheckpointsModule,
+    DealDocumentRequestsModule,
     RiskEngineModule,
     RiskDataModule,
     FieldChangeModule,
