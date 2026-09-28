@@ -167,8 +167,9 @@ export class CockpitService {
     ]);
 
     const decisions = await this.buildDecisions(organizationId, riskDeals);
+    const prequalDecisions = await this.buildPrequalDecisions(organizationId, restricted);
     const openActionItems = await this.actionItems.findOpenForOrganization(organizationId, restricted);
-    const actionQueue = this.buildActionQueue(decisions, openActionItems);
+    const actionQueue = this.buildActionQueue(decisions, prequalDecisions, openActionItems);
     const [fractionalStatusHistory, fractionalProjectCount] = await Promise.all([
       this.prisma.fractionalStatusHistory.findMany({
         where: { project: { organizationId } },
@@ -238,6 +239,7 @@ export class CockpitService {
    */
   private buildActionQueue(
     decisions: Awaited<ReturnType<CockpitService['buildDecisions']>>,
+    prequalDecisions: Awaited<ReturnType<CockpitService['buildPrequalDecisions']>>,
     openActionItems: Awaited<ReturnType<ActionItemsService['findOpenForOrganization']>>,
   ): { aDecider: ActionQueueCard[]; aFaire: ActionQueueCard[]; enAttente: ActionQueueCard[] } {
     const fromDecisions: ActionQueueCard[] = decisions.map((d) => ({
@@ -270,7 +272,20 @@ export class CockpitService {
       };
     });
 
-    const all = [...fromActionItems, ...fromDecisions];
+    const fromPrequalDecisions: ActionQueueCard[] = prequalDecisions.map((p) => ({
+      id: `prequal-blocking-${p.caseId}`,
+      operation: p.caseName,
+      reference: null,
+      motif: p.statement,
+      ownerLabel: null,
+      dueAt: null,
+      blocking: true,
+      status: 'A_DECIDER',
+      ctaLabel: 'Lever le blocage',
+      deepLink: `/prequalification/${p.caseId}`,
+    }));
+
+    const all = [...fromActionItems, ...fromDecisions, ...fromPrequalDecisions];
     const byPriority = (a: ActionQueueCard, b: ActionQueueCard) => {
       if (a.blocking !== b.blocking) return a.blocking ? -1 : 1;
       if (a.dueAt === null && b.dueAt === null) return 0;
@@ -378,6 +393,48 @@ export class CockpitService {
         deadlineActionLabel: deadline.actionLabel,
       };
     });
+  }
+
+  /**
+   * Lot C (Actions et parcours) : un dossier Préqual avec un `Finding` non
+   * résolu de sévérité BLOCKING est lui aussi un blocage majeur qui doit
+   * remonter dans "À décider" (spec §10, recette "chaque blocage majeur
+   * crée une action pertinente") — jusqu'ici ces findings n'étaient
+   * vérifiés qu'au moment de la tentative de promotion (promotion.service.ts),
+   * jamais remontés en amont. Calculé à la volée comme `buildDecisions`
+   * ci-dessus plutôt que persisté en ActionItem : `Finding.reviewStatus`
+   * reflète déjà l'état courant à chaque lecture, la double-écriture
+   * n'apporterait rien. PrequalificationCase est un dossier dette en
+   * puissance (promotion vers Deal) : sauté pour un compte restreint, même
+   * doctrine que `riskDeals` plus haut.
+   */
+  private async buildPrequalDecisions(organizationId: string, restricted: boolean) {
+    if (restricted) return [];
+
+    const cases = await this.prisma.prequalificationCase.findMany({
+      where: {
+        organizationId,
+        status: { in: ['DRAFT', 'NEEDS_REVIEW'] },
+        findings: { some: { severity: 'BLOCKING', reviewStatus: { in: ['PENDING', 'ACCEPTED'] } } },
+      },
+      select: {
+        id: true,
+        name: true,
+        findings: {
+          where: { severity: 'BLOCKING', reviewStatus: { in: ['PENDING', 'ACCEPTED'] } },
+          select: { statement: true },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+        },
+      },
+      take: 10,
+    });
+
+    return cases.map((c) => ({
+      caseId: c.id,
+      caseName: c.name,
+      statement: c.findings[0]?.statement ?? 'Blocage à lever avant validation.',
+    }));
   }
 
   /**

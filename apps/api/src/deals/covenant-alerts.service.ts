@@ -3,10 +3,12 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { TasksService } from '../tasks/tasks.service';
+import { ActionItemsService } from '../action-items/action-items.service';
 import { computeCrdDetailed } from './crd.util';
 import { computeCovenants } from './covenant.util';
 
 const TASK_TITLE_PREFIX = 'Rupture de covenant';
+const COVENANT_ACTION_CAUSE = 'COVENANT_BREACH';
 
 /**
  * Détection de rupture de covenant (spec ATLAS v2, module MARKO F.3) —
@@ -23,6 +25,7 @@ export class CovenantAlertsService {
     private readonly prisma: PrismaService,
     private readonly alerts: AlertsService,
     private readonly tasks: TasksService,
+    private readonly actionItems: ActionItemsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_8AM)
@@ -101,6 +104,30 @@ export class CovenantAlertsService {
         if (covenants.ltvBreached) dealBreaches.push(`LTV ${covenants.ltvPct}% > seuil ${covenants.ltvThresholdPct}%`);
         if (covenants.icrBreached) dealBreaches.push(`ICR ${covenants.icr}x < seuil ${covenants.icrThreshold}x`);
         if (covenants.dscrBreached) dealBreaches.push(`DSCR ${covenants.dscr}x < seuil ${covenants.dscrThreshold}x`);
+
+        // File d'actions unifiée (Lot C — spec §4.2 "un changement de donnée
+        // résout ou réévalue automatiquement l'action") : contrairement à
+        // l'Alert/Task ci-dessous (créées mais jamais auto-résolues), l'
+        // ActionItem suit le même patron idempotent que
+        // FractionalActionItemsSweepService — d'où l'appel à chaque passage,
+        // qu'il y ait rupture ou non, plutôt que seulement dans la branche
+        // qui `continue` en dessous.
+        const scope = { organizationId: deal.organizationId, dealId: deal.id };
+        if (dealBreaches.length > 0) {
+          await this.actionItems.ensureOpen({
+            organizationId: deal.organizationId,
+            dealId: deal.id,
+            cause: COVENANT_ACTION_CAUSE,
+            actionType: 'EXAMINER_COVENANT',
+            label: `${deal.reference} — rupture de covenant : ${dealBreaches.join(' · ')}`,
+            ownerId: deal.assignedToId ?? deal.createdById,
+            blocking: true,
+            deepLink: `/deals/${deal.id}`,
+          });
+        } else {
+          await this.actionItems.resolveByCause(scope, COVENANT_ACTION_CAUSE, 'Covenants de nouveau respectés.');
+        }
+
         if (dealBreaches.length === 0) continue;
 
         breachingDeals.push({ deal, title: `${TASK_TITLE_PREFIX} — ${deal.reference}`, message: dealBreaches.join(' · ') });

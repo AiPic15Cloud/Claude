@@ -18,6 +18,8 @@ export const ACTION_ITEM_TYPES = [
   'TRAITER_IMPAYE',
   'RENOUVELLEMENT',
   'TRAVAUX',
+  'EXAMINER_COVENANT',
+  'LEVER_BLOCAGE',
   'AUTRE',
 ] as const;
 
@@ -34,6 +36,8 @@ export const ACTION_TYPE_CTA_LABELS: Record<string, string> = {
   TRAITER_IMPAYE: 'Traiter l\'impayé',
   RENOUVELLEMENT: 'Traiter le renouvellement',
   TRAVAUX: 'Suivre les travaux',
+  EXAMINER_COVENANT: 'Examiner le covenant',
+  LEVER_BLOCAGE: 'Lever le blocage',
   AUTRE: 'Traiter',
 };
 
