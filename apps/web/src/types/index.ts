@@ -3588,6 +3588,18 @@ export interface PrequalDocumentRequest {
   linkedDocumentId?: string | null;
 }
 
+/** Lot C — équivalent PrequalDocumentRequest pour un dossier déjà en Portefeuille ; `block` libre et facultatif, pas de taxonomie fermée côté Dette. */
+export interface DealDocumentRequest {
+  id: string;
+  dealId: string;
+  label: string;
+  block: string | null;
+  status: PrequalDocumentRequestStatus;
+  linkedDocumentId?: string | null;
+  linkedDocument?: { id: string; name: string } | null;
+  createdAt: string;
+}
+
 /** Data room dynamique (spec §14) — les 8 blocs conditionnels, jamais suggérés tous ensemble (voir prequal-data-room.util.ts). */
 export type DataRoomBlock =
   | 'identite'

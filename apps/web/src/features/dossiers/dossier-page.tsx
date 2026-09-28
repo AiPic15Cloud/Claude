@@ -44,6 +44,7 @@ import { NotesPanel } from './components/notes-panel';
 import { FinancialModelPanel, type FinancialModelFormValues } from './components/financial-model-panel';
 import { CheckpointsPanel } from './components/checkpoints-panel';
 import { DocumentsPanel } from './components/documents-panel';
+import { DocumentRequestsPanel } from './components/document-requests-panel';
 import { EntitiesPanel } from './components/entities-panel';
 import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -411,8 +412,9 @@ export function DossierPage() {
         <TabsContent value="milestones">
           <MilestonesPanel dealId={deal.id} />
         </TabsContent>
-        <TabsContent value="documents">
+        <TabsContent value="documents" className="flex flex-col gap-4">
           <DocumentsPanel dealId={deal.id} onApplyToFinancialModel={handleApplyExtraction} />
+          <DocumentRequestsPanel dealId={deal.id} />
         </TabsContent>
         <TabsContent value="guarantees" className="flex flex-col gap-4">
           <GuaranteesPanel dealId={deal.id} />
