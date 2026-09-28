@@ -9,8 +9,6 @@ import { computePipelineConversion } from '../fractional/pipeline-conversion.uti
 import { computeDeadlineAlert } from '../deals/deadline.util';
 import { computeCrd } from '../deals/crd.util';
 
-const MAX_A_DECIDER_CARDS = 5;
-
 export interface ActionQueueCard {
   id: string;
   operation: string;
@@ -223,7 +221,6 @@ export class CockpitService {
       deadlineAlerts,
       guaranteesToRenew,
       autoSummary,
-      decisions,
       actionQueue,
       fractionalPipelineConversion,
       overdueTasks: { total: overdueTasksTotal, urgent: overdueTasksUrgent },
@@ -231,11 +228,14 @@ export class CockpitService {
   }
 
   /**
-   * Fusionne le Decision Center existant (Deal, calculé à la volée) et la
-   * nouvelle file ActionItem persistée (Fractionné et futurs producteurs)
-   * en une seule vue "à décider"/"à faire"/"en attente" (spec Cockpit/
-   * Fractionné P1 §4.1/§4.2) — additif, ne remplace pas `decisions` dont
-   * DecisionCenterCard dépend encore.
+   * Fusionne le Decision Center (Deal, calculé à la volée), les blocages
+   * Préqual et la file ActionItem persistée (Fractionné et futurs
+   * producteurs) en une seule vue "à décider"/"à faire"/"en attente" (spec
+   * Cockpit/Fractionné P1 §4.1/§4.2) — c'est la SEULE source de vérité pour
+   * "à décider", consommée telle quelle par le Cockpit desktop
+   * (DecisionCenterCard) et mobile : jamais de vue partielle qui ne
+   * montrerait que les décisions Deal en ignorant les blocages Préqual/
+   * ActionItem, ni l'inverse.
    */
   private buildActionQueue(
     decisions: Awaited<ReturnType<CockpitService['buildDecisions']>>,
@@ -246,7 +246,12 @@ export class CockpitService {
       id: `deal-risk-${d.dealId}`,
       operation: d.dealName,
       reference: d.dealReference,
-      motif: d.signalExplanation || d.signalLabel,
+      // Le facteur déclencheur d'abord (ex. "Retard de paiement"), la
+      // contribution au score ensuite en complément — jamais l'inverse : le
+      // libellé générique "Contribution estimée : +N pts." seul, sans nommer
+      // le facteur, ne dit rien à l'utilisateur (régression constatée lors
+      // de l'unification avec le Cockpit mobile).
+      motif: d.signalExplanation ? `${d.signalLabel} — ${d.signalExplanation}` : d.signalLabel,
       ownerLabel: null,
       dueAt: d.daysToMax !== null ? new Date(Date.now() + d.daysToMax * 86_400_000).toISOString() : null,
       blocking: d.tier === 'HIGH',
@@ -294,7 +299,12 @@ export class CockpitService {
       return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
     };
 
-    const aDecider = all.filter((c) => c.status === 'A_DECIDER').sort(byPriority).slice(0, MAX_A_DECIDER_CARDS);
+    // Jamais de plafond arbitraire ici : un plafond côté serveur ferait
+    // disparaître silencieusement un blocage réel pour TOUS les
+    // consommateurs. Le Cockpit mobile, glanceable par doctrine, tronque
+    // lui-même côté client ; le desktop affiche la liste complète avec son
+    // propre "Afficher les X autres".
+    const aDecider = all.filter((c) => c.status === 'A_DECIDER').sort(byPriority);
     // "À faire" / "en attente externe" (spec §4.1.3) ne viennent que de la
     // file générique — le Decision Center legacy n'a pas cette distinction.
     const aFaire = fromActionItems.filter((c) => c.status === 'A_FAIRE').sort(byPriority);

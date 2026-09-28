@@ -9,6 +9,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
+const MOBILE_A_DECIDER_LIMIT = 5;
+
 /**
  * Cockpit mobile — même doctrine que le Portefeuille mobile (voir son
  * commentaire d'en-tête) : un écran de "qu'est-ce qui a besoin de moi
@@ -66,12 +68,17 @@ export function MobileCockpitPage() {
       </div>
 
       <div className="pt-10">
-        <p className="pb-1 text-xs text-muted-foreground">À décider</p>
+        <div className="flex items-baseline justify-between pb-1">
+          <p className="text-xs text-muted-foreground">À décider</p>
+          {data.actionQueue.aDecider.length > 0 && <p className="text-xs text-muted-foreground">{data.actionQueue.aDecider.length}</p>}
+        </div>
         {data.actionQueue.aDecider.length === 0 ? (
           <p className="py-3 text-sm text-muted-foreground">Aucun dossier ne nécessite d'attention immédiate.</p>
         ) : (
           <div className="flex flex-col">
-            {data.actionQueue.aDecider.map((card) => (
+            {/* Vue glanceable, jamais la liste complète (doctrine mobile — voir
+                l'en-tête du fichier) : le desktop reste l'endroit pour tout voir. */}
+            {data.actionQueue.aDecider.slice(0, MOBILE_A_DECIDER_LIMIT).map((card) => (
               <button
                 key={card.id}
                 onClick={() => openCard(card.deepLink, card.operation)}
@@ -88,6 +95,11 @@ export function MobileCockpitPage() {
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
             ))}
+            {data.actionQueue.aDecider.length > MOBILE_A_DECIDER_LIMIT && (
+              <p className="pt-3 text-xs text-muted-foreground">
+                +{data.actionQueue.aDecider.length - MOBILE_A_DECIDER_LIMIT} autre{data.actionQueue.aDecider.length - MOBILE_A_DECIDER_LIMIT > 1 ? 's' : ''} — voir depuis un ordinateur pour la liste complète.
+              </p>
+            )}
           </div>
         )}
       </div>
