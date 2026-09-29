@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Search, LogOut, User as UserIcon, Bot } from 'lucide-react';
+import { Search, LogOut, User as UserIcon, Bot, Users } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -72,6 +72,13 @@ export function Topbar() {
                   <UserIcon /> Profil
                 </Link>
               </DropdownMenuItem>
+              {user?.role === 'ADMIN' && (
+                <DropdownMenuItem asChild>
+                  <Link to="/team">
+                    <Users /> Équipe
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
                 <LogOut /> Se déconnecter

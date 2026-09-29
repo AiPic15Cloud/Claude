@@ -1,5 +1,30 @@
 export type Role = 'ADMIN' | 'ANALYST' | 'VIEWER';
 
+/** Spec ATLAS v2 §2/D02 (espaces étanches) — FULL voit tout, FRACTIONAL_ONLY n'a aucun accès à la Dette (Portefeuille, Pipeline, Préqual, garanties, remboursements...), y compris via les agrégats. */
+export type WorkspaceScope = 'FULL' | 'FRACTIONAL_ONLY';
+
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: 'Administrateur',
+  ANALYST: 'Analyste',
+  VIEWER: 'Lecture seule',
+};
+
+export const WORKSPACE_SCOPE_LABELS: Record<WorkspaceScope, string> = {
+  FULL: 'Tout (Dette + Fractionné)',
+  FRACTIONAL_ONLY: 'Fractionné uniquement',
+};
+
+/** Équipe (gestion ADMIN) — profil complet d'un collègue, y compris son périmètre d'accès. */
+export interface TeamMember {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
+  workspaceScope: WorkspaceScope;
+  avatarUrl?: string | null;
+}
+
 export type DealType =
   | 'PROMOTION_IMMOBILIERE'
   | 'DIVISION_PARCELLAIRE'
