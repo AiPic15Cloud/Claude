@@ -19,6 +19,7 @@ import { MarchePage } from '@/features/intelligence-marche/marche-page';
 import { CrowdfundingWatchPage } from '@/features/crowdfunding-watch/crowdfunding-watch-page';
 import { AgentsPage } from '@/features/agents/agents-page';
 import { ProfilePage } from '@/features/auth/profile-page';
+import { TeamPage } from '@/features/team/team-page';
 import { FractionalPortfolioPage } from '@/features/fractional/fractional-portfolio-page';
 import { FractionalProjectPage } from '@/features/fractional/fractional-project-page';
 import { PrequalificationListPage } from '@/features/prequalification/prequalification-list-page';
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/crowdfunding-watch" element={<CrowdfundingWatchPage />} />
           <Route path="/ai" element={<AgentsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/team" element={<TeamPage />} />
         </Route>
       </Route>
 
