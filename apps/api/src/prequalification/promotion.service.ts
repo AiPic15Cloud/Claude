@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { DealsService } from '../deals/deals.service';
 import type { CreateDealDto } from '../deals/dto/create-deal.dto';
+import { StorageService } from '../common/storage/storage.service';
 import { ValidateCaseDto } from './dto/validate-case.dto';
 import { mapLotStatus, mapProjectTypeToDealType } from './promotion.util';
 
@@ -24,6 +25,7 @@ const PROMOTION_CASE_INCLUDE = {
   findings: true,
   questions: true,
   evidence: true,
+  documents: true,
 } satisfies Prisma.PrequalificationCaseInclude;
 
 /**
@@ -46,10 +48,13 @@ const PROMOTION_CASE_INCLUDE = {
  */
 @Injectable()
 export class PromotionService {
+  private readonly logger = new Logger(PromotionService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly deals: DealsService,
     private readonly activities: ActivitiesService,
+    private readonly storage: StorageService,
   ) {}
 
   async validateAndPromote(organizationId: string, caseId: string, userId: string, dto: ValidateCaseDto): Promise<PromotionResult> {
@@ -152,6 +157,17 @@ export class PromotionService {
       throw new ConflictException('Version périmée — le dossier a été modifié depuis votre dernière lecture. Rechargez avant de revalider.');
     }
 
+    // Rattache automatiquement le porteur (société OPERATEUR) via le même
+    // mécanisme que la fiche Deal manuelle (DealsService.create →
+    // GraphService.autoLinkPromoteurBySiren) — aucune ressaisie du porteur
+    // nécessaire si son SIREN a été capté en préqual. Un SIREN mal formé (la
+    // saisie préqual est un champ libre, contrairement au formulaire Deal où
+    // il est validé à 9 chiffres) n'est jamais transmis tel quel : silence
+    // plutôt qu'une donnée fausse qui casserait la surveillance automatique.
+    const operatorCompany = prequalCase.companies.find((c) => c.role === 'OPERATEUR');
+    const normalizedSiren = operatorCompany?.siren?.replace(/\D/g, '');
+    const porteurSiren = normalizedSiren && /^\d{9}$/.test(normalizedSiren) ? normalizedSiren : undefined;
+
     const dealDto: CreateDealDto = {
       name: prequalCase.name,
       type: mapProjectTypeToDealType(prequalCase.projectType),
@@ -160,6 +176,8 @@ export class PromotionService {
       address: prequalCase.project?.address ?? undefined,
       city: prequalCase.project?.city ?? undefined,
       postcode: prequalCase.project?.postcode ?? undefined,
+      porteurSociete: operatorCompany?.legalName,
+      porteurSiren,
     };
     const deal = await this.deals.create(organizationId, userId, dealDto);
 
@@ -192,6 +210,37 @@ export class PromotionService {
       });
     }
     const skippedLotsCount = prequalCase.lots.length - lotsToCopy.length;
+
+    // Copie des pièces déjà déposées en préqual — jamais un simple partage
+    // de storageKey entre PrequalDocument et Document : DocumentsService.remove()
+    // supprime le blob physique à la suppression d'un Document, ce qui
+    // casserait silencieusement la pièce côté préqual (et vice-versa) si les
+    // deux lignes pointaient vers le même fichier. On relit les octets et on
+    // les réécrit sous une clé propre au Deal — même coût qu'un nouvel
+    // upload, mais sans repasser par l'analyste.
+    let copiedDocumentsCount = 0;
+    let failedDocumentsCount = 0;
+    for (const doc of prequalCase.documents) {
+      try {
+        const buffer = await this.storage.read(doc.storageKey, doc.storageDriver);
+        const stored = await this.storage.save(deal.id, doc.name, buffer, doc.mimeType);
+        await this.prisma.document.create({
+          data: {
+            dealId: deal.id,
+            name: doc.name,
+            mimeType: doc.mimeType,
+            size: doc.size,
+            storageKey: stored.storageKey,
+            storageDriver: stored.driver,
+            uploadedById: doc.uploadedById,
+          },
+        });
+        copiedDocumentsCount++;
+      } catch (error) {
+        failedDocumentsCount++;
+        this.logger.error(`Échec de copie du document préqual ${doc.id} vers le deal ${deal.id}`, error instanceof Error ? error.stack : error);
+      }
+    }
 
     if (dto.orientation === 'GO_SOUS_CONDITIONS') {
       for (const finding of unresolvedBlocking) {
@@ -229,11 +278,16 @@ export class PromotionService {
       },
     });
 
+    const notes = [
+      skippedLotsCount > 0 ? `${skippedLotsCount} lot(s) non copié(s) (surface ou prix manquant)` : null,
+      copiedDocumentsCount > 0 ? `${copiedDocumentsCount} document(s) repris de la préqualification` : null,
+      failedDocumentsCount > 0 ? `${failedDocumentsCount} document(s) non repris (échec de copie)` : null,
+    ].filter((n): n is string => n !== null);
     await this.activities.log(
       deal.id,
       userId,
       'PREQUALIFICATION_PROMOTED',
-      `Dossier promu depuis la préqualification « ${prequalCase.name} »${skippedLotsCount > 0 ? ` — ${skippedLotsCount} lot(s) non copié(s) (surface ou prix manquant)` : ''}.`,
+      `Dossier promu depuis la préqualification « ${prequalCase.name} »${notes.length > 0 ? ` — ${notes.join(', ')}` : ''}.`,
     );
 
     return { prequalificationId: prequalCase.id, portfolioProjectId: deal.id, stage: 'SOURCING', alreadyPromoted: false };
