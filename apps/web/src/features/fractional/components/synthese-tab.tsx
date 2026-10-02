@@ -338,6 +338,44 @@ export function SyntheseTab({ projectId, synthese, icRecommendation }: { project
         </CardContent>
       </Card>
 
+      {base.tax && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Fiscalité du véhicule</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-xs text-muted-foreground">
+              IS (déficits reportables imputés sur l'exploitation puis sur la plus-value), CFE, CRL et complément de droits art. 1115 —
+              hypothèses saisies dans l'onglet Hypothèses. Les chiffres avant impôt ci-dessus restent inchangés.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <YieldStat label="TRI après impôt" value={pct(base.tax.irrPctAfterTax)} hint={`avant impôt : ${pct(base.irrPct)}`} />
+              <YieldStat
+                label="Equity Multiple après impôt"
+                value={base.tax.equityMultipleAfterTax !== null ? `${base.tax.equityMultipleAfterTax.toFixed(2)}x` : '—'}
+                hint={base.equityMultiple !== null && base.equityMultiple !== undefined ? `avant impôt : ${base.equityMultiple.toFixed(2)}x` : undefined}
+              />
+              <YieldStat
+                label="Investor Net Yield après impôt"
+                value={pct(base.tax.investorNetYieldPctAfterTax)}
+                hint={`avant impôt : ${pct(base.investorNetYieldPct)}`}
+              />
+              <YieldStat label="Charge fiscale totale" value={formatCurrency(base.tax.totalTaxBurden)} hint="IS cumulé + CFE + CRL + IS plus-value + complément 1115" />
+            </div>
+            {base.tax.finalCarryforwardDeficit > 0 && (
+              <p className="text-[11px] text-warning">
+                Déficit reportable non entièrement imputé à la sortie : {formatCurrency(base.tax.finalCarryforwardDeficit)} — n'a pas pu réduire la plus-value imposable, faute de plus-value suffisante.
+              </p>
+            )}
+            {base.tax.exit.resale1115?.commitmentBreached && (
+              <p className="text-[11px] text-warning">
+                Engagement de revente art. 1115 dépassé : complément de droits dû {formatCurrency(base.tax.exit.resale1115.totalDue)}.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Yield Dependency</CardTitle>
