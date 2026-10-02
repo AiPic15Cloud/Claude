@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAllTasks, useMoveTaskToColumn, type KanbanColumn } from './use-tasks';
+import { useAllTasks, useMoveTaskToColumn, useToggleTask, type KanbanColumn } from './use-tasks';
+import { EditTaskDialog } from './edit-task-dialog';
+import { useCanValidate } from '@/features/auth/use-auth';
 import { PRIORITY_LABELS, TASK_TYPE_LABELS, type Task, type TaskType, type Priority } from '@/types';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -49,12 +51,19 @@ function matchesDueFilter(task: Task, filter: DueFilter): boolean {
 }
 
 /**
- * Carte de tâche du Kanban transversal (spec ATLAS v2, F.1) — même contenu
- * que demandé : type, titre, dossier lié (cliquable), échéance (mise en
- * évidence si dépassée), priorité.
+ * Carte de tâche du Kanban transversal (spec ATLAS v2, F.1) — type, titre,
+ * dossier lié (cliquable), échéance (mise en évidence si dépassée),
+ * priorité, et désormais une case à cocher pour valider directement + un
+ * crayon pour modifier (titre/échéance/estimation/jalon) — jusqu'ici la
+ * seule façon de faire avancer une tâche était de la glisser entre
+ * colonnes, ce qui n'allège jamais la colonne "À faire" (retour direct :
+ * 98 cartes qui s'accumulent). Même case à cocher et même dialogue que
+ * TaskListCard (Cockpit) — pas un second système de validation.
  */
 function TaskKanbanCard({ task }: { task: Task }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
+  const toggleTask = useToggleTask();
+  const canValidate = useCanValidate();
   const isLate = Boolean(task.dueDate) && !task.done && new Date(task.dueDate!) < new Date(new Date().toDateString());
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
@@ -69,31 +78,52 @@ function TaskKanbanCard({ task }: { task: Task }) {
         isDragging && 'opacity-50',
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <Badge variant="outline" className="text-[10px]">
-          {TASK_TYPE_LABELS[task.typeTache]}
-        </Badge>
-        <Badge variant={PRIORITY_VARIANT[task.priority]} className="text-[10px]">
-          {PRIORITY_LABELS[task.priority]}
-        </Badge>
-      </div>
-      <p className={cn('font-medium leading-snug', task.done && 'text-muted-foreground line-through')}>{task.title}</p>
-      {task.deal && (
-        <Link
-          to={`/deals/${task.deal.id}`}
+      <div className="flex items-start gap-2">
+        <button
+          onClick={() => toggleTask.mutate({ id: task.id, done: !task.done })}
           onPointerDown={(e) => e.stopPropagation()}
-          className="truncate text-xs text-muted-foreground hover:text-primary hover:underline"
-        >
-          {task.deal.name} ({task.deal.reference})
-        </Link>
-      )}
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        {task.dueDate ? <span className={cn(isLate && 'font-medium text-destructive')}>{formatDate(task.dueDate)}</span> : <span />}
-        {task.assignee && (
-          <span className="truncate">
-            {task.assignee.firstName} {task.assignee.lastName}
-          </span>
-        )}
+          disabled={!canValidate}
+          className={cn(
+            'mt-0.5 h-4 w-4 shrink-0 rounded border transition-colors',
+            task.done ? 'border-primary bg-primary' : 'border-input bg-background hover:border-primary',
+            !canValidate && 'cursor-not-allowed opacity-50',
+          )}
+          aria-label={task.done ? 'Marquer comme non fait' : 'Marquer comme fait'}
+          title={canValidate ? undefined : 'Réservé aux analystes et administrateurs'}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Badge variant="outline" className="text-[10px]">
+              {TASK_TYPE_LABELS[task.typeTache]}
+            </Badge>
+            <Badge variant={PRIORITY_VARIANT[task.priority]} className="text-[10px]">
+              {PRIORITY_LABELS[task.priority]}
+            </Badge>
+          </div>
+          <p className={cn('font-medium leading-snug', task.done && 'text-muted-foreground line-through')}>{task.title}</p>
+          {task.deal && (
+            <Link
+              to={`/deals/${task.deal.id}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+            >
+              {task.deal.name} ({task.deal.reference})
+            </Link>
+          )}
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            {task.dueDate ? <span className={cn(isLate && 'font-medium text-destructive')}>{formatDate(task.dueDate)}</span> : <span />}
+            <div className="flex shrink-0 items-center gap-1">
+              {task.assignee && (
+                <span className="truncate">
+                  {task.assignee.firstName} {task.assignee.lastName}
+                </span>
+              )}
+              <div onPointerDown={(e) => e.stopPropagation()}>
+                <EditTaskDialog task={task} />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
