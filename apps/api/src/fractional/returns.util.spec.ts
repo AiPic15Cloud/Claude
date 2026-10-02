@@ -211,3 +211,66 @@ describe('computeReturnsEngine — Total Return & Yield Dependency (spec §15)',
     expect(result.totalReturnPct).toBeNull();
   });
 });
+
+describe('computeReturnsEngine — fiscalité du véhicule (tax-engine.util.ts)', () => {
+  it('tax est null quand input.tax est absent — comportement avant impôt inchangé', () => {
+    const result = computeReturnsEngine(makeBaseInput());
+    expect(result.tax).toBeNull();
+  });
+
+  it('calcule un IS annuel après impôt strictement inférieur à la distribution avant impôt quand le résultat est positif', () => {
+    const result = computeReturnsEngine(
+      makeBaseInput(
+        { opexPct: 0, vacancyCreditLossPct: 0 },
+        {},
+      ),
+    );
+    const resultWithTax = computeReturnsEngine(
+      makeBaseInput(
+        { opexPct: 0, vacancyCreditLossPct: 0, tax: { openingCarryforwardDeficit: 0 } },
+        {},
+      ),
+    );
+    expect(resultWithTax.tax).not.toBeNull();
+    const year1Tax = resultWithTax.tax!.yearly[0];
+    expect(year1Tax.corporateTaxDue).toBeGreaterThan(0);
+    expect(year1Tax.investorDistributionAfterTax).toBeLessThan(result.yearlyModel[0].investorDistribution);
+    // Le TRI avant impôt (champ existant, inchangé) reste strictement supérieur au TRI après impôt.
+    expect(resultWithTax.irrPct).toBe(result.irrPct);
+    expect(resultWithTax.tax!.irrPctAfterTax).not.toBeNull();
+    expect(resultWithTax.tax!.irrPctAfterTax!).toBeLessThan(resultWithTax.irrPct!);
+  });
+
+  it('un déficit reportable suffisant annule l\'IS de l\'année et vient réduire la plus-value imposable à la sortie', () => {
+    const result = computeReturnsEngine(
+      makeBaseInput({
+        opexPct: 0,
+        vacancyCreditLossPct: 0,
+        exitValue: 1500000,
+        tax: { openingCarryforwardDeficit: 10000000 },
+      }),
+    );
+    expect(result.tax!.yearly.every((y) => y.corporateTaxDue === 0)).toBe(true);
+    expect(result.tax!.exit.capitalGainTaxDue).toBe(0);
+    expect(result.tax!.finalCarryforwardDeficit).toBeGreaterThan(0);
+  });
+
+  it('le complément de droits art. 1115 ne se déclenche que si la détention dépasse l\'engagement de revente', () => {
+    const withinCommitment = computeReturnsEngine(
+      makeBaseInput({
+        holdPeriodYears: 5,
+        tax: { resale1115: { dutyBase: 1000000, resaleCommitmentMonths: 60 } },
+      }),
+    );
+    expect(withinCommitment.tax!.exit.resale1115?.commitmentBreached).toBe(false);
+
+    const beyondCommitment = computeReturnsEngine(
+      makeBaseInput({
+        holdPeriodYears: 6,
+        tax: { resale1115: { dutyBase: 1000000, resaleCommitmentMonths: 60 } },
+      }),
+    );
+    expect(beyondCommitment.tax!.exit.resale1115?.commitmentBreached).toBe(true);
+    expect(beyondCommitment.tax!.exit.resale1115!.totalDue).toBeGreaterThan(0);
+  });
+});

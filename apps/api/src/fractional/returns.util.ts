@@ -5,6 +5,15 @@ import { computeOperatingModelYear, computeTerminalProceeds, type OperatingModel
 import { type IndexGrowthRates } from './rent-indexation.util';
 import { projectPortfolioWithBreaks, type BreakScenario } from './break-event.util';
 import { computeTvaCashflowEvents, type TvaRegime } from './tva-cashflow.util';
+import {
+  computeAnnualCorporateTax,
+  computeAnnualCfe,
+  computeAnnualCrl,
+  computeExitCapitalGainTax,
+  computeResale1115Complement,
+  type CorporateTaxRateSchedule,
+  type Resale1115ComplementResult,
+} from './tax-engine.util';
 
 /**
  * Returns Engine (spec V3 §15) — orchestre Sources/Uses, Lease Security et
@@ -51,6 +60,59 @@ export interface ReturnsEngineInput {
    * récupération au délai déclaratif dans le calendrier de flux de l'XIRR.
    */
   tva?: { regimeTva: TvaRegime; tauxPct: number | null; recuperationDelaiMois: number | null };
+  /**
+   * Fiscalité du véhicule (tax-engine.util.ts) — absente par défaut : tous
+   * les champs ci-dessus (irrPct, equityMultiple, investorNetYieldPct...)
+   * restent calculés avant impôt, comme avant l'introduction de ce moteur.
+   * Quand fournie, les équivalents après impôt apparaissent dans
+   * ReturnsEngineResult.tax, jamais en remplacement des champs existants.
+   */
+  tax?: FractionalTaxAssumptions;
+}
+
+export interface FractionalTaxAssumptions {
+  /** Déficit reportable d'ouverture (normalement 0 à l'acquisition d'un véhicule neuf). */
+  openingCarryforwardDeficit?: number;
+  schedule?: CorporateTaxRateSchedule;
+  capitalGainTaxRatePct?: number;
+  /** CFE pleine estimée par an (grille indicative par tranche de loyer) — jamais recalculée ici, fournie par l'appelant. */
+  annualCfeFullBase?: number;
+  /** CRL (spec référentiel : immeuble achevé depuis plus de 15 ans) — absente/false = non applicable, jamais présumée. */
+  crlApplicable?: boolean;
+  crlRatePct?: number;
+  /** Complément de droits art. 1115 CGI si la sortie dépasse l'engagement de revente (régime marchand de biens). */
+  resale1115?: { dutyBase: number; resaleCommitmentMonths?: number; lateInterestPctPerMonth?: number };
+}
+
+export interface FractionalTaxYearResult {
+  year: number;
+  cfeDue: number;
+  crlDue: number;
+  taxableProfitBeforeCarryforward: number;
+  taxableProfitAfterCarryforward: number;
+  corporateTaxDue: number;
+  carryforwardDeficitEnd: number;
+  distributableCashFlowAfterTax: number;
+  investorDistributionAfterTax: number;
+}
+
+export interface FractionalExitTaxResult {
+  capitalGain: number;
+  taxableCapitalGainAfterCarryforward: number;
+  capitalGainTaxDue: number;
+  resale1115: Resale1115ComplementResult | null;
+  investorTerminalProceedsAfterTax: number;
+}
+
+export interface FractionalTaxComputationResult {
+  yearly: FractionalTaxYearResult[];
+  exit: FractionalExitTaxResult;
+  finalCarryforwardDeficit: number;
+  /** IS annuel + CFE + CRL cumulés sur l'horizon + IS plus-value + complément 1115. */
+  totalTaxBurden: number;
+  irrPctAfterTax: number | null;
+  equityMultipleAfterTax: number | null;
+  investorNetYieldPctAfterTax: number | null;
 }
 
 /**
@@ -99,6 +161,8 @@ export interface ReturnsEngineResult {
   capitalReturnPct: number | null;
   totalReturnPct: number | null;
   yieldDependency: YieldDependencyBreakdown;
+  /** null quand input.tax n'est pas fourni — aucune hypothèse fiscale silencieuse (Unknown ≠ Zero). */
+  tax: FractionalTaxComputationResult | null;
 }
 
 export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineResult {
@@ -214,6 +278,100 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
   const incomeReturnPct = collecte > 0 ? (cumulativeDistributions / collecte) * 100 : null;
   const capitalReturnPct = collecte > 0 ? (resaleContributionEur / collecte) * 100 : null;
 
+  // Fiscalité du véhicule (tax-engine.util.ts) — opt-in, cf. commentaire sur
+  // ReturnsEngineInput.tax. Le CAPEX n'est jamais déduit du résultat
+  // imposable (coût du stock = closing + capex capitalisés, même convention
+  // que le fichier LPB de référence) : seuls NOI, coûts plateforme, CFE et
+  // CRL alimentent taxableProfitBeforeCarryforward.
+  let tax: FractionalTaxComputationResult | null = null;
+  if (input.tax) {
+    const taxAssumptions = input.tax;
+    let carryforwardDeficit = taxAssumptions.openingCarryforwardDeficit ?? 0;
+    const yearlyTax: FractionalTaxYearResult[] = [];
+    for (const y of yearlyModel) {
+      const isExitYear = y.year === input.holdPeriodYears;
+      const cfeDue = taxAssumptions.annualCfeFullBase
+        ? computeAnnualCfe({ holdingYear: y.year, isExitYear, annualCfeFullBase: taxAssumptions.annualCfeFullBase })
+        : 0;
+      // Approximation documentée : à défaut d'une ventilation TVA par bail
+      // dans ce moteur, l'assiette CRL retenue est l'EGI de l'année — à
+      // affiner si des baux assujettis à la TVA coexistent avec des baux qui
+      // ne le sont pas dans le même dossier.
+      const crlDue = taxAssumptions.crlApplicable
+        ? computeAnnualCrl({ rentsNotSubjectToVat: y.effectiveGrossIncome, applicable: true, ratePct: taxAssumptions.crlRatePct })
+        : 0;
+      const taxableProfitBeforeCarryforward = y.noi - y.platformVehicleCosts - cfeDue - crlDue;
+      const { taxableProfitAfterCarryforward, corporateTaxDue, carryforwardDeficitEnd } = computeAnnualCorporateTax({
+        taxableProfitBeforeCarryforward,
+        carryforwardDeficitStart: carryforwardDeficit,
+        schedule: taxAssumptions.schedule,
+      });
+      carryforwardDeficit = carryforwardDeficitEnd;
+      const distributableCashFlowAfterTax = y.distributableCashFlow - cfeDue - crlDue - corporateTaxDue;
+      yearlyTax.push({
+        year: y.year,
+        cfeDue,
+        crlDue,
+        taxableProfitBeforeCarryforward,
+        taxableProfitAfterCarryforward,
+        corporateTaxDue,
+        carryforwardDeficitEnd,
+        distributableCashFlowAfterTax,
+        investorDistributionAfterTax: distributableCashFlowAfterTax * (input.incomeShareInvestorPct / 100),
+      });
+    }
+
+    const resale1115 = taxAssumptions.resale1115
+      ? computeResale1115Complement({
+          holdingMonthsAtExit: input.holdPeriodYears * 12,
+          resaleCommitmentMonths: taxAssumptions.resale1115.resaleCommitmentMonths,
+          dutyBase: taxAssumptions.resale1115.dutyBase,
+          lateInterestPctPerMonth: taxAssumptions.resale1115.lateInterestPctPerMonth,
+        })
+      : null;
+    const { taxableCapitalGainAfterCarryforward, capitalGainTaxDue } = computeExitCapitalGainTax({
+      capitalGain: terminalProceeds.capitalGain,
+      remainingCarryforwardDeficit: carryforwardDeficit,
+      capitalGainTaxRatePct: taxAssumptions.capitalGainTaxRatePct,
+    });
+    // L'IS sur plus-value et le complément de droits 1115 sont des charges
+    // du véhicule prélevées sur le produit net avant tout partage, exactement
+    // comme computeTerminalProceeds traite déjà sellingCostsPct — jamais une
+    // simple ponction a posteriori sur la part investisseur.
+    const netSaleProceedsAfterTax = terminalProceeds.netSaleProceeds - capitalGainTaxDue - (resale1115?.totalDue ?? 0);
+    const capitalGainAfterTax = Math.max(0, netSaleProceedsAfterTax - collecte);
+    const investorTerminalProceedsAfterTax = Math.min(collecte, netSaleProceedsAfterTax) + capitalGainAfterTax * (input.capitalGainShareInvestorPct / 100);
+
+    const totalTaxBurden =
+      yearlyTax.reduce((sum, y) => sum + y.cfeDue + y.crlDue + y.corporateTaxDue, 0) + capitalGainTaxDue + (resale1115?.totalDue ?? 0);
+
+    const cashFlowsAfterTax: CashFlow[] = [{ date: input.asOfDate, amount: -collecte }];
+    yearlyTax.forEach((y, idx) => {
+      const date = new Date(input.asOfDate);
+      date.setFullYear(date.getFullYear() + y.year);
+      const isLast = idx === yearlyTax.length - 1;
+      cashFlowsAfterTax.push({ date, amount: y.investorDistributionAfterTax + (isLast ? investorTerminalProceedsAfterTax : 0) });
+    });
+    const irrAfterTax = computeXirr(cashFlowsAfterTax);
+    const cumulativeDistributionsAfterTax = yearlyTax.reduce((sum, y) => sum + y.investorDistributionAfterTax, 0);
+
+    tax = {
+      yearly: yearlyTax,
+      exit: {
+        capitalGain: terminalProceeds.capitalGain,
+        taxableCapitalGainAfterCarryforward,
+        capitalGainTaxDue,
+        resale1115,
+        investorTerminalProceedsAfterTax,
+      },
+      finalCarryforwardDeficit: carryforwardDeficit,
+      totalTaxBurden,
+      irrPctAfterTax: irrAfterTax === null ? null : irrAfterTax * 100,
+      equityMultipleAfterTax: collecte > 0 ? (cumulativeDistributionsAfterTax + investorTerminalProceedsAfterTax) / collecte : null,
+      investorNetYieldPctAfterTax: collecte > 0 && yearlyTax[0] ? (yearlyTax[0].investorDistributionAfterTax / collecte) * 100 : null,
+    };
+  }
+
   return {
     sourcesUsesResult,
     leaseSecurity,
@@ -233,5 +391,6 @@ export function computeReturnsEngine(input: ReturnsEngineInput): ReturnsEngineRe
     capitalReturnPct,
     totalReturnPct: incomeReturnPct !== null && capitalReturnPct !== null ? incomeReturnPct + capitalReturnPct : null,
     yieldDependency,
+    tax,
   };
 }
