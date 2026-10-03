@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Loader2, Search } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useDealRisk, useRiskHistory } from '../hooks/use-risk';
 import { useGuarantees } from '../hooks/use-guarantees';
 import { useDealActivities } from '../hooks/use-activities';
 import { useFinancialModel, useComputeScenarios } from '../hooks/use-financial-model';
-import { useMarketPrice, type MarketPriceTypology } from '../hooks/use-market-price';
 import { useComparables } from '../hooks/use-comparables';
 import { useExportInvestmentNotePdf } from '@/features/portfolio/hooks/use-deals';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -22,12 +20,6 @@ import {
   isFinancedStage,
   type Deal,
 } from '@/types';
-
-const TYPOLOGY_LABELS: Record<MarketPriceTypology, string> = {
-  MAISON: 'Maison',
-  APPARTEMENT: 'Appartement',
-  TERRAIN_A_BATIR: 'Terrain à bâtir',
-};
 
 function generateResumeExecutif(deal: Deal): string {
   const porteur = deal.porteurNom || deal.porteurSociete || 'un porteur non renseigné';
@@ -66,8 +58,6 @@ export function InvestmentNoteSheet({ dealId, deal }: { dealId: string; deal: De
   const financialModel = useFinancialModel(dealId);
   const scenarios = useComputeScenarios(dealId);
   const comparables = useComparables(dealId);
-  const marketPrice = useMarketPrice(dealId);
-  const [typology, setTypology] = useState<MarketPriceTypology | ''>('');
 
   const [resumeText, setResumeText] = useState('');
   const [presentationText, setPresentationText] = useState('');
@@ -129,7 +119,7 @@ export function InvestmentNoteSheet({ dealId, deal }: { dealId: string; deal: De
     const internes = comparables.data.length > 0
       ? `${comparables.data.length} dossier(s) comparable(s) dans le portefeuille (même ville ou typologie).`
       : 'Aucun dossier comparable trouvé dans le portefeuille.';
-    setMarcheText(`Comparables internes : ${internes}\n\nComparables externes : à rechercher ci-dessous.`);
+    setMarcheText(`Comparables internes : ${internes}`);
   }, [open, comparables.data, marcheText]);
 
   useEffect(() => {
@@ -142,11 +132,6 @@ export function InvestmentNoteSheet({ dealId, deal }: { dealId: string; deal: De
         `Historique des décisions récentes :\n${decisions}`,
     );
   }, [open, deal, activities.data, suiviText]);
-
-  const handleSearchMarket = () => {
-    if (!typology) return;
-    marketPrice.mutate(typology);
-  };
 
   return (
     <>
@@ -201,28 +186,6 @@ export function InvestmentNoteSheet({ dealId, deal }: { dealId: string; deal: De
                     </TableBody>
                   </Table>
                 </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Select value={typology} onValueChange={(v) => setTypology(v as MarketPriceTypology)}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Typologie pour les comparables externes (C.8)…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TYPOLOGY_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button size="sm" onClick={handleSearchMarket} disabled={!typology || marketPrice.isPending}>
-                  {marketPrice.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-                  Rechercher
-                </Button>
-              </div>
-              {marketPrice.data?.average && (
-                <p className="text-xs text-muted-foreground">
-                  Prix moyen externe observé : {formatCurrency(marketPrice.data.average.priceMid)}/m² pour « {marketPrice.data.query} »
-                  {marketPrice.data.exitPricePerSqm !== null && ` — prix de sortie du projet : ${formatCurrency(marketPrice.data.exitPricePerSqm)}/m²`}.
-                </p>
               )}
               <Textarea rows={4} value={marcheText} onChange={(e) => setMarcheText(e.target.value)} />
             </section>

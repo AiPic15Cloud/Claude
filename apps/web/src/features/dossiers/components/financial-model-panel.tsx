@@ -21,7 +21,6 @@ import { CovenantsCard } from './covenants-card';
 import type { Covenants } from '@/types';
 import { BpComparisonCard } from './bp-comparison-card';
 import { SensitivityComparisonCard } from './sensitivity-comparison-card';
-import { MarketPriceSheet } from './market-price-sheet';
 import { ScenarioSensitivitySheet } from './scenario-sensitivity-sheet';
 import { formatCurrency } from '@/lib/format';
 import { marginTier, MARGIN_TIER_STYLES } from '@/lib/margin';
@@ -255,7 +254,6 @@ export function FinancialModelPanel({ dealId, dealInterestRate, dealDurationMont
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle>Hypothèses</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <MarketPriceSheet dealId={dealId} />
             <ScenarioSensitivitySheet dealId={dealId} />
             {data?.assumption && <ValidationBadge dealId={dealId} entityType="FinancialAssumption" />}
             {data?.assumption && confirmingDeleteModel && (

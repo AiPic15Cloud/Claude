@@ -32,7 +32,6 @@ import type {
   PrequalStressScenario,
   MarginSensitivityCell,
 } from '@/types';
-import type { MarketPriceResult, MarketPriceTypology } from '@/features/dossiers/hooks/use-market-price';
 
 function invalidateCase(qc: ReturnType<typeof useQueryClient>, caseId: string) {
   qc.invalidateQueries({ queryKey: ['prequalification', 'cases', caseId] });
@@ -443,13 +442,6 @@ export function usePrequalMarginSensitivityGrid(caseId: string) {
     queryKey: ['prequalification', 'cases', caseId, 'stress-tests', 'sensitivity-grid'],
     queryFn: () => api.get<MarginSensitivityCell[][]>(`/prequalification/cases/${caseId}/stress-tests/sensitivity-grid`),
     enabled: Boolean(caseId),
-  });
-}
-
-/** Recherche de prix au m² à la demande (spec ATLAS v2, C.8) — mêmes 6 sources que l'onglet Marché des Deals, déclenchée au clic. */
-export function usePrequalMarketPrice(caseId: string) {
-  return useMutation({
-    mutationFn: (typology: MarketPriceTypology) => api.get<MarketPriceResult>(`/prequalification/cases/${caseId}/market-price?typology=${typology}`),
   });
 }
 
