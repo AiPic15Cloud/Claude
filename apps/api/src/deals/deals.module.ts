@@ -8,7 +8,6 @@ import { InterestPaymentAlertsService } from './interest-payment-alerts.service'
 import { DurationTargetAlertsService } from './duration-target-alerts.service';
 import { CovenantAlertsService } from './covenant-alerts.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
-import { MarketPriceService } from './market-price/market-price.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { SearchModule } from '../search/search.module';
 import { AlertsModule } from '../alerts/alerts.module';
@@ -50,9 +49,8 @@ import { ActionItemsModule } from '../action-items/action-items.module';
     DurationTargetAlertsService,
     CovenantAlertsService,
     CompanyMonitoringService,
-    MarketPriceService,
   ],
   controllers: [DealsController],
-  exports: [DealsService, MarketPriceService],
+  exports: [DealsService],
 })
 export class DealsModule {}

@@ -9,13 +9,11 @@ import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-use
 import { DealsService } from './deals.service';
 import { RiskDataService } from '../risk-data/risk-data.service';
 import { CompanyMonitoringService } from './company-monitoring.service';
-import { MarketPriceService } from './market-price/market-price.service';
 import { ContagionService } from '../entity-graph/contagion.service';
 import { GuaranteesService } from '../guarantees/guarantees.service';
 import { PdfRenderService } from '../pdf-export/pdf-render.service';
 import { buildDealPdfHtml } from './deal-pdf.util';
 import { buildInvestmentNoteHtml } from './investment-note-pdf.util';
-import { MarketPriceQueryDto } from './dto/market-price-query.dto';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
 import { QueryDealsDto } from './dto/query-deals.dto';
@@ -34,7 +32,6 @@ export class DealsController {
     private readonly dealsService: DealsService,
     private readonly riskData: RiskDataService,
     private readonly companyMonitoring: CompanyMonitoringService,
-    private readonly marketPrice: MarketPriceService,
     private readonly contagion: ContagionService,
     private readonly guarantees: GuaranteesService,
     private readonly pdfRender: PdfRenderService,
@@ -144,11 +141,6 @@ export class DealsController {
   @Get(':id/loan-lifecycle')
   getLoanLifecycle(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.dealsService.getLoanLifecycle(user.organizationId, id);
-  }
-
-  @Get(':id/market-price')
-  searchMarketPrice(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Query() query: MarketPriceQueryDto) {
-    return this.marketPrice.search(user.organizationId, id, query.typology);
   }
 
   @Get(':id/comparables')
