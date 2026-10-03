@@ -71,6 +71,23 @@ interface DefaultAssumptionValues {
   locationTier?: LocationTier;
   marketDepth?: MarketDepth;
   tec10PctOverride?: number;
+  /**
+   * Fiscalité du véhicule (tax-engine.util.ts) — taxEnabled absent/false
+   * laisse le dossier au comportement d'avant ce moteur (ReturnsEngineResult.tax
+   * reste null, tous les rendements existants avant impôt). Un flag explicite
+   * plutôt qu'une détection "au moins un champ fiscal renseigné" : un dossier
+   * peut légitimement vouloir l'IS seul avec déficit 0 et CFE/CRL/1115 non
+   * applicables, ce qui ne laisserait sinon aucun champ rempli.
+   */
+  taxEnabled?: boolean;
+  taxOpeningCarryforwardDeficit?: number;
+  taxAnnualCfeFullBase?: number;
+  taxCrlApplicable?: boolean;
+  taxCrlRatePct?: number;
+  taxCapitalGainTaxRatePct?: number;
+  taxResale1115DutyBase?: number;
+  taxResale1115CommitmentMonths?: number;
+  taxResale1115LateInterestPctPerMonth?: number;
 }
 
 const DEFAULT_ASSUMPTIONS: DefaultAssumptionValues = {
@@ -840,6 +857,23 @@ export class FractionalProjectsService {
         tauxPct: project.sourcesUses.tvaTauxPct !== null ? Number(project.sourcesUses.tvaTauxPct) : null,
         recuperationDelaiMois: project.sourcesUses.tvaRecuperationDelaiMois,
       },
+      tax: baseValues.taxEnabled
+        ? {
+            openingCarryforwardDeficit: baseValues.taxOpeningCarryforwardDeficit,
+            annualCfeFullBase: baseValues.taxAnnualCfeFullBase,
+            crlApplicable: baseValues.taxCrlApplicable,
+            crlRatePct: baseValues.taxCrlRatePct,
+            capitalGainTaxRatePct: baseValues.taxCapitalGainTaxRatePct,
+            resale1115:
+              baseValues.taxResale1115DutyBase !== undefined
+                ? {
+                    dutyBase: baseValues.taxResale1115DutyBase,
+                    resaleCommitmentMonths: baseValues.taxResale1115CommitmentMonths,
+                    lateInterestPctPerMonth: baseValues.taxResale1115LateInterestPctPerMonth,
+                  }
+                : undefined,
+          }
+        : undefined,
     };
 
     // Aucune ligne CapexItem saisie ≠ CAPEX confirmé à zéro (spec V2 §10,

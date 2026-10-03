@@ -2160,6 +2160,37 @@ export interface FractionalOperatingModelYear {
   investorDistribution: number;
 }
 
+export interface FractionalTaxYearResult {
+  year: number;
+  cfeDue: number;
+  crlDue: number;
+  taxableProfitBeforeCarryforward: number;
+  taxableProfitAfterCarryforward: number;
+  corporateTaxDue: number;
+  carryforwardDeficitEnd: number;
+  distributableCashFlowAfterTax: number;
+  investorDistributionAfterTax: number;
+}
+
+export interface FractionalExitTaxResult {
+  capitalGain: number;
+  taxableCapitalGainAfterCarryforward: number;
+  capitalGainTaxDue: number;
+  resale1115: { commitmentBreached: boolean; dutyComplementDue: number; lateInterestDue: number; totalDue: number } | null;
+  investorTerminalProceedsAfterTax: number;
+}
+
+/** Fiscalité du véhicule (tax-engine.util.ts) — IS annuel avec déficits reportables, CFE, CRL, complément art. 1115. */
+export interface FractionalTaxComputationResult {
+  yearly: FractionalTaxYearResult[];
+  exit: FractionalExitTaxResult;
+  finalCarryforwardDeficit: number;
+  totalTaxBurden: number;
+  irrPctAfterTax: number | null;
+  equityMultipleAfterTax: number | null;
+  investorNetYieldPctAfterTax: number | null;
+}
+
 export interface FractionalReturnsResult {
   sourcesUsesResult: { coutActeEnMain: number; coutTotal: number; sourcesTotal: number; deltaSourcesUses: number; balanced: boolean };
   leaseSecurity: {
@@ -2198,6 +2229,8 @@ export interface FractionalReturnsResult {
     indexationSharePct: number | null;
     resaleSharePct: number | null;
   };
+  /** null quand aucune hypothèse fiscale n'est saisie (onglet Hypothèses, encadré Fiscalité) — jamais une fiscalité silencieuse. */
+  tax: FractionalTaxComputationResult | null;
 }
 
 export type EligibilityVerdict = 'ELIGIBLE' | 'MARGINAL' | 'INELIGIBLE' | 'NOT_EVALUABLE';

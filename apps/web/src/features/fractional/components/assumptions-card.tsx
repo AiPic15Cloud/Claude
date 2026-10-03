@@ -39,6 +39,14 @@ interface AssumptionFormState {
   locationTier: LocationTier | '';
   marketDepth: MarketDepth | '';
   tec10PctOverride: string;
+  taxEnabled: boolean;
+  taxOpeningCarryforwardDeficit: string;
+  taxAnnualCfeFullBase: string;
+  taxCrlApplicable: boolean;
+  taxCrlRatePct: string;
+  taxCapitalGainTaxRatePct: string;
+  taxResale1115DutyBase: string;
+  taxResale1115CommitmentMonths: string;
 }
 
 const DEFAULT_FORM: AssumptionFormState = {
@@ -55,6 +63,14 @@ const DEFAULT_FORM: AssumptionFormState = {
   locationTier: '',
   marketDepth: '',
   tec10PctOverride: '',
+  taxEnabled: false,
+  taxOpeningCarryforwardDeficit: '',
+  taxAnnualCfeFullBase: '',
+  taxCrlApplicable: false,
+  taxCrlRatePct: '',
+  taxCapitalGainTaxRatePct: '',
+  taxResale1115DutyBase: '',
+  taxResale1115CommitmentMonths: '',
 };
 
 function latestByScenario(sets: FractionalAssumptionSet[]): Partial<Record<FractionalAssumptionScenario, FractionalAssumptionSet>> {
@@ -96,6 +112,16 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
     if (form.propertyCondition) withText.propertyCondition = form.propertyCondition;
     if (form.locationTier) withText.locationTier = form.locationTier;
     if (form.marketDepth) withText.marketDepth = form.marketDepth;
+    withText.taxEnabled = form.taxEnabled;
+    if (form.taxEnabled) {
+      if (form.taxOpeningCarryforwardDeficit) withText.taxOpeningCarryforwardDeficit = parseLocaleNumber(form.taxOpeningCarryforwardDeficit);
+      if (form.taxAnnualCfeFullBase) withText.taxAnnualCfeFullBase = parseLocaleNumber(form.taxAnnualCfeFullBase);
+      withText.taxCrlApplicable = form.taxCrlApplicable;
+      if (form.taxCrlRatePct) withText.taxCrlRatePct = parseLocaleNumber(form.taxCrlRatePct);
+      if (form.taxCapitalGainTaxRatePct) withText.taxCapitalGainTaxRatePct = parseLocaleNumber(form.taxCapitalGainTaxRatePct);
+      if (form.taxResale1115DutyBase) withText.taxResale1115DutyBase = parseLocaleNumber(form.taxResale1115DutyBase);
+      if (form.taxResale1115CommitmentMonths) withText.taxResale1115CommitmentMonths = Number(form.taxResale1115CommitmentMonths);
+    }
     upsert.mutate({ scenario: form.scenario, values: withText });
   };
 
@@ -116,6 +142,14 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
       locationTier: (values as Record<string, unknown>).locationTier as LocationTier | undefined ?? '',
       marketDepth: (values as Record<string, unknown>).marketDepth as MarketDepth | undefined ?? '',
       tec10PctOverride: values.tec10PctOverride !== undefined ? String(values.tec10PctOverride) : '',
+      taxEnabled: (values as Record<string, unknown>).taxEnabled === true,
+      taxOpeningCarryforwardDeficit: values.taxOpeningCarryforwardDeficit !== undefined ? String(values.taxOpeningCarryforwardDeficit) : '',
+      taxAnnualCfeFullBase: values.taxAnnualCfeFullBase !== undefined ? String(values.taxAnnualCfeFullBase) : '',
+      taxCrlApplicable: (values as Record<string, unknown>).taxCrlApplicable === true,
+      taxCrlRatePct: values.taxCrlRatePct !== undefined ? String(values.taxCrlRatePct) : '',
+      taxCapitalGainTaxRatePct: values.taxCapitalGainTaxRatePct !== undefined ? String(values.taxCapitalGainTaxRatePct) : '',
+      taxResale1115DutyBase: values.taxResale1115DutyBase !== undefined ? String(values.taxResale1115DutyBase) : '',
+      taxResale1115CommitmentMonths: values.taxResale1115CommitmentMonths !== undefined ? String(values.taxResale1115CommitmentMonths) : '',
     });
   };
 
@@ -265,6 +299,95 @@ export function AssumptionsCard({ projectId, assumptionSets }: { projectId: stri
                 />
               </div>
             </div>
+          </div>
+          <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="taxEnabled"
+                checked={form.taxEnabled}
+                onChange={(e) => setForm((p) => ({ ...p, taxEnabled: e.target.checked }))}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="taxEnabled" className="text-sm font-medium">
+                Fiscalité du véhicule (IS, CFE, CRL, art. 1115)
+              </Label>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Non cochée : le dossier reste avant impôt, comme avant ce moteur (TRI, equity multiple... inchangés). Cochée : l'onglet Synthèse affiche en plus
+              les équivalents après impôt.
+            </p>
+            {form.taxEnabled && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="taxOpeningCarryforwardDeficit">Déficit reportable d'ouverture (€)</Label>
+                  <DecimalInput
+                    id="taxOpeningCarryforwardDeficit"
+                    value={form.taxOpeningCarryforwardDeficit}
+                    onChange={(e) => setForm((p) => ({ ...p, taxOpeningCarryforwardDeficit: e.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="taxAnnualCfeFullBase">CFE pleine estimée (€/an)</Label>
+                  <DecimalInput
+                    id="taxAnnualCfeFullBase"
+                    value={form.taxAnnualCfeFullBase}
+                    onChange={(e) => setForm((p) => ({ ...p, taxAnnualCfeFullBase: e.target.value }))}
+                    placeholder="Non applicable"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="taxCapitalGainTaxRatePct">IS plus-value de cession (%, régime MdB)</Label>
+                  <DecimalInput
+                    id="taxCapitalGainTaxRatePct"
+                    value={form.taxCapitalGainTaxRatePct}
+                    onChange={(e) => setForm((p) => ({ ...p, taxCapitalGainTaxRatePct: e.target.value }))}
+                    placeholder="25"
+                  />
+                </div>
+                <div className="flex items-center gap-2 self-end pb-2">
+                  <input
+                    type="checkbox"
+                    id="taxCrlApplicable"
+                    checked={form.taxCrlApplicable}
+                    onChange={(e) => setForm((p) => ({ ...p, taxCrlApplicable: e.target.checked }))}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="taxCrlApplicable" className="text-sm">
+                    CRL applicable (immeuble &gt; 15 ans)
+                  </Label>
+                </div>
+                {form.taxCrlApplicable && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="taxCrlRatePct">Taux CRL (%)</Label>
+                    <DecimalInput id="taxCrlRatePct" value={form.taxCrlRatePct} onChange={(e) => setForm((p) => ({ ...p, taxCrlRatePct: e.target.value }))} placeholder="2,5" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="taxResale1115DutyBase">Assiette des droits 1115 (€, prix net vendeur)</Label>
+                  <DecimalInput
+                    id="taxResale1115DutyBase"
+                    value={form.taxResale1115DutyBase}
+                    onChange={(e) => setForm((p) => ({ ...p, taxResale1115DutyBase: e.target.value }))}
+                    placeholder="Non applicable"
+                  />
+                </div>
+                {form.taxResale1115DutyBase && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="taxResale1115CommitmentMonths">Engagement de revente (mois)</Label>
+                    <Input
+                      id="taxResale1115CommitmentMonths"
+                      type="number"
+                      min={1}
+                      value={form.taxResale1115CommitmentMonths}
+                      onChange={(e) => setForm((p) => ({ ...p, taxResale1115CommitmentMonths: e.target.value }))}
+                      placeholder="60"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <Button type="submit" size="sm" disabled={upsert.isPending}>
