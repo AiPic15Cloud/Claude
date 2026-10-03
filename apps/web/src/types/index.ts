@@ -3899,3 +3899,10 @@ export interface PrequalStressScenario {
   ltvPct: number | null;
   capaciteRemboursement: PrequalStressCapacity;
 }
+
+export interface MarginSensitivityCell {
+  priceDeltaPct: number;
+  durationDeltaMonths: number;
+  margeEuros: number;
+  margePct: number | null;
+}

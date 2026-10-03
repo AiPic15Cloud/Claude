@@ -16,4 +16,9 @@ export class StressTestController {
   getStressTests(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.service.getStressTests(user.organizationId, id);
   }
+
+  @Get(':id/stress-tests/sensitivity-grid')
+  getMarginSensitivityGrid(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.service.getMarginSensitivityGrid(user.organizationId, id);
+  }
 }

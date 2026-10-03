@@ -29,8 +29,40 @@ export class MarketPriceService {
       select: { sellingPricePerSqm: true },
     });
 
-    const { query, arrondissementPostcode } = resolveMarketSearchLocation(deal.city, deal.postcode);
-    const context = { query, postcode: arrondissementPostcode ?? deal.postcode, typology };
+    return this.searchSites(deal.city, deal.postcode, typology, assumption?.sellingPricePerSqm ? Number(assumption.sellingPricePerSqm) : null);
+  }
+
+  /**
+   * Même recherche (C.8) appliquée à un dossier de préqualification plutôt
+   * qu'à un Deal — réutilise les mêmes connecteurs (searchSites), jamais un
+   * second moteur de scraping parallèle. Le prix de sortie comparé est
+   * `PrequalFinancialModel.prixSortiePondere`, déjà calculé par
+   * prequal-financial.util.ts (§9.3) et persisté à chaque sauvegarde du
+   * bilan — pas recalculé ici.
+   */
+  async searchForPrequalCase(organizationId: string, caseId: string, typology: MarketPriceTypology): Promise<MarketPriceResult> {
+    const prequalCase = await this.prisma.prequalificationCase.findFirst({
+      where: { id: caseId, organizationId },
+      include: { project: true, financial: true },
+    });
+    if (!prequalCase) throw new NotFoundException('Dossier de préqualification introuvable.');
+
+    return this.searchSites(
+      prequalCase.project?.city ?? null,
+      prequalCase.project?.postcode ?? null,
+      typology,
+      prequalCase.financial?.prixSortiePondere ? Number(prequalCase.financial.prixSortiePondere) : null,
+    );
+  }
+
+  private async searchSites(
+    city: string | null,
+    postcode: string | null,
+    typology: MarketPriceTypology,
+    exitPricePerSqm: number | null,
+  ): Promise<MarketPriceResult> {
+    const { query, arrondissementPostcode } = resolveMarketSearchLocation(city, postcode);
+    const context = { query, postcode: arrondissementPostcode ?? postcode, typology };
 
     const settled = await Promise.allSettled(MARKET_PRICE_SITE_CONFIGS.map((config) => fetchSitePrice(config, context)));
     const sources: SourcePriceResult[] = settled.map((result, i) =>
@@ -62,7 +94,7 @@ export class MarketPriceService {
       typology,
       sources,
       average: averagePrices,
-      exitPricePerSqm: assumption?.sellingPricePerSqm ? Number(assumption.sellingPricePerSqm) : null,
+      exitPricePerSqm,
     };
   }
 }

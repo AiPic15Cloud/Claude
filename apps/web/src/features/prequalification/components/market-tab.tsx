@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { usePrequalMarketStudy } from '../hooks/use-prequalification';
+import { MarketPriceCard } from './market-price-card';
 
 function pct(value: number | null): string {
   return value != null ? `${value > 0 ? '+' : ''}${value.toFixed(1)} %` : '—';
@@ -44,16 +45,21 @@ export function MarketTab({ caseId }: { caseId: string }) {
 
   if (!study) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Aucune étude de marché disponible — renseignez la ville et le code postal du projet (onglet Projet), ou aucune transaction DVF n'a été trouvée pour cette commune.
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-4">
+        <MarketPriceCard caseId={caseId} />
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Aucune étude de marché DVF disponible — renseignez la ville et le code postal du projet (onglet Projet), ou aucune transaction DVF n'a été trouvée pour cette commune.
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      <MarketPriceCard caseId={caseId} />
+
       <Card>
         <CardHeader className="pb-3 flex-row items-center justify-between">
           <CardTitle className="text-base">Population comparable</CardTitle>
