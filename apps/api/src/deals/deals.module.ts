@@ -53,6 +53,6 @@ import { ActionItemsModule } from '../action-items/action-items.module';
     MarketPriceService,
   ],
   controllers: [DealsController],
-  exports: [DealsService],
+  exports: [DealsService, MarketPriceService],
 })
 export class DealsModule {}

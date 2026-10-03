@@ -2,7 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { PrequalFinancialModel } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { DvfSearchService } from '../intelligence-marche/dvf-search.service';
-import { computePrequalStressTests, type PrequalStressScenario, type PrequalStressLotInput } from './prequal-stress-test.util';
+import {
+  computePrequalStressTests,
+  computeMarginSensitivityGrid,
+  type PrequalStressScenario,
+  type PrequalStressLotInput,
+  type PrequalStressTestInput,
+  type MarginSensitivityCell,
+} from './prequal-stress-test.util';
 
 const num = (value: { toNumber(): number } | null | undefined): number | null => (value != null ? Number(value) : null);
 
@@ -21,12 +28,23 @@ export class StressTestService {
   ) {}
 
   async getStressTests(organizationId: string, caseId: string): Promise<PrequalStressScenario[]> {
+    const input = await this.buildStressTestInput(organizationId, caseId);
+    return input ? computePrequalStressTests(input) : [];
+  }
+
+  /** Grille de sensibilité marge (prix × durée) — spec §11, voir prequal-stress-test.util.ts. */
+  async getMarginSensitivityGrid(organizationId: string, caseId: string): Promise<MarginSensitivityCell[][]> {
+    const input = await this.buildStressTestInput(organizationId, caseId);
+    return input ? computeMarginSensitivityGrid(input) : [];
+  }
+
+  private async buildStressTestInput(organizationId: string, caseId: string): Promise<PrequalStressTestInput | null> {
     const prequalCase = await this.prisma.prequalificationCase.findFirst({
       where: { id: caseId, organizationId },
       include: { project: true, financial: true },
     });
     if (!prequalCase) throw new NotFoundException('Dossier de préqualification introuvable.');
-    if (!prequalCase.financial) return [];
+    if (!prequalCase.financial) return null;
 
     const [lots, medianPricePerSqm] = await Promise.all([
       this.prisma.prequalSalesLot.findMany({ where: { prequalificationCaseId: caseId } }),
@@ -57,7 +75,7 @@ export class StressTestService {
     const foncierTotal = (num(model.landPrice) ?? 0) + (num(model.notaryFees) ?? 0);
     const bankEnabled = Boolean(model.bankName);
 
-    return computePrequalStressTests({
+    return {
       foncierTotal,
       travauxTotal,
       honorairesTechniquesTotal,
@@ -78,7 +96,7 @@ export class StressTestService {
       lots: lotInputs,
       medianPricePerSqm,
       acquisitionStatus: prequalCase.project?.acquisitionStatus ?? null,
-    });
+    };
   }
 
   private computeFeesTTC(model: Pick<PrequalFinancialModel, 'feesPctHT' | 'amountRequested' | 'tvaApplicable' | 'tvaRatePct'>): number {

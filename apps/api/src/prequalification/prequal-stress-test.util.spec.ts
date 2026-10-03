@@ -1,4 +1,4 @@
-import { computePrequalStressTests, type PrequalStressTestInput } from './prequal-stress-test.util';
+import { computePrequalStressTests, computeMarginSensitivityGrid, type PrequalStressTestInput } from './prequal-stress-test.util';
 
 function input(overrides: Partial<PrequalStressTestInput> = {}): PrequalStressTestInput {
   return {
@@ -126,5 +126,37 @@ describe('computePrequalStressTests', () => {
   it('capacité de remboursement est INSUFFISANTE si la marge est négative', () => {
     const scenarios = computePrequalStressTests(input({ chiffreAffaires: 100_000 }));
     expect(scenario(scenarios, 'baisse_prix_15').capaciteRemboursement).toBe('INSUFFISANTE');
+  });
+});
+
+describe('computeMarginSensitivityGrid', () => {
+  it('a une ligne par delta de prix et une colonne par delta de durée (6 x 5 par défaut)', () => {
+    const grid = computeMarginSensitivityGrid(input());
+    expect(grid).toHaveLength(6);
+    expect(grid[0]).toHaveLength(5);
+  });
+
+  it('la cellule (0%, +0 mois) reproduit exactement le bilan actuel', () => {
+    const grid = computeMarginSensitivityGrid(input());
+    const cell = grid[0][0];
+    expect(cell.priceDeltaPct).toBe(0);
+    expect(cell.durationDeltaMonths).toBe(0);
+    // chiffreAffaires 500 000 - coût (foncier 200k + travaux 100k + intérêts 10%*300k*12/12=30k) = 170 000
+    expect(cell.margeEuros).toBe(170_000);
+  });
+
+  it('la marge baisse quand le prix baisse ou que la durée (donc les intérêts) augmente', () => {
+    const grid = computeMarginSensitivityGrid(input());
+    expect(grid[1][0].margeEuros).toBeLessThan(grid[0][0].margeEuros); // -5% prix
+    expect(grid[0][1].margeEuros).toBeLessThan(grid[0][0].margeEuros); // +3 mois
+    expect(grid[5][4].margeEuros).toBeLessThan(grid[0][0].margeEuros); // pire cas cumulé
+  });
+
+  it('accepte des axes personnalisés', () => {
+    const grid = computeMarginSensitivityGrid(input(), [0, -10], [0, 6]);
+    expect(grid).toHaveLength(2);
+    expect(grid[0]).toHaveLength(2);
+    expect(grid[1][1].priceDeltaPct).toBe(-10);
+    expect(grid[1][1].durationDeltaMonths).toBe(6);
   });
 });

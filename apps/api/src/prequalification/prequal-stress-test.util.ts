@@ -147,6 +147,41 @@ function unavailable(key: string, label: string, description: string, reason: st
   };
 }
 
+export interface MarginSensitivityCell {
+  priceDeltaPct: number;
+  durationDeltaMonths: number;
+  margeEuros: number;
+  margePct: number | null;
+}
+
+/** Axes par défaut de la grille de sensibilité marge — prix de -25% à 0%, durée de la cible à +12 mois. */
+export const DEFAULT_SENSITIVITY_PRICE_DELTAS_PCT = [0, -5, -10, -15, -20, -25];
+export const DEFAULT_SENSITIVITY_DURATION_DELTAS_MONTHS = [0, 3, 6, 9, 12];
+
+/**
+ * Grille de sensibilité marge (prix × durée), croisement à deux axes des
+ * mêmes perturbations que les scénarios nommés de computePrequalStressTests
+ * ci-dessous (baisse_prix_*, retard_*) — réutilise buildScenario tel quel,
+ * jamais un second moteur de marge parallèle. La cellule (0, 0) reproduit
+ * exactement le bilan actuel (PrequalFinancialResult).
+ */
+export function computeMarginSensitivityGrid(
+  input: PrequalStressTestInput,
+  priceDeltasPct: number[] = DEFAULT_SENSITIVITY_PRICE_DELTAS_PCT,
+  durationDeltasMonths: number[] = DEFAULT_SENSITIVITY_DURATION_DELTAS_MONTHS,
+): MarginSensitivityCell[][] {
+  const baseDuration = input.durationTargetMonths ?? 0;
+  return priceDeltasPct.map((priceDeltaPct) =>
+    durationDeltasMonths.map((durationDeltaMonths) => {
+      const scenario = buildScenario('grid', '', '', input, {
+        chiffreAffaires: round2(input.chiffreAffaires * (1 + priceDeltaPct / 100)),
+        durationMonths: baseDuration + durationDeltaMonths,
+      });
+      return { priceDeltaPct, durationDeltaMonths, margeEuros: scenario.margeEuros!, margePct: scenario.margePct };
+    }),
+  );
+}
+
 export function computePrequalStressTests(input: PrequalStressTestInput): PrequalStressScenario[] {
   const scenarios: PrequalStressScenario[] = [];
 
