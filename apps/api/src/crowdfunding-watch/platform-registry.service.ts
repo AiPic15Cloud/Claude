@@ -28,6 +28,14 @@ export interface UpsertPlatformInput {
  * ensureKnownCandidatePlatforms() ci-dessous : ne touche jamais une ligne
  * déjà présente, pour ne jamais écraser un ajustement humain ultérieur via
  * l'API.
+ *
+ * Homunity et La Première Brique n'apparaissent PAS ici : elles sont déjà
+ * dans le registre depuis la migration 20260916043945_crowdfunding_watch_lot1
+ * ("pilot-homunity", "pilot-la-premiere-brique") — les y ajouter sous une
+ * clé différente a produit un doublon visible en prod (corrigé par la
+ * migration 20261004102858_crowdfunding_platform_dedupe_pilot, qui reporte
+ * les constats du 04/10/2026 sur ces lignes canoniques). Baltis et Tantiem
+ * sont réellement nouvelles.
  */
 export const KNOWN_CANDIDATE_PLATFORMS: UpsertPlatformInput[] = [
   {
@@ -40,29 +48,12 @@ export const KNOWN_CANDIDATE_PLATFORMS: UpsertPlatformInput[] = [
       "Reconnaissance du 04/10/2026 (prototype externe, hors cycle réel d'Atlas) : 18 cartes observées sur le catalogue public, 13 projets de dette immobilière retenus, 5 cartes exclues ou à qualifier, taux masqués conservés absents. L'extracteur générique d'Atlas (JSON-LD / RSC Next.js / __NEXT_DATA__) n'a encore jamais été exécuté contre cette source réelle — à confirmer au premier cycle de détection. La fiche de veille concurrentielle d'Atlas signale un pivot de marque vers « Puzzle » : vérifier que app.baltis.com reste le bon domaine avant d'interpréter un échec comme un blocage de code.",
   },
   {
-    sourceKey: 'la-premiere-brique',
-    label: 'La Première Brique',
-    platformName: 'La Première Brique',
-    listingUrl: 'https://app.lapremierebrique.fr/projects',
-    connectorStatus: 'BLOCKED',
-    coverageNotes:
-      "Catalogue public identifié, mais requêtes directes reçues en HTTP 403 lors d'une reconnaissance le 04/10/2026, hors infrastructure Atlas. Adaptateur non développé — à réexaminer si un flux autorisé (API partenaire, export) devient disponible.",
-  },
-  {
     sourceKey: 'tantiem',
     label: 'Tantiem',
     platformName: 'Tantiem',
     connectorStatus: 'BLOCKED',
     coverageNotes:
       "Site public et modèle économique vérifiés (obligations indexées sur loyers nets) mais application reçue en HTTP 403 lors d'une reconnaissance le 04/10/2026. Catalogue détaillé non identifié — aucune URL de listing fiable à ce jour, à qualifier avant tout connecteur.",
-  },
-  {
-    sourceKey: 'homunity',
-    label: 'Homunity',
-    platformName: 'Homunity',
-    connectorStatus: 'TO_BUILD',
-    coverageNotes:
-      "Page publique de fractionné repérée (https://www.homunity.com/immobilier-fractionne, le 04/10/2026) ; catalogue, pagination et extraction détaillée non audités. Adaptateur non développé.",
   },
 ];
 
