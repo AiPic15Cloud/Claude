@@ -19,6 +19,54 @@ export interface UpsertPlatformInput {
 }
 
 /**
+ * Candidates déclarées à partir d'une reconnaissance manuelle du 4 octobre
+ * 2026 (pilote externe "atlas-platform-collector", jamais exécuté par le
+ * cycle de détection réel d'Atlas — seulement par un prototype indépendant).
+ * `connectorStatus` reflète strictement ce qui a été vérifié ce jour-là :
+ * aucune promotion vers OPERATIONAL n'est faite ici (spec §1/§2 — réservée à
+ * un humain après un cycle réel réussi). Ajoutée une seule fois par
+ * ensureKnownCandidatePlatforms() ci-dessous : ne touche jamais une ligne
+ * déjà présente, pour ne jamais écraser un ajustement humain ultérieur via
+ * l'API.
+ */
+export const KNOWN_CANDIDATE_PLATFORMS: UpsertPlatformInput[] = [
+  {
+    sourceKey: 'baltis',
+    label: 'Baltis',
+    platformName: 'Baltis',
+    listingUrl: 'https://app.baltis.com/projects',
+    connectorStatus: 'PARTIAL',
+    coverageNotes:
+      "Reconnaissance du 04/10/2026 (prototype externe, hors cycle réel d'Atlas) : 18 cartes observées sur le catalogue public, 13 projets de dette immobilière retenus, 5 cartes exclues ou à qualifier, taux masqués conservés absents. L'extracteur générique d'Atlas (JSON-LD / RSC Next.js / __NEXT_DATA__) n'a encore jamais été exécuté contre cette source réelle — à confirmer au premier cycle de détection. La fiche de veille concurrentielle d'Atlas signale un pivot de marque vers « Puzzle » : vérifier que app.baltis.com reste le bon domaine avant d'interpréter un échec comme un blocage de code.",
+  },
+  {
+    sourceKey: 'la-premiere-brique',
+    label: 'La Première Brique',
+    platformName: 'La Première Brique',
+    listingUrl: 'https://app.lapremierebrique.fr/projects',
+    connectorStatus: 'BLOCKED',
+    coverageNotes:
+      "Catalogue public identifié, mais requêtes directes reçues en HTTP 403 lors d'une reconnaissance le 04/10/2026, hors infrastructure Atlas. Adaptateur non développé — à réexaminer si un flux autorisé (API partenaire, export) devient disponible.",
+  },
+  {
+    sourceKey: 'tantiem',
+    label: 'Tantiem',
+    platformName: 'Tantiem',
+    connectorStatus: 'BLOCKED',
+    coverageNotes:
+      "Site public et modèle économique vérifiés (obligations indexées sur loyers nets) mais application reçue en HTTP 403 lors d'une reconnaissance le 04/10/2026. Catalogue détaillé non identifié — aucune URL de listing fiable à ce jour, à qualifier avant tout connecteur.",
+  },
+  {
+    sourceKey: 'homunity',
+    label: 'Homunity',
+    platformName: 'Homunity',
+    connectorStatus: 'TO_BUILD',
+    coverageNotes:
+      "Page publique de fractionné repérée (https://www.homunity.com/immobilier-fractionne, le 04/10/2026) ; catalogue, pagination et extraction détaillée non audités. Adaptateur non développé.",
+  },
+];
+
+/**
  * Registre extensible des plateformes de crowdfunding (spec Lot 1 §1) — une
  * ligne en base suffit à déclarer une nouvelle plateforme ; reconcileSchedules
  * répercute automatiquement le résultat dans les jobs répétables BullMQ,
@@ -141,9 +189,25 @@ export class PlatformRegistryService {
 
   /** Enregistre les jobs répétables internes du worker (idempotent — un ajout avec le même jobId et le même intervalle est un no-op côté BullMQ). */
   async ensureInternalJobs(): Promise<void> {
+    await this.ensureKnownCandidatePlatforms();
     await this.detectionQueue.add('reconcile-registry', {}, { jobId: RECONCILE_JOB_ID, repeat: { every: SWEEP_INTERVAL_MS }, removeOnComplete: true, removeOnFail: 20, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     await this.detectionQueue.add('sweep-pending', {}, { jobId: SWEEP_JOB_ID, repeat: { every: SWEEP_INTERVAL_MS }, removeOnComplete: true, removeOnFail: 20, attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
     await this.reconcileSchedules();
     this.logger.log('Jobs internes du worker de veille crowdfunding enregistrés (reconciliation + sweep, 60s).');
+  }
+
+  /**
+   * Déclare KNOWN_CANDIDATE_PLATFORMS si elles sont absentes du registre —
+   * jamais de mise à jour sur une ligne déjà présente (un humain a pu
+   * l'ajuster depuis via l'API). Appelé à chaque démarrage du worker : ne
+   * dépend d'aucune exécution manuelle de script contre la base.
+   */
+  private async ensureKnownCandidatePlatforms(): Promise<void> {
+    for (const candidate of KNOWN_CANDIDATE_PLATFORMS) {
+      const existing = await this.prisma.crowdfundingPlatform.findUnique({ where: { sourceKey: candidate.sourceKey }, select: { sourceKey: true } });
+      if (existing) continue;
+      await this.create(candidate);
+      this.logger.log(`Plateforme candidate déclarée dans le registre : "${candidate.sourceKey}" (${candidate.connectorStatus ?? 'TO_BUILD'}).`);
+    }
   }
 }
