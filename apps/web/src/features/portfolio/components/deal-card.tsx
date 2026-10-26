@@ -4,9 +4,9 @@ import { MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { TagBadge } from './tag-badge';
-import { SurveillanceStatusBadge } from './deal-badges';
+import { SurveillanceStatusBadge, NewsletterStatusBadge } from './deal-badges';
 import { LoanLifecycleTimeline } from '@/features/dossiers/components/loan-lifecycle-timeline';
-import { isFinancedStage, type Deal } from '@/types';
+import { isFinancedStage, type Deal, type NewsletterEntry } from '@/types';
 import { cn } from '@/lib/utils';
 
 const MAX_VISIBLE_TAGS = 2;
@@ -21,9 +21,11 @@ function formatFundingAmount(value: number): string {
 interface DealCardProps {
   deal: Deal;
   onClick: () => void;
+  /** Avant le financement, l'absence de newsletter n'est pas un retard (rien à relancer tant que rien n'a été levé) — seul un dossier en étape financée doit en porter le badge. */
+  newsletter?: NewsletterEntry | null;
 }
 
-export function DealCard({ deal, onClick }: DealCardProps) {
+export function DealCard({ deal, onClick, newsletter }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: deal.id });
 
   const target = Number(deal.amountTarget);
@@ -46,7 +48,10 @@ export function DealCard({ deal, onClick }: DealCardProps) {
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium leading-snug">{deal.name}</p>
           {/* Un seul signal de risque, silencieux si le dossier est sain (FAIBLE) — plutôt que 3 badges numériques concurrents. */}
-          <SurveillanceStatusBadge status={deal.surveillanceStatus} compact />
+          <span className="flex shrink-0 items-center gap-1">
+            {isFinancedStage(deal.stage) && newsletter && <NewsletterStatusBadge status={newsletter.status} daysSince={newsletter.daysSince} compact />}
+            <SurveillanceStatusBadge status={deal.surveillanceStatus} compact />
+          </span>
         </div>
 
         <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
