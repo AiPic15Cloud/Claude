@@ -38,16 +38,18 @@ export function MapView({ deals, onSelectDeal }: MapViewProps) {
   const theme = useThemeStore((s) => s.theme);
   const geoDeals = useMemo(() => deals.filter((d) => d.lat && d.lng), [deals]);
 
+  // Voir cartographie-page.tsx : CARTO exige désormais une clé API même
+  // pour un usage réduit — Esri World Gray Base reste accessible sans clé.
   const tileUrl =
     theme === 'dark'
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
 
   return (
     <div className="h-[calc(100vh-15rem)] overflow-hidden rounded-lg border border-border">
       <MapContainer center={FRANCE_CENTER} zoom={6} className="h-full w-full" scrollWheelZoom>
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors'
+          attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Esri, DeLorme, NAVTEQ'
           url={tileUrl}
         />
         {geoDeals.map((deal) => (
