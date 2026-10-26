@@ -9,11 +9,13 @@ import {
   DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS,
   DEAL_SURVEILLANCE_STATUS_LABELS,
   DEAL_TYPE_LABELS,
+  NEWSLETTER_STATUS_LABELS,
   type CheckpointHealth,
   type DealRecoveryStatus,
   type DealStage,
   type DealSurveillanceStatus,
   type DealType,
+  type NewsletterStatus,
 } from '@/types';
 
 const STAGE_VARIANT: Record<DealStage, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
@@ -107,6 +109,20 @@ export function SurveillanceStatusBadge({ status, compact }: { status?: DealSurv
     <span className="inline-flex items-center gap-1">
       <Badge variant={SURVEILLANCE_STATUS_VARIANT[status]}>{DEAL_SURVEILLANCE_STATUS_LABELS[status]}</Badge>
       <InfoTooltip text={DEAL_SURVEILLANCE_STATUS_DESCRIPTIONS[status]} />
+    </span>
+  );
+}
+
+/** Cadence newsletter investisseurs (voir newsletter.util.ts) — même doctrine "silencieux si sain" que les badges compacts ci-dessus : seul un retard (A_RELANCER/CRITIQUE) mérite un point sur une carte déjà dense. */
+export function NewsletterStatusBadge({ status, daysSince, compact }: { status: NewsletterStatus; daysSince: number | null; compact?: boolean }) {
+  if (compact && status === 'A_JOUR') return null;
+  const title = `Newsletter investisseurs : ${NEWSLETTER_STATUS_LABELS[status]}${daysSince !== null ? ` (${daysSince} j)` : ' (jamais envoyée)'}`;
+  if (compact) {
+    return <span title={title} className={cn('inline-block h-2 w-2 shrink-0 rounded-full', status === 'A_RELANCER' ? 'bg-warning' : 'bg-destructive')} />;
+  }
+  return (
+    <span title={title} className="inline-flex items-center gap-1">
+      <Badge variant={status === 'A_JOUR' ? 'success' : status === 'A_RELANCER' ? 'warning' : 'destructive'}>{NEWSLETTER_STATUS_LABELS[status]}</Badge>
     </span>
   );
 }

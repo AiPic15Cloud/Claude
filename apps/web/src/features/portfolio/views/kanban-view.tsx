@@ -1,6 +1,6 @@
 import { DndContext, type DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { DEAL_STAGES, DEAL_STAGE_LABELS, type Deal, type DealStage } from '@/types';
+import { DEAL_STAGES, DEAL_STAGE_LABELS, type Deal, type DealStage, type NewsletterEntry } from '@/types';
 import { DealCard } from '../components/deal-card';
 import { useChangeDealStage } from '../hooks/use-deals';
 import { formatCurrency } from '@/lib/format';
@@ -9,9 +9,20 @@ import { cn } from '@/lib/utils';
 interface KanbanViewProps {
   deals: Deal[];
   onSelectDeal: (id: string) => void;
+  newslettersById?: Map<string, NewsletterEntry>;
 }
 
-function KanbanColumn({ stage, deals, onSelectDeal }: { stage: DealStage; deals: Deal[]; onSelectDeal: (id: string) => void }) {
+function KanbanColumn({
+  stage,
+  deals,
+  onSelectDeal,
+  newslettersById,
+}: {
+  stage: DealStage;
+  deals: Deal[];
+  onSelectDeal: (id: string) => void;
+  newslettersById?: Map<string, NewsletterEntry>;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   const total = deals.reduce((sum, d) => sum + Number(d.amountTarget), 0);
 
@@ -32,7 +43,7 @@ function KanbanColumn({ stage, deals, onSelectDeal }: { stage: DealStage; deals:
       </div>
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
         {deals.map((deal) => (
-          <DealCard key={deal.id} deal={deal} onClick={() => onSelectDeal(deal.id)} />
+          <DealCard key={deal.id} deal={deal} onClick={() => onSelectDeal(deal.id)} newsletter={newslettersById?.get(deal.id)} />
         ))}
         {deals.length === 0 && <p className="py-6 text-center text-xs text-muted-foreground">Aucune opération</p>}
       </div>
@@ -40,7 +51,7 @@ function KanbanColumn({ stage, deals, onSelectDeal }: { stage: DealStage; deals:
   );
 }
 
-export function KanbanView({ deals, onSelectDeal }: KanbanViewProps) {
+export function KanbanView({ deals, onSelectDeal, newslettersById }: KanbanViewProps) {
   const changeStage = useChangeDealStage();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -66,6 +77,7 @@ export function KanbanView({ deals, onSelectDeal }: KanbanViewProps) {
             stage={stage}
             deals={deals.filter((d) => d.stage === stage)}
             onSelectDeal={onSelectDeal}
+            newslettersById={newslettersById}
           />
         ))}
       </div>

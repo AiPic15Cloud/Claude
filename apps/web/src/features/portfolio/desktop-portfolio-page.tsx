@@ -12,6 +12,7 @@ import { ListView } from './views/list-view';
 import { TableView } from './views/table-view';
 import { MapView } from './views/map-view';
 import { useDeals, useDealKpis, type DealsFilters } from './hooks/use-deals';
+import { useNewsletters } from '@/features/pipeline/hooks/use-newsletters';
 import { useExportPortfolioReport, useExportPortfolioReportPdf } from '@/features/cockpit/hooks/use-cockpit-summary';
 import { useCanValidate } from '@/features/auth/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,6 +36,8 @@ export function DesktopPortfolioPage() {
   const { data, isLoading } = useDeals(filters);
   const deals = data?.items ?? [];
   const { data: kpis } = useDealKpis();
+  const { data: newsletters } = useNewsletters();
+  const newslettersById = newsletters ? new Map(newsletters.map((n) => [n.id, n])) : undefined;
   const exportReport = useExportPortfolioReport();
   const exportReportPdf = useExportPortfolioReportPdf();
   const canValidate = useCanValidate();
@@ -123,7 +126,7 @@ export function DesktopPortfolioPage() {
         </div>
       ) : (
         <>
-          {view === 'kanban' && <KanbanView deals={deals} onSelectDeal={openDeal} />}
+          {view === 'kanban' && <KanbanView deals={deals} onSelectDeal={openDeal} newslettersById={newslettersById} />}
           {view === 'list' && <ListView deals={deals} onSelectDeal={openDeal} />}
           {view === 'table' && (
             <TableView
