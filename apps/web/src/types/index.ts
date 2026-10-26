@@ -287,6 +287,8 @@ export interface Deal {
   durationTargetAlert?: DurationTargetAlert;
   /** Un point Suivi cible a été enregistré assez récemment (depuis J-30 avant la durée cible) pour valider ce signal — la bannière correspondante disparaît de "Signaux & causes", sans effacer durationTargetAlert lui-même (toujours utilisé ailleurs, ex. score de risque). */
   durationTargetValidated?: boolean;
+  /** Fiche détaillée uniquement (findOne) — même calcul que le Risk Engine (newsletter.util.ts), jamais renvoyé par la liste. */
+  newsletterStatus?: { daysSince: number | null; status: NewsletterStatus };
   checkpointHealth?: CheckpointHealth;
   createdById: string;
   createdBy?: UserSummary;

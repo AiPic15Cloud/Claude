@@ -48,6 +48,8 @@ import { DocumentRequestsPanel } from './components/document-requests-panel';
 import { EntitiesPanel } from './components/entities-panel';
 import { DealAssistantPanel } from './components/deal-assistant-panel';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { usePingNewsletter } from '@/features/pipeline/hooks/use-newsletters';
+import { NEWSLETTER_STATUS_LABELS } from '@/types';
 import { FreshnessBadge } from '@/components/ui/freshness-badge';
 import { CrdDetailPopover } from './components/crd-detail-popover';
 import { RealizedPerformancePopover } from './components/realized-performance-popover';
@@ -68,6 +70,7 @@ export function DossierPage() {
   const { data: riskProfile } = useDealRisk(id ?? '');
   const guaranteeWarnings = guarantees.filter((g) => g.expiringSoon || g.validity === 'NON_VALIDE');
   const deleteDeal = useDeleteDeal();
+  const pingNewsletter = usePingNewsletter();
   const exportReport = useExportDealReport(id ?? '');
   const exportPdf = useExportDealPdf(id ?? '');
   const canValidate = useCanValidate();
@@ -212,7 +215,8 @@ export function DossierPage() {
 
       {(deal.deadlineAlert?.level !== 'RAS' ||
         (deal.durationTargetAlert?.level !== 'RAS' && !deal.durationTargetValidated) ||
-        guaranteeWarnings.length > 0) && (
+        guaranteeWarnings.length > 0 ||
+        (isFinancedStage(deal.stage) && deal.newsletterStatus && deal.newsletterStatus.status !== 'A_JOUR')) && (
       <div className="flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Signaux &amp; causes</h2>
 
@@ -253,6 +257,30 @@ export function DossierPage() {
             {deal.durationTargetAlert.stage === 'DEPASSEE' ? 'Durée cible dépassée' : `Durée cible dans J-${deal.durationTargetAlert.daysToTarget}`} —
           </span>
           <span className="flex-1">{deal.durationTargetAlert.actionLabel}</span>
+        </div>
+      )}
+
+      {isFinancedStage(deal.stage) && deal.newsletterStatus && deal.newsletterStatus.status !== 'A_JOUR' && (
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-2.5 rounded-md border px-3 py-2 text-sm',
+            deal.newsletterStatus.status === 'CRITIQUE'
+              ? 'border-destructive/30 bg-destructive/10 text-destructive'
+              : 'border-warning/30 bg-warning/10 text-warning',
+          )}
+        >
+          <span
+            className={cn('h-2 w-2 shrink-0 rounded-full', deal.newsletterStatus.status === 'CRITIQUE' ? 'bg-destructive' : 'bg-warning')}
+          />
+          <span className="font-medium">{NEWSLETTER_STATUS_LABELS[deal.newsletterStatus.status]} —</span>
+          <span className="flex-1">
+            {deal.newsletterStatus.daysSince !== null
+              ? `Dernière newsletter investisseurs il y a ${deal.newsletterStatus.daysSince} j.`
+              : 'Aucune newsletter investisseurs envoyée pour ce dossier.'}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => pingNewsletter.mutate(deal.id)} disabled={pingNewsletter.isPending}>
+            NL envoyée
+          </Button>
         </div>
       )}
 

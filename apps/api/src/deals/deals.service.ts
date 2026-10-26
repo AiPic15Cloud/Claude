@@ -378,6 +378,7 @@ export class DealsService {
         financialAssumption?.fluxTresorerieDisponibleEstime != null ? Number(financialAssumption.fluxTresorerieDisponibleEstime) : null,
     });
     const esgCompleteness = computeEsgCompleteness(deal);
+    const newsletterStatus = computeNewsletterStatus(deal.lastNewsletterDate, deal.newsletterTargetDays);
     return {
       ...deal,
       crd: crdDetailed.crdCapital,
@@ -392,6 +393,7 @@ export class DealsService {
       durationTargetAlert,
       durationTargetValidated,
       checkpointHealth,
+      newsletterStatus,
     };
   }
 
