@@ -54,10 +54,14 @@ export function CartographiePage() {
   const isLoading = dealsLoading || entitiesLoading;
   const hasError = dealsError || entitiesError;
 
+  // CARTO a fermé l'accès anonyme de son CDN de fonds de carte gratuits
+  // (basemaps.cartocdn.com exige désormais une clé API, même en usage
+  // réduit) — Esri World Gray Base reste accessible sans clé pour ce
+  // niveau de trafic et offre le même rendu minimaliste clair/sombre.
   const tileUrl =
     theme === 'dark'
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+      : 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
@@ -100,7 +104,7 @@ export function CartographiePage() {
         )}
         <MapContainer center={FRANCE_CENTER} zoom={6} className="h-full w-full" scrollWheelZoom>
           <TileLayer
-            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors'
+            attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> — Esri, DeLorme, NAVTEQ'
             url={tileUrl}
           />
           {showDeals &&
